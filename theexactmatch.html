@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TheExactMatch — Find Your Car. Sell Your Car. Free.</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --navy:#0C1C33;--navy2:#152a4a;
+      --beige:#F5F0E8;--beige2:#EDE7D9;
+      --gold:#C09A5B;--gold2:#D4B47A;
+      --white:#fff;--gray:#4A5568;--border:#DDD8CC;
+    }
+    html{scroll-behavior:smooth}
+    body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy);overflow-x:hidden}
+
+    /* ── UTILS ── */
+    .eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;gap:.65rem;margin-bottom:.9rem}
+    .eyebrow::before,.eyebrow::after{content:'';display:block;height:1px;width:22px;background:var(--gold)}
+    .eyebrow.left::after,.eyebrow.center::after{display:none}
+    .eyebrow.center{justify-content:center}
+    .eyebrow.center::before,.eyebrow.center::after{display:block}
+    .eyebrow.light{color:var(--gold2)}
+    .eyebrow.light::before,.eyebrow.light::after{background:var(--gold2)}
+    h2.display{font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,2.9rem);font-weight:500;line-height:1.15;color:var(--navy)}
+    h2.display em{font-style:italic;color:var(--gold)}
+    h2.display.light{color:var(--white)}
+    h2.display.light em{color:var(--gold2)}
+    .reveal{opacity:0;transform:translateY(20px);transition:opacity .65s ease,transform .65s ease}
+    .reveal.on{opacity:1;transform:translateY(0)}
+
+    /* ── NAV ── */
+    nav{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(245,240,232,.97);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);transition:all .3s}
+    .nav-inner{max-width:1200px;margin:0 auto;padding:0 2.5rem;height:64px;display:flex;align-items:center;justify-content:space-between}
+    .logo{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:600;color:var(--navy);text-decoration:none;letter-spacing:.01em}
+    .logo span{color:var(--gold)}
+    .nav-links{display:flex;gap:0;list-style:none;align-items:center}
+    .nav-links a{font-size:.72rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--navy);text-decoration:none;padding:.5rem 1rem;opacity:.6;transition:opacity .2s}
+    .nav-links a:hover{opacity:1}
+    .nav-links a.active{opacity:1;color:var(--gold)}
+    .nav-cta{background:var(--navy)!important;color:var(--beige)!important;opacity:1!important;padding:.55rem 1.4rem!important;border-radius:2px;margin-left:.5rem}
+    .nav-cta:hover{background:var(--navy2)!important}
+    .hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:.5rem}
+    .hamburger span{width:22px;height:1.5px;background:var(--navy);transition:all .3s}
+    .mobile-menu{display:none;position:fixed;inset:0;top:64px;background:var(--beige);z-index:200;padding:2rem;flex-direction:column;gap:0}
+    .mobile-menu a{font-size:.85rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--navy);text-decoration:none;padding:1rem 0;border-bottom:1px solid var(--border);opacity:.7}
+    .mobile-menu.open{display:flex}
+
+    /* ── PAGES ── */
+    .page{display:none;min-height:100vh;padding-top:64px}
+    .page.active{display:block}
+
+    /* ── HERO (FIND) ── */
+    .hero-find{min-height:calc(100vh - 64px);display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+    .hero-left{display:flex;flex-direction:column;justify-content:center;padding:5rem 4rem 5rem 5rem}
+    .hero-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(192,154,91,.12);border:1px solid rgba(192,154,91,.3);border-radius:20px;padding:.4rem 1rem;font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:1.5rem}
+    .hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}
+    .hero-title{font-family:'Playfair Display',serif;font-size:clamp(2.4rem,4.5vw,3.8rem);font-weight:500;line-height:1.1;color:var(--navy);margin-bottom:1.25rem}
+    .hero-title em{font-style:italic;color:var(--gold)}
+    .hero-sub{font-size:.95rem;font-weight:300;color:var(--gray);line-height:1.8;margin-bottom:2rem;max-width:440px}
+    .free-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--navy);color:var(--white);padding:.6rem 1.25rem;border-radius:2px;font-size:.75rem;font-weight:600;letter-spacing:.06em;margin-bottom:2rem}
+    .free-badge .star{color:var(--gold);font-size:1rem}
+
+    /* ── HERO FORM ── */
+    .hero-right{background:var(--navy);display:flex;align-items:center;justify-content:center;padding:3rem 3.5rem;position:relative;overflow:hidden}
+    .hero-right::before{content:'';position:absolute;top:-100px;right:-100px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(192,154,91,.08) 0%,transparent 70%)}
+    .form-card{width:100%;max-width:420px;position:relative;z-index:1}
+    .form-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:500;color:var(--white);margin-bottom:.4rem}
+    .form-sub{font-size:.8rem;font-weight:300;color:rgba(255,255,255,.5);margin-bottom:1.75rem;line-height:1.6}
+    .form-sub strong{color:var(--gold2)}
+    .form-group{margin-bottom:.9rem}
+    .form-group label{display:block;font-size:.63rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:.4rem}
+    .form-group input,.form-group select,.form-group textarea{width:100%;padding:.75rem 1rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:2px;font-family:'Jost',sans-serif;font-size:.85rem;font-weight:300;color:var(--white);outline:none;transition:border-color .2s,background .2s;appearance:none}
+    .form-group input::placeholder{color:rgba(255,255,255,.3)}
+    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--gold);background:rgba(255,255,255,.1)}
+    .form-group select option{background:var(--navy);color:var(--white)}
+    .form-group textarea{resize:vertical;min-height:70px}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+    .submit-btn{width:100%;padding:.9rem;background:var(--gold);color:var(--navy);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:.5rem;transition:background .2s,transform .2s}
+    .submit-btn:hover{background:var(--gold2);transform:translateY(-1px)}
+    .form-note{text-align:center;font-size:.72rem;color:rgba(255,255,255,.3);margin-top:.75rem}
+    .form-note strong{color:var(--gold2)}
+
+    /* ── HOW IT WORKS ── */
+    .how-section{padding:6rem 5rem;background:var(--beige)}
+    .how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:3px;overflow:hidden;max-width:1100px;margin:0 auto}
+    .how-box{background:var(--beige);padding:2.25rem 1.75rem;transition:background .2s;cursor:default}
+    .how-box:hover{background:var(--beige2)}
+    .how-num{font-family:'Playfair Display',serif;font-size:2rem;font-weight:400;color:var(--gold);opacity:.4;line-height:1;margin-bottom:1rem}
+    .how-title{font-size:.85rem;font-weight:700;color:var(--navy);margin-bottom:.6rem}
+    .how-desc{font-size:.78rem;font-weight:300;color:var(--gray);line-height:1.7}
+
+    /* ── SPLIT SECTION ── */
+    .split{display:grid;grid-template-columns:1fr 1fr}
+    .split-img{min-height:500px;background-size:cover;background-position:center;position:relative}
+    .split-img::after{content:'';position:absolute;inset:0;background:rgba(12,28,51,.25)}
+    .split-content{padding:5rem 4.5rem;display:flex;flex-direction:column;justify-content:center}
+    .split-content.navy{background:var(--navy)}
+    .split-content.beige{background:var(--beige2)}
+
+    /* ── BRANDS ── */
+    .brands-section{background:var(--navy);padding:4rem 5rem}
+    .brands-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:.65rem;max-width:900px;margin:0 auto}
+    .brand-pill{padding:.55rem 1.25rem;border:1px solid rgba(192,154,91,.2);border-radius:2px;font-size:.72rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55);transition:all .2s;cursor:default}
+    .brand-pill:hover{border-color:var(--gold);color:var(--gold2)}
+    .brand-pill.hero-brand{border-color:rgba(192,154,91,.45);color:var(--gold2)}
+
+    /* ── TESTIMONIALS ── */
+    .testi-section{padding:6rem 5rem;background:var(--beige2)}
+    .testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;max-width:1100px;margin:0 auto}
+    .tcard{background:var(--white);border:1px solid var(--border);border-radius:3px;padding:2rem;display:flex;flex-direction:column;transition:transform .25s,box-shadow .25s}
+    .tcard:hover{transform:translateY(-3px);box-shadow:0 12px 36px rgba(0,0,0,.07)}
+    .stars{display:flex;gap:3px;margin-bottom:1rem}
+    .star{color:var(--gold);font-size:.82rem}
+    .tquote{font-family:'Playfair Display',serif;font-size:.95rem;font-style:italic;color:var(--navy);line-height:1.65;margin-bottom:1.25rem;flex:1}
+    .tquote::before{content:'\201C';color:var(--gold);font-size:1.3rem;line-height:0;vertical-align:-.25em;margin-right:2px}
+    .tquote::after{content:'\201D';color:var(--gold);font-size:1.3rem;line-height:0;vertical-align:-.25em;margin-left:2px}
+    .tdivider{height:1px;background:var(--border);margin-bottom:1rem}
+    .tauthor{display:flex;align-items:center;gap:.75rem}
+    .tavatar{width:2.2rem;height:2.2rem;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:.85rem;font-weight:600;color:var(--gold2);flex-shrink:0}
+    .tname{font-size:.82rem;font-weight:600;color:var(--navy)}
+    .tvehicle{font-size:.7rem;color:var(--gold);letter-spacing:.04em}
+
+    /* ── SELL PAGE HERO ── */
+    .hero-sell{min-height:calc(100vh - 64px);display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+    .sell-left{background:url('https://images.unsplash.com/photo-1542362567-b07e54358753?w=1200&q=80') center/cover no-repeat;position:relative;display:flex;align-items:flex-end;padding:3rem}
+    .sell-left::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(12,28,51,.85) 0%,rgba(12,28,51,.3) 60%,transparent 100%)}
+    .sell-left-content{position:relative;z-index:1}
+    .sell-left-title{font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,3rem);font-weight:500;color:var(--white);line-height:1.15;margin-bottom:.75rem}
+    .sell-left-title em{font-style:italic;color:var(--gold2)}
+    .sell-left-sub{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.65);line-height:1.75;max-width:380px}
+    .sell-right{background:var(--beige2);display:flex;align-items:center;justify-content:center;padding:3rem 3.5rem}
+    .sell-form-card{width:100%;max-width:420px}
+    .sell-form-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:500;color:var(--navy);margin-bottom:.4rem}
+    .sell-form-sub{font-size:.8rem;font-weight:300;color:var(--gray);margin-bottom:1.75rem;line-height:1.6}
+    .sell-form-sub strong{color:var(--navy);font-weight:600}
+    .sell-form .form-group label{color:var(--gray)}
+    .sell-form .form-group input,.sell-form .form-group select,.sell-form .form-group textarea{background:var(--white);border:1px solid var(--border);color:var(--navy)}
+    .sell-form .form-group input::placeholder{color:#aaa}
+    .sell-form .form-group input:focus,.sell-form .form-group select:focus{border-color:var(--gold);background:var(--white)}
+    .sell-form .form-group select option{color:var(--navy)}
+    .sell-submit{width:100%;padding:.9rem;background:var(--navy);color:var(--beige);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:.5rem;transition:background .2s}
+    .sell-submit:hover{background:var(--navy2)}
+    .sell-note{text-align:center;font-size:.72rem;color:var(--gray);margin-top:.75rem}
+    .sell-note strong{color:var(--navy)}
+
+    /* ── ABOUT PAGE ── */
+    .about-hero{min-height:60vh;display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+    .about-img{background:url('https://images.unsplash.com/photo-1555215695-3004980ad54e?w=1200&q=80') center/cover no-repeat;position:relative}
+    .about-img::after{content:'';position:absolute;inset:0;background:rgba(12,28,51,.3)}
+    .about-name-badge{position:absolute;bottom:2rem;left:2rem;z-index:1;background:rgba(12,28,51,.88);border:1px solid rgba(192,154,91,.3);padding:1rem 1.5rem;border-radius:2px}
+    .about-name-badge h3{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:500;color:var(--white);margin-bottom:.2rem}
+    .about-name-badge p{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2)}
+    .about-content-block{padding:5rem 4.5rem;background:var(--beige2);display:flex;flex-direction:column;justify-content:center}
+    .about-content-block p{font-size:.9rem;font-weight:300;color:var(--gray);line-height:1.85;margin-top:1.25rem}
+    .creds{margin-top:2rem;display:flex;flex-direction:column;gap:.75rem}
+    .cred{display:flex;align-items:flex-start;gap:.75rem;font-size:.82rem;color:var(--navy)}
+    .cred::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--gold);flex-shrink:0;margin-top:5px}
+    .about-features{padding:5rem;background:var(--beige);display:grid;grid-template-columns:repeat(3,1fr);gap:2rem;max-width:1100px;margin:0 auto}
+    .feat-box{padding:2rem;background:var(--white);border:1px solid var(--border);border-radius:3px}
+    .feat-icon{font-size:1.5rem;margin-bottom:1rem}
+    .feat-title{font-size:.88rem;font-weight:700;color:var(--navy);margin-bottom:.5rem}
+    .feat-desc{font-size:.8rem;font-weight:300;color:var(--gray);line-height:1.7}
+
+    /* ── CONTACT PAGE ── */
+    .contact-grid{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 64px)}
+    .contact-left-panel{background:var(--navy);padding:5rem 4.5rem;display:flex;flex-direction:column;justify-content:center}
+    .contact-left-panel p{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.5);line-height:1.8;margin-bottom:2.5rem}
+    .contact-detail{display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem}
+    .detail-icon{width:2.2rem;height:2.2rem;border-radius:2px;background:rgba(192,154,91,.1);border:1px solid rgba(192,154,91,.2);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+    .detail-label{font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:.1rem}
+    .detail-value{font-size:.88rem;font-weight:400;color:var(--white);text-decoration:none;transition:color .2s}
+    .detail-value:hover{color:var(--gold2)}
+    .contact-right-panel{padding:5rem 4.5rem;background:var(--beige2);display:flex;flex-direction:column;justify-content:center}
+    .contact-right-panel .form-group label{color:var(--gray)}
+    .contact-right-panel .form-group input,
+    .contact-right-panel .form-group select,
+    .contact-right-panel .form-group textarea{background:var(--beige);border:1px solid var(--border);color:var(--navy)}
+    .contact-right-panel .form-group input::placeholder{color:#aaa}
+    .contact-right-panel .form-group input:focus,
+    .contact-right-panel .form-group select:focus,
+    .contact-right-panel .form-group textarea:focus{border-color:var(--gold);background:var(--white)}
+
+    /* ── GALLERY ── */
+    .gallery-section{padding:5rem;background:var(--beige)}
+    .gallery-grid{display:grid;grid-template-columns:2fr 1fr 1fr;grid-template-rows:240px 240px;gap:10px;max-width:1100px;margin:0 auto}
+    .gitem{overflow:hidden;border-radius:2px}
+    .gitem:first-child{grid-row:span 2}
+    .gitem img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s}
+    .gitem:hover img{transform:scale(1.04)}
+
+    /* ── FOOTER ── */
+    footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:2rem 5rem;display:flex;align-items:center;justify-content:space-between}
+    .footer-logo{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:600;color:var(--white)}
+    .footer-logo span{color:var(--gold)}
+    .footer-sub{font-size:.62rem;color:rgba(255,255,255,.28);letter-spacing:.08em;text-transform:uppercase;margin-top:.2rem}
+    .footer-nav{display:flex;gap:1.75rem;list-style:none}
+    .footer-nav a{font-size:.7rem;color:rgba(255,255,255,.32);text-decoration:none;letter-spacing:.05em;transition:color .2s}
+    .footer-nav a:hover{color:var(--gold2)}
+    .footer-copy{font-size:.65rem;color:rgba(255,255,255,.18)}
+
+    /* ── FAQ ── */
+    .faq-section{padding:5rem;background:var(--beige)}
+    .faq-wrap{max-width:780px;margin:0 auto;display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:3px;overflow:hidden}
+    .faq-item{background:var(--beige);cursor:pointer;transition:background .2s}
+    .faq-item:hover{background:var(--beige2)}
+    .faq-q{padding:1.25rem 1.5rem;font-size:.88rem;font-weight:600;color:var(--navy);display:flex;justify-content:space-between;align-items:center;gap:1rem}
+    .faq-arrow{color:var(--gold);font-size:1.1rem;transition:transform .3s;flex-shrink:0}
+    .faq-item.open .faq-arrow{transform:rotate(45deg)}
+    .faq-a{font-size:.82rem;font-weight:300;color:var(--gray);line-height:1.75;max-height:0;overflow:hidden;transition:max-height .35s ease,padding .3s}
+    .faq-item.open .faq-a{max-height:200px;padding:0 1.5rem 1.25rem}
+
+    /* ── TRUST BAR ── */
+    .trust-bar{background:var(--beige2);padding:1.5rem 5rem;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+    .trust-inner{display:flex;align-items:center;justify-content:center;gap:2.5rem;flex-wrap:wrap;max-width:1000px;margin:0 auto}
+    .trust-item{display:flex;align-items:center;gap:.55rem;font-size:.75rem;font-weight:500;color:var(--gray)}
+    .trust-divider{width:1px;height:18px;background:var(--border)}
+
+    /* ── SUCCESS STATE ── */
+    .success-state{display:none;text-align:center;padding:2rem}
+    .success-state .check{font-size:2.5rem;margin-bottom:1rem}
+    .success-state h3{font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--white);margin-bottom:.5rem}
+    .success-state p{font-size:.82rem;color:rgba(255,255,255,.5);line-height:1.7}
+
+    /* ── RESPONSIVE ── */
+    @media(max-width:900px){
+      .nav-links{display:none}
+      .hamburger{display:flex}
+      .hero-find,.hero-sell,.about-hero,.contact-grid,.split{grid-template-columns:1fr}
+      .hero-left{padding:3rem 1.75rem 2rem}
+      .hero-right,.sell-right,.sell-left,.about-img,.about-content-block,.split-content,.contact-left-panel,.contact-right-panel{padding:2.5rem 1.75rem;min-height:auto}
+      .sell-left{min-height:300px}
+      .how-section,.brands-section,.testi-section,.gallery-section,.faq-section,.trust-bar{padding:3.5rem 1.75rem}
+      .how-grid{grid-template-columns:1fr 1fr}
+      .testi-grid{grid-template-columns:1fr}
+      .gallery-grid{grid-template-columns:1fr 1fr;grid-template-rows:auto}
+      .gitem:first-child{grid-row:span 1;height:200px}
+      .gitem{height:180px}
+      .about-features{grid-template-columns:1fr;padding:2.5rem 1.75rem}
+      footer{flex-direction:column;gap:1.25rem;text-align:center;padding:1.75rem}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a class="logo" href="#" onclick="showPage('find')">The<span>Exact</span>Match</a>
+    <ul class="nav-links">
+      <li><a href="#" onclick="showPage('find')" id="nav-find" class="active">Find My Car</a></li>
+      <li><a href="#" onclick="showPage('sell')" id="nav-sell">Sell My Car</a></li>
+      <li><a href="#" onclick="showPage('how')" id="nav-how">How It Works</a></li>
+      <li><a href="#" onclick="showPage('about')" id="nav-about">About</a></li>
+      <li><a href="#" onclick="showPage('contact')" id="nav-contact" class="nav-cta">Contact</a></li>
+    </ul>
+    <div class="hamburger" id="hamburger" onclick="toggleMenu()">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+</nav>
+
+<!-- Mobile Menu -->
+<div class="mobile-menu" id="mobile-menu">
+  <a href="#" onclick="showPage('find');toggleMenu()">Find My Car</a>
+  <a href="#" onclick="showPage('sell');toggleMenu()">Sell My Car</a>
+  <a href="#" onclick="showPage('how');toggleMenu()">How It Works</a>
+  <a href="#" onclick="showPage('about');toggleMenu()">About</a>
+  <a href="#" onclick="showPage('contact');toggleMenu()">Contact</a>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: FIND MY CAR
+═══════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-find">
+
+  <!-- Hero with inline form -->
+  <section class="hero-find">
+    <div class="hero-left">
+      <div class="hero-badge"><span class="dot"></span>100% Free to You</div>
+      <h1 class="hero-title">Tell us what<br/>you want.<br/><em>We'll find it.</em></h1>
+      <p class="hero-sub">Fill out the form — we search our nationwide dealer network and send you 3 curated options within 24 hours. No cost, no obligation, no dealership headache.</p>
+      <div class="free-badge">
+        <span class="star">✦</span>
+        Free to buyers · We get paid by the dealer when you close
+      </div>
+      <div class="trust-item" style="margin-top:.5rem">
+        <span>✓</span> New & Pre-Owned &nbsp;·&nbsp;
+        <span>✓</span> Buy or Lease &nbsp;·&nbsp;
+        <span>✓</span> Nationwide
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div class="form-card" id="find-form-wrap">
+        <div class="form-title">Start Your Search</div>
+        <div class="form-sub">We'll send you <strong>3 matched options</strong> within 24 hours — completely free.</div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>First Name</label>
+            <input type="text" placeholder="John" id="ff-fname"/>
+          </div>
+          <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" placeholder="Smith" id="ff-lname"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" placeholder="john@email.com" id="ff-email"/>
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="tel" placeholder="(555) 000-0000" id="ff-phone"/>
+        </div>
+        <div class="form-group">
+          <label>Vehicle You're Looking For</label>
+          <input type="text" placeholder="e.g. Mercedes GLE 63 AMG, Porsche 911, Audi RS7" id="ff-vehicle"/>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Budget</label>
+            <select id="ff-budget">
+              <option value="">Select...</option>
+              <option>Under $50,000</option>
+              <option>$50,000 – $100,000</option>
+              <option>$100,000 – $200,000</option>
+              <option>$200,000+</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Buy or Lease?</label>
+            <select id="ff-buylease">
+              <option value="">Select...</option>
+              <option>Buy</option>
+              <option>Lease</option>
+              <option>Not sure yet</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Anything specific? (color, options, mileage, etc.)</label>
+          <textarea placeholder="E.g. Prefer black interior, under 20K miles, Sport Chrono package..." id="ff-notes"></textarea>
+        </div>
+        <button class="submit-btn" onclick="submitFindForm()">Send Me My 3 Options — Free</button>
+        <div class="form-note">No spam. No sales calls. <strong>Just your options.</strong></div>
+      </div>
+
+      <div class="success-state" id="find-success">
+        <div class="check">✦</div>
+        <h3>You're on it.</h3>
+        <p>We'll have your 3 curated options ready within 24 hours.<br/>Check your email — and feel free to text us directly at<br/><strong style="color:var(--gold2)">(512) 650-9328</strong> if you have questions.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Trust bar -->
+  <div class="trust-bar">
+    <div class="trust-inner">
+      <div class="trust-item">🛡️ We work for you — not the dealer</div>
+      <div class="trust-divider"></div>
+      <div class="trust-item">🔍 New & pre-owned vehicles</div>
+      <div class="trust-divider"></div>
+      <div class="trust-item">🔄 Buy or lease — we handle both</div>
+      <div class="trust-divider"></div>
+      <div class="trust-item">🚚 Nationwide delivery available</div>
+      <div class="trust-divider"></div>
+      <div class="trust-item">✦ Options in 24 hours</div>
+    </div>
+  </div>
+
+  <!-- Gallery -->
+  <section class="gallery-section">
+    <div class="gallery-grid">
+      <div class="gitem"><img src="https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=900&q=80" alt="Luxury car"/></div>
+      <div class="gitem"><img src="https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=600&q=80" alt="Exotic car"/></div>
+      <div class="gitem"><img src="https://images.unsplash.com/photo-1580274455191-1c62238fa333?w=600&q=80" alt="Sports car"/></div>
+      <div class="gitem"><img src="https://images.unsplash.com/photo-1622484211148-e082f4e45ae2?w=600&q=80" alt="Luxury SUV"/></div>
+      <div class="gitem"><img src="https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=600&q=80" alt="Performance car"/></div>
+    </div>
+  </section>
+
+  <!-- Brands -->
+  <section class="brands-section">
+    <div style="text-align:center;margin-bottom:2.5rem">
+      <div class="eyebrow light center">Our Dealer Network</div>
+      <h2 class="display light">We source from the world's <em>finest brands.</em></h2>
+    </div>
+    <div class="brands-grid">
+      <div class="brand-pill hero-brand">Mercedes-Benz</div>
+      <div class="brand-pill hero-brand">Audi</div>
+      <div class="brand-pill hero-brand">Bentley</div>
+      <div class="brand-pill hero-brand">Porsche</div>
+      <div class="brand-pill hero-brand">Ferrari</div>
+      <div class="brand-pill hero-brand">Lamborghini</div>
+      <div class="brand-pill">BMW</div>
+      <div class="brand-pill">Rolls-Royce</div>
+      <div class="brand-pill">McLaren</div>
+      <div class="brand-pill">Aston Martin</div>
+      <div class="brand-pill">Maserati</div>
+      <div class="brand-pill">Land Rover</div>
+      <div class="brand-pill">Lexus</div>
+      <div class="brand-pill">Infiniti</div>
+      <div class="brand-pill">Cadillac</div>
+      <div class="brand-pill">Genesis</div>
+      <div class="brand-pill">Alfa Romeo</div>
+      <div class="brand-pill">And More...</div>
+    </div>
+  </section>
+
+  <!-- Testimonials -->
+  <section class="testi-section">
+    <div style="text-align:center;margin-bottom:3rem">
+      <div class="eyebrow center">Client Stories</div>
+      <h2 class="display">What our clients <em>say.</em></h2>
+    </div>
+    <div class="testi-grid">
+      <div class="tcard reveal">
+        <div class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
+        <div class="tquote">Jeff found my Porsche 911 in a spec I thought didn't exist at this price point. I'd been searching for months — he delivered 3 options in under 24 hours. Completely free.</div>
+        <div class="tdivider"></div>
+        <div class="tauthor"><div class="tavatar">MR</div><div><div class="tname">Marcus R.</div><div class="tvehicle">2022 Porsche 911 Carrera S — Miami, FL</div></div></div>
+      </div>
+      <div class="tcard reveal">
+        <div class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
+        <div class="tquote">I filled out the form on a Tuesday evening. By Wednesday morning I had three real options in my inbox. Ended up in a GLE 63 AMG I didn't even know was on the market.</div>
+        <div class="tdivider"></div>
+        <div class="tauthor"><div class="tavatar">DT</div><div><div class="tname">Danielle T.</div><div class="tvehicle">Mercedes-Benz GLE 63 AMG — Atlanta, GA</div></div></div>
+      </div>
+      <div class="tcard reveal">
+        <div class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
+        <div class="tquote">I had no idea this was free. I assumed there was a catch. There wasn't. Got my RS7 options the next day, picked one, and Jeff handled everything from there. Unreal service.</div>
+        <div class="tdivider"></div>
+        <div class="tauthor"><div class="tavatar">KJ</div><div><div class="tname">Kevin J.</div><div class="tvehicle">2021 Audi RS7 — Dallas, TX</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
+    <ul class="footer-nav">
+      <li><a href="#" onclick="showPage('find')">Find My Car</a></li>
+      <li><a href="#" onclick="showPage('sell')">Sell My Car</a></li>
+      <li><a href="#" onclick="showPage('how')">How It Works</a></li>
+      <li><a href="#" onclick="showPage('about')">About</a></li>
+      <li><a href="#" onclick="showPage('contact')">Contact</a></li>
+    </ul>
+    <div class="footer-copy">© 2026 TheExactMatch.com</div>
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: SELL MY CAR
+═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-sell">
+
+  <section class="hero-sell">
+    <div class="sell-left">
+      <div class="sell-left-content">
+        <div class="hero-badge" style="margin-bottom:1.25rem"><span class="dot"></span>100% Free — No Obligation</div>
+        <div class="sell-left-title">Get real offers<br/>on your car.<br/><em>Fast & free.</em></div>
+        <p class="sell-left-sub">Tell us about your vehicle. We send it to our dealer network. You get real offers — no negotiating, no dealership games, no pressure.</p>
+      </div>
+    </div>
+
+    <div class="sell-right">
+      <div class="sell-form-card">
+        <div class="sell-form-title">Get Your Offers</div>
+        <div class="sell-form-sub">Fill this out and we'll have dealer offers to you within <strong>24 hours</strong>. Completely free — you're under no obligation to accept anything.</div>
+
+        <div id="sell-form-wrap" class="sell-form">
+          <div class="form-row">
+            <div class="form-group"><label>First Name</label><input type="text" placeholder="John" id="sf-fname"/></div>
+            <div class="form-group"><label>Last Name</label><input type="text" placeholder="Smith" id="sf-lname"/></div>
+          </div>
+          <div class="form-group"><label>Email</label><input type="email" placeholder="john@email.com" id="sf-email"/></div>
+          <div class="form-group"><label>Phone</label><input type="tel" placeholder="(555) 000-0000" id="sf-phone"/></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Year</label>
+              <input type="text" placeholder="2021" id="sf-year"/>
+            </div>
+            <div class="form-group">
+              <label>Make</label>
+              <input type="text" placeholder="Porsche" id="sf-make"/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Model</label>
+              <input type="text" placeholder="911 Carrera S" id="sf-model"/>
+            </div>
+            <div class="form-group">
+              <label>Mileage</label>
+              <input type="text" placeholder="18,500" id="sf-mileage"/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Condition</label>
+              <select id="sf-condition">
+                <option value="">Select...</option>
+                <option>Excellent</option>
+                <option>Good</option>
+                <option>Fair</option>
+                <option>Needs Work</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Title Status</label>
+              <select id="sf-title">
+                <option value="">Select...</option>
+                <option>Clean Title</option>
+                <option>Salvage / Rebuilt</option>
+                <option>Lien on Vehicle</option>
+                <option>Not Sure</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Anything we should know? (accidents, modifications, service history)</label>
+            <textarea placeholder="No accidents, all service records, recent tires..." id="sf-notes"></textarea>
+          </div>
+          <button class="sell-submit" onclick="submitSellForm()">Get My Free Offers</button>
+          <div class="sell-note">Free to submit. No obligation to accept. <strong>Real dealer offers.</strong></div>
+        </div>
+
+        <div class="success-state" id="sell-success" style="color:var(--navy)">
+          <div class="check" style="color:var(--gold)">✦</div>
+          <h3 style="color:var(--navy)">Offers incoming.</h3>
+          <p style="color:var(--gray)">We'll have dealer offers on your vehicle within 24 hours.<br/>Check your email — and feel free to reach us at<br/><strong style="color:var(--navy)">(512) 650-9328</strong> anytime.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Why sell with us -->
+  <section style="padding:5rem;background:var(--beige)">
+    <div style="max-width:1000px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:3rem">
+        <div class="eyebrow center">Why TheExactMatch</div>
+        <h2 class="display">A better way to <em>sell your car.</em></h2>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem">
+        <div class="feat-box reveal">
+          <div class="feat-icon">⚡</div>
+          <div class="feat-title">Offers in 24 Hours</div>
+          <div class="feat-desc">No waiting weeks. We send your vehicle to our dealer network immediately and have real offers back to you the next day.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🤝</div>
+          <div class="feat-title">Real Dealer Buyers</div>
+          <div class="feat-desc">Our partner dealers are actively buying inventory. These aren't low-ball automated estimates — they're real people ready to make a deal.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🆓</div>
+          <div class="feat-title">Completely Free</div>
+          <div class="feat-desc">Zero cost to you. We're paid by the dealer when a sale happens. You keep every dollar of the offer — nothing comes off the top.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🚫</div>
+          <div class="feat-title">No Pressure</div>
+          <div class="feat-desc">You're never obligated to accept any offer. Review what comes in, compare, and decide on your own timeline.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🔒</div>
+          <div class="feat-title">Private & Secure</div>
+          <div class="feat-desc">Your information goes to vetted dealer partners only — not posted publicly or shared with random buyers.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🚗</div>
+          <div class="feat-title">Any Luxury Vehicle</div>
+          <div class="feat-desc">Mercedes, Audi, BMW, Porsche, Ferrari, Lamborghini, and more. If you have it, our network wants to see it.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq-section" style="background:var(--beige2)">
+    <div style="text-align:center;margin-bottom:3rem">
+      <div class="eyebrow center">Questions</div>
+      <h2 class="display">Common <em>questions.</em></h2>
+    </div>
+    <div class="faq-wrap">
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Is it really free to submit? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">Yes — 100% free. There is no fee, no subscription, and no cost to get offers on your vehicle. We're compensated by the buying dealer when a transaction closes. You pay nothing.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">How do I know the offers are real? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">All offers come from vetted dealer partners in our network — not automated algorithms. Real buyers, real numbers, real conversations. We only work with dealers who have a track record of closing.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">What if I still owe money on my car? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">No problem — just let us know in the form. Dealers handle trade-ins with existing loans regularly. The process is the same; the dealer will pay off your remaining balance as part of the transaction.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">How long do I have to accept an offer? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">Offers are typically valid for 7 days from the time they're made, though this can vary by dealer. We'll communicate the timeline clearly with each offer you receive.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
+    <ul class="footer-nav">
+      <li><a href="#" onclick="showPage('find')">Find My Car</a></li>
+      <li><a href="#" onclick="showPage('sell')">Sell My Car</a></li>
+      <li><a href="#" onclick="showPage('how')">How It Works</a></li>
+      <li><a href="#" onclick="showPage('about')">About</a></li>
+      <li><a href="#" onclick="showPage('contact')">Contact</a></li>
+    </ul>
+    <div class="footer-copy">© 2026 TheExactMatch.com</div>
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: HOW IT WORKS
+═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-how">
+
+  <!-- Header -->
+  <section style="background:var(--navy);padding:5rem;text-align:center">
+    <div class="eyebrow light center">The Process</div>
+    <h2 class="display light" style="margin-bottom:1rem">Simple. Free. <em>Effective.</em></h2>
+    <p style="font-size:.9rem;font-weight:300;color:rgba(255,255,255,.5);max-width:520px;margin:0 auto;line-height:1.8">Two services. One goal — making your car transaction effortless. Here's exactly how each one works.</p>
+  </section>
+
+  <!-- Find My Car Steps -->
+  <section style="padding:5rem;background:var(--beige)">
+    <div style="max-width:1100px;margin:0 auto">
+      <div style="margin-bottom:3rem">
+        <div class="eyebrow left">Find My Car</div>
+        <h2 class="display">How we find <em>your car.</em></h2>
+      </div>
+      <div class="how-grid">
+        <div class="how-box reveal">
+          <div class="how-num">01</div>
+          <div class="how-title">Fill Out the Form</div>
+          <div class="how-desc">Tell us what you're looking for — make, model, budget, buy or lease, color preferences, and timeline. Takes 2 minutes.</div>
+        </div>
+        <div class="how-box reveal">
+          <div class="how-num">02</div>
+          <div class="how-title">We Search Our Network</div>
+          <div class="how-desc">Our system searches our dealer partner inventory nationwide — including vehicles not yet listed publicly.</div>
+        </div>
+        <div class="how-box reveal">
+          <div class="how-num">03</div>
+          <div class="how-title">You Get 3 Options</div>
+          <div class="how-desc">Within 24 hours, you receive a curated report with 3 matched vehicles — priced, vetted, and ready to go.</div>
+        </div>
+        <div class="how-box reveal">
+          <div class="how-num">04</div>
+          <div class="how-title">You Choose Your Path</div>
+          <div class="how-desc">Connect directly with the dealer, or let us handle negotiation and closing on your behalf. Your call.</div>
+        </div>
+      </div>
+      <div style="margin-top:2rem;text-align:center">
+        <button class="submit-btn" style="width:auto;padding:.85rem 2.5rem" onclick="showPage('find')">Start Your Search — Free</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sell My Car Steps -->
+  <section style="padding:5rem;background:var(--beige2)">
+    <div style="max-width:1100px;margin:0 auto">
+      <div style="margin-bottom:3rem">
+        <div class="eyebrow left">Sell My Car</div>
+        <h2 class="display">How we get you <em>the best offer.</em></h2>
+      </div>
+      <div class="how-grid">
+        <div class="how-box reveal" style="background:var(--beige2)">
+          <div class="how-num">01</div>
+          <div class="how-title">Describe Your Vehicle</div>
+          <div class="how-desc">Year, make, model, mileage, condition, title status. Fill out the form in under 2 minutes.</div>
+        </div>
+        <div class="how-box reveal" style="background:var(--beige2)">
+          <div class="how-num">02</div>
+          <div class="how-title">We Route to Buyers</div>
+          <div class="how-desc">We send your vehicle details to dealer partners who are actively buying in your segment. No public listings.</div>
+        </div>
+        <div class="how-box reveal" style="background:var(--beige2)">
+          <div class="how-num">03</div>
+          <div class="how-title">Real Offers Arrive</div>
+          <div class="how-desc">Dealers make real offers within 24 hours. You review them at your own pace — no pressure, no obligation.</div>
+        </div>
+        <div class="how-box reveal" style="background:var(--beige2)">
+          <div class="how-num">04</div>
+          <div class="how-title">You Accept & Close</div>
+          <div class="how-desc">Accept the offer that works for you. The dealer handles pickup or you drop it off. Done.</div>
+        </div>
+      </div>
+      <div style="margin-top:2rem;text-align:center">
+        <button class="sell-submit" style="width:auto;padding:.85rem 2.5rem;background:var(--navy);color:var(--beige)" onclick="showPage('sell')">Get Free Offers on Your Car</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- White Glove -->
+  <section style="padding:5rem;background:var(--navy)">
+    <div style="max-width:900px;margin:0 auto;text-align:center">
+      <div class="eyebrow light center">Premium Option</div>
+      <h2 class="display light" style="margin-bottom:1rem">Want us to handle <em>everything?</em></h2>
+      <p style="font-size:.9rem;font-weight:300;color:rgba(255,255,255,.5);line-height:1.8;max-width:560px;margin:0 auto 2.5rem">After you receive your 3 options, you can choose to have Jeff personally negotiate, review paperwork, and coordinate the entire closing on your behalf. White Glove service — a flat fee based on the vehicle value.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);border-radius:3px;overflow:hidden;max-width:700px;margin:0 auto 2.5rem">
+        <div style="padding:1.75rem;background:rgba(255,255,255,.04)">
+          <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.5rem">Under $50K</div>
+          <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:500;color:var(--gold2)">$500</div>
+        </div>
+        <div style="padding:1.75rem;background:rgba(192,154,91,.08);border-left:1px solid rgba(192,154,91,.2);border-right:1px solid rgba(192,154,91,.2)">
+          <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.5rem">$50K – $150K</div>
+          <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:500;color:var(--gold2)">$1,000</div>
+        </div>
+        <div style="padding:1.75rem;background:rgba(255,255,255,.04)">
+          <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.5rem">$150K+</div>
+          <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:500;color:var(--gold2)">$2,000+</div>
+        </div>
+      </div>
+      <button class="submit-btn" style="width:auto;padding:.85rem 2.5rem" onclick="showPage('contact')">Ask About White Glove</button>
+    </div>
+  </section>
+
+  <footer>
+    <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
+    <ul class="footer-nav">
+      <li><a href="#" onclick="showPage('find')">Find My Car</a></li>
+      <li><a href="#" onclick="showPage('sell')">Sell My Car</a></li>
+      <li><a href="#" onclick="showPage('how')">How It Works</a></li>
+      <li><a href="#" onclick="showPage('about')">About</a></li>
+      <li><a href="#" onclick="showPage('contact')">Contact</a></li>
+    </ul>
+    <div class="footer-copy">© 2026 TheExactMatch.com</div>
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: ABOUT
+═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-about">
+
+  <section class="about-hero">
+    <div class="about-img" style="position:relative">
+      <img src="https://images.unsplash.com/photo-1555215695-3004980ad54e?w=1200&q=80" style="width:100%;height:100%;object-fit:cover;display:block"/>
+      <div style="position:absolute;inset:0;background:rgba(12,28,51,.3)"></div>
+      <div class="about-name-badge">
+        <h3>Jeff Akrong</h3>
+        <p>Founder · TheExactMatch.com</p>
+      </div>
+    </div>
+    <div class="about-content-block">
+      <div class="eyebrow left">About</div>
+      <h2 class="display">Not an algorithm.<br/><em>A person</em> who knows cars.</h2>
+      <p>TheExactMatch isn't a listing aggregator or a bot. It's a real person — with a decade of dealership experience and real relationships — working to connect buyers and sellers with the right vehicles at the right price.</p>
+      <p>Jeff Akrong spent years on the floor at Mercedes-Benz, Audi, and Infiniti. He managed an exotic car rental fleet. He's been buying and selling cars personally since he was 16. He knows this market from every angle — what a great deal looks like, and what a bad one looks like.</p>
+      <div class="creds">
+        <div class="cred">Sales & Leasing Consultant — Mercedes-Benz of South Austin (Swickard Auto Group)</div>
+        <div class="cred">Audi Brand Specialist — Leading Luxury Dealership in Austin, TX</div>
+        <div class="cred">Infiniti Sales Consultant — Georgetown Infiniti (HiTech Motorcars)</div>
+        <div class="cred">Exotic Car Rental Fleet Management</div>
+        <div class="cred">Personal car buyer & reseller since age 16</div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding:5rem;background:var(--beige)">
+    <div style="max-width:1100px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:3rem">
+        <div class="eyebrow center">Why It Works</div>
+        <h2 class="display">Insider access. <em>On your side.</em></h2>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1.5rem">
+        <div class="feat-box reveal">
+          <div class="feat-icon">🧠</div>
+          <div class="feat-title">We Know How Dealers Think</div>
+          <div class="feat-desc">Years on the floor at Mercedes-Benz, Audi, and Infiniti means we know the margins, the incentives, and exactly how to get a buyer or seller the best outcome.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🤝</div>
+          <div class="feat-title">Real Dealer Relationships</div>
+          <div class="feat-desc">Warm calls to GSMs and sales directors open doors that cold searches never reach — including off-lot and pre-market inventory most buyers never see.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🏎</div>
+          <div class="feat-title">Luxury & Exotic Expertise</div>
+          <div class="feat-desc">Managing an exotic rental fleet and buying cars personally since 16 means we've seen every deal type — and know exactly what a good one looks like.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">✦</div>
+          <div class="feat-title">100% Working For You</div>
+          <div class="feat-desc">We don't take money from dealers to favor certain inventory. We match buyers with the right vehicle, and sellers with the right buyer. That's it.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding:4rem 5rem;background:var(--navy);text-align:center">
+    <div class="eyebrow light center">Ready?</div>
+    <h2 class="display light" style="margin-bottom:1.5rem">Let's find your <em>exact match.</em></h2>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+      <button class="submit-btn" style="width:auto;padding:.85rem 2.5rem" onclick="showPage('find')">Find My Car — Free</button>
+      <button class="sell-submit" style="width:auto;padding:.85rem 2.5rem;background:rgba(255,255,255,.1);color:var(--white);border:1px solid rgba(255,255,255,.2)" onclick="showPage('sell')">Sell My Car — Free</button>
+    </div>
+  </section>
+
+  <footer>
+    <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
+    <ul class="footer-nav">
+      <li><a href="#" onclick="showPage('find')">Find My Car</a></li>
+      <li><a href="#" onclick="showPage('sell')">Sell My Car</a></li>
+      <li><a href="#" onclick="showPage('how')">How It Works</a></li>
+      <li><a href="#" onclick="showPage('about')">About</a></li>
+      <li><a href="#" onclick="showPage('contact')">Contact</a></li>
+    </ul>
+    <div class="footer-copy">© 2026 TheExactMatch.com</div>
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: CONTACT
+═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-contact">
+  <div class="contact-grid">
+    <div class="contact-left-panel">
+      <div class="eyebrow light left">Contact</div>
+      <h2 class="display light" style="margin-bottom:1rem">Let's talk<br/><em>cars.</em></h2>
+      <p>Whether you have a question, want to know more about White Glove service, or just want to talk through your situation — reach out. We respond fast.</p>
+      <div class="contact-detail">
+        <div class="detail-icon">📞</div>
+        <div><div class="detail-label">Phone / Text</div><a href="tel:5126509328" class="detail-value">(512) 650-9328</a></div>
+      </div>
+      <div class="contact-detail">
+        <div class="detail-icon">✉️</div>
+        <div><div class="detail-label">Email</div><a href="mailto:info@theexactmatch.com" class="detail-value">info@theexactmatch.com</a></div>
+      </div>
+      <div class="contact-detail">
+        <div class="detail-icon">🌎</div>
+        <div><div class="detail-label">Coverage</div><span class="detail-value">Serving Clients Nationwide</span></div>
+      </div>
+      <div style="margin-top:2.5rem;padding:1.5rem;background:rgba(192,154,91,.08);border:1px solid rgba(192,154,91,.2);border-radius:3px">
+        <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--gold2);margin-bottom:.75rem">Response Time</div>
+        <div style="font-size:.85rem;color:rgba(255,255,255,.6);line-height:1.7;font-weight:300">We respond to all inquiries within <span style="color:var(--white);font-weight:500">1 business day</span>. For fastest response, text us directly.</div>
+      </div>
+    </div>
+
+    <div class="contact-right-panel">
+      <div class="form-title" style="color:var(--navy);font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:500;margin-bottom:.4rem">Send Us a Message</div>
+      <div style="font-size:.8rem;color:var(--gray);margin-bottom:1.75rem;line-height:1.6">Questions about White Glove, dealer partnerships, or anything else — we're here.</div>
+
+      <div id="contact-form-wrap">
+        <div class="form-row">
+          <div class="form-group"><label style="color:var(--gray)">First Name</label><input type="text" placeholder="John" style="background:var(--beige);border:1px solid var(--border);color:var(--navy)" id="cf-fname"/></div>
+          <div class="form-group"><label style="color:var(--gray)">Last Name</label><input type="text" placeholder="Smith" style="background:var(--beige);border:1px solid var(--border);color:var(--navy)" id="cf-lname"/></div>
+        </div>
+        <div class="form-group"><label style="color:var(--gray)">Email</label><input type="email" placeholder="john@email.com" style="background:var(--beige);border:1px solid var(--border);color:var(--navy)" id="cf-email"/></div>
+        <div class="form-group"><label style="color:var(--gray)">Phone</label><input type="tel" placeholder="(555) 000-0000" style="background:var(--beige);border:1px solid var(--border);color:var(--navy)" id="cf-phone"/></div>
+        <div class="form-group">
+          <label style="color:var(--gray)">What's this about?</label>
+          <select style="background:var(--beige);border:1px solid var(--border);color:var(--navy)" id="cf-topic">
+            <option value="">Select...</option>
+            <option>Find My Car question</option>
+            <option>Sell My Car question</option>
+            <option>White Glove service inquiry</option>
+            <option>Dealer partnership inquiry</option>
+            <option>Something else</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label style="color:var(--gray)">Message</label>
+          <textarea placeholder="Tell us what's on your mind..." style="background:var(--beige);border:1px solid var(--border);color:var(--navy);min-height:110px" id="cf-message"></textarea>
+        </div>
+        <button class="sell-submit" onclick="submitContactForm()">Send Message</button>
+      </div>
+
+      <div class="success-state" id="contact-success" style="color:var(--navy)">
+        <div class="check" style="color:var(--gold)">✦</div>
+        <h3 style="color:var(--navy)">Message received.</h3>
+        <p style="color:var(--gray)">We'll be back to you within 1 business day.<br/>Or text us directly at <strong style="color:var(--navy)">(512) 650-9328</strong>.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
+    <ul class="footer-nav">
+      <li><a href="#" onclick="showPage('find')">Find My Car</a></li>
+      <li><a href="#" onclick="showPage('sell')">Sell My Car</a></li>
+      <li><a href="#" onclick="showPage('how')">How It Works</a></li>
+      <li><a href="#" onclick="showPage('about')">About</a></li>
+      <li><a href="#" onclick="showPage('contact')">Contact</a></li>
+    </ul>
+    <div class="footer-copy">© 2026 TheExactMatch.com</div>
+  </footer>
+</div>
+
+<script>
+// ── Page routing ─────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  const navEl = document.getElementById('nav-' + id);
+  if (navEl) navEl.classList.add('active');
+  window.scrollTo(0, 0);
+  // Re-trigger reveals
+  setTimeout(() => {
+    document.querySelectorAll('#page-' + id + ' .reveal').forEach(el => {
+      if (!el.classList.contains('on')) io.observe(el);
+    });
+  }, 50);
+  return false;
+}
+
+// ── Mobile menu ──────────────────────────────────────────────
+function toggleMenu() {
+  document.getElementById('mobile-menu').classList.toggle('open');
+}
+
+// ── Scroll reveal ────────────────────────────────────────────
+const io = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      setTimeout(() => e.target.classList.add('on'), i * 80);
+      io.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+// ── FAQ ──────────────────────────────────────────────────────
+function toggleFaq(el) {
+  const isOpen = el.classList.contains('open');
+  document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+  if (!isOpen) el.classList.add('open');
+}
+
+// ── Form submits ─────────────────────────────────────────────
+function submitFindForm() {
+  const wrap = document.getElementById('find-form-wrap');
+  const success = document.getElementById('find-success');
+  wrap.style.display = 'none';
+  success.style.display = 'block';
+}
+
+function submitSellForm() {
+  const wrap = document.getElementById('sell-form-wrap');
+  const success = document.getElementById('sell-success');
+  wrap.style.display = 'none';
+  success.style.display = 'block';
+}
+
+function submitContactForm() {
+  const wrap = document.getElementById('contact-form-wrap');
+  const success = document.getElementById('contact-success');
+  wrap.style.display = 'none';
+  success.style.display = 'block';
+}
+</script>
+</body>
+</html>
