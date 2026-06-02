@@ -354,6 +354,7 @@
         <h3>You're on it.</h3>
         <p>We'll have your 3 curated options ready within 24 hours.<br/>Check your email — and feel free to text us directly at<br/><strong style="color:var(--gold2)">(512) 650-9328</strong> if you have questions.</p>
       </div>
+      <div id="find-error" style="display:none;margin-top:.75rem;padding:.75rem 1rem;background:rgba(155,35,53,.15);border:1px solid rgba(155,35,53,.4);border-radius:2px;font-size:.8rem;color:#ffaaaa;text-align:center;"></div>
     </div>
   </section>
 
@@ -533,6 +534,7 @@
           <h3 style="color:var(--navy)">Offers incoming.</h3>
           <p style="color:var(--gray)">We'll have dealer offers on your vehicle within 24 hours.<br/>Check your email — and feel free to reach us at<br/><strong style="color:var(--navy)">(512) 650-9328</strong> anytime.</p>
         </div>
+        <div id="sell-error" style="display:none;margin-top:.75rem;padding:.75rem 1rem;background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.25);border-radius:2px;font-size:.8rem;color:#9B2335;text-align:center;"></div>
       </div>
     </div>
   </section>
@@ -880,6 +882,7 @@
         <h3 style="color:var(--navy)">Message received.</h3>
         <p style="color:var(--gray)">We'll be back to you within 1 business day.<br/>Or text us directly at <strong style="color:var(--navy)">(512) 650-9328</strong>.</p>
       </div>
+      <div id="contact-error" style="display:none;margin-top:.75rem;padding:.75rem 1rem;background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.25);border-radius:2px;font-size:.8rem;color:#9B2335;text-align:center;"></div>
     </div>
   </div>
 
@@ -937,26 +940,104 @@ function toggleFaq(el) {
   if (!isOpen) el.classList.add('open');
 }
 
-// ── Form submits ─────────────────────────────────────────────
+// ── Formspree endpoint ────────────────────────────────────────
+const FORMSPREE = 'https://formspree.io/f/mjgdbyon';
+
+// ── Core submit helper ────────────────────────────────────────
+async function submitToFormspree(btn, wrapId, successId, errorId, payload) {
+  // Prevent duplicate submissions
+  if (btn.dataset.submitting === 'true') return;
+  btn.dataset.submitting = 'true';
+
+  // Loading state
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  try {
+    const res = await fetch(FORMSPREE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      // Success
+      document.getElementById(wrapId).style.display = 'none';
+      document.getElementById(successId).style.display = 'block';
+      if (errorId) {
+        const err = document.getElementById(errorId);
+        if (err) err.style.display = 'none';
+      }
+    } else {
+      // Formspree returned an error status
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Submission failed. Please try again.');
+    }
+  } catch (e) {
+    // Restore button so user can retry
+    btn.disabled = false;
+    btn.textContent = originalText;
+    btn.dataset.submitting = 'false';
+
+    // Show inline error
+    const errEl = errorId ? document.getElementById(errorId) : null;
+    if (errEl) {
+      errEl.textContent = e.message || 'Something went wrong. Please try again or text us at (512) 650-9328.';
+      errEl.style.display = 'block';
+    } else {
+      alert(e.message || 'Something went wrong. Please try again or text us at (512) 650-9328.');
+    }
+  }
+}
+
+// ── Find My Car ───────────────────────────────────────────────
 function submitFindForm() {
-  const wrap = document.getElementById('find-form-wrap');
-  const success = document.getElementById('find-success');
-  wrap.style.display = 'none';
-  success.style.display = 'block';
+  const btn = document.querySelector('#find-form-wrap .submit-btn');
+  submitToFormspree(btn, 'find-form-wrap', 'find-success', 'find-error', {
+    form_type:  'Find My Car',
+    first_name: document.getElementById('ff-fname').value.trim(),
+    last_name:  document.getElementById('ff-lname').value.trim(),
+    email:      document.getElementById('ff-email').value.trim(),
+    phone:      document.getElementById('ff-phone').value.trim(),
+    vehicle:    document.getElementById('ff-vehicle').value.trim(),
+    budget:     document.getElementById('ff-budget').value,
+    buy_or_lease: document.getElementById('ff-buylease').value,
+    notes:      document.getElementById('ff-notes').value.trim()
+  });
 }
 
+// ── Sell My Car ───────────────────────────────────────────────
 function submitSellForm() {
-  const wrap = document.getElementById('sell-form-wrap');
-  const success = document.getElementById('sell-success');
-  wrap.style.display = 'none';
-  success.style.display = 'block';
+  const btn = document.querySelector('#sell-form-wrap .sell-submit');
+  submitToFormspree(btn, 'sell-form-wrap', 'sell-success', 'sell-error', {
+    form_type:  'Sell My Car',
+    first_name: document.getElementById('sf-fname').value.trim(),
+    last_name:  document.getElementById('sf-lname').value.trim(),
+    email:      document.getElementById('sf-email').value.trim(),
+    phone:      document.getElementById('sf-phone').value.trim(),
+    year:       document.getElementById('sf-year').value.trim(),
+    make:       document.getElementById('sf-make').value.trim(),
+    model:      document.getElementById('sf-model').value.trim(),
+    mileage:    document.getElementById('sf-mileage').value.trim(),
+    condition:  document.getElementById('sf-condition').value,
+    title:      document.getElementById('sf-title').value,
+    notes:      document.getElementById('sf-notes').value.trim()
+  });
 }
 
+// ── Contact Us ────────────────────────────────────────────────
 function submitContactForm() {
-  const wrap = document.getElementById('contact-form-wrap');
-  const success = document.getElementById('contact-success');
-  wrap.style.display = 'none';
-  success.style.display = 'block';
+  const btn = document.querySelector('#contact-form-wrap .sell-submit');
+  submitToFormspree(btn, 'contact-form-wrap', 'contact-success', 'contact-error', {
+    form_type:  'Contact Us',
+    first_name: document.getElementById('cf-fname').value.trim(),
+    last_name:  document.getElementById('cf-lname').value.trim(),
+    email:      document.getElementById('cf-email').value.trim(),
+    phone:      document.getElementById('cf-phone').value.trim(),
+    topic:      document.getElementById('cf-topic').value,
+    message:    document.getElementById('cf-message').value.trim()
+  });
 }
 </script>
 </body>
