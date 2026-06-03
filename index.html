@@ -242,8 +242,60 @@
       footer{flex-direction:column;gap:1.25rem;text-align:center;padding:1.75rem}
     }
   </style>
+
+  <!-- ── NEWSLETTER POPUP STYLES ── -->
+  <style>
+    #nl-overlay{position:fixed;inset:0;z-index:1000;background:rgba(12,28,51,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:1.25rem;opacity:0;visibility:hidden;transition:opacity .35s ease,visibility .35s ease;}
+    #nl-overlay.nl-visible{opacity:1;visibility:visible;}
+    #nl-card{background:var(--navy);border:1px solid rgba(192,154,91,.25);border-radius:4px;width:100%;max-width:460px;padding:2.5rem 2.5rem 2.25rem;position:relative;transform:translateY(18px);transition:transform .35s ease;box-shadow:0 24px 64px rgba(0,0,0,.45);}
+    #nl-overlay.nl-visible #nl-card{transform:translateY(0);}
+    #nl-close{position:absolute;top:.9rem;right:1rem;background:none;border:none;cursor:pointer;color:rgba(255,255,255,.4);font-size:1.3rem;line-height:1;transition:color .2s;padding:.25rem;}
+    #nl-close:hover{color:var(--gold2);}
+    .nl-rule{width:32px;height:1.5px;background:var(--gold);margin-bottom:1.1rem;}
+    .nl-eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem;}
+    .nl-title{font-family:'Playfair Display',serif;font-size:1.75rem;font-weight:500;color:var(--white);line-height:1.15;margin-bottom:.6rem;}
+    .nl-title em{font-style:italic;color:var(--gold2);}
+    .nl-sub{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.55);line-height:1.7;margin-bottom:1.25rem;}
+    .nl-cats{display:flex;flex-wrap:wrap;gap:.45rem;margin-bottom:1.5rem;}
+    .nl-cat{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border:1px solid rgba(192,154,91,.28);border-radius:20px;padding:.3rem .85rem;color:rgba(255,255,255,.6);background:rgba(192,154,91,.06);}
+    .nl-form{display:flex;gap:.6rem;margin-bottom:.85rem;}
+    .nl-input{flex:1;padding:.78rem 1rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:2px;font-family:'Jost',sans-serif;font-size:.85rem;font-weight:300;color:var(--white);outline:none;transition:border-color .2s,background .2s;}
+    .nl-input::placeholder{color:rgba(255,255,255,.3);}
+    .nl-input:focus{border-color:var(--gold);background:rgba(255,255,255,.1);}
+    .nl-btn{white-space:nowrap;padding:.78rem 1.4rem;background:var(--gold);color:var(--navy);border:none;border-radius:2px;cursor:pointer;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transition:background .2s,opacity .2s;flex-shrink:0;}
+    .nl-btn:hover{background:var(--gold2);}
+    .nl-btn:disabled{opacity:.55;cursor:not-allowed;}
+    .nl-micro{font-size:.72rem;font-weight:300;color:rgba(255,255,255,.3);text-align:center;}
+    #nl-msg{display:none;text-align:center;font-size:.85rem;font-weight:400;padding:.6rem 0;border-radius:2px;margin-bottom:.75rem;}
+    #nl-msg.nl-ok{color:#86efac;}
+    #nl-msg.nl-err{color:#fca5a5;}
+    @media(max-width:520px){#nl-card{padding:2rem 1.5rem 1.75rem;}.nl-form{flex-direction:column;}.nl-btn{width:100%;}.nl-title{font-size:1.45rem;}}
+  </style>
 </head>
 <body>
+
+<!-- ── NEWSLETTER POPUP ── -->
+<div id="nl-overlay" role="dialog" aria-modal="true" aria-labelledby="nl-title-id">
+  <div id="nl-card">
+    <button id="nl-close" aria-label="Close newsletter popup">&times;</button>
+    <div class="nl-rule"></div>
+    <div class="nl-eyebrow">Weekly Drops</div>
+    <div class="nl-title" id="nl-title-id">Jeff's <em>Weekly Deals</em></div>
+    <div class="nl-sub">Get hand-picked vehicle opportunities delivered weekly.</div>
+    <div class="nl-cats">
+      <span class="nl-cat">Luxury</span>
+      <span class="nl-cat">Exotic</span>
+      <span class="nl-cat">Under $50k</span>
+      <span class="nl-cat">Trucks</span>
+    </div>
+    <div id="nl-msg"></div>
+    <div class="nl-form">
+      <input class="nl-input" id="nl-email" type="email" placeholder="your@email.com" autocomplete="email" aria-label="Email address"/>
+      <button class="nl-btn" id="nl-submit">Get Weekly Deals</button>
+    </div>
+    <div class="nl-micro">No spam. Just real opportunities worth looking at.</div>
+  </div>
+</div>
 
 <!-- ── NAV ── -->
 <nav id="nav">
@@ -1039,6 +1091,98 @@ function submitContactForm() {
     message:    document.getElementById('cf-message').value.trim()
   });
 }
+
+// ── Newsletter popup ──────────────────────────────────────────
+(function(){
+  const STORAGE_CLOSED   = 'tem_nl_closed';
+  const STORAGE_SUBBED   = 'tem_nl_subscribed';
+  const HIDE_DAYS        = 30;
+  const DELAY_MS         = 12000;
+  const WORKER_ENDPOINT  = '/newsletter-signup';
+
+  function shouldShow(){
+    if(localStorage.getItem(STORAGE_SUBBED)) return false;
+    const closed = localStorage.getItem(STORAGE_CLOSED);
+    if(!closed) return true;
+    return (Date.now() - parseInt(closed,10)) > HIDE_DAYS * 864e5;
+  }
+
+  function open(){
+    document.getElementById('nl-overlay').classList.add('nl-visible');
+    document.getElementById('nl-email').focus();
+  }
+
+  function close(){
+    document.getElementById('nl-overlay').classList.remove('nl-visible');
+    localStorage.setItem(STORAGE_CLOSED, Date.now().toString());
+  }
+
+  function showMsg(text, type){
+    const el = document.getElementById('nl-msg');
+    el.textContent = text;
+    el.className = type === 'ok' ? 'nl-ok' : 'nl-err';
+    el.style.display = 'block';
+  }
+
+  async function submit(){
+    const emailEl  = document.getElementById('nl-email');
+    const btn      = document.getElementById('nl-submit');
+    const email    = emailEl.value.trim();
+    const re       = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if(!email || !re.test(email)){
+      showMsg('Please enter a valid email address.','err');
+      emailEl.focus();
+      return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'Sending…';
+
+    try{
+      const res  = await fetch(WORKER_ENDPOINT,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email})
+      });
+      const data = await res.json().catch(()=>({}));
+
+      if(res.ok){
+        showMsg("You’re in. Watch your inbox for Jeff’s Weekly Deals.",'ok');
+        localStorage.setItem(STORAGE_SUBBED,'1');
+        emailEl.style.display = 'none';
+        btn.style.display     = 'none';
+        document.querySelector('.nl-micro').style.display = 'none';
+      } else {
+        showMsg(data.error || 'Something went wrong. Please try again.','err');
+        btn.disabled    = false;
+        btn.textContent = 'Get Weekly Deals';
+      }
+    } catch(e){
+      showMsg('Something went wrong. Please try again.','err');
+      btn.disabled    = false;
+      btn.textContent = 'Get Weekly Deals';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    if(!shouldShow()) return;
+
+    setTimeout(open, DELAY_MS);
+
+    document.getElementById('nl-close').addEventListener('click', close);
+    document.getElementById('nl-overlay').addEventListener('click',function(e){
+      if(e.target === this) close();
+    });
+    document.addEventListener('keydown',function(e){
+      if(e.key==='Escape') close();
+    });
+    document.getElementById('nl-submit').addEventListener('click', submit);
+    document.getElementById('nl-email').addEventListener('keydown',function(e){
+      if(e.key==='Enter') submit();
+    });
+  });
+})();
 </script>
 </body>
 </html>
