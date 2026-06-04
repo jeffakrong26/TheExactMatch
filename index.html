@@ -1248,7 +1248,7 @@ async function submitWeeklyForm(){
   const STORAGE_SUBBED   = 'tem_nl_subscribed';
   const HIDE_DAYS        = 30;
   const DELAY_MS         = 3000;
-  const WORKER_ENDPOINT  = '/newsletter-signup';
+  const WORKER_ENDPOINT  = 'https://newsletter-signup.jeffakrong26.workers.dev';
 
   function shouldShow(){
     if(localStorage.getItem(STORAGE_SUBBED)) return false;
