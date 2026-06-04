@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dealer Portal — TheExactMatch</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --navy:#0C1C33;--navy2:#152a4a;
+      --beige:#F5F0E8;--beige2:#EDE7D9;
+      --gold:#C09A5B;--gold2:#D4B47A;
+      --white:#fff;--gray:#4A5568;--border:#DDD8CC;
+      --green:#1A4731;--red:#9B2335;--amber:#92600A;
+    }
+    html{scroll-behavior:smooth}
+    body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy);overflow-x:hidden;min-height:100vh}
+
+    /* ── UTILS (mirrors main site) ── */
+    .eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;gap:.65rem;margin-bottom:.9rem}
+    .eyebrow::before{content:'';display:block;height:1px;width:22px;background:var(--gold)}
+    .eyebrow.light{color:var(--gold2)}.eyebrow.light::before{background:var(--gold2)}
+    h2.display{font-family:'Playfair Display',serif;font-size:clamp(1.75rem,3vw,2.4rem);font-weight:500;line-height:1.2;color:var(--navy)}
+    h2.display em{font-style:italic;color:var(--gold)}
+    h2.display.light{color:var(--white)}
+    h2.display.light em{color:var(--gold2)}
+
+    /* ── NAV (identical to main site) ── */
+    nav{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(245,240,232,.97);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+    .nav-inner{max-width:1200px;margin:0 auto;padding:0 2.5rem;height:64px;display:flex;align-items:center;justify-content:space-between}
+    .logo{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:600;color:var(--navy);text-decoration:none}
+    .logo span{color:var(--gold)}
+    .nav-right{display:flex;align-items:center;gap:1rem}
+    .nav-badge{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);background:rgba(192,154,91,.1);border:1px solid rgba(192,154,91,.25);padding:.35rem .85rem;border-radius:20px}
+    .nav-dealer-name{font-size:.78rem;font-weight:500;color:var(--gray);display:none}
+    .nav-dealer-name.visible{display:block}
+    .btn-logout{font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gray);background:transparent;border:1px solid var(--border);padding:.45rem 1rem;border-radius:2px;cursor:pointer;transition:all .2s;display:none}
+    .btn-logout.visible{display:block}
+    .btn-logout:hover{border-color:var(--navy);color:var(--navy)}
+    .back-link{font-size:.72rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--gray);text-decoration:none;opacity:.65;transition:opacity .2s}
+    .back-link:hover{opacity:1}
+
+    /* ── LAYOUT ── */
+    .portal-wrap{padding-top:64px;min-height:100vh}
+    .view{display:none}.view.active{display:block}
+
+    /* ── LOGIN VIEW ── */
+    .login-hero{min-height:calc(100vh - 64px);display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+    .login-left{background:var(--navy);display:flex;flex-direction:column;justify-content:center;padding:5rem;position:relative;overflow:hidden}
+    .login-left::before{content:'';position:absolute;top:-150px;left:-150px;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(192,154,91,.07) 0%,transparent 70%)}
+    .login-left-content{position:relative;z-index:1;max-width:400px}
+    .login-left h1{font-family:'Playfair Display',serif;font-size:clamp(2.2rem,4vw,3.2rem);font-weight:500;color:var(--white);line-height:1.12;margin-bottom:1rem}
+    .login-left h1 em{font-style:italic;color:var(--gold2)}
+    .login-left p{font-size:.9rem;font-weight:300;color:rgba(255,255,255,.5);line-height:1.8;margin-bottom:2rem}
+    .invite-badge{display:inline-flex;align-items:center;gap:.5rem;border:1px solid rgba(192,154,91,.3);border-radius:20px;padding:.4rem 1rem;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2)}
+    .invite-dot{width:6px;height:6px;border-radius:50%;background:var(--gold2)}
+    .login-right{background:var(--beige2);display:flex;align-items:center;justify-content:center;padding:3rem}
+    .login-card{width:100%;max-width:400px;background:var(--white);border:1px solid var(--border);border-radius:4px;padding:2.5rem}
+    .login-card-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:500;color:var(--navy);margin-bottom:.35rem}
+    .login-card-sub{font-size:.82rem;font-weight:300;color:var(--gray);margin-bottom:1.75rem;line-height:1.6}
+
+    /* ── FORM ELEMENTS (light, mirrors sell-form style) ── */
+    .dp-form-group{margin-bottom:1rem}
+    .dp-form-group label{display:block;font-size:.63rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gray);margin-bottom:.45rem}
+    .dp-form-group input,.dp-form-group select,.dp-form-group textarea{width:100%;padding:.78rem 1rem;background:var(--beige);border:1px solid var(--border);border-radius:2px;font-family:'Jost',sans-serif;font-size:.85rem;font-weight:300;color:var(--navy);outline:none;transition:border-color .2s,background .2s;appearance:none}
+    .dp-form-group input::placeholder{color:#aaa}
+    .dp-form-group input:focus,.dp-form-group select:focus,.dp-form-group textarea:focus{border-color:var(--gold);background:var(--white)}
+    .dp-form-group textarea{resize:vertical;min-height:90px}
+    .dp-form-row{display:grid;grid-template-columns:1fr 1fr;gap:.85rem}
+
+    /* ── BUTTONS ── */
+    .btn-primary{display:inline-block;padding:.85rem 2rem;background:var(--navy);color:var(--beige);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:background .2s;width:100%}
+    .btn-primary:hover{background:var(--navy2)}
+    .btn-primary:disabled{opacity:.55;cursor:not-allowed}
+    .btn-gold{background:var(--gold);color:var(--navy)}
+    .btn-gold:hover{background:var(--gold2)}
+    .btn-sm{padding:.55rem 1.25rem;font-size:.68rem;width:auto}
+    .btn-outline{background:transparent;border:1px solid var(--border);color:var(--gray)}
+    .btn-outline:hover{border-color:var(--navy);color:var(--navy);background:transparent}
+    .btn-danger{background:var(--red);color:var(--white)}
+    .btn-danger:hover{background:#7a1b2a}
+    .btn-success{background:var(--green);color:var(--white)}
+    .btn-success:hover{background:#143d26}
+
+    /* ── DASHBOARD VIEW ── */
+    .dash-header{background:var(--navy);padding:3.5rem 5rem 3rem}
+    .dash-header-inner{max-width:1100px;margin:0 auto}
+    .dash-welcome{font-family:'Playfair Display',serif;font-size:clamp(1.6rem,3vw,2.2rem);font-weight:500;color:var(--white);margin-bottom:.35rem}
+    .dash-welcome em{font-style:italic;color:var(--gold2)}
+    .dash-sub{font-size:.85rem;font-weight:300;color:rgba(255,255,255,.45)}
+
+    .dash-cards{padding:3rem 5rem;max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem}
+    .dash-card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:2.25rem;cursor:pointer;transition:transform .25s,box-shadow .25s,border-color .25s;text-align:left}
+    .dash-card:hover{transform:translateY(-3px);box-shadow:0 12px 36px rgba(0,0,0,.08);border-color:rgba(192,154,91,.35)}
+    .dash-card-icon{font-size:1.75rem;margin-bottom:1.1rem}
+    .dash-card-title{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:500;color:var(--navy);margin-bottom:.5rem}
+    .dash-card-desc{font-size:.8rem;font-weight:300;color:var(--gray);line-height:1.7}
+    .dash-card.card-danger .dash-card-title{color:var(--red)}
+
+    /* ── SUB-VIEW HEADER ── */
+    .subview-header{background:var(--navy);padding:3rem 5rem 2.5rem}
+    .subview-header-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+    .subview-back{font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.45);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:.4rem;transition:color .2s;padding:0}
+    .subview-back:hover{color:var(--gold2)}
+    .subview-title{font-family:'Playfair Display',serif;font-size:clamp(1.4rem,2.5vw,2rem);font-weight:500;color:var(--white);margin-bottom:.25rem}
+    .subview-title em{font-style:italic;color:var(--gold2)}
+    .subview-sub{font-size:.82rem;font-weight:300;color:rgba(255,255,255,.45)}
+
+    /* ── CONTENT AREA ── */
+    .content-area{max-width:1100px;margin:0 auto;padding:2.5rem 5rem}
+
+    /* ── STATUS BADGE ── */
+    .status-badge{display:inline-block;font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:.25rem .65rem;border-radius:20px}
+    .status-pending{background:rgba(146,96,10,.12);color:var(--amber)}
+    .status-approved{background:rgba(26,71,49,.12);color:var(--green)}
+    .status-rejected{background:rgba(155,35,53,.12);color:var(--red)}
+    .status-published{background:rgba(12,28,51,.1);color:var(--navy)}
+
+    /* ── CARDS / TABLE ── */
+    .item-card{background:var(--white);border:1px solid var(--border);border-radius:3px;padding:1.5rem 1.75rem;margin-bottom:1rem;display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:start}
+    .item-card-title{font-size:.95rem;font-weight:600;color:var(--navy);margin-bottom:.25rem}
+    .item-card-sub{font-size:.78rem;font-weight:300;color:var(--gray);line-height:1.65}
+    .item-card-meta{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.6rem}
+    .meta-pill{font-size:.68rem;font-weight:500;letter-spacing:.04em;padding:.2rem .65rem;border:1px solid var(--border);border-radius:20px;color:var(--gray)}
+    .item-card-actions{display:flex;flex-direction:column;gap:.5rem;align-items:flex-end}
+
+    /* ── SECTION LABEL ── */
+    .section-label{font-size:.7rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.65rem;border-bottom:1px solid var(--border)}
+
+    /* ── EMPTY STATE ── */
+    .empty-state{text-align:center;padding:4rem 2rem;color:var(--gray)}
+    .empty-state-icon{font-size:2.5rem;margin-bottom:1rem;opacity:.4}
+    .empty-state-text{font-size:.88rem;font-weight:300;line-height:1.7}
+
+    /* ── ALERT ── */
+    .dp-alert{padding:.75rem 1rem;border-radius:2px;font-size:.82rem;margin-bottom:1rem;display:none}
+    .dp-alert.show{display:block}
+    .dp-alert-err{background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.2);color:var(--red)}
+    .dp-alert-ok{background:rgba(26,71,49,.08);border:1px solid rgba(26,71,49,.2);color:var(--green)}
+
+    /* ── ADMIN TABLE ── */
+    .dp-table{width:100%;border-collapse:collapse;font-size:.82rem}
+    .dp-table th{background:var(--navy);color:var(--gold2);font-size:.65rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;padding:.75rem 1rem;text-align:left}
+    .dp-table td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--gray);vertical-align:top}
+    .dp-table tr:last-child td{border-bottom:none}
+    .dp-table tr:nth-child(even) td{background:var(--beige)}
+    .dp-table td strong{color:var(--navy)}
+
+    /* ── ADMIN TAB BAR ── */
+    .tab-bar{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:2rem}
+    .tab-btn{font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.75rem 1.5rem;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;color:var(--gray);transition:all .2s}
+    .tab-btn.active{color:var(--navy);border-bottom-color:var(--gold)}
+    .tab-btn:hover:not(.active){color:var(--navy)}
+    .tab-panel{display:none}.tab-panel.active{display:block}
+
+    /* ── INTEREST CTA ── */
+    .interest-btn{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:.5rem 1.1rem;border-radius:2px;cursor:pointer;border:1px solid var(--gold);color:var(--gold);background:transparent;transition:all .2s}
+    .interest-btn:hover{background:var(--gold);color:var(--navy)}
+    .interest-btn.interested{background:var(--green);border-color:var(--green);color:var(--white);cursor:default}
+
+    /* ── FOOTER ── */
+    footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:2rem 5rem;display:flex;align-items:center;justify-content:space-between;margin-top:auto}
+    .footer-logo{font-family:'Playfair Display',serif;font-size:1rem;font-weight:600;color:var(--white)}
+    .footer-logo span{color:var(--gold)}
+    .footer-copy{font-size:.65rem;color:rgba(255,255,255,.25)}
+
+    /* ── LOADING SPINNER ── */
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:var(--white);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:.4rem}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── RESPONSIVE ── */
+    @media(max-width:900px){
+      .login-hero{grid-template-columns:1fr}
+      .login-left{display:none}
+      .login-right{min-height:calc(100vh - 64px);padding:2rem 1.5rem}
+      .dash-header{padding:2.5rem 1.75rem 2rem}
+      .dash-cards{grid-template-columns:1fr;padding:1.75rem 1.75rem}
+      .subview-header{padding:2rem 1.75rem}
+      .content-area{padding:1.75rem}
+      .dp-form-row{grid-template-columns:1fr}
+      .item-card{grid-template-columns:1fr}
+      .item-card-actions{flex-direction:row;align-items:center}
+      footer{flex-direction:column;gap:1rem;text-align:center;padding:1.75rem}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="nav-inner">
+    <a class="logo" href="/">The<span>Exact</span>Match</a>
+    <div class="nav-right">
+      <span class="nav-badge">Dealer Portal</span>
+      <span class="nav-dealer-name" id="nav-dealer-name"></span>
+      <button class="btn-logout" id="nav-logout-btn" onclick="doLogout()">Sign Out</button>
+      <a class="back-link" href="/">← Main Site</a>
+    </div>
+  </div>
+</nav>
+
+<div class="portal-wrap">
+
+<!-- ════════════════════════════════════════════════════════
+     VIEW: LOGIN
+═════════════════════════════════════════════════════════ -->
+<div class="view active" id="view-login">
+  <div class="login-hero">
+
+    <div class="login-left">
+      <div class="login-left-content">
+        <div class="invite-badge"><span class="invite-dot"></span>Invite Only</div>
+        <br/>
+        <h1>Dealer <em>Partner</em><br/>Portal</h1>
+        <p>Access your inventory submission dashboard, view active Sell My Car leads, and connect with motivated buyers — all in one place.</p>
+        <div style="display:flex;flex-direction:column;gap:.75rem;margin-top:1.5rem">
+          <div style="display:flex;align-items:center;gap:.75rem;font-size:.82rem;color:rgba(255,255,255,.6)">
+            <span style="color:var(--gold)">✦</span> Submit vehicles for Weekly Finds
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;font-size:.82rem;color:rgba(255,255,255,.6)">
+            <span style="color:var(--gold)">✦</span> View active seller leads
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;font-size:.82rem;color:rgba(255,255,255,.6)">
+            <span style="color:var(--gold)">✦</span> Express interest in vehicles
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="login-right">
+      <div class="login-card">
+        <div class="login-card-title">Sign In</div>
+        <div class="login-card-sub">Access is by invitation only. Contact Jeff to request an account.</div>
+
+        <div class="dp-alert dp-alert-err" id="login-error"></div>
+
+        <div class="dp-form-group">
+          <label>Email Address</label>
+          <input type="email" id="login-email" placeholder="you@dealership.com" autocomplete="email"/>
+        </div>
+        <div class="dp-form-group" style="margin-bottom:1.5rem">
+          <label>Password</label>
+          <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
+        </div>
+        <button class="btn-primary" id="login-btn" onclick="doLogin()">Login</button>
+
+        <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border);text-align:center;font-size:.75rem;color:var(--gray)">
+          Need access? <a href="mailto:info@theexactmatch.com" style="color:var(--gold);text-decoration:none;font-weight:500">Contact Jeff →</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /view-login -->
+
+<!-- ════════════════════════════════════════════════════════
+     VIEW: DEALER DASHBOARD
+═════════════════════════════════════════════════════════ -->
+<div class="view" id="view-dashboard">
+
+  <div class="dash-header">
+    <div class="dash-header-inner">
+      <div class="eyebrow light">Dealer Partner Portal</div>
+      <div class="dash-welcome">Welcome back, <em id="dash-dealer-name">Partner</em></div>
+      <div class="dash-sub" id="dash-dealership-name"></div>
+    </div>
+  </div>
+
+  <div class="dash-cards">
+    <div class="dash-card" onclick="showView('view-submit')">
+      <div class="dash-card-icon">🚗</div>
+      <div class="dash-card-title">Submit a Vehicle</div>
+      <div class="dash-card-desc">Submit a vehicle for consideration in Jeff's Weekly Finds newsletter. Reach thousands of active luxury buyers.</div>
+    </div>
+    <div class="dash-card" onclick="showView('view-leads')">
+      <div class="dash-card-icon">🔍</div>
+      <div class="dash-card-title">Sell My Car Leads</div>
+      <div class="dash-card-desc">Browse active seller leads. Express interest and we'll connect you with motivated sellers looking for offers.</div>
+    </div>
+    <div class="dash-card" onclick="showView('view-my-submissions')">
+      <div class="dash-card-icon">📋</div>
+      <div class="dash-card-title">My Submissions</div>
+      <div class="dash-card-desc">Track the status of your vehicle submissions — pending review, approved, or published in the newsletter.</div>
+    </div>
+  </div>
+
+</div><!-- /view-dashboard -->
+
+<!-- ════════════════════════════════════════════════════════
+     VIEW: SUBMIT VEHICLE
+═════════════════════════════════════════════════════════ -->
+<div class="view" id="view-submit">
+
+  <div class="subview-header">
+    <div class="subview-header-inner">
+      <div>
+        <button class="subview-back" onclick="showView('view-dashboard')">← Dashboard</button>
+        <div class="subview-title">Submit a <em>Vehicle</em></div>
+        <div class="subview-sub">Submit for Weekly Finds newsletter consideration</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-area">
+    <div style="max-width:680px">
+
+      <div class="dp-alert dp-alert-err" id="submit-error"></div>
+      <div class="dp-alert dp-alert-ok"  id="submit-success"></div>
+
+      <div class="dp-form-row">
+        <div class="dp-form-group">
+          <label>Year</label>
+          <input type="number" id="sv-year" placeholder="2022" min="1990" max="2026"/>
+        </div>
+        <div class="dp-form-group">
+          <label>Category</label>
+          <select id="sv-category">
+            <option value="">Select category...</option>
+            <option>Luxury</option>
+            <option>Exotic</option>
+            <option>Under $50k</option>
+            <option>Truck</option>
+          </select>
+        </div>
+      </div>
+      <div class="dp-form-row">
+        <div class="dp-form-group">
+          <label>Make</label>
+          <input type="text" id="sv-make" placeholder="Porsche"/>
+        </div>
+        <div class="dp-form-group">
+          <label>Model</label>
+          <input type="text" id="sv-model" placeholder="911 Carrera S"/>
+        </div>
+      </div>
+      <div class="dp-form-row">
+        <div class="dp-form-group">
+          <label>Price ($)</label>
+          <input type="number" id="sv-price" placeholder="142500"/>
+        </div>
+        <div class="dp-form-group">
+          <label>Mileage</label>
+          <input type="number" id="sv-mileage" placeholder="12400"/>
+        </div>
+      </div>
+      <div class="dp-form-group">
+        <label>Description</label>
+        <textarea id="sv-description" placeholder="Exterior color, interior, key options, condition notes, any relevant history..."></textarea>
+      </div>
+      <div class="dp-form-group">
+        <label>Photo URLs (one per line)</label>
+        <textarea id="sv-images" placeholder="https://your-cdn.com/photo1.jpg&#10;https://your-cdn.com/photo2.jpg" style="min-height:70px"></textarea>
+        <div style="font-size:.7rem;color:var(--gray);margin-top:.4rem;font-weight:300">Paste direct image URLs — or leave blank and attach photos via email to info@theexactmatch.com</div>
+      </div>
+
+      <button class="btn-primary" id="submit-btn" onclick="doSubmitVehicle()" style="max-width:300px;margin-top:.5rem">
+        Submit Vehicle
+      </button>
+    </div>
+  </div>
+
+</div><!-- /view-submit -->
+
+<!-- ════════════════════════════════════════════════════════
+     VIEW: SELL MY CAR LEADS
+═════════════════════════════════════════════════════════ -->
+<div class="view" id="view-leads">
+
+  <div class="subview-header">
+    <div class="subview-header-inner">
+      <div>
+        <button class="subview-back" onclick="showView('view-dashboard')">← Dashboard</button>
+        <div class="subview-title">Sell My Car <em>Leads</em></div>
+        <div class="subview-sub">Active seller leads — click Interested to connect</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-area">
+    <div style="background:rgba(192,154,91,.08);border:1px solid rgba(192,154,91,.2);border-radius:3px;padding:1rem 1.25rem;margin-bottom:1.75rem;font-size:.8rem;color:var(--gray);line-height:1.65">
+      <strong style="color:var(--navy)">Privacy notice:</strong> Seller contact information is never displayed. When you express interest, Jeff will coordinate the introduction. You see vehicle details only.
+    </div>
+
+    <div id="leads-loading" style="text-align:center;padding:3rem;color:var(--gray);font-size:.88rem">Loading leads...</div>
+    <div id="leads-list"></div>
+  </div>
+
+</div><!-- /view-leads -->
+
+<!-- ════════════════════════════════════════════════════════
+     VIEW: MY SUBMISSIONS
+═════════════════════════════════════════════════════════ -->
+<div class="view" id="view-my-submissions">
+
+  <div class="subview-header">
+    <div class="subview-header-inner">
+      <div>
+        <button class="subview-back" onclick="showView('view-dashboard')">← Dashboard</button>
+        <div class="subview-title">My <em>Submissions</em></div>
+        <div class="subview-sub">Track the status of your vehicle submissions</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-area">
+    <div id="subs-loading" style="text-align:center;padding:3rem;color:var(--gray);font-size:.88rem">Loading submissions...</div>
+    <div id="subs-list"></div>
+  </div>
+
+</div><!-- /view-my-submissions -->
+
+<!-- ════════════════════════════════════════════════════════
+     VIEW: ADMIN DASHBOARD
+═════════════════════════════════════════════════════════ -->
+<div class="view" id="view-admin">
+
+  <div class="subview-header" style="background:var(--navy)">
+    <div class="subview-header-inner">
+      <div>
+        <div class="subview-title">Admin <em>Dashboard</em></div>
+        <div class="subview-sub">TheExactMatch dealer partner management</div>
+      </div>
+      <button class="btn-primary btn-sm btn-danger" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="content-area">
+
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('tab-submissions')">Submissions</button>
+      <button class="tab-btn" onclick="switchTab('tab-leads')">Sell Leads</button>
+      <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers</button>
+      <button class="tab-btn" onclick="switchTab('tab-create-dealer')">+ Add Dealer</button>
+    </div>
+
+    <!-- Tab: Submissions -->
+    <div class="tab-panel active" id="tab-submissions">
+      <div class="section-label">Vehicle Submissions</div>
+      <div id="admin-subs-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+      <div id="admin-subs-list"></div>
+    </div>
+
+    <!-- Tab: Sell Leads -->
+    <div class="tab-panel" id="tab-leads">
+      <div class="section-label">Sell My Car Leads</div>
+      <div id="admin-leads-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+      <div id="admin-leads-list"></div>
+    </div>
+
+    <!-- Tab: Dealers -->
+    <div class="tab-panel" id="tab-dealers">
+      <div class="section-label">Dealer Accounts</div>
+      <div id="admin-dealers-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+      <table class="dp-table" id="admin-dealers-table" style="display:none">
+        <thead>
+          <tr>
+            <th>Name</th><th>Dealership</th><th>Email</th><th>Status</th><th>Joined</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="admin-dealers-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Tab: Create Dealer -->
+    <div class="tab-panel" id="tab-create-dealer">
+      <div class="section-label">Create Dealer Account</div>
+      <div style="max-width:480px">
+        <div class="dp-alert dp-alert-err" id="create-dealer-error"></div>
+        <div class="dp-alert dp-alert-ok"  id="create-dealer-success"></div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Contact Name</label><input type="text" id="cd-name" placeholder="John Smith"/></div>
+          <div class="dp-form-group"><label>Dealership Name</label><input type="text" id="cd-dealership" placeholder="Smith Motors"/></div>
+        </div>
+        <div class="dp-form-group"><label>Email</label><input type="email" id="cd-email" placeholder="john@smithmotors.com"/></div>
+        <div class="dp-form-group"><label>Temporary Password</label><input type="text" id="cd-password" placeholder="They should change this on first login"/></div>
+        <button class="btn-primary btn-gold" style="max-width:240px" id="create-dealer-btn" onclick="doCreateDealer()">Create Dealer Account</button>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /view-admin -->
+
+</div><!-- /portal-wrap -->
+
+<footer>
+  <div class="footer-logo">The<span>Exact</span>Match</div>
+  <div class="footer-copy">© 2026 TheExactMatch.com · Dealer Portal · Invite Only</div>
+</footer>
+
+<script>
+// ── Config ────────────────────────────────────────────────────
+const API = '/api';  // proxied via Cloudflare Pages to the Worker
+const ADMIN_VIEW_PARAM = 'admin';
+
+// ── State ─────────────────────────────────────────────────────
+let authToken    = localStorage.getItem('tem_dealer_token') || null;
+let currentDealer = null;
+let isAdmin      = false;
+
+// ── Utility ───────────────────────────────────────────────────
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+
+  // Trigger data loads on view switch
+  if (id === 'view-leads')          loadLeads();
+  if (id === 'view-my-submissions') loadMySubmissions();
+  if (id === 'view-admin') {
+    loadAdminSubmissions();
+    loadAdminLeads();
+    loadAdminDealers();
+  }
+}
+
+function showAlert(id, msg, type = 'err') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.className   = `dp-alert dp-alert-${type} show`;
+  if (type === 'ok') setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+function setLoading(btnId, loading, loadingText = 'Loading…', originalText = null) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled   = loading;
+  if (loading)   btn.innerHTML = `<span class="spinner"></span>${loadingText}`;
+  else if (originalText) btn.textContent = originalText;
+}
+
+async function apiFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  const res  = await fetch(`${API}${path}`, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  return { res, data };
+}
+
+// ── Auth ──────────────────────────────────────────────────────
+async function doLogin() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+
+  if (!email || !password) {
+    showAlert('login-error', 'Please enter your email and password.');
+    return;
+  }
+
+  setLoading('login-btn', true, 'Signing in…');
+
+  const { res, data } = await apiFetch('/dealer/login', {
+    method: 'POST',
+    body:   JSON.stringify({ email, password })
+  }).catch(() => ({ res: { ok: false }, data: { error: 'Connection error. Please try again.' } }));
+
+  setLoading('login-btn', false, null, 'Login');
+
+  if (!res.ok) {
+    showAlert('login-error', data.error || 'Invalid credentials.');
+    return;
+  }
+
+  authToken = data.token;
+  localStorage.setItem('tem_dealer_token', authToken);
+  currentDealer = data.dealer;
+  enterDealerDash();
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && document.getElementById('view-login').classList.contains('active')) {
+    doLogin();
+  }
+});
+
+async function doLogout() {
+  if (authToken) {
+    await apiFetch('/dealer/logout', { method: 'POST' }).catch(() => {});
+  }
+  authToken     = null;
+  currentDealer = null;
+  isAdmin       = false;
+  localStorage.removeItem('tem_dealer_token');
+  updateNavAuth(false);
+  showView('view-login');
+}
+
+function enterDealerDash() {
+  if (!currentDealer) return;
+  document.getElementById('dash-dealer-name').textContent    = currentDealer.name;
+  document.getElementById('dash-dealership-name').textContent = currentDealer.dealership_name;
+  updateNavAuth(true);
+  showView('view-dashboard');
+}
+
+function updateNavAuth(loggedIn) {
+  const nameEl   = document.getElementById('nav-dealer-name');
+  const logoutEl = document.getElementById('nav-logout-btn');
+  if (loggedIn && currentDealer) {
+    nameEl.textContent = currentDealer.dealership_name;
+    nameEl.classList.add('visible');
+    logoutEl.classList.add('visible');
+  } else {
+    nameEl.classList.remove('visible');
+    logoutEl.classList.remove('visible');
+  }
+}
+
+// ── Session restore on load ───────────────────────────────────
+async function restoreSession() {
+  // Check for admin mode via URL param
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('mode') === ADMIN_VIEW_PARAM && authToken) {
+    const { res, data } = await apiFetch('/admin/dealers').catch(() => ({res:{ok:false},data:{}}));
+    if (res.ok) {
+      isAdmin = true;
+      showView('view-admin');
+      return;
+    }
+  }
+
+  if (!authToken) return;
+  const { res, data } = await apiFetch('/dealer/me').catch(() => ({res:{ok:false},data:{}}));
+  if (res.ok) {
+    currentDealer = data;
+    enterDealerDash();
+  } else {
+    authToken = null;
+    localStorage.removeItem('tem_dealer_token');
+  }
+}
+
+// ── Submit Vehicle ────────────────────────────────────────────
+async function doSubmitVehicle() {
+  const year        = document.getElementById('sv-year').value.trim();
+  const make        = document.getElementById('sv-make').value.trim();
+  const model       = document.getElementById('sv-model').value.trim();
+  const price       = document.getElementById('sv-price').value.trim();
+  const mileage     = document.getElementById('sv-mileage').value.trim();
+  const category    = document.getElementById('sv-category').value;
+  const description = document.getElementById('sv-description').value.trim();
+  const imagesRaw   = document.getElementById('sv-images').value.trim();
+
+  document.getElementById('submit-error').classList.remove('show');
+  document.getElementById('submit-success').classList.remove('show');
+
+  if (!year || !make || !model || !price || !mileage || !category) {
+    showAlert('submit-error', 'Please fill in Year, Make, Model, Price, Mileage, and Category.');
+    return;
+  }
+
+  const image_urls = imagesRaw
+    ? imagesRaw.split('\n').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  setLoading('submit-btn', true, 'Submitting…');
+
+  const { res, data } = await apiFetch('/dealer/submit-vehicle', {
+    method: 'POST',
+    body:   JSON.stringify({ year: +year, make, model, price: +price,
+                              mileage: +mileage, category, description, image_urls })
+  }).catch(() => ({res:{ok:false},data:{error:'Connection error.'}}));
+
+  setLoading('submit-btn', false, null, 'Submit Vehicle');
+
+  if (!res.ok) {
+    showAlert('submit-error', data.error || 'Submission failed. Please try again.');
+    return;
+  }
+
+  showAlert('submit-success', '✓ Vehicle submitted. Jeff will review and be in touch.', 'ok');
+  // Clear form
+  ['sv-year','sv-make','sv-model','sv-price','sv-mileage','sv-description','sv-images']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('sv-category').value = '';
+}
+
+// ── Leads ─────────────────────────────────────────────────────
+async function loadLeads() {
+  document.getElementById('leads-loading').style.display = 'block';
+  document.getElementById('leads-list').innerHTML        = '';
+
+  const { res, data } = await apiFetch('/dealer/leads')
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('leads-loading').style.display = 'none';
+
+  if (!res.ok) {
+    document.getElementById('leads-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">⚠</div><div class="empty-state-text">Could not load leads. Please refresh.</div></div>';
+    return;
+  }
+
+  const leads = data.leads || [];
+  if (!leads.length) {
+    document.getElementById('leads-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-text">No active leads right now.<br/>Check back soon — new seller leads are added regularly.</div></div>';
+    return;
+  }
+
+  document.getElementById('leads-list').innerHTML = leads.map(lead => `
+    <div class="item-card">
+      <div>
+        <div class="item-card-title">${lead.year} ${lead.make} ${lead.model}</div>
+        <div class="item-card-sub">${lead.notes ? lead.notes : 'No additional notes.'}</div>
+        <div class="item-card-meta">
+          <span class="meta-pill">${lead.mileage} miles</span>
+          <span class="meta-pill">${lead.condition}</span>
+          <span class="meta-pill">${lead.title_status}</span>
+          ${lead.city ? `<span class="meta-pill">${lead.city}${lead.state ? ', ' + lead.state : ''}</span>` : ''}
+          <span class="meta-pill" style="color:var(--gray);opacity:.6">${formatDate(lead.created_at)}</span>
+        </div>
+      </div>
+      <div class="item-card-actions">
+        <button class="interest-btn ${lead.i_expressed_interest ? 'interested' : ''}"
+          id="interest-btn-${lead.id}"
+          onclick="doExpressInterest(${lead.id})"
+          ${lead.i_expressed_interest ? 'disabled' : ''}>
+          ${lead.i_expressed_interest ? '✓ Interested' : "I'm Interested"}
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function doExpressInterest(leadId) {
+  const btn = document.getElementById(`interest-btn-${leadId}`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+  const { res, data } = await apiFetch(`/dealer/leads/${leadId}/interest`, { method: 'POST' })
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  if (res.ok) {
+    if (btn) { btn.textContent = '✓ Interested'; btn.classList.add('interested'); }
+  } else {
+    if (btn) { btn.disabled = false; btn.textContent = "I'm Interested"; }
+    alert(data.error || 'Could not record interest. Please try again.');
+  }
+}
+
+// ── My Submissions ────────────────────────────────────────────
+async function loadMySubmissions() {
+  document.getElementById('subs-loading').style.display = 'block';
+  document.getElementById('subs-list').innerHTML        = '';
+
+  const { res, data } = await apiFetch('/dealer/my-submissions')
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('subs-loading').style.display = 'none';
+
+  if (!res.ok) {
+    document.getElementById('subs-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">⚠</div><div class="empty-state-text">Could not load submissions.</div></div>';
+    return;
+  }
+
+  const subs = data.submissions || [];
+  if (!subs.length) {
+    document.getElementById('subs-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">🚗</div><div class="empty-state-text">No submissions yet.<br/><button class="btn-primary btn-sm btn-gold" style="margin-top:1rem;width:auto" onclick="showView(\'view-submit\')">Submit Your First Vehicle</button></div></div>';
+    return;
+  }
+
+  document.getElementById('subs-list').innerHTML = subs.map(s => `
+    <div class="item-card">
+      <div>
+        <div class="item-card-title">${s.year} ${s.make} ${s.model}</div>
+        <div class="item-card-meta">
+          <span class="meta-pill">${formatPrice(s.price)}</span>
+          <span class="meta-pill">${s.mileage.toLocaleString()} miles</span>
+          <span class="meta-pill">${s.category}</span>
+          <span class="meta-pill" style="color:var(--gray);opacity:.6">${formatDate(s.created_at)}</span>
+        </div>
+      </div>
+      <div class="item-card-actions">
+        <span class="status-badge status-${s.status}">${s.status}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── ADMIN ─────────────────────────────────────────────────────
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const panels = document.querySelectorAll('.tab-panel');
+    b.classList.remove('active');
+    if (panels[i]) panels[i].classList.remove('active');
+  });
+  const tabIndex = ['tab-submissions','tab-leads','tab-dealers','tab-create-dealer'].indexOf(tabId);
+  document.querySelectorAll('.tab-btn')[tabIndex]?.classList.add('active');
+  document.getElementById(tabId)?.classList.add('active');
+}
+
+async function loadAdminSubmissions() {
+  document.getElementById('admin-subs-loading').style.display = 'block';
+  document.getElementById('admin-subs-list').innerHTML        = '';
+
+  const { res, data } = await apiFetch('/admin/submissions')
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('admin-subs-loading').style.display = 'none';
+
+  if (!res.ok) { document.getElementById('admin-subs-list').innerHTML = '<p style="color:var(--red);font-size:.82rem">Load failed — check admin token.</p>'; return; }
+
+  const subs = data.submissions || [];
+  if (!subs.length) { document.getElementById('admin-subs-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">No submissions yet.</div></div>'; return; }
+
+  document.getElementById('admin-subs-list').innerHTML = subs.map(s => `
+    <div class="item-card">
+      <div>
+        <div class="item-card-title">${s.year} ${s.make} ${s.model}</div>
+        <div class="item-card-sub" style="margin-bottom:.4rem">${s.dealership_name} · ${s.dealer_name}</div>
+        <div class="item-card-meta">
+          <span class="meta-pill">${formatPrice(s.price)}</span>
+          <span class="meta-pill">${(s.mileage||0).toLocaleString()} miles</span>
+          <span class="meta-pill">${s.category}</span>
+          <span class="meta-pill" style="opacity:.6">${formatDate(s.created_at)}</span>
+        </div>
+        ${s.description ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.5rem;line-height:1.6">${s.description}</div>` : ''}
+      </div>
+      <div class="item-card-actions">
+        <span class="status-badge status-${s.status}">${s.status}</span>
+        ${s.status === 'pending' ? `
+          <button class="btn-primary btn-sm btn-success" onclick="adminUpdateSub(${s.id},'approved')">Approve</button>
+          <button class="btn-primary btn-sm btn-danger"  onclick="adminUpdateSub(${s.id},'rejected')">Reject</button>
+        ` : ''}
+        ${s.status === 'approved' ? `
+          <button class="btn-primary btn-sm" onclick="adminUpdateSub(${s.id},'published')">Publish</button>
+        ` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function adminUpdateSub(id, status) {
+  const { res } = await apiFetch(`/admin/submissions/${id}`, {
+    method: 'PATCH', body: JSON.stringify({ status })
+  }).catch(() => ({res:{ok:false}}));
+  if (res.ok) loadAdminSubmissions();
+  else alert('Update failed.');
+}
+
+async function loadAdminLeads() {
+  document.getElementById('admin-leads-loading').style.display = 'block';
+  document.getElementById('admin-leads-list').innerHTML        = '';
+
+  const { res, data } = await apiFetch('/admin/leads')
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('admin-leads-loading').style.display = 'none';
+
+  if (!res.ok) return;
+
+  const leads = data.leads || [];
+  if (!leads.length) { document.getElementById('admin-leads-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">No sell leads yet.</div></div>'; return; }
+
+  document.getElementById('admin-leads-list').innerHTML = leads.map(l => `
+    <div class="item-card">
+      <div>
+        <div class="item-card-title">${l.year} ${l.make} ${l.model}</div>
+        <div class="item-card-meta">
+          <span class="meta-pill">${l.mileage} miles</span>
+          <span class="meta-pill">${l.condition}</span>
+          <span class="meta-pill">${l.title_status}</span>
+          ${l.city ? `<span class="meta-pill">${l.city}${l.state?', '+l.state:''}</span>` : ''}
+          <span class="meta-pill" style="opacity:.6">${formatDate(l.created_at)}</span>
+        </div>
+        ${l.notes ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.5rem">${l.notes}</div>` : ''}
+        ${l.interest_count > 0 ? `<div style="font-size:.75rem;color:var(--green);margin-top:.5rem;font-weight:600">✓ ${l.interest_count} dealer${l.interest_count>1?'s':''} interested${l.interested_dealers ? ': ' + l.interested_dealers : ''}</div>` : ''}
+      </div>
+      <div class="item-card-actions">
+        <span class="meta-pill">${l.interest_count || 0} interested</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadAdminDealers() {
+  document.getElementById('admin-dealers-loading').style.display = 'block';
+  document.getElementById('admin-dealers-table').style.display   = 'none';
+
+  const { res, data } = await apiFetch('/admin/dealers')
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('admin-dealers-loading').style.display = 'none';
+
+  if (!res.ok) return;
+
+  const dealers = data.dealers || [];
+  if (!dealers.length) { document.getElementById('admin-dealers-loading').textContent = 'No dealers yet.'; document.getElementById('admin-dealers-loading').style.display='block'; return; }
+
+  document.getElementById('admin-dealers-body').innerHTML = dealers.map(d => `
+    <tr>
+      <td><strong>${d.name}</strong></td>
+      <td>${d.dealership_name}</td>
+      <td>${d.email}</td>
+      <td><span class="status-badge ${d.status === 'active' ? 'status-approved' : 'status-rejected'}">${d.status}</span></td>
+      <td>${formatDate(d.created_at)}</td>
+      <td>
+        <button class="btn-primary btn-sm ${d.status==='active'?'btn-danger':'btn-success'}"
+          onclick="adminUpdateDealer(${d.id}, '${d.status==='active'?'suspended':'active'}')">
+          ${d.status === 'active' ? 'Suspend' : 'Activate'}
+        </button>
+      </td>
+    </tr>
+  `).join('');
+  document.getElementById('admin-dealers-table').style.display = 'table';
+}
+
+async function adminUpdateDealer(id, status) {
+  const { res } = await apiFetch(`/admin/dealers/${id}`, {
+    method: 'PATCH', body: JSON.stringify({ status })
+  }).catch(() => ({res:{ok:false}}));
+  if (res.ok) loadAdminDealers();
+  else alert('Update failed.');
+}
+
+async function doCreateDealer() {
+  const name        = document.getElementById('cd-name').value.trim();
+  const dealership  = document.getElementById('cd-dealership').value.trim();
+  const email       = document.getElementById('cd-email').value.trim();
+  const password    = document.getElementById('cd-password').value.trim();
+
+  document.getElementById('create-dealer-error').classList.remove('show');
+  document.getElementById('create-dealer-success').classList.remove('show');
+
+  if (!name || !dealership || !email || !password) {
+    showAlert('create-dealer-error', 'All fields are required.');
+    return;
+  }
+
+  setLoading('create-dealer-btn', true, 'Creating…');
+
+  const { res, data } = await apiFetch('/admin/dealers', {
+    method: 'POST', body: JSON.stringify({ name, dealership_name: dealership, email, password })
+  }).catch(() => ({res:{ok:false},data:{error:'Connection error.'}}));
+
+  setLoading('create-dealer-btn', false, null, 'Create Dealer Account');
+
+  if (!res.ok) {
+    showAlert('create-dealer-error', data.error || 'Failed to create dealer.');
+    return;
+  }
+
+  showAlert('create-dealer-success', `✓ Dealer account created for ${email}. They can now log in.`, 'ok');
+  ['cd-name','cd-dealership','cd-email','cd-password'].forEach(id => { document.getElementById(id).value = ''; });
+  loadAdminDealers();
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function formatDate(str) {
+  if (!str) return '';
+  return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function formatPrice(n) {
+  return '$' + Number(n).toLocaleString();
+}
+
+// ── Init ──────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', restoreSession);
+</script>
+</body>
+</html>
