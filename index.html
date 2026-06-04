@@ -1218,7 +1218,7 @@ async function submitWeeklyForm(){
   btn.disabled=true; btn.textContent='Sending…';
 
   try{
-    const res  = await fetch('/newsletter-signup',{
+    const res  = await fetch('https://newsletter-signup.jeffakrong26.workers.dev',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({email})
