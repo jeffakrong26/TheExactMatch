@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Jeff's Weekly Deals — Issue No. 1</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;0,900;1,400;1,700&family=Jost:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0D0D0D;
+  --navy:#0C1C33;
+  --gold:#C09A5B;
+  --gold2:#D4B47A;
+  --paper:#FAF8F3;
+  --cream:#F0EBE0;
+  --rule:#2A2A2A;
+  --gray:#555;
+  --lgray:#999;
+  --red:#B5191A;
+  --white:#fff;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Jost',sans-serif;background:var(--paper);color:var(--ink);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+
+/* ── MASTHEAD ── */
+.masthead{background:var(--navy);padding:0;position:relative;overflow:hidden}
+.masthead-top{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 3rem;border-bottom:1px solid rgba(192,154,91,.2)}
+.masthead-logo{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;color:var(--white);letter-spacing:.04em;text-decoration:none}
+.masthead-logo span{color:var(--gold)}
+.masthead-issue{font-family:'DM Mono',monospace;font-size:.65rem;color:rgba(255,255,255,.4);letter-spacing:.12em;text-transform:uppercase}
+.masthead-hero{padding:4rem 3rem 3.5rem;text-align:center;position:relative}
+.masthead-hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 30%,rgba(192,154,91,.08) 0%,transparent 65%)}
+.issue-eyebrow{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;display:flex;align-items:center;justify-content:center;gap:.75rem}
+.issue-eyebrow::before,.issue-eyebrow::after{content:'';display:block;width:40px;height:1px;background:var(--gold);opacity:.5}
+.masthead-title{font-family:'Playfair Display',serif;font-size:clamp(3rem,7vw,5.5rem);font-weight:900;color:var(--white);line-height:.95;letter-spacing:-.02em;margin-bottom:.75rem}
+.masthead-title em{font-style:italic;color:var(--gold)}
+.masthead-sub{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.5);letter-spacing:.06em;text-transform:uppercase;margin-bottom:2.5rem}
+.masthead-rule{width:60px;height:1.5px;background:var(--gold);margin:0 auto 2rem}
+.masthead-intro{font-family:'Playfair Display',serif;font-size:1.1rem;font-style:italic;font-weight:400;color:rgba(255,255,255,.7);max-width:560px;margin:0 auto;line-height:1.75}
+.issue-strip{background:var(--gold);padding:.6rem 3rem;display:flex;gap:2rem;align-items:center;overflow-x:auto}
+.issue-strip-item{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--navy);white-space:nowrap;font-weight:500}
+.issue-strip-dot{width:3px;height:3px;border-radius:50%;background:var(--navy);opacity:.4;flex-shrink:0}
+
+/* ── LAYOUT ── */
+.page-wrap{max-width:1100px;margin:0 auto;padding:0 2rem}
+.section-rule{height:1px;background:var(--rule);margin:0}
+.gold-rule{height:2px;background:linear-gradient(90deg,var(--gold),transparent);margin-bottom:2rem}
+
+/* ── TOC ── */
+.toc{background:var(--cream);border-bottom:1px solid #DDD8CC}
+.toc-inner{max-width:1100px;margin:0 auto;padding:2.5rem 2rem;display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:#DDD8CC}
+.toc-item{background:var(--cream);padding:1.25rem 1rem;text-align:center;text-decoration:none;transition:background .2s}
+.toc-item:hover{background:var(--white)}
+.toc-num{font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.15em;color:var(--gold);margin-bottom:.4rem;text-transform:uppercase}
+.toc-make{font-size:.72rem;font-weight:700;color:var(--navy);letter-spacing:.05em;text-transform:uppercase;margin-bottom:.2rem}
+.toc-model{font-family:'Playfair Display',serif;font-size:.88rem;font-style:italic;color:var(--gray)}
+.toc-price{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--gold);margin-top:.35rem}
+
+/* ── VEHICLE PAGE ── */
+.vehicle-page{border-bottom:3px solid var(--ink);background:var(--white)}
+.vehicle-page:nth-child(even){background:var(--paper)}
+
+/* Hero image area */
+.vp-hero{position:relative;height:520px;overflow:hidden}
+.vp-hero img{width:100%;height:100%;object-fit:cover;display:block}
+.vp-hero-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.8) 0%,rgba(0,0,0,.25) 50%,rgba(0,0,0,.1) 100%)}
+.vp-hero-content{position:absolute;bottom:0;left:0;right:0;padding:2.5rem 3rem}
+.vp-issue-num{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.vp-issue-num::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.vp-make{font-size:.7rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:.35rem}
+.vp-title{font-family:'Playfair Display',serif;font-size:clamp(2.2rem,4.5vw,3.8rem);font-weight:700;color:var(--white);line-height:1.05;margin-bottom:.5rem}
+.vp-title em{font-style:italic;color:var(--gold2)}
+.vp-tagline{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.6);line-height:1.7}
+
+/* Price badge */
+.vp-price-badge{position:absolute;top:1.75rem;right:2.5rem;background:var(--navy);border:1px solid rgba(192,154,91,.35);padding:.9rem 1.25rem;text-align:center;border-radius:2px}
+.vp-price-label{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:.25rem}
+.vp-price-num{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;color:var(--gold);line-height:1}
+
+/* Body grid */
+.vp-body{display:grid;grid-template-columns:1fr 340px;gap:0;border-top:2px solid var(--ink)}
+.vp-main{padding:2.75rem 3rem 3rem}
+.vp-sidebar{padding:2.25rem 2rem;border-left:1px solid #DDD8CC;background:var(--cream)}
+
+/* Editorial */
+.editorial-drop::first-letter{font-family:'Playfair Display',serif;font-size:4.5rem;font-weight:900;float:left;line-height:.8;margin:.1em .15em 0 0;color:var(--navy)}
+.editorial-body{font-size:.95rem;font-weight:300;line-height:1.85;color:#333;margin-bottom:1.5rem;clear:both}
+.editorial-pull{font-family:'Playfair Display',serif;font-size:1.5rem;font-style:italic;font-weight:400;color:var(--navy);line-height:1.45;border-left:3px solid var(--gold);padding-left:1.25rem;margin:2rem 0;clear:both}
+
+/* Specs block */
+.specs-heading{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid #DDD8CC}
+.spec-row{display:flex;justify-content:space-between;align-items:baseline;padding:.5rem 0;border-bottom:1px solid #EEEAE0;gap:.5rem}
+.spec-row:last-child{border-bottom:none}
+.spec-label{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;color:var(--lgray);flex-shrink:0}
+.spec-val{font-size:.82rem;font-weight:600;color:var(--ink);text-align:right;line-height:1.3}
+
+/* Links */
+.link-block{margin-top:1.75rem}
+.link-btn{display:flex;align-items:center;gap:.6rem;padding:.75rem 1rem;text-decoration:none;font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border-radius:2px;margin-bottom:.5rem;transition:all .2s}
+.link-btn-primary{background:var(--navy);color:var(--white)}
+.link-btn-primary:hover{background:#152a4a}
+.link-btn-secondary{background:transparent;color:var(--navy);border:1px solid #DDD8CC}
+.link-btn-secondary:hover{border-color:var(--navy)}
+.link-btn-icon{font-size:.9rem;flex-shrink:0}
+.link-btn-carfax{background:#D4291B;color:var(--white)}
+.link-btn-carfax:hover{background:#b5221a}
+
+/* Jeff's Take */
+.jeffs-take{background:var(--navy);padding:1.5rem;margin-top:2rem;border-radius:2px}
+.jeffs-take-label{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.65rem}
+.jeffs-take-text{font-size:.85rem;font-weight:300;color:rgba(255,255,255,.8);line-height:1.75}
+.jeffs-take-sig{font-family:'Playfair Display',serif;font-style:italic;font-size:.82rem;color:var(--gold2);margin-top:.75rem}
+
+/* Special note badge */
+.special-badge{background:var(--gold);color:var(--navy);padding:.5rem .85rem;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border-radius:20px;display:inline-block;margin-bottom:1.25rem}
+
+/* Photo strip */
+.photo-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 3rem 3rem}
+.photo-strip img{width:100%;height:160px;object-fit:cover;display:block}
+.photo-strip-full{padding:0 3rem 3rem}
+.photo-strip-full img{width:100%;height:340px;object-fit:cover;display:block}
+
+/* ── MARKET PULSE sidebar ── */
+.market-pulse-box{background:var(--ink);padding:1.25rem;margin-top:1.75rem;border-radius:2px}
+.market-pulse-label{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.65rem}
+.market-pulse-item{display:flex;justify-content:space-between;align-items:baseline;padding:.35rem 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.market-pulse-item:last-child{border-bottom:none}
+.mp-label{font-size:.72rem;font-weight:300;color:rgba(255,255,255,.55)}
+.mp-val{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--gold2);font-weight:500}
+.mp-green{color:#86efac}
+.mp-red{color:#fca5a5}
+
+/* ── NEW/CPO STAMP ── */
+.stamp{display:inline-flex;align-items:center;gap:.4rem;border:1.5px solid var(--gold);border-radius:2px;padding:.3rem .65rem;font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem}
+
+/* ── FOOTER ── */
+.newsletter-footer{background:var(--navy);padding:3rem;text-align:center}
+.nf-logo{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:var(--white);margin-bottom:.5rem}
+.nf-logo span{color:var(--gold)}
+.nf-tagline{font-size:.78rem;font-weight:300;color:rgba(255,255,255,.4);margin-bottom:1.5rem;letter-spacing:.05em}
+.nf-contact{display:flex;justify-content:center;gap:2rem;flex-wrap:wrap;font-size:.75rem;color:rgba(255,255,255,.5);margin-bottom:1.5rem}
+.nf-contact a{color:var(--gold2);text-decoration:none}
+.nf-legal{font-size:.65rem;color:rgba(255,255,255,.25);line-height:1.7;max-width:480px;margin:0 auto}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .masthead-hero{padding:3rem 1.5rem 2.5rem}
+  .masthead-top{padding:1rem 1.5rem}
+  .toc-inner{grid-template-columns:repeat(3,1fr)}
+  .vp-hero{height:360px}
+  .vp-hero-content{padding:1.5rem}
+  .vp-price-badge{top:1rem;right:1rem;padding:.65rem .85rem}
+  .vp-body{grid-template-columns:1fr}
+  .vp-sidebar{border-left:none;border-top:1px solid #DDD8CC}
+  .vp-main{padding:2rem 1.5rem}
+  .photo-strip{padding:0 1.5rem 2rem;grid-template-columns:1fr 1fr}
+  .photo-strip-full{padding:0 1.5rem 2rem}
+  .issue-strip{padding:.6rem 1.5rem}
+  .newsletter-footer{padding:2rem 1.5rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     MASTHEAD
+══════════════════════════════════════════════════════ -->
+<header class="masthead">
+  <div class="masthead-top">
+    <a class="masthead-logo" href="https://theexactmatch.com">The<span>Exact</span>Match</a>
+    <span class="masthead-issue">Issue No. 001 &nbsp;·&nbsp; June 2026</span>
+  </div>
+  <div class="masthead-hero">
+    <div class="issue-eyebrow">Weekly Finds</div>
+    <h1 class="masthead-title">Jeff's<br/><em>Weekly</em><br/>Deals</h1>
+    <div class="masthead-rule"></div>
+    <div class="masthead-sub">Six vehicles. Hand-picked. No fluff.</div>
+    <p class="masthead-intro">This week's finds range from the most exclusive wagon on American roads to the loudest V8 in production. Every one of these is a real listing, a real price, and a real conversation worth having. — Jeff</p>
+  </div>
+  <div class="issue-strip">
+    <span class="issue-strip-item">2023 Audi A6 allroad Prestige</span>
+    <span class="issue-strip-dot"></span>
+    <span class="issue-strip-item">2026 Audi RS3 Sedan</span>
+    <span class="issue-strip-dot"></span>
+    <span class="issue-strip-item">2026 BMW X5</span>
+    <span class="issue-strip-dot"></span>
+    <span class="issue-strip-item">2024 Corvette Z06 3LZ</span>
+    <span class="issue-strip-dot"></span>
+    <span class="issue-strip-item">2022 Lamborghini Urus</span>
+    <span class="issue-strip-dot"></span>
+    <span class="issue-strip-item">2024 Mercedes G63 AMG</span>
+  </div>
+</header>
+
+<!-- ── TABLE OF CONTENTS ── -->
+<nav class="toc">
+  <div class="toc-inner">
+    <a class="toc-item" href="#car-01">
+      <div class="toc-num">01</div>
+      <div class="toc-make">Audi</div>
+      <div class="toc-model">A6 allroad Prestige</div>
+      <div class="toc-price">$61,945</div>
+    </a>
+    <a class="toc-item" href="#car-02">
+      <div class="toc-num">02</div>
+      <div class="toc-make">Audi</div>
+      <div class="toc-model">RS3 Sedan</div>
+      <div class="toc-price">$76,485</div>
+    </a>
+    <a class="toc-item" href="#car-03">
+      <div class="toc-num">03</div>
+      <div class="toc-make">BMW</div>
+      <div class="toc-model">X5 M Sport</div>
+      <div class="toc-price">$66,981</div>
+    </a>
+    <a class="toc-item" href="#car-04">
+      <div class="toc-num">04</div>
+      <div class="toc-make">Chevrolet</div>
+      <div class="toc-model">Corvette Z06 3LZ</div>
+      <div class="toc-price">$115,960</div>
+    </a>
+    <a class="toc-item" href="#car-05">
+      <div class="toc-num">05</div>
+      <div class="toc-make">Lamborghini</div>
+      <div class="toc-model">Urus</div>
+      <div class="toc-price">$199,995</div>
+    </a>
+    <a class="toc-item" href="#car-06">
+      <div class="toc-num">06</div>
+      <div class="toc-make">Mercedes-AMG</div>
+      <div class="toc-model">G63 Green Hell</div>
+      <div class="toc-price">$234,888</div>
+    </a>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════
+     CAR 01 — 2023 AUDI A6 ALLROAD PRESTIGE
+══════════════════════════════════════════════════════ -->
+<article class="vehicle-page" id="car-01">
+  <div class="vp-hero">
+    <img src="https://images.unsplash.com/photo-1606016159991-dfe4f2746ad5?w=1400&q=85" alt="2023 Audi A6 allroad Prestige"/>
+    <div class="vp-hero-overlay"></div>
+    <div class="vp-hero-content">
+      <div class="vp-issue-num">Find No. 01</div>
+      <div class="vp-make">Audi · Certified Pre-Owned</div>
+      <h2 class="vp-title">2023 A6 <em>allroad</em><br/>Prestige</h2>
+      <p class="vp-tagline">One of seven in the nation. The only Certified Prestige trim available.</p>
+    </div>
+    <div class="vp-price-badge">
+      <div class="vp-price-label">Listed At</div>
+      <div class="vp-price-num">$61,945</div>
+    </div>
+  </div>
+
+  <div class="vp-body">
+    <div class="vp-main">
+      <div class="special-badge">⭐ Certified Pre-Owned · 1 of 7 in the U.S.</div>
+      <p class="editorial-body editorial-drop">There are exactly seven 2023 Audi A6 allroads with this spec available in the entire United States right now — and this is the only one that's both Certified and in the top-tier Prestige trim. Every other example you'll find listed nationally is a Premium Plus. That's not dealer talk. That's a real number in a genuinely scarce car.</p>
+      <p class="editorial-body">The A6 allroad occupies a rare lane: it's a lifted station wagon with the heart of a performance car — a 3.0-liter turbocharged V6 producing 335 horsepower and 369 pound-feet of torque, all routed through quattro all-wheel drive and a seven-speed automatic. Audi says 0-60 in 5.1 seconds. Real-world drivers have gone faster. What the numbers don't capture is how effortlessly it does it — there's no drama, no noise, just propulsion.</p>
+      <p class="editorial-pull">"The Prestige trim adds everything worth having — adaptive air suspension, night vision, Bang & Olufsen, the works. The Premium Plus is a fine car. This one is something different."</p>
+      <p class="editorial-body">The Prestige trim piles on top of an already well-equipped base: adaptive air suspension that can raise ground clearance for light off-road duty, night vision with thermal imaging, a Bang & Olufsen 3D audio system, 18-way massage seats, Audi's virtual cockpit with heads-up display, and a black suede headliner that makes the cabin feel genuinely premium. The CPO certification adds Audi's factory warranty coverage — no guessing on what you're buying.</p>
+      <p class="editorial-body">For the person who wants something that does it all — daily driver comfort, weekend gravel road capability, luxury interior, and a touch of rarity — this might be the most complete vehicle in this week's issue.</p>
+    </div>
+
+    <aside class="vp-sidebar">
+      <div class="specs-heading">Quick Specs</div>
+      <div class="spec-row"><span class="spec-label">Engine</span><span class="spec-val">3.0L Turbo V6</span></div>
+      <div class="spec-row"><span class="spec-label">Power</span><span class="spec-val">335 hp / 369 lb-ft</span></div>
+      <div class="spec-row"><span class="spec-label">Trans</span><span class="spec-val">7-Speed S tronic</span></div>
+      <div class="spec-row"><span class="spec-label">Drive</span><span class="spec-val">quattro AWD</span></div>
+      <div class="spec-row"><span class="spec-label">0–60</span><span class="spec-val">~5.1 seconds</span></div>
+      <div class="spec-row"><span class="spec-label">Fuel Economy</span><span class="spec-val">19 / 27 mpg</span></div>
+      <div class="spec-row"><span class="spec-label">Trim</span><span class="spec-val">Prestige (Top)</span></div>
+      <div class="spec-row"><span class="spec-label">Certification</span><span class="spec-val">Audi CPO ✓</span></div>
+      <div class="spec-row"><span class="spec-label">Warranty</span><span class="spec-val">Factory Backed</span></div>
+
+      <div class="market-pulse-box">
+        <div class="market-pulse-label">Market Context</div>
+        <div class="market-pulse-item"><span class="mp-label">National availability</span><span class="mp-val mp-red">7 units</span></div>
+        <div class="market-pulse-item"><span class="mp-label">Prestige CPO (nation)</span><span class="mp-val mp-red">1 unit</span></div>
+        <div class="market-pulse-item"><span class="mp-label">Premium Plus avg ask</span><span class="mp-val">$58–$65K</span></div>
+        <div class="market-pulse-item"><span class="mp-label">Prestige premium</span><span class="mp-val mp-green">Fair</span></div>
+      </div>
+
+      <div class="link-block">
+        <a class="link-btn link-btn-primary" href="https://www.audinorthaustin.com/en/inventory/vehicle/?isdealer&market=usuc&vehicleId=WAU92BF20PN015565" target="_blank">
+          <span class="link-btn-icon">🔗</span> View Full Listing
+        </a>
+        <a class="link-btn link-btn-carfax" href="https://www.carfax.com/vehiclehistory/ar20/GloVm5ub32yIC_rxXnlnLWHrCMGLlgFYxP6rjzUE3MG6n3Bd5tRQumn3vr-4QFYPEwpbzuyQ1WVxTEymX5wfFF7v07SfOJd21zw" target="_blank">
+          <span class="link-btn-icon">📋</span> View Carfax Report
+        </a>
+      </div>
+
+      <div class="jeffs-take">
+        <div class="jeffs-take-label">Jeff's Take</div>
+        <div class="jeffs-take-text">The scarcity alone makes this conversation-worthy. But it's the CPO certification on top of the Prestige trim that seals it — you're getting Audi's factory warranty on the rarest spec of an already rare wagon. Someone should move on this one quickly.</div>
+        <div class="jeffs-take-sig">— Jeff Akrong, TheExactMatch.com</div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="photo-strip">
+    <img src="https://images.unsplash.com/photo-1553440569-bcc63803a83d?w=600&q=80" alt="Audi A6 allroad interior"/>
+    <img src="https://images.unsplash.com/photo-1563461661026-49631dd5d68e?w=600&q=80" alt="Audi quattro AWD"/>
+    <img src="https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=600&q=80" alt="Audi rear"/>
+  </div>
+</article>
+
+<!-- ══════════════════════════════════════════════════════
+     CAR 02 — 2026 AUDI RS3 SEDAN
+══════════════════════════════════════════════════════ -->
+<article class="vehicle-page" id="car-02">
+  <div class="vp-hero">
+    <img src="https://images.unsplash.com/photo-1580274455191-1c62238fa333?w=1400&q=85" alt="2026 Audi RS3 Sedan"/>
+    <div class="vp-hero-overlay"></div>
+    <div class="vp-hero-content">
+      <div class="vp-issue-num">Find No. 02</div>
+      <div class="vp-make">Audi Sport · Brand New 2026</div>
+      <h2 class="vp-title">2026 RS3 <em>Sedan</em></h2>
+      <p class="vp-tagline">Five cylinders. 394 horsepower. The world's most entertaining compact sedan.</p>
+    </div>
+    <div class="vp-price-badge">
+      <div class="vp-price-label">Listed At</div>
+      <div class="vp-price-num">$76,485</div>
+    </div>
+  </div>
+
+  <div class="vp-body">
+    <div class="vp-main">
+      <div class="stamp">✦ Brand New · 2026 Model Year</div>
+      <p class="editorial-body editorial-drop">No car at this price point makes a sound like the RS3. The turbocharged 2.5-liter inline five-cylinder — 394 horsepower, 369 pound-feet of torque — has a firing order so unusual it produces a bark and burble on lift-off that Audi has spent years refining into an art form. BMW's M2 has power. The Cadillac CT4-V Blackwing has drama. The RS3 has soul.</p>
+      <p class="editorial-body">For 2026 the RS3 carries over its recent refresh largely unchanged — which is fine, because what Audi refreshed two years ago was already the most complete version of this car. New standard equipment includes Matrix-design LED headlights with customizable DRL signatures and welcome/leaving animations. The 12.3-inch Virtual Cockpit Plus comes with RS-specific display themes — Runway and Performance — that show real-time torque vectoring and boost pressure readings.</p>
+      <p class="editorial-pull">"394 horsepower in a compact sedan with a five-cylinder that sounds like nothing else on the road. At $76K, you're not buying a car. You're buying an experience."</p>
+      <p class="editorial-body">The RS-specific torque-vectoring quattro system biases power rearward, giving the RS3 a playfulness that quattro usually suppresses. Optional Dynamic Plus package adds ceramic brakes and a coilover suspension. The standard package already includes RS-tuned steering, launch control, and a sport exhaust with black titanium tips that does not disappoint. This is a new car, so no Carfax — but that's the point.</p>
+    </div>
+
+    <aside class="vp-sidebar">
+      <div class="specs-heading">Quick Specs</div>
+      <div class="spec-row"><span class="spec-label">Engine</span><span class="spec-val">2.5L Turbo Inline-5</span></div>
+      <div class="spec-row"><span class="spec-label">Power</span><span class="spec-val">394 hp / 369 lb-ft</span></div>
+      <div class="spec-row"><span class="spec-label">Trans</span><span class="spec-val">7-Speed S tronic DCT</span></div>
+      <div class="spec-row"><span class="spec-label">Drive</span><span class="spec-val">RS quattro AWD</span></div>
+      <div class="spec-row"><span class="spec-label">0–60</span><span class="spec-val">3.6 seconds</span></div>
+      <div class="spec-row"><span class="spec-label">Top Speed</span><span class="spec-val">174 mph (limited)</span></div>
+      <div class="spec-row"><span class="spec-label">Fuel Economy</span><span class="spec-val">20 / 29 mpg</span></div>
+      <div class="spec-row"><span class="spec-label">Model Year</span><span class="spec-val">2026 (New)</span></div>
+      <div class="spec-row"><span class="spec-label">Carfax</span><span class="spec-val">N/A — New Car</span></div>
+
+      <div class="market-pulse-box">
+        <div class="market-pulse-label">Market Context</div>
+        <div class="market-pulse-item"><span class="mp-label">Base MSRP (2026)</span><span class="mp-val">$66,100</span></div>
+        <div class="market-pulse-item"><span class="mp-label">Destination</span><span class="mp-val">+$1,295</span></div>
+        <div class="market-pulse-item"><span class="mp-label">This listing</span><span class="mp-val">$76,485</span></div>
+        <div class="market-pulse-item"><span class="mp-label">Competition</span><span class="mp-val">BMW M2 / CT4-V</span></div>
+        <div class="market-pulse-item"><span class="mp-label">RS3 resale strength</span><span class="mp-val mp-green">Strong</span></div>
+      </div>
+
+      <div class="link-block">
+        <a class="link-btn link-btn-primary" href="https://www.audinorthaustin.com/en/inventory/vehicle/?isdealer&market=us&vehicleId=WUAGWDGY3TA907892" target="_blank">
+          <span class="link-btn-icon">🔗</span> View Full Listing
+        </a>
+        <div style="padding:.65rem 1rem;background:var(--cream);border:1px solid #DDD8CC;border-radius:2px;font-size:.7rem;color:var(--lgray);font-family:'DM Mono',monospace;letter-spacing:.06em">
+          📋 NO CARFAX — Brand New 2026
+        </div>
+      </div>
+
+      <div class="jeffs-take">
+        <div class="jeffs-take-label">Jeff's Take</div>
+        <div class="jeffs-take-text">The five-cylinder soundtrack alone is worth the price of admission. This is a car that makes you feel something every time you press start — and at $76K fully optioned, you're getting supercar engagement in a car that'll park anywhere. The RS3 is one of the last truly driver-focused compact sedans from Germany. Don't sleep on it.</div>
+        <div class="jeffs-take-sig">— Jeff Akrong, TheExactMatch.com</div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="photo-strip">
+    <img src="https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80" alt="RS3 cockpit"/>
+    <img src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600&q=80" alt="Performance sedan"/>
+    <img src="https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=600&q=80" alt="RS3 rear"/>
+  </div>
+</article>
+
+<!-- ══════════════════════════════════════════════════════
+     CAR 03 — 2026 BMW X5
+══════════════════════════════════════════════════════ -->
+<article class="vehicle-page" id="car-03">
+  <div class="vp-hero">
+    <img src="https://images.unsplash.com/photo-1555215695-3004980ad54e?w=1400&q=85" alt="2026 BMW X5 M Sport"/>
+    <div class="vp-hero-overlay"></div>
+    <div class="vp-hero-content">
+      <div class="vp-issue-num">Find No. 03</div>
+      <div class="vp-make">BMW · M Sport Package</div>
+      <h2 class="vp-title">2026 X5 <em>M Sport</em></h2>
+      <p class="vp-tagline">22-inch wheels, M Sport Pro, white over black. Nearly new at a used price.</p>
+    </div>
+    <div class="vp-price-badge">
+      <div class="vp-price-label">Listed At</div>
+      <div class="vp-price-num">$66,981</div>
+    </div>
+  </div>
+
+  <div class="vp-body">
+    <div class="vp-main">
+      <div class="stamp">✦ 2026 Model · Nearly New · Clean Carfax</div>
+      <p class="editorial-body editorial-drop">A 2026 BMW X5 at under $67,000 — on a car whose new MSRP starts around $68,000 and climbs fast once you add packages — is worth a closer look. This one left the factory with M Sport, M Sport Professional, Climate Comfort, and a Live Cockpit Pro that accounts for a significant portion of what made it expensive when ordered. Now it's used, it's nearly new, and it's meaningfully below what a similarly-equipped new unit costs today.</p>
+      <p class="editorial-body">The X5 sDrive40i powertrain is the 3.0-liter turbocharged inline-six producing 375 horsepower — a unit that BMW has refined over the better part of a decade into one of the smoothest, most responsive engines in the luxury SUV segment. It's not the all-wheel-drive xDrive setup, but sDrive in a BMW still means a near-50/50 weight distribution and a handling balance that SUV buyers typically can't find elsewhere.</p>
+      <p class="editorial-pull">"22-inch wheels on an X5 with M Sport Pro packaging in white over black is the spec most people build. This one's already built — and sitting below new price."</p>
+      <p class="editorial-body">White exterior with black interior is consistently the easiest X5 combination to sell when the time comes. The M Sport Professional package adds the blacked-out exterior trim, the sportier front fascia, and the kind of exterior detail that puts clear distance between this car and a standard X5 in the rearview. Carfax shows no accidents. 22,601 miles on a 2026 model — this was clearly someone's test of the market, not a car that was driven hard.</p>
+    </div>
+
+    <aside class="vp-sidebar">
+      <div class="specs-heading">Quick Specs</div>
+      <div class="spec-row"><span class="spec-label">Engine</span><span class="spec-val">3.0L Turbo I-6</span></div>
+      <div class="spec-row"><span class="spec-label">Power</span><span class="spec-val">375 hp</span></div>
+      <div class="spec-row"><span class="spec-label">Trans</span><span class="spec-val">8-Speed Automatic</span></div>
+      <div class="spec-row"><span class="spec-label">Drive</span><span class="spec-val">sDrive (RWD)</span></div>
+      <div class="spec-row"><span class="spec-label">Mileage</span><span class="spec-val">22,601 miles</span></div>
+      <div class="spec-row"><span class="spec-label">Exterior</span><span class="spec-val">Alpine White</span></div>
+      <div class="spec-row"><span class="spec-label">Interior</span><span class="spec-val">Black Leather</span></div>
+      <div class="spec-row"><span class="spec-label">Wheels</span><span class="spec-val">22" M Sport</span></div>
+      <div class="spec-row"><span class="spec-label">Fuel Economy</span><span class="spec-val">23 / 27 mpg</span></div>
+
+      <div class="market-pulse-box">
+        <div class="market-pulse-label">Market Context</div>
+        <div class="market-pulse-item"><span class="mp-label">New X5 40i base</span><span class="mp-val">~$67,800</span></div>
+        <div class="market-pulse-item"><span class="mp-label">As-configured new</span><span class="mp-val">~$82–$88K</span></div>
+        <div class="market-pulse-item"><span class="mp-label">This listing</span><span class="mp-val mp-green">$66,981</span></div>
+        <div class="market-pulse-item"><span class="mp-label">Saving vs. new</span><span class="mp-val mp-green">~$15–$21K</span></div>
+        <div class="market-pulse-item"><span class="mp-label">Accident history</span><span class="mp-val mp-green">Clean</span></div>
+      </div>
+
+      <div class="link-block">
+        <a class="link-btn link-btn-primary" href="https://www.autonationchevroletwestaustin.com/used-Austin-2026-BMW-X5-Sports+Activity+Vehicle-5UX13EU09T9086605" target="_blank">
+          <span class="link-btn-icon">🔗</span> View Full Listing
+        </a>
+        <a class="link-btn link-btn-carfax" href="https://www.carfax.com/vehiclehistory/ar20/zcbgGAppCNRIW974G6r9I3i0UDmAAAUOtzTrhCLEVkN4z47ceaGNPbRrZia-jEjJtTDt0Srv7fKElH_GKK2_h6b_OXH9x0YMC0A" target="_blank">
+          <span class="link-btn-icon">📋</span> View Carfax Report
+        </a>
+      </div>
+
+      <div class="jeffs-take">
+        <div class="jeffs-take-label">Jeff's Take</div>
+        <div class="jeffs-take-text">A 2026 X5 with M Sport Pro and 22s at $67K is the value pick of this issue. The depreciation hit has already happened on someone else's dime. White over black in this spec is easy to sell when you're ready to move on. This is a straightforward, clean deal.</div>
+        <div class="jeffs-take-sig">— Jeff Akrong, TheExactMatch.com</div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="photo-strip-full">
+    <img src="https://images.unsplash.com/photo-1622484211148-e082f4e45ae2?w=1400&q=80" alt="BMW X5 luxury SUV"/>
+  </div>
+</article>
+
+<!-- ══════════════════════════════════════════════════════
+     CAR 04 — 2024 CORVETTE Z06 3LZ
+══════════════════════════════════════════════════════ -->
+<article class="vehicle-page" id="car-04">
+  <div class="vp-hero">
+    <img src="https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=1400&q=85" alt="2024 Chevrolet Corvette Z06"/>
+    <div class="vp-hero-overlay" style="background:linear-gradient(to top,rgba(0,0,0,.9) 0%,rgba(0,0,0,.3) 60%,transparent 100%)"></div>
+    <div class="vp-hero-content">
+      <div class="vp-issue-num">Find No. 04</div>
+      <div class="vp-make">Chevrolet · Z06 · 3LZ</div>
+      <h2 class="vp-title">2024 Corvette <em>Z06</em></h2>
+      <p class="vp-tagline">670 naturally aspirated horsepower. 8,600 rpm redline. Torch Red. 1,950 miles.</p>
+    </div>
+    <div class="vp-price-badge">
+      <div class="vp-price-label">Listed At</div>
+      <div class="vp-price-num">$115,960</div>
+    </div>
+  </div>
+
+  <div class="vp-body">
+    <div class="vp-main">
+      <div class="stamp">✦ 1,950 Miles · Top Spec 3LZ · Clean Carfax</div>
+      <p class="editorial-body editorial-drop">The LT6 engine in the C8 Z06 is not a conventional performance car engine. It is a hand-built, naturally aspirated 5.5-liter flat-plane V8 that revs to 8,600 rpm and produces 670 horsepower without forced induction. In production car terms, that is a Ferrari-level engineering achievement at roughly one-quarter of Ferrari's price. The sound it makes at full throttle is unlike anything else wearing an American badge.</p>
+      <p class="editorial-body">This example — 3LZ, the top Z06 trim — adds everything the car offers: GT2 Napa leather seats with carbon-fiber trim, Performance Data Recorder, front lift system, the full carbon aerodynamics package, head-up display, navigation, and Bose Performance audio. Torch Red over Natural/Napa leather is a classic American sports car combination. 1,950 miles means this car has barely been unwrapped.</p>
+      <p class="editorial-pull">"The LT6 is one of the greatest naturally aspirated engines ever installed in a production car. At under $116K with 1,950 miles, this is the closest thing to a new Z06 without new-car pricing."</p>
+      <p class="editorial-body">Carfax is clean. The mid-engine layout gives the Z06 a weight distribution and grip level that embarrasses significantly more expensive machinery from Europe. The 8-speed dual-clutch transmission manages the power delivery without drama, but drop it into manual mode and it becomes a completely different conversation. This is an experience car, not just a fast car.</p>
+    </div>
+
+    <aside class="vp-sidebar">
+      <div class="specs-heading">Quick Specs</div>
+      <div class="spec-row"><span class="spec-label">Engine</span><span class="spec-val">5.5L LT6 Flat-Plane V8</span></div>
+      <div class="spec-row"><span class="spec-label">Power</span><span class="spec-val">670 hp (NA)</span></div>
+      <div class="spec-row"><span class="spec-label">Redline</span><span class="spec-val">8,600 rpm</span></div>
+      <div class="spec-row"><span class="spec-label">Trans</span><span class="spec-val">8-Speed Dual-Clutch</span></div>
+      <div class="spec-row"><span class="spec-label">Drive</span><span class="spec-val">Mid-Engine RWD</span></div>
+      <div class="spec-row"><span class="spec-label">0–60</span><span class="spec-val">2.6 seconds</span></div>
+      <div class="spec-row"><span class="spec-label">Mileage</span><span class="spec-val">1,950 miles</span></div>
+      <div class="spec-row"><span class="spec-label">Exterior</span><span class="spec-val">Torch Red</span></div>
+      <div class="spec-row"><span class="spec-label">Interior</span><span class="spec-val">Natural / Napa</span></div>
+
+      <div class="market-pulse-box">
+        <div class="market-pulse-label">Market Context</div>
+        <div class="market-pulse-item"><span class="mp-label">New Z06 3LZ MSRP</span><span class="mp-val">~$110–$125K</span></div>
+        <div class="market-pulse-item"><span class="mp-label">Avg used Z06 market</span><span class="mp-val">$108–$135K</span></div>
+        <div class="market-pulse-item"><span class="mp-label">This listing</span><span class="mp-val mp-green">$115,960</span></div>
+        <div class="market-pulse-item"><span class="mp-label">Accident history</span><span class="mp-val mp-green">Clean</span></div>
+        <div class="market-pulse-item"><span class="mp-label">Mileage</span><span class="mp-val mp-green">Essentially New</span></div>
+      </div>
+
+      <div class="link-block">
+        <a class="link-btn link-btn-primary" href="https://www.autonationchevroletwestaustin.com/used-Austin-2024-Chevrolet-Corvette+Z06-Coupe+3LZ-1G1YF2D36R5609135" target="_blank">
+          <span class="link-btn-icon">🔗</span> View Full Listing
+        </a>
+        <a class="link-btn link-btn-carfax" href="https://www.carfax.com/vehiclehistory/ar20/oWxX07Jck5PZreFlJ9Oe1D79PlJ5K7eIEHr6IwBEF3DqkVeZmk4nTdb4ffS32ETq7DnKv3rLNqwipYIEqhzMG2I-sDyxUk5ONYk" target="_blank">
+          <span class="link-btn-icon">📋</span> View Carfax Report
+        </a>
+      </div>
+
+      <div class="jeffs-take">
+        <div class="jeffs-take-label">Jeff's Take</div>
+        <div class="jeffs-take-text">The Z06 3LZ at under $116K with 1,950 miles is the performance deal of this issue. The LT6 is one of the great engines of this era — naturally aspirated, 8,600 rpm, 670 horsepower. You don't find this spec this clean at this price. If you've been watching Z06 prices, you know this one makes sense.</div>
+        <div class="jeffs-take-sig">— Jeff Akrong, TheExactMatch.com</div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="photo-strip">
+    <img src="https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=600&q=80" alt="Corvette front"/>
+    <img src="https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?w=600&q=80" alt="Corvette cockpit"/>
+    <img src="https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=600&q=80" alt="Corvette rear"/>
+  </div>
+</article>
+
+<!-- ══════════════════════════════════════════════════════
+     CAR 05 — 2022 LAMBORGHINI URUS
+══════════════════════════════════════════════════════ -->
+<article class="vehicle-page" id="car-05">
+  <div class="vp-hero">
+    <img src="https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=1400&q=85" alt="2022 Lamborghini Urus"/>
+    <div class="vp-hero-overlay"></div>
+    <div class="vp-hero-content">
+      <div class="vp-issue-num">Find No. 05</div>
+      <div class="vp-make">Lamborghini · Super SUV</div>
+      <h2 class="vp-title">2022 <em>Urus</em></h2>
+      <p class="vp-tagline">The original Super SUV. Texas-owned. No accidents. Style Package. $199,995.</p>
+    </div>
+    <div class="vp-price-badge">
+      <div class="vp-price-label">Listed At</div>
+      <div class="vp-price-num">$199,995</div>
+    </div>
+  </div>
+
+  <div class="vp-body">
+    <div class="vp-main">
+      <div class="stamp">✦ Texas-Owned · No Accidents · Style Package</div>
+      <p class="editorial-body editorial-drop">Lamborghini built the Urus to prove a point — that a Sant'Agata SUV could still be a Lamborghini in every meaningful way. Four-liter twin-turbocharged V8, 641 horsepower, 627 pound-feet of torque, zero to 60 in 3.5 seconds. The numbers are real. The experience backs them up. And unlike some exotic claims, the Urus actually delivers those figures in the real world, in traffic, in Texas heat.</p>
+      <p class="editorial-body">This example was Texas-owned from purchase — Carfax shows a clean title, no accidents, and 9 service records. Acquired in June 2022, it was maintained locally in Houston and has racked up honest miles without incident. The Style Package adds visual differentiation with sport-specific exterior trim, upgraded alloy wheel design, and rear spoiler treatment that makes the Urus look distinctly more aggressive than the standard spec.</p>
+      <p class="editorial-pull">"The Urus doesn't ask you to choose between practicality and theater. It is both, simultaneously, without apology."</p>
+      <p class="editorial-body">Inside, the Urus offers a Lamborghini experience without the Lamborghini compromises — full-size rear seats, proper luggage space, a sensible infotainment system borrowed (and improved) from the Audi/Porsche parts bin. The driving modes range from genuinely comfortable GT mode on the highway to a Corsa setting that stiffens the suspension and opens the exhaust to a level that will disturb neighbors. It's a ridiculous, wonderful machine.</p>
+      <p class="editorial-body">At $199,995, this sits noticeably below recent transactions for comparably-specced 2022 Urus examples with similar mileage. The clean Texas history and service documentation make this one of the cleaner examples you'll find at this price point.</p>
+    </div>
+
+    <aside class="vp-sidebar">
+      <div class="specs-heading">Quick Specs</div>
+      <div class="spec-row"><span class="spec-label">Engine</span><span class="spec-val">4.0L Twin-Turbo V8</span></div>
+      <div class="spec-row"><span class="spec-label">Power</span><span class="spec-val">641 hp / 627 lb-ft</span></div>
+      <div class="spec-row"><span class="spec-label">Trans</span><span class="spec-val">8-Speed Automatic</span></div>
+      <div class="spec-row"><span class="spec-label">Drive</span><span class="spec-val">AWD</span></div>
+      <div class="spec-row"><span class="spec-label">0–60</span><span class="spec-val">3.5 seconds</span></div>
+      <div class="spec-row"><span class="spec-label">Top Speed</span><span class="spec-val">190 mph</span></div>
+      <div class="spec-row"><span class="spec-label">Packages</span><span class="spec-val">Style Package</span></div>
+      <div class="spec-row"><span class="spec-label">Accident History</span><span class="spec-val">None ✓</span></div>
+      <div class="spec-row"><span class="spec-label">Service Records</span><span class="spec-val">9 on file ✓</span></div>
+
+      <div class="market-pulse-box">
+        <div class="market-pulse-label">Market Context</div>
+        <div class="market-pulse-item"><span class="mp-label">2022 Urus market avg</span><span class="mp-val">$195–$235K</span></div>
+        <div class="market-pulse-item"><span class="mp-label">This listing</span><span class="mp-val">$199,995</span></div>
+        <div class="market-pulse-item"><span class="mp-label">vs. comparable ask</span><span class="mp-val mp-green">Competitive</span></div>
+        <div class="market-pulse-item"><span class="mp-label">Ownership history</span><span class="mp-val">Texas, 2 owners</span></div>
+        <div class="market-pulse-item"><span class="mp-label">Accident history</span><span class="mp-val mp-green">None</span></div>
+      </div>
+
+      <div class="link-block">
+        <a class="link-btn link-btn-primary" href="https://clbsportscars.com/inventory/2022-lamborghini-urus/" target="_blank">
+          <span class="link-btn-icon">🔗</span> View Full Listing
+        </a>
+        <a class="link-btn link-btn-carfax" href="https://www.carfax.com/VehicleHistory/p/Report.cfx?partner=DVW_2&vin=ZPBUA1ZL8NLA19329" target="_blank">
+          <span class="link-btn-icon">📋</span> View Carfax Report
+        </a>
+      </div>
+
+      <div class="jeffs-take">
+        <div class="jeffs-take-label">Jeff's Take</div>
+        <div class="jeffs-take-text">Texas-owned, 9 service records, no accidents. The Urus has a reputation for drama — this one has a reputation for being cared for. At $199,995 with the Style Package, you're buying the cleanest version of the most accessible exotic SUV on the market. This is the one to look at if the Urus has been on your list.</div>
+        <div class="jeffs-take-sig">— Jeff Akrong, TheExactMatch.com</div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="photo-strip-full">
+    <img src="https://images.unsplash.com/photo-1543419257-b3e5e8cc6e71?w=1400&q=80" alt="Lamborghini Urus luxury SUV"/>
+  </div>
+</article>
+
+<!-- ══════════════════════════════════════════════════════
+     CAR 06 — 2024 MERCEDES-AMG G63 GREEN HELL MAGNO
+══════════════════════════════════════════════════════ -->
+<article class="vehicle-page" id="car-06" style="border-bottom:none">
+  <div class="vp-hero" style="height:580px">
+    <img src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1400&q=85" alt="2024 Mercedes-AMG G63"/>
+    <div class="vp-hero-overlay" style="background:linear-gradient(to top,rgba(5,20,12,.95) 0%,rgba(5,20,12,.4) 50%,rgba(0,0,0,.15) 100%)"></div>
+    <div class="vp-hero-content">
+      <div class="vp-issue-num">Find No. 06</div>
+      <div class="vp-make">Mercedes-AMG · G-Class · Manufaktur</div>
+      <h2 class="vp-title">2024 AMG <em>G63</em><br/>Green Hell<br/><em>Magno</em></h2>
+      <p class="vp-tagline">Manufaktur Green Hell Magno over Lime Green interior. The loudest statement in this issue.</p>
+    </div>
+    <div class="vp-price-badge" style="background:rgba(26,71,49,.9);border-color:rgba(192,154,91,.4)">
+      <div class="vp-price-label">Listed At</div>
+      <div class="vp-price-num" style="font-size:1.25rem">$234,888</div>
+    </div>
+  </div>
+
+  <div class="vp-body">
+    <div class="vp-main">
+      <div class="special-badge" style="background:linear-gradient(135deg,#1a4731,#2d6a4f);color:white">🟢 Manufaktur · Green Hell Magno · 1-of-Few Spec</div>
+      <p class="editorial-body editorial-drop">Green Hell Magno is not a paint option you check on a configurator and move on. It is a Manufaktur finish — matte, hand-applied, requiring specific care, and specific attention from the people around you. Named after the Nürburgring Nordschleife, the color carries that reference seriously. Against the black exterior trim of the refreshed G63, it is otherworldly.</p>
+      <p class="editorial-body">This 2024 example — the first year of the significantly refreshed G-Class generation — pairs the Manufaktur exterior with a Black with Lime Green leather interior. That interior combination exists in a very specific intersection of "unexpected" and "correct." The 2024 AMG G63 added meaningful engineering improvements to the formula: the familiar twin-turbocharged 4.0-liter V8 now makes 577 horsepower with a 48-volt mild-hybrid system providing an additional 21 horsepower on demand. New launch control. New driver assistance suite. A revised front fascia that updates the silhouette while respecting 45 years of design heritage.</p>
+      <p class="editorial-pull">"The G63 has never been about restraint. Green Hell Magno over Lime Green interior is the version of this car that commits fully to that philosophy."</p>
+      <p class="editorial-body">Zero to 60 in 4.4 seconds. Three locking differentials. Low-range gearing. A car that will genuinely go off-road and genuinely embarrass sports cars on the on-ramp. The absurdity is the point, and this spec executes it at the highest possible level. The Carfax is clean. This is not a car that sits on the market long.</p>
+    </div>
+
+    <aside class="vp-sidebar" style="background:#0D1F14;border-left-color:#1a4731">
+      <div class="specs-heading" style="color:#86efac;border-bottom-color:#1a4731">Quick Specs</div>
+      <div class="spec-row" style="border-bottom-color:#1a4731"><span class="spec-label" style="color:#4d7a5c">Engine</span><span class="spec-val" style="color:#e8f5ee">4.0L Twin-Turbo V8</span></div>
+      <div class="spec-row" style="border-bottom-color:#1a4731"><span class="spec-label" style="color:#4d7a5c">Power</span><span class="spec-val" style="color:#e8f5ee">577 hp + 21 hp assist</span></div>
+      <div class="spec-row" style="border-bottom-color:#1a4731"><span class="spec-label" style="color:#4d7a5c">Hybrid</span><span class="spec-val" style="color:#e8f5ee">48V Mild-Hybrid</span></div>
+      <div class="spec-row" style="border-bottom-color:#1a4731"><span class="spec-label" style="color:#4d7a5c">Trans</span><span class="spec-val" style="color:#e8f5ee">9-Speed AMG Speedshift</span></div>
+      <div class="spec-row" style="border-bottom-color:#1a4731"><span class="spec-label" style="color:#4d7a5c">Drive</span><span class="spec-val" style="color:#e8f5ee">4MATIC AWD</span></div>
+      <div class="spec-row" style="border-bottom-color:#1a4731"><span class="spec-label" style="color:#4d7a5c">0–60</span><span class="spec-val" style="color:#e8f5ee">4.4 seconds</span></div>
+      <div class="spec-row" style="border-bottom-color:#1a4731"><span class="spec-label" style="color:#4d7a5c">Exterior</span><span class="spec-val" style="color:#86efac">Manufaktur Green Hell Magno</span></div>
+      <div class="spec-row" style="border-bottom-color:#1a4731"><span class="spec-label" style="color:#4d7a5c">Interior</span><span class="spec-val" style="color:#86efac">Black w/ Lime Green</span></div>
+      <div class="spec-row" style="border-bottom-color:#1a4731"><span class="spec-label" style="color:#4d7a5c">Model Year</span><span class="spec-val" style="color:#e8f5ee">2024 (Refreshed gen)</span></div>
+
+      <div class="market-pulse-box" style="background:rgba(26,71,49,.3);border:1px solid #1a4731;margin-top:1.5rem">
+        <div class="market-pulse-label" style="color:#86efac">Market Context</div>
+        <div class="market-pulse-item" style="border-bottom-color:rgba(255,255,255,.06)"><span class="mp-label">New G63 MSRP (2024)</span><span class="mp-val">$180K+</span></div>
+        <div class="market-pulse-item" style="border-bottom-color:rgba(255,255,255,.06)"><span class="mp-label">Manufaktur premium</span><span class="mp-val">~$40–$60K+</span></div>
+        <div class="market-pulse-item" style="border-bottom-color:rgba(255,255,255,.06)"><span class="mp-label">This listing</span><span class="mp-val" style="color:#86efac">$234,888</span></div>
+        <div class="market-pulse-item" style="border-bottom-color:rgba(255,255,255,.06)"><span class="mp-label">Similar spec market</span><span class="mp-val">$220–$260K</span></div>
+        <div class="market-pulse-item" style="border-bottom-color:rgba(255,255,255,.06)"><span class="mp-label">Accident history</span><span class="mp-val" style="color:#86efac">Clean</span></div>
+      </div>
+
+      <div class="link-block">
+        <a class="link-btn link-btn-primary" href="https://themarkmotors.com/vehicle-details/used-2025-mercedes-benz-g-class-amg-g-63---super-spec---green-hell-magno---black-with-lime-green-interior-boerne-tx-id-W1NWH5AB3SX056713" target="_blank" style="background:#1a4731">
+          <span class="link-btn-icon">🔗</span> View Full Listing
+        </a>
+        <a class="link-btn link-btn-carfax" href="https://www.carfax.com/VehicleHistory/p/Report.cfx?partner=DVW_1&vin=W1NWH5AB3SX056713" target="_blank">
+          <span class="link-btn-icon">📋</span> View Carfax Report
+        </a>
+      </div>
+
+      <div class="jeffs-take" style="background:#1a4731">
+        <div class="jeffs-take-label" style="color:#86efac">Jeff's Take</div>
+        <div class="jeffs-take-text">Green Hell Magno over Lime Green interior is a statement you make once and never take back. The 2024 G63 is the best version of this car ever built — more power, better tech, cleaner execution. This spec, at this price, in this condition is not a combination that sits. If you know, you know.</div>
+        <div class="jeffs-take-sig" style="color:#86efac">— Jeff Akrong, TheExactMatch.com</div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="photo-strip">
+    <img src="https://images.unsplash.com/photo-1619767886558-efdc259cde1a?w=600&q=80" alt="G63 front"/>
+    <img src="https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?w=600&q=80" alt="G63 interior"/>
+    <img src="https://images.unsplash.com/photo-1543419257-b3e5e8cc6e71?w=600&q=80" alt="G63 profile"/>
+  </div>
+</article>
+
+<!-- ══════════════════════════════════════════════════════
+     FOOTER
+══════════════════════════════════════════════════════ -->
+<footer class="newsletter-footer">
+  <div class="nf-logo">The<span>Exact</span>Match</div>
+  <div class="nf-tagline">Jeff's Weekly Deals · Issue No. 001 · June 2026</div>
+  <div class="nf-contact">
+    <span>Questions on any of these? <a href="mailto:info@theexactmatch.com">info@theexactmatch.com</a></span>
+    <span>Text or call: <a href="tel:5126509328">(512) 650-9328</a></span>
+    <span><a href="https://theexactmatch.com" target="_blank">theexactmatch.com</a></span>
+  </div>
+  <div style="width:40px;height:1px;background:rgba(192,154,91,.4);margin:1.25rem auto"></div>
+  <div class="nf-legal">You're receiving this because you subscribed to Jeff's Weekly Deals at TheExactMatch.com. All listings are sourced from public dealer inventory. Prices, availability, and vehicle details are subject to change without notice. Contact information for any listing can be found at the provided dealer links. TheExactMatch.com is not the selling dealer for any vehicle featured in this newsletter.</div>
+</footer>
+
+</body>
+</html>
