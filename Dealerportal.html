@@ -539,7 +539,6 @@
 <script>
 // ── Config ────────────────────────────────────────────────────
 const API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';  // proxied via Cloudflare Pages to the Worker
-const ADMIN_VIEW_PARAM = 'admin';
 
 // ── State ─────────────────────────────────────────────────────
 let authToken    = localStorage.getItem('tem_dealer_token') || null;
@@ -614,7 +613,7 @@ async function doLogin() {
   authToken = data.token;
   localStorage.setItem('tem_dealer_token', authToken);
   currentDealer = data.dealer;
-  enterDealerDash();
+  routeAfterAuth();
 }
 
 document.addEventListener('keydown', function(e) {
@@ -643,6 +642,15 @@ function enterDealerDash() {
   showView('view-dashboard');
 }
 
+function routeAfterAuth() {
+  if (currentDealer && currentDealer.role === 'admin') {
+    isAdmin = true;
+    showView('view-admin');
+  } else {
+    enterDealerDash();
+  }
+}
+
 function updateNavAuth(loggedIn) {
   const nameEl   = document.getElementById('nav-dealer-name');
   const logoutEl = document.getElementById('nav-logout-btn');
@@ -658,22 +666,11 @@ function updateNavAuth(loggedIn) {
 
 // ── Session restore on load ───────────────────────────────────
 async function restoreSession() {
-  // Check for admin mode via URL param
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('mode') === ADMIN_VIEW_PARAM && authToken) {
-    const { res, data } = await apiFetch('/admin/dealers').catch(() => ({res:{ok:false},data:{}}));
-    if (res.ok) {
-      isAdmin = true;
-      showView('view-admin');
-      return;
-    }
-  }
-
   if (!authToken) return;
   const { res, data } = await apiFetch('/dealer/me').catch(() => ({res:{ok:false},data:{}}));
   if (res.ok) {
     currentDealer = data;
-    enterDealerDash();
+    routeAfterAuth();
   } else {
     authToken = null;
     localStorage.removeItem('tem_dealer_token');
@@ -1090,7 +1087,7 @@ async function doDealerSignup() {
   localStorage.setItem('tem_dealer_token', authToken);
   currentDealer = data.dealer;
   window.history.replaceState({}, '', window.location.pathname);
-  enterDealerDash();
+  routeAfterAuth();
 }
 
 // ── Helpers ───────────────────────────────────────────────────
