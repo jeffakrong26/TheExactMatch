@@ -83,6 +83,32 @@
     .form-note{text-align:center;font-size:.72rem;color:rgba(255,255,255,.3);margin-top:.75rem}
     .form-note strong{color:var(--gold2)}
 
+    /* ── MULTI-STEP FORM (FIND) ── */
+    .ms-progress{height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-bottom:.6rem;overflow:hidden}
+    .ms-progress-bar{height:100%;background:var(--gold);transition:width .3s ease}
+    .ms-step-label{font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:1.5rem}
+    .ms-step-label strong{color:var(--gold2)}
+    .ms-step{display:none}
+    .ms-step.active{display:block}
+    .ms-nav{display:flex;gap:.75rem;margin-top:1rem}
+    .ms-nav .submit-btn{margin-top:0}
+    .ms-back-btn{flex:0 0 auto;padding:.9rem 1.4rem;background:transparent;color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.18);border-radius:2px;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:border-color .2s,color .2s}
+    .ms-back-btn:hover{border-color:var(--gold);color:var(--gold2)}
+    .priority-hint{font-size:.72rem;font-weight:300;color:rgba(255,255,255,.4);margin:-.3rem 0 .9rem}
+    .priority-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+    .priority-item{display:flex;align-items:center;gap:.55rem;padding:.65rem .85rem;border:1px solid rgba(255,255,255,.14);border-radius:2px;background:rgba(255,255,255,.04);cursor:pointer;transition:border-color .2s,background .2s;font-size:.76rem;font-weight:300;color:rgba(255,255,255,.75)}
+    .priority-item input{accent-color:var(--gold);width:14px;height:14px;flex-shrink:0}
+    .priority-item.checked{border-color:var(--gold);background:rgba(192,154,91,.1);color:var(--white)}
+    .priority-item.disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
+
+    /* ── MULTI-STEP FORM LIGHT VARIANT (SELL) ── */
+    .sell-form .ms-progress{background:rgba(12,28,51,.08)}
+    .sell-form .ms-step-label{color:var(--gray)}
+    .sell-form .ms-step-label strong{color:var(--navy)}
+    .sell-form .ms-back-btn{color:var(--gray);border-color:var(--border)}
+    .sell-form .ms-back-btn:hover{border-color:var(--gold);color:var(--navy)}
+    .ms-nav .sell-submit{margin-top:0}
+
     /* ── HOW IT WORKS ── */
     .how-section{padding:6rem 5rem;background:var(--beige)}
     .how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:3px;overflow:hidden;max-width:1100px;margin:0 auto}
@@ -354,54 +380,104 @@
         <div class="form-title">Start Your Search</div>
         <div class="form-sub">We'll send you <strong>3 matched options</strong> within 24 hours — completely free.</div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label>First Name</label>
-            <input type="text" placeholder="John" id="ff-fname"/>
+        <div class="ms-progress"><div class="ms-progress-bar" id="ff-progress-bar" style="width:20%"></div></div>
+        <div class="ms-step-label" id="ff-step-label">Step <strong>1</strong> of 5</div>
+
+        <!-- Step 1 — Contact -->
+        <div class="ms-step active" data-step="1">
+          <div class="form-row">
+            <div class="form-group"><label>First Name</label><input type="text" placeholder="John" id="ff-fname"/></div>
+            <div class="form-group"><label>Last Name</label><input type="text" placeholder="Smith" id="ff-lname"/></div>
           </div>
-          <div class="form-group">
-            <label>Last Name</label>
-            <input type="text" placeholder="Smith" id="ff-lname"/>
+          <div class="form-group"><label>Email</label><input type="email" placeholder="john@email.com" id="ff-email"/></div>
+          <div class="form-row">
+            <div class="form-group"><label>Phone</label><input type="tel" placeholder="(555) 000-0000" id="ff-phone"/></div>
+            <div class="form-group"><label>ZIP Code</label><input type="text" placeholder="78701" id="ff-zip" maxlength="10"/></div>
           </div>
         </div>
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" placeholder="john@email.com" id="ff-email"/>
-        </div>
-        <div class="form-group">
-          <label>Phone</label>
-          <input type="tel" placeholder="(555) 000-0000" id="ff-phone"/>
-        </div>
-        <div class="form-group">
-          <label>Vehicle You're Looking For</label>
-          <input type="text" placeholder="e.g. Mercedes GLE 63 AMG, Porsche 911, Audi RS7" id="ff-vehicle"/>
-        </div>
-        <div class="form-row">
+
+        <!-- Step 2 — What are you looking for -->
+        <div class="ms-step" data-step="2">
           <div class="form-group">
-            <label>Budget</label>
-            <select id="ff-budget">
+            <label>Vehicle Type</label>
+            <select id="ff-vtype">
               <option value="">Select...</option>
-              <option>Under $50,000</option>
-              <option>$50,000 – $100,000</option>
-              <option>$100,000 – $200,000</option>
-              <option>$200,000+</option>
+              <option>Sedan</option><option>SUV/Crossover</option><option>Truck</option>
+              <option>Minivan</option><option>Sports Car</option><option>Luxury</option>
             </select>
           </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Size Preference</label>
+              <select id="ff-size">
+                <option value="">Select...</option>
+                <option>Compact</option><option>Mid-size</option><option>Full-size</option><option>No Preference</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Condition</label>
+              <select id="ff-condition">
+                <option value="">Select...</option>
+                <option>New</option><option>Pre-Owned</option><option>Either</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Budget — Min</label><input type="number" placeholder="30000" id="ff-budget-min" min="0"/></div>
+            <div class="form-group"><label>Budget — Max</label><input type="number" placeholder="60000" id="ff-budget-max" min="0"/></div>
+          </div>
           <div class="form-group">
-            <label>Buy or Lease?</label>
-            <select id="ff-buylease">
+            <label>Timeline</label>
+            <select id="ff-timeline">
               <option value="">Select...</option>
-              <option>Buy</option>
-              <option>Lease</option>
-              <option>Not sure yet</option>
+              <option>This Week</option><option>This Month</option><option>1–3 Months</option><option>Just Exploring</option>
             </select>
           </div>
         </div>
-        <div class="form-group">
-          <label>Anything specific? (color, options, mileage, etc.)</label>
-          <textarea placeholder="E.g. Prefer black interior, under 20K miles, Sport Chrono package..." id="ff-notes"></textarea>
+
+        <!-- Step 3 — Priorities -->
+        <div class="ms-step" data-step="3">
+          <div class="form-group" style="margin-bottom:.3rem"><label>What Matters Most?</label></div>
+          <div class="priority-hint">Pick up to 3 priorities.</div>
+          <div class="priority-grid" id="ff-priority-grid">
+            <label class="priority-item"><input type="checkbox" value="Low maintenance cost"/> Low maintenance cost</label>
+            <label class="priority-item"><input type="checkbox" value="Fuel economy"/> Fuel economy</label>
+            <label class="priority-item"><input type="checkbox" value="Interior space/cargo"/> Interior space/cargo</label>
+            <label class="priority-item"><input type="checkbox" value="Technology and infotainment"/> Tech & infotainment</label>
+            <label class="priority-item"><input type="checkbox" value="Safety ratings"/> Safety ratings</label>
+            <label class="priority-item"><input type="checkbox" value="Driving feel and performance"/> Driving feel & performance</label>
+            <label class="priority-item"><input type="checkbox" value="Reliability"/> Reliability</label>
+            <label class="priority-item"><input type="checkbox" value="Resale value"/> Resale value</label>
+            <label class="priority-item"><input type="checkbox" value="Monthly payment"/> Monthly payment</label>
+            <label class="priority-item"><input type="checkbox" value="Towing capacity"/> Towing capacity</label>
+          </div>
         </div>
-        <button class="submit-btn" onclick="submitFindForm()">Send Me My 3 Options — Free</button>
+
+        <!-- Step 4 — Your situation -->
+        <div class="ms-step" data-step="4">
+          <div class="form-group"><label>Current Vehicle (Year/Make/Model)</label><input type="text" placeholder="2018 Honda CR-V" id="ff-current-vehicle"/></div>
+          <div class="form-group"><label>What Do You Like About It?</label><textarea placeholder="Reliable, good gas mileage..." id="ff-current-like"></textarea></div>
+          <div class="form-group"><label>What Do You Want to Change?</label><textarea placeholder="Needs more cargo space, tired of repairs..." id="ff-current-change"></textarea></div>
+          <div class="form-group">
+            <label>Interested in a Trade-In?</label>
+            <select id="ff-tradein">
+              <option value="">Select...</option>
+              <option>Yes</option><option>No</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Step 5 — Anything else -->
+        <div class="ms-step" data-step="5">
+          <div class="form-group"><label>Specific Needs or Requirements</label><textarea placeholder="E.g. Third row seating, AWD required, tow package..." id="ff-specific-needs"></textarea></div>
+          <div class="form-group"><label>Any Makes or Models Already Considering?</label><input type="text" placeholder="e.g. Toyota RAV4, Honda CR-V" id="ff-considering"/></div>
+          <div class="form-group"><label>Anything Else We Should Know?</label><textarea placeholder="Anything else that would help us find your match..." id="ff-anything-else"></textarea></div>
+        </div>
+
+        <div class="ms-nav">
+          <button type="button" class="ms-back-btn" id="ff-back-btn" onclick="ffPrevStep()" style="display:none">Back</button>
+          <button type="button" class="submit-btn" id="ff-next-btn" onclick="ffNextStep()">Next Step</button>
+        </div>
         <div class="form-note">No spam. No sales calls. <strong>Just your options.</strong></div>
       </div>
 
@@ -473,24 +549,12 @@
       <div class="eyebrow center">Client Stories</div>
       <h2 class="display">What our clients <em>say.</em></h2>
     </div>
-    <div class="testi-grid">
+    <div class="testi-grid" style="grid-template-columns:1fr;max-width:600px">
       <div class="tcard reveal">
         <div class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
-        <div class="tquote">Jeff found my Porsche 911 in a spec I thought didn't exist at this price point. I'd been searching for months — he delivered 3 options in under 24 hours. Completely free.</div>
+        <div class="tquote">We never once stepped foot in a dealership. Jeff had a 2026 Mazda CX-5 delivered right to our driveway so the kids could test drive it in the yard before we said yes. It was completely free, no pressure, and honestly the easiest car decision we've ever made as a family.</div>
         <div class="tdivider"></div>
-        <div class="tauthor"><div class="tavatar">MR</div><div><div class="tname">Marcus R.</div><div class="tvehicle">2022 Porsche 911 Carrera S — Miami, FL</div></div></div>
-      </div>
-      <div class="tcard reveal">
-        <div class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
-        <div class="tquote">I filled out the form on a Tuesday evening. By Wednesday morning I had three real options in my inbox. Ended up in a GLE 63 AMG I didn't even know was on the market.</div>
-        <div class="tdivider"></div>
-        <div class="tauthor"><div class="tavatar">DT</div><div><div class="tname">Danielle T.</div><div class="tvehicle">Mercedes-Benz GLE 63 AMG — Atlanta, GA</div></div></div>
-      </div>
-      <div class="tcard reveal">
-        <div class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
-        <div class="tquote">I had no idea this was free. I assumed there was a catch. There wasn't. Got my RS7 options the next day, picked one, and Jeff handled everything from there. Unreal service.</div>
-        <div class="tdivider"></div>
-        <div class="tauthor"><div class="tavatar">KJ</div><div><div class="tname">Kevin J.</div><div class="tvehicle">2021 Audi RS7 — Dallas, TX</div></div></div>
+        <div class="tauthor"><div class="tavatar">R</div><div><div class="tname">The R. Family</div><div class="tvehicle">2026 Mazda CX-5 — Houston, TX</div></div></div>
       </div>
     </div>
   </section>
@@ -529,59 +593,149 @@
         <div class="sell-form-sub">Fill this out and we'll have dealer offers to you within <strong>24 hours</strong>. Completely free — you're under no obligation to accept anything.</div>
 
         <div id="sell-form-wrap" class="sell-form">
-          <div class="form-row">
-            <div class="form-group"><label>First Name</label><input type="text" placeholder="John" id="sf-fname"/></div>
-            <div class="form-group"><label>Last Name</label><input type="text" placeholder="Smith" id="sf-lname"/></div>
-          </div>
-          <div class="form-group"><label>Email</label><input type="email" placeholder="john@email.com" id="sf-email"/></div>
-          <div class="form-group"><label>Phone</label><input type="tel" placeholder="(555) 000-0000" id="sf-phone"/></div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Year</label>
-              <input type="text" placeholder="2021" id="sf-year"/>
+          <div class="ms-progress"><div class="ms-progress-bar" id="sf-progress-bar" style="width:25%"></div></div>
+          <div class="ms-step-label" id="sf-step-label">Step <strong>1</strong> of 4</div>
+
+          <!-- Step 1 — Contact -->
+          <div class="ms-step active" data-step="1">
+            <div class="form-row">
+              <div class="form-group"><label>First Name</label><input type="text" placeholder="John" id="sf-fname"/></div>
+              <div class="form-group"><label>Last Name</label><input type="text" placeholder="Smith" id="sf-lname"/></div>
             </div>
-            <div class="form-group">
-              <label>Make</label>
-              <input type="text" placeholder="Porsche" id="sf-make"/>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Model</label>
-              <input type="text" placeholder="911 Carrera S" id="sf-model"/>
-            </div>
-            <div class="form-group">
-              <label>Mileage</label>
-              <input type="text" placeholder="18,500" id="sf-mileage"/>
+            <div class="form-group"><label>Email</label><input type="email" placeholder="john@email.com" id="sf-email"/></div>
+            <div class="form-row">
+              <div class="form-group"><label>Phone</label><input type="tel" placeholder="(555) 000-0000" id="sf-phone"/></div>
+              <div class="form-group"><label>ZIP Code</label><input type="text" placeholder="78701" id="sf-zip" maxlength="10"/></div>
             </div>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Condition</label>
-              <select id="sf-condition">
-                <option value="">Select...</option>
-                <option>Excellent</option>
-                <option>Good</option>
-                <option>Fair</option>
-                <option>Needs Work</option>
-              </select>
+
+          <!-- Step 2 — Your vehicle -->
+          <div class="ms-step" data-step="2">
+            <div class="form-row">
+              <div class="form-group"><label>Year</label><input type="text" placeholder="2021" id="sf-year"/></div>
+              <div class="form-group"><label>Make</label><input type="text" placeholder="Porsche" id="sf-make"/></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Model</label><input type="text" placeholder="911 Carrera S" id="sf-model"/></div>
+              <div class="form-group"><label>Trim (Optional)</label><input type="text" placeholder="Carrera S" id="sf-trim"/></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Mileage</label><input type="text" placeholder="18,500" id="sf-mileage"/></div>
+              <div class="form-group"><label>Exterior Color</label><input type="text" placeholder="Jet Black" id="sf-color"/></div>
             </div>
             <div class="form-group">
               <label>Title Status</label>
               <select id="sf-title">
                 <option value="">Select...</option>
-                <option>Clean Title</option>
-                <option>Salvage / Rebuilt</option>
-                <option>Lien on Vehicle</option>
-                <option>Not Sure</option>
+                <option>Clean Title</option><option>Salvage Title</option><option>Rebuilt/Reconstructed</option><option>Not Sure</option>
               </select>
             </div>
+            <div class="form-group">
+              <label>Do You Have a Remaining Balance on This Vehicle?</label>
+              <select id="sf-payoff-yn">
+                <option value="">Select...</option>
+                <option>Yes</option><option>No</option>
+              </select>
+            </div>
+            <div class="form-group" id="sf-payoff-wrap" style="display:none">
+              <label>Approximate Payoff Amount</label>
+              <input type="text" placeholder="$12,000" id="sf-payoff-amount"/>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Anything we should know? (accidents, modifications, service history)</label>
-            <textarea placeholder="No accidents, all service records, recent tires..." id="sf-notes"></textarea>
+
+          <!-- Step 3 — Condition -->
+          <div class="ms-step" data-step="3">
+            <div class="form-group">
+              <label>Overall Condition</label>
+              <select id="sf-condition">
+                <option value="">Select...</option>
+                <option>Excellent</option><option>Good</option><option>Fair</option><option>Poor</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Accidents or Insurance Claims?</label>
+              <select id="sf-accidents-yn">
+                <option value="">Select...</option>
+                <option>Yes</option><option>No</option>
+              </select>
+            </div>
+            <div class="form-row" id="sf-accidents-wrap" style="display:none">
+              <div class="form-group"><label>Number of Incidents</label><input type="text" placeholder="1" id="sf-accidents-count"/></div>
+              <div class="form-group"><label>Approximate Damage Amount</label><input type="text" placeholder="$2,500" id="sf-accidents-damage"/></div>
+            </div>
+            <div class="form-group">
+              <label>Mechanical Issues?</label>
+              <select id="sf-mechanical-yn">
+                <option value="">Select...</option>
+                <option>Yes</option><option>No</option>
+              </select>
+            </div>
+            <div class="form-group" id="sf-mechanical-wrap" style="display:none">
+              <label>Describe the Issue</label>
+              <textarea placeholder="Check engine light, transmission slipping..." id="sf-mechanical-desc"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Any Warning Lights On?</label>
+              <select id="sf-warning-yn">
+                <option value="">Select...</option>
+                <option>Yes</option><option>No</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Windshield Condition</label>
+                <select id="sf-windshield">
+                  <option value="">Select...</option>
+                  <option>Perfect</option><option>Minor Chips</option><option>Cracked — Needs Replacement</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Tire Condition</label>
+                <select id="sf-tires">
+                  <option value="">Select...</option>
+                  <option>New</option><option>Good</option><option>Worn</option><option>Needs Replacement</option>
+                </select>
+              </div>
+            </div>
           </div>
-          <button class="sell-submit" onclick="submitSellForm()">Get My Free Offers</button>
+
+          <!-- Step 4 — Final details -->
+          <div class="ms-step" data-step="4">
+            <div class="form-group">
+              <label>Aftermarket Modifications?</label>
+              <select id="sf-mods-yn">
+                <option value="">Select...</option>
+                <option>Yes</option><option>No</option>
+              </select>
+            </div>
+            <div class="form-group" id="sf-mods-wrap" style="display:none">
+              <label>Describe the Modifications</label>
+              <textarea placeholder="Aftermarket exhaust, lowered suspension..." id="sf-mods-desc"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Keys</label>
+              <select id="sf-keys">
+                <option value="">Select...</option>
+                <option>Two Sets</option><option>One Set</option><option>None</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Timeline</label>
+              <select id="sf-timeline">
+                <option value="">Select...</option>
+                <option>This Week</option><option>This Month</option><option>1–3 Months</option><option>Just Exploring</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Anything Else We Should Know?</label>
+              <textarea placeholder="Additional details about your vehicle..." id="sf-notes"></textarea>
+            </div>
+          </div>
+
+          <div class="ms-nav">
+            <button type="button" class="ms-back-btn" id="sf-back-btn" onclick="sfPrevStep()" style="display:none">Back</button>
+            <button type="button" class="sell-submit" id="sf-next-btn" onclick="sfNextStep()">Next Step</button>
+          </div>
           <div class="sell-note">Free to submit. No obligation to accept. <strong>Real dealer offers.</strong></div>
         </div>
 
@@ -1169,37 +1323,189 @@ async function submitToFormspree(btn, wrapId, successId, errorId, payload) {
   }
 }
 
-// ── Find My Car ───────────────────────────────────────────────
+// ── Find My Car multi-step ───────────────────────────────────
+const FF_TOTAL_STEPS = 5;
+let ffCurrentStep = 1;
+
+function ffUpdateProgress(){
+  document.getElementById('ff-progress-bar').style.width = (ffCurrentStep / FF_TOTAL_STEPS * 100) + '%';
+  document.getElementById('ff-step-label').innerHTML = 'Step <strong>' + ffCurrentStep + '</strong> of ' + FF_TOTAL_STEPS;
+}
+
+function ffValidateStep(step){
+  if(step === 1){
+    const fname = document.getElementById('ff-fname').value.trim();
+    const lname = document.getElementById('ff-lname').value.trim();
+    const email = document.getElementById('ff-email').value.trim();
+    const phone = document.getElementById('ff-phone').value.trim();
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if(!fname || !lname || !email || !phone){ alert('Please fill out your name, email, and phone to continue.'); return false; }
+    if(!re.test(email)){ alert('Please enter a valid email address.'); return false; }
+  }
+  return true;
+}
+
+function ffShowStep(step){
+  document.querySelectorAll('#find-form-wrap .ms-step').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.step) === step);
+  });
+  document.getElementById('ff-back-btn').style.display = step === 1 ? 'none' : 'inline-block';
+  document.getElementById('ff-next-btn').textContent = step === FF_TOTAL_STEPS ? 'Send Me My 3 Options — Free' : 'Next Step';
+  ffUpdateProgress();
+}
+
+function ffNextStep(){
+  if(!ffValidateStep(ffCurrentStep)) return;
+  if(ffCurrentStep === FF_TOTAL_STEPS){ submitFindForm(); return; }
+  ffCurrentStep++;
+  ffShowStep(ffCurrentStep);
+}
+
+function ffPrevStep(){
+  if(ffCurrentStep === 1) return;
+  ffCurrentStep--;
+  ffShowStep(ffCurrentStep);
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  const grid = document.getElementById('ff-priority-grid');
+  if(!grid) return;
+  const boxes = grid.querySelectorAll('input[type="checkbox"]');
+  function refresh(){
+    const checkedCount = grid.querySelectorAll('input[type="checkbox"]:checked').length;
+    boxes.forEach(cb => {
+      cb.closest('.priority-item').classList.toggle('checked', cb.checked);
+      if(!cb.checked){
+        cb.disabled = checkedCount >= 3;
+        cb.closest('.priority-item').classList.toggle('disabled', checkedCount >= 3);
+      }
+    });
+  }
+  boxes.forEach(cb => cb.addEventListener('change', refresh));
+});
+
+// ── Find My Car submit ───────────────────────────────────────
 function submitFindForm() {
-  const btn = document.querySelector('#find-form-wrap .submit-btn');
+  const btn = document.getElementById('ff-next-btn');
+  const priorities = Array.from(document.querySelectorAll('#ff-priority-grid input:checked')).map(cb => cb.value).join(', ');
   submitToFormspree(btn, 'find-form-wrap', 'find-success', 'find-error', {
     form_type:  'Find My Car',
     first_name: document.getElementById('ff-fname').value.trim(),
     last_name:  document.getElementById('ff-lname').value.trim(),
     email:      document.getElementById('ff-email').value.trim(),
     phone:      document.getElementById('ff-phone').value.trim(),
-    vehicle:    document.getElementById('ff-vehicle').value.trim(),
-    budget:     document.getElementById('ff-budget').value,
-    buy_or_lease: document.getElementById('ff-buylease').value,
-    notes:      document.getElementById('ff-notes').value.trim()
+    zip:        document.getElementById('ff-zip').value.trim(),
+    vehicle_type: document.getElementById('ff-vtype').value,
+    size_preference: document.getElementById('ff-size').value,
+    condition:  document.getElementById('ff-condition').value,
+    budget_min: document.getElementById('ff-budget-min').value.trim(),
+    budget_max: document.getElementById('ff-budget-max').value.trim(),
+    timeline:   document.getElementById('ff-timeline').value,
+    priorities: priorities,
+    current_vehicle: document.getElementById('ff-current-vehicle').value.trim(),
+    current_like: document.getElementById('ff-current-like').value.trim(),
+    current_change: document.getElementById('ff-current-change').value.trim(),
+    trade_in:   document.getElementById('ff-tradein').value,
+    specific_needs: document.getElementById('ff-specific-needs').value.trim(),
+    considering: document.getElementById('ff-considering').value.trim(),
+    anything_else: document.getElementById('ff-anything-else').value.trim()
   });
 }
 
-// ── Sell My Car ───────────────────────────────────────────────
+// ── Sell My Car multi-step ───────────────────────────────────
+const SF_TOTAL_STEPS = 4;
+let sfCurrentStep = 1;
+
+function sfUpdateProgress(){
+  document.getElementById('sf-progress-bar').style.width = (sfCurrentStep / SF_TOTAL_STEPS * 100) + '%';
+  document.getElementById('sf-step-label').innerHTML = 'Step <strong>' + sfCurrentStep + '</strong> of ' + SF_TOTAL_STEPS;
+}
+
+function sfValidateStep(step){
+  if(step === 1){
+    const fname = document.getElementById('sf-fname').value.trim();
+    const lname = document.getElementById('sf-lname').value.trim();
+    const email = document.getElementById('sf-email').value.trim();
+    const phone = document.getElementById('sf-phone').value.trim();
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if(!fname || !lname || !email || !phone){ alert('Please fill out your name, email, and phone to continue.'); return false; }
+    if(!re.test(email)){ alert('Please enter a valid email address.'); return false; }
+  }
+  return true;
+}
+
+function sfShowStep(step){
+  document.querySelectorAll('#sell-form-wrap .ms-step').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.step) === step);
+  });
+  document.getElementById('sf-back-btn').style.display = step === 1 ? 'none' : 'inline-block';
+  document.getElementById('sf-next-btn').textContent = step === SF_TOTAL_STEPS ? 'Get My Free Offers' : 'Next Step';
+  sfUpdateProgress();
+}
+
+function sfNextStep(){
+  if(!sfValidateStep(sfCurrentStep)) return;
+  if(sfCurrentStep === SF_TOTAL_STEPS){ submitSellForm(); return; }
+  sfCurrentStep++;
+  sfShowStep(sfCurrentStep);
+}
+
+function sfPrevStep(){
+  if(sfCurrentStep === 1) return;
+  sfCurrentStep--;
+  sfShowStep(sfCurrentStep);
+}
+
+function sfToggleConditional(selectId, wrapId, fieldIds, displayMode){
+  const sel = document.getElementById(selectId);
+  const wrap = document.getElementById(wrapId);
+  sel.addEventListener('change', function(){
+    const show = sel.value === 'Yes';
+    wrap.style.display = show ? displayMode : 'none';
+    if(!show){ fieldIds.forEach(id => document.getElementById(id).value = ''); }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  if(!document.getElementById('sell-form-wrap')) return;
+  sfToggleConditional('sf-payoff-yn', 'sf-payoff-wrap', ['sf-payoff-amount'], 'block');
+  sfToggleConditional('sf-accidents-yn', 'sf-accidents-wrap', ['sf-accidents-count','sf-accidents-damage'], 'grid');
+  sfToggleConditional('sf-mechanical-yn', 'sf-mechanical-wrap', ['sf-mechanical-desc'], 'block');
+  sfToggleConditional('sf-mods-yn', 'sf-mods-wrap', ['sf-mods-desc'], 'block');
+});
+
+// ── Sell My Car submit ────────────────────────────────────────
 function submitSellForm() {
-  const btn = document.querySelector('#sell-form-wrap .sell-submit');
+  const btn = document.getElementById('sf-next-btn');
   submitToFormspree(btn, 'sell-form-wrap', 'sell-success', 'sell-error', {
     form_type:  'Sell My Car',
     first_name: document.getElementById('sf-fname').value.trim(),
     last_name:  document.getElementById('sf-lname').value.trim(),
     email:      document.getElementById('sf-email').value.trim(),
     phone:      document.getElementById('sf-phone').value.trim(),
+    zip:        document.getElementById('sf-zip').value.trim(),
     year:       document.getElementById('sf-year').value.trim(),
     make:       document.getElementById('sf-make').value.trim(),
     model:      document.getElementById('sf-model').value.trim(),
+    trim:       document.getElementById('sf-trim').value.trim(),
     mileage:    document.getElementById('sf-mileage').value.trim(),
+    exterior_color: document.getElementById('sf-color').value.trim(),
+    title_status: document.getElementById('sf-title').value,
+    remaining_balance: document.getElementById('sf-payoff-yn').value,
+    payoff_amount: document.getElementById('sf-payoff-amount').value.trim(),
     condition:  document.getElementById('sf-condition').value,
-    title:      document.getElementById('sf-title').value,
+    accidents:  document.getElementById('sf-accidents-yn').value,
+    accidents_count: document.getElementById('sf-accidents-count').value.trim(),
+    accidents_damage: document.getElementById('sf-accidents-damage').value.trim(),
+    mechanical_issues: document.getElementById('sf-mechanical-yn').value,
+    mechanical_desc: document.getElementById('sf-mechanical-desc').value.trim(),
+    warning_lights: document.getElementById('sf-warning-yn').value,
+    windshield: document.getElementById('sf-windshield').value,
+    tires:      document.getElementById('sf-tires').value,
+    modifications: document.getElementById('sf-mods-yn').value,
+    modifications_desc: document.getElementById('sf-mods-desc').value.trim(),
+    keys:       document.getElementById('sf-keys').value,
+    timeline:   document.getElementById('sf-timeline').value,
     notes:      document.getElementById('sf-notes').value.trim()
   });
 }
