@@ -12,5 +12,9 @@
 			"database_name": "dealer-portal",
 			"database_id": "de115c9b-2be3-44b0-a359-d9fb9402b667"
 		}
-	]
+	],
+	"routes": [
+		{ "pattern": "theexactmatch.com/reports/*", "zone_name": "theexactmatch.com" }
+	],
+	"workers_dev": true
 }

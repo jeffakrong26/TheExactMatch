@@ -430,6 +430,7 @@
     <div class="tab-bar" style="overflow-x:auto;flex-wrap:nowrap">
       <button class="tab-btn active" onclick="switchTab('tab-submissions')">Submissions</button>
       <button class="tab-btn" onclick="switchTab('tab-find-leads')">Find Leads</button>
+      <button class="tab-btn" onclick="switchTab('tab-reports')">Reports</button>
       <button class="tab-btn" onclick="switchTab('tab-leads')">Sell Leads</button>
       <button class="tab-btn" onclick="switchTab('tab-messages')">Messages</button>
       <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers</button>
@@ -447,6 +448,13 @@
       <div class="section-label">Find My Car Leads</div>
       <div id="admin-find-leads-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
       <div id="admin-find-leads-list"></div>
+    </div>
+
+    <!-- Tab: Reports -->
+    <div class="tab-panel" id="tab-reports">
+      <div class="section-label">Vehicle Match Reports</div>
+      <div id="admin-reports-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+      <div id="admin-reports-list"></div>
     </div>
 
     <!-- Tab: Sell Leads -->
@@ -573,6 +581,7 @@ function showView(id) {
   if (id === 'view-admin') {
     loadAdminSubmissions();
     loadAdminFindLeads();
+    loadAdminReports();
     loadAdminLeads();
     loadAdminMessages();
     loadAdminDealers();
@@ -851,7 +860,7 @@ function switchTab(tabId) {
     b.classList.remove('active');
     if (panels[i]) panels[i].classList.remove('active');
   });
-  const tabIndex = ['tab-submissions','tab-find-leads','tab-leads','tab-messages','tab-dealers'].indexOf(tabId);
+  const tabIndex = ['tab-submissions','tab-find-leads','tab-reports','tab-leads','tab-messages','tab-dealers'].indexOf(tabId);
   document.querySelectorAll('.tab-btn')[tabIndex]?.classList.add('active');
   document.getElementById(tabId)?.classList.add('active');
 }
@@ -982,6 +991,132 @@ async function loadAdminFindLeads() {
       </div>
     </div>
   `).join('');
+}
+
+// ── Vehicle match reports ──────────────────────────────────────
+async function loadAdminReports() {
+  document.getElementById('admin-reports-loading').style.display = 'block';
+  document.getElementById('admin-reports-list').innerHTML         = '';
+
+  const { res, data } = await apiFetch('/admin/reports')
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('admin-reports-loading').style.display = 'none';
+
+  if (!res.ok) return;
+
+  const reports = data.reports || [];
+  if (!reports.length) {
+    document.getElementById('admin-reports-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">No reports yet.<br/>They\'ll appear here automatically after a Find My Car submission is processed.</div></div>';
+    return;
+  }
+
+  document.getElementById('admin-reports-list').innerHTML = reports.map(r => `
+    <div class="item-card" style="flex-direction:column;display:flex;gap:0">
+      <div style="display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:start;width:100%">
+        <div>
+          <div class="item-card-title">${r.first_name} ${r.last_name} — ${r.report_code}</div>
+          <div class="item-card-sub">${r.email}</div>
+          <div class="item-card-meta">
+            <span class="status-badge ${r.status === 'approved' ? 'status-approved' : 'status-pending'}">${r.status === 'approved' ? 'approved' : 'pending approval'}</span>
+            <span class="meta-pill" style="opacity:.6">${formatDate(r.created_at)}</span>
+          </div>
+        </div>
+        <div class="item-card-actions">
+          <button class="btn-primary btn-sm" onclick="toggleReportDetail('${r.report_code}')" id="review-btn-${r.report_code}">Review</button>
+          ${r.status === 'approved' ? `<a href="https://theexactmatch.com/reports/${r.report_code}" target="_blank" style="font-size:.7rem;color:var(--gold);text-decoration:none;font-weight:600;text-transform:uppercase;letter-spacing:.05em">View Live →</a>` : ''}
+        </div>
+      </div>
+      <div id="report-detail-${r.report_code}" style="display:none;width:100%;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)"></div>
+    </div>
+  `).join('');
+}
+
+async function toggleReportDetail(code) {
+  const detail = document.getElementById(`report-detail-${code}`);
+  const isOpen = detail.style.display === 'block';
+  if (isOpen) {
+    detail.style.display = 'none';
+    document.getElementById(`review-btn-${code}`).textContent = 'Review';
+    return;
+  }
+
+  document.getElementById(`review-btn-${code}`).textContent = 'Hide';
+  detail.style.display = 'block';
+  if (detail.dataset.loaded === 'true') return;
+
+  detail.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--gray);font-size:.85rem">Loading...</div>';
+  const { res, data } = await apiFetch(`/admin/reports/${code}`).catch(() => ({res:{ok:false},data:{}}));
+  if (!res.ok) { detail.innerHTML = '<div style="color:var(--red);font-size:.82rem">Failed to load.</div>'; return; }
+
+  const isPending = data.report.status !== 'approved';
+
+  detail.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:1.5rem">
+      ${data.vehicles.map(v => `
+        <div class="rv-edit" data-position="${v.position}" style="background:var(--beige);border:1px solid var(--border);border-radius:3px;padding:1.25rem">
+          <div style="font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:.85rem">Option ${v.position}</div>
+          <div class="dp-form-row">
+            <div class="dp-form-group"><label>Year</label><input type="number" value="${v.year ?? ''}" data-field="year"/></div>
+            <div class="dp-form-group"><label>Make</label><input type="text" value="${v.make ?? ''}" data-field="make"/></div>
+          </div>
+          <div class="dp-form-row">
+            <div class="dp-form-group"><label>Model</label><input type="text" value="${v.model ?? ''}" data-field="model"/></div>
+            <div class="dp-form-group"><label>Trim</label><input type="text" value="${v.trim ?? ''}" data-field="trim"/></div>
+          </div>
+          <div class="dp-form-group"><label>Rationale</label><textarea data-field="rationale">${v.rationale ?? ''}</textarea></div>
+          <div class="dp-form-row">
+            <div class="dp-form-group"><label>Price ($)</label><input type="number" value="${v.price ?? ''}" data-field="price"/></div>
+            <div class="dp-form-group"><label>Mileage</label><input type="number" value="${v.mileage ?? ''}" data-field="mileage"/></div>
+          </div>
+          <div class="dp-form-row">
+            <div class="dp-form-group"><label>Dealer Name</label><input type="text" value="${v.dealer_name ?? ''}" data-field="dealer_name"/></div>
+            <div class="dp-form-group"><label>Dealer City</label><input type="text" value="${v.dealer_city ?? ''}" data-field="dealer_city"/></div>
+          </div>
+          <div class="dp-form-group" style="max-width:160px"><label>Dealer State</label><input type="text" value="${v.dealer_state ?? ''}" data-field="dealer_state"/></div>
+          <div style="font-size:.7rem;color:var(--gray);margin-top:.5rem">
+            Source: ${v.source || '—'} · Listing: ${v.verified || '—'}${v.interested ? ' · <strong style="color:var(--green)">✓ Client interested</strong>' : ''}
+          </div>
+        </div>
+      `).join('')}
+      <div style="display:flex;gap:.75rem;align-items:center">
+        <button class="btn-primary btn-sm" onclick="saveReportEdits('${code}')">Save Changes</button>
+        ${isPending ? `<button class="btn-primary btn-sm btn-gold" onclick="approveReport('${code}')" id="approve-btn-${code}">Approve &amp; Email Client</button>` : ''}
+        <span id="report-save-msg-${code}" style="font-size:.8rem"></span>
+      </div>
+    </div>
+  `;
+  detail.dataset.loaded = 'true';
+}
+
+async function saveReportEdits(code) {
+  const detail = document.getElementById(`report-detail-${code}`);
+  const blocks = detail.querySelectorAll('.rv-edit');
+  const msg = document.getElementById(`report-save-msg-${code}`);
+  msg.textContent = 'Saving…'; msg.style.color = 'var(--gray)';
+
+  for (const block of blocks) {
+    const position = block.dataset.position;
+    const payload = {};
+    block.querySelectorAll('[data-field]').forEach(el => { payload[el.dataset.field] = el.value; });
+    const { res } = await apiFetch(`/admin/reports/${code}/vehicles/${position}`, { method: 'PATCH', body: JSON.stringify(payload) })
+      .catch(() => ({res:{ok:false}}));
+    if (!res.ok) { msg.textContent = 'Failed to save one or more vehicles.'; msg.style.color = 'var(--red)'; return; }
+  }
+  msg.textContent = '✓ Saved.'; msg.style.color = 'var(--green)';
+}
+
+async function approveReport(code) {
+  const btn = document.getElementById(`approve-btn-${code}`);
+  btn.disabled = true; btn.textContent = 'Approving…';
+  const { res, data } = await apiFetch(`/admin/reports/${code}/approve`, { method: 'POST' }).catch(() => ({res:{ok:false},data:{}}));
+  if (!res.ok) {
+    btn.disabled = false; btn.textContent = 'Approve & Email Client';
+    alert(data.error || 'Failed to approve.');
+    return;
+  }
+  loadAdminReports();
 }
 
 async function loadAdminMessages() {

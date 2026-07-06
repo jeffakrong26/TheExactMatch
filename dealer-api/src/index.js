@@ -220,7 +220,7 @@ async function adminContactMessages(request, env) {
 }
 
 // ── Public marketing-site form submissions ───────────────────────
-async function submitFindCarLead(request, env) {
+async function submitFindCarLead(request, env, params, dealer, token, ctx) {
   const body        = await request.json().catch(() => ({}));
   const first_name  = (body.first_name || '').trim();
   const last_name   = (body.last_name || '').trim();
@@ -230,7 +230,7 @@ async function submitFindCarLead(request, env) {
   if (!first_name || !last_name || !email) return json({ error: 'Name and email are required.' }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: 'Invalid email address.' }, 400);
 
-  await env.DB.prepare(`
+  const result = await env.DB.prepare(`
     INSERT INTO find_car_leads (
       first_name, last_name, email, phone, zip, vehicle_type, size_preference, condition,
       budget_min, budget_max, timeline, priorities, current_vehicle, current_like, current_change,
@@ -244,7 +244,216 @@ async function submitFindCarLead(request, env) {
     body.trade_in || '', (body.specific_needs || '').trim(), (body.considering || '').trim(), (body.anything_else || '').trim()
   ).run();
 
+  const leadId = result.meta.last_row_id;
+  if (ctx) {
+    ctx.waitUntil(generateReportForLead(env, leadId).catch(err => console.error('report pipeline failed for lead', leadId, err)));
+  }
+
   return json({ success: true });
+}
+
+// ── Automated report pipeline ────────────────────────────────────
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function sendBrevoEmail(env, { to, subject, html }) {
+  try {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'api-key': env.BREVO_API_KEY },
+      body: JSON.stringify({
+        sender: { email: 'theexactmatch@gmail.com', name: 'TheExactMatch' },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error('Brevo email rejected', res.status, body);
+    }
+  } catch (err) {
+    console.error('Brevo email failed', err);
+  }
+}
+
+function buildVehiclePrompt(lead) {
+  const year = new Date().getFullYear();
+  return `A car-buying client filled out our "Find My Car" form. Based on their answers, recommend exactly 3 specific vehicles (year, make, model, trim) that best fit their needs. For each, give a short rationale tied to their stated priorities and situation.
+
+Client details:
+- Vehicle type: ${lead.vehicle_type || 'not specified'}
+- Size preference: ${lead.size_preference || 'not specified'}
+- Condition: ${lead.condition || 'not specified'}
+- Budget: $${lead.budget_min || '?'} to $${lead.budget_max || '?'}
+- Timeline: ${lead.timeline || 'not specified'}
+- Priorities: ${lead.priorities || 'not specified'}
+- Current vehicle: ${lead.current_vehicle || 'none stated'}
+- What they like about their current vehicle: ${lead.current_like || 'not specified'}
+- What they want to change: ${lead.current_change || 'not specified'}
+- Interested in a trade-in: ${lead.trade_in || 'not specified'}
+- Specific needs/requirements: ${lead.specific_needs || 'none stated'}
+- Makes/models already considering: ${lead.considering || 'none stated'}
+- Anything else: ${lead.anything_else || 'none stated'}
+
+Recommend real vehicles (roughly ${year - 3}–${year} model years) that a dealer network would realistically have in stock, fitting their stated budget range.`;
+}
+
+async function pickVehicles(env, lead) {
+  const tool = {
+    name: 'record_recommendations',
+    description: 'Record exactly 3 recommended vehicles for this buyer.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        vehicles: {
+          type: 'array',
+          description: 'Exactly 3 vehicle recommendations, no more and no fewer.',
+          items: {
+            type: 'object',
+            properties: {
+              year: { type: 'integer' },
+              make: { type: 'string' },
+              model: { type: 'string' },
+              trim: { type: 'string' },
+              rationale: { type: 'string', description: 'Why this fits their budget, priorities, and situation' },
+            },
+            required: ['year', 'make', 'model', 'trim', 'rationale'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['vehicles'],
+      additionalProperties: false,
+    },
+  };
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2048,
+      tools: [tool],
+      tool_choice: { type: 'tool', name: 'record_recommendations' },
+      messages: [{ role: 'user', content: buildVehiclePrompt(lead) }],
+    }),
+  });
+
+  const data = await res.json();
+  if (data.stop_reason === 'refusal') throw new Error('Claude declined the recommendation request');
+  const toolUse = (data.content || []).find(b => b.type === 'tool_use');
+  if (!toolUse) throw new Error('Claude did not return a tool_use block: ' + JSON.stringify(data));
+  const vehicles = toolUse.input.vehicles || [];
+  if (vehicles.length !== 3) throw new Error(`Expected 3 vehicles, got ${vehicles.length}: ` + JSON.stringify(vehicles));
+  return vehicles;
+}
+
+const MARKETCHECK_RADII = [25, 50, 100, 200, 300];
+
+async function searchMarketcheck(env, { make, model, zip }) {
+  for (const radius of MARKETCHECK_RADII) {
+    const url = new URL('https://api.marketcheck.com/v2/search/car/active');
+    url.searchParams.set('api_key', env.MARKETCHECK_API_KEY);
+    url.searchParams.set('zip', zip || '78701');
+    url.searchParams.set('radius', String(radius));
+    url.searchParams.set('make', make);
+    if (model) url.searchParams.set('model', model);
+    url.searchParams.set('rows', model ? '5' : '1');
+
+    const res = await fetch(url.toString());
+    if (!res.ok) continue;
+    const data = await res.json().catch(() => ({}));
+    if (data.listings && data.listings.length) return { listings: data.listings, radius };
+  }
+  return null;
+}
+
+async function verifyListingLive(vdpUrl) {
+  if (!vdpUrl) return 'unverified';
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(vdpUrl, { method: 'HEAD', redirect: 'follow', signal: controller.signal });
+    clearTimeout(timeout);
+    return res.ok ? 'verified' : 'unverified';
+  } catch {
+    return 'unverified';
+  }
+}
+
+async function findFranchiseFallback(env, { make, zip }) {
+  const found = await searchMarketcheck(env, { make, model: null, zip });
+  if (!found) return null;
+  const l = found.listings[0];
+  return {
+    dealer_name: l.dealer?.name || null,
+    dealer_city: l.dealer?.city || null,
+    dealer_state: l.dealer?.state || null,
+    price: null, mileage: null, vdp_url: null,
+    source: 'franchise_fallback', verified: 'fallback',
+  };
+}
+
+async function generateReportForLead(env, leadId) {
+  const lead = await env.DB.prepare('SELECT * FROM find_car_leads WHERE id = ?').bind(leadId).first();
+  if (!lead) return;
+
+  const picks = await pickVehicles(env, lead);
+
+  const vehicles = [];
+  for (const pick of picks) {
+    const found = await searchMarketcheck(env, { make: pick.make, model: pick.model, zip: lead.zip });
+    let entry;
+    if (found) {
+      const l = found.listings[0];
+      entry = {
+        ...pick,
+        price: l.price ?? null,
+        mileage: l.miles ?? null,
+        dealer_name: l.dealer?.name || null,
+        dealer_city: l.dealer?.city || null,
+        dealer_state: l.dealer?.state || null,
+        vdp_url: l.vdp_url || null,
+        source: 'marketcheck',
+        verified: await verifyListingLive(l.vdp_url),
+      };
+    } else {
+      const fallback = await findFranchiseFallback(env, { make: pick.make, zip: lead.zip });
+      entry = { ...pick, ...(fallback || { price: null, mileage: null, dealer_name: null, dealer_city: null, dealer_state: null, vdp_url: null, source: 'none', verified: 'unverified' }) };
+    }
+    vehicles.push(entry);
+  }
+
+  const reportResult = await env.DB.prepare(
+    `INSERT INTO find_car_reports (report_code, find_lead_id, status) VALUES ('', ?, 'pending_approval')`
+  ).bind(leadId).run();
+  const reportId = reportResult.meta.last_row_id;
+  const reportCode = `TEM-${new Date().getFullYear()}-${String(reportId).padStart(4, '0')}`;
+  await env.DB.prepare('UPDATE find_car_reports SET report_code = ? WHERE id = ?').bind(reportCode, reportId).run();
+
+  for (let i = 0; i < vehicles.length; i++) {
+    const v = vehicles[i];
+    await env.DB.prepare(`
+      INSERT INTO report_vehicles (report_id, position, year, make, model, trim, rationale, price, mileage, dealer_name, dealer_city, dealer_state, vdp_url, source, verified)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      reportId, i + 1, v.year, v.make, v.model, v.trim, v.rationale,
+      v.price, v.mileage, v.dealer_name, v.dealer_city, v.dealer_state, v.vdp_url, v.source, v.verified
+    ).run();
+  }
+
+  await sendBrevoEmail(env, {
+    to: 'theexactmatch@gmail.com',
+    subject: 'New report ready for review',
+    html: `<p>New Find My Car report ready for ${escapeHtml(lead.first_name)} ${escapeHtml(lead.last_name)}.</p><p><a href="https://theexactmatch.com/Dealerportal.html">Review in dashboard →</a></p>`,
+  });
 }
 
 async function submitSellCarLead(request, env) {
@@ -393,6 +602,207 @@ async function adminUpdateDealer(request, env, params) {
   return json({ success: true });
 }
 
+// ── Vehicle report admin actions ──────────────────────────────────
+async function adminListReports(request, env) {
+  const { results } = await env.DB.prepare(`
+    SELECT find_car_reports.*, find_car_leads.first_name, find_car_leads.last_name, find_car_leads.email
+    FROM find_car_reports JOIN find_car_leads ON find_car_leads.id = find_car_reports.find_lead_id
+    ORDER BY find_car_reports.created_at DESC
+  `).all();
+  return json({ reports: results });
+}
+
+async function adminGetReport(request, env, params) {
+  const report = await env.DB.prepare(`
+    SELECT find_car_reports.*, find_car_leads.first_name, find_car_leads.last_name, find_car_leads.email
+    FROM find_car_reports JOIN find_car_leads ON find_car_leads.id = find_car_reports.find_lead_id
+    WHERE find_car_reports.report_code = ?
+  `).bind(params.code).first();
+  if (!report) return json({ error: 'Report not found.' }, 404);
+
+  const { results: vehicles } = await env.DB.prepare(
+    `SELECT * FROM report_vehicles WHERE report_id = ? ORDER BY position`
+  ).bind(report.id).all();
+
+  return json({ report, vehicles });
+}
+
+const REPORT_VEHICLE_EDITABLE_FIELDS = ['year', 'make', 'model', 'trim', 'rationale', 'price', 'mileage', 'dealer_name', 'dealer_city', 'dealer_state'];
+
+async function adminUpdateReportVehicle(request, env, params) {
+  const body = await request.json().catch(() => ({}));
+  const report = await env.DB.prepare('SELECT id FROM find_car_reports WHERE report_code = ?').bind(params.code).first();
+  if (!report) return json({ error: 'Report not found.' }, 404);
+
+  const sets = [];
+  const values = [];
+  for (const field of REPORT_VEHICLE_EDITABLE_FIELDS) {
+    if (field in body) { sets.push(`${field} = ?`); values.push(body[field]); }
+  }
+  if (!sets.length) return json({ error: 'No editable fields provided.' }, 400);
+
+  values.push(report.id, +params.position);
+  await env.DB.prepare(`UPDATE report_vehicles SET ${sets.join(', ')} WHERE report_id = ? AND position = ?`).bind(...values).run();
+  return json({ success: true });
+}
+
+async function adminApproveReport(request, env, params) {
+  const report = await env.DB.prepare(`
+    SELECT find_car_reports.*, find_car_leads.first_name, find_car_leads.email
+    FROM find_car_reports JOIN find_car_leads ON find_car_leads.id = find_car_reports.find_lead_id
+    WHERE find_car_reports.report_code = ?
+  `).bind(params.code).first();
+  if (!report) return json({ error: 'Report not found.' }, 404);
+  if (report.status === 'approved') return json({ error: 'Report already approved.' }, 400);
+
+  await env.DB.prepare(`UPDATE find_car_reports SET status = 'approved', approved_at = datetime('now') WHERE id = ?`).bind(report.id).run();
+
+  await sendBrevoEmail(env, {
+    to: report.email,
+    subject: 'Your 3 matched vehicles are ready',
+    html: `<p>Hi ${escapeHtml(report.first_name)},</p><p>Your curated vehicle options are ready to view:</p>
+           <p><a href="https://theexactmatch.com/reports/${escapeHtml(report.report_code)}">View your matches →</a></p>
+           <p>Questions? Text Jeff directly at (512) 650-9328.</p>`,
+  });
+
+  return json({ success: true });
+}
+
+// ── Public hosted report page + client interest ───────────────────
+async function publicExpressReportInterest(request, env, params) {
+  const report = await env.DB.prepare(
+    `SELECT id FROM find_car_reports WHERE report_code = ? AND status = 'approved'`
+  ).bind(params.code).first();
+  if (!report) return json({ error: 'Report not found.' }, 404);
+
+  const position = +params.position;
+  const vehicle = await env.DB.prepare(
+    'SELECT id, interested FROM report_vehicles WHERE report_id = ? AND position = ?'
+  ).bind(report.id, position).first();
+  if (!vehicle) return json({ error: 'Vehicle not found.' }, 404);
+
+  if (!vehicle.interested) {
+    await env.DB.prepare(
+      `UPDATE report_vehicles SET interested = 1, interested_at = datetime('now') WHERE id = ?`
+    ).bind(vehicle.id).run();
+
+    const details = await env.DB.prepare(`
+      SELECT find_car_leads.first_name, find_car_leads.last_name, report_vehicles.year, report_vehicles.make, report_vehicles.model
+      FROM report_vehicles
+      JOIN find_car_reports ON find_car_reports.id = report_vehicles.report_id
+      JOIN find_car_leads ON find_car_leads.id = find_car_reports.find_lead_id
+      WHERE report_vehicles.id = ?
+    `).bind(vehicle.id).first();
+
+    await sendBrevoEmail(env, {
+      to: 'theexactmatch@gmail.com',
+      subject: 'Client expressed interest in a vehicle',
+      html: `<p>${escapeHtml(details.first_name)} ${escapeHtml(details.last_name)} is interested in the ${escapeHtml(details.year)} ${escapeHtml(details.make)} ${escapeHtml(details.model)}.</p>`,
+    });
+  }
+
+  return json({ success: true });
+}
+
+function htmlResponse(html, status = 200) {
+  return new Response(html, { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+}
+
+function reportNotFoundHtml() {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Report Not Found — TheExactMatch</title>
+<style>body{font-family:sans-serif;background:#F5F0E8;color:#0C1C33;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.box{text-align:center;padding:3rem;max-width:480px}</style></head><body>
+<div class="box"><h1>Report not found</h1><p>This report link is invalid or not yet ready. Contact Jeff at (512) 650-9328 if you think this is a mistake.</p></div>
+</body></html>`;
+}
+
+function reportPageHtml(report, vehicles) {
+  const cards = vehicles.map(v => `
+    <div class="vcard">
+      <div class="vtitle">${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)} ${escapeHtml(v.trim)}</div>
+      <div class="vmeta">
+        ${v.price ? `<span class="pill">$${Number(v.price).toLocaleString()}</span>` : ''}
+        ${v.mileage ? `<span class="pill">${Number(v.mileage).toLocaleString()} mi</span>` : ''}
+        ${v.dealer_name ? `<span class="pill">${escapeHtml(v.dealer_name)}</span>` : ''}
+        ${v.dealer_city ? `<span class="pill">${escapeHtml(v.dealer_city)}${v.dealer_state ? ', ' + escapeHtml(v.dealer_state) : ''}</span>` : ''}
+      </div>
+      <div class="vrationale">${escapeHtml(v.rationale)}</div>
+      <button class="interest-btn" data-position="${v.position}" ${v.interested ? 'disabled' : ''}>
+        ${v.interested ? '✓ You expressed interest' : "I'm interested in this one"}
+      </button>
+    </div>
+  `).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Your Matches — TheExactMatch</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--navy:#0C1C33;--navy2:#152a4a;--beige:#F5F0E8;--beige2:#EDE7D9;--gold:#C09A5B;--gold2:#D4B47A;--white:#fff;--gray:#4A5568;--border:#DDD8CC;--green:#1A4731}
+  body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy)}
+  header{background:var(--navy);padding:3rem 2rem;text-align:center}
+  .eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold2);margin-bottom:.75rem}
+  h1{font-family:'Playfair Display',serif;font-size:clamp(1.6rem,3vw,2.2rem);font-weight:500;color:var(--white)}
+  h1 em{font-style:italic;color:var(--gold2)}
+  .sub{color:rgba(255,255,255,.55);font-size:.9rem;margin-top:.75rem;font-weight:300}
+  .wrap{max-width:1000px;margin:0 auto;padding:3rem 2rem}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem}
+  .vcard{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:1.75rem;display:flex;flex-direction:column;gap:.85rem}
+  .vtitle{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:500;color:var(--navy)}
+  .vmeta{display:flex;flex-wrap:wrap;gap:.4rem}
+  .pill{font-size:.68rem;font-weight:500;padding:.25rem .65rem;border:1px solid var(--border);border-radius:20px;color:var(--gray)}
+  .vrationale{font-size:.82rem;color:var(--gray);line-height:1.6;flex:1}
+  .interest-btn{padding:.75rem;background:var(--gold);color:var(--navy);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+  .interest-btn:disabled{background:var(--green);color:var(--white);cursor:default}
+  footer{text-align:center;padding:2rem;font-size:.72rem;color:var(--gray)}
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">Your Curated Matches</div>
+  <h1>Hi ${escapeHtml(report.first_name)}, here are <em>your 3 options.</em></h1>
+  <div class="sub">Report ${escapeHtml(report.report_code)} — questions? Text Jeff at (512) 650-9328.</div>
+</header>
+<div class="wrap">
+  <div class="grid">${cards}</div>
+</div>
+<footer>© ${new Date().getFullYear()} TheExactMatch.com</footer>
+<script>
+document.querySelectorAll('.interest-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      const res = await fetch('https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api/public/reports/${escapeHtml(report.report_code)}/vehicles/' + btn.dataset.position + '/interest', { method: 'POST' });
+      if (res.ok) { btn.textContent = '✓ You expressed interest'; }
+      else { btn.disabled = false; btn.textContent = "I'm interested in this one"; }
+    } catch (e) { btn.disabled = false; btn.textContent = "I'm interested in this one"; }
+  });
+});
+</script>
+</body></html>`;
+}
+
+async function renderReportPage(request, env, params) {
+  const report = await env.DB.prepare(`
+    SELECT find_car_reports.*, find_car_leads.first_name, find_car_leads.last_name
+    FROM find_car_reports JOIN find_car_leads ON find_car_leads.id = find_car_reports.find_lead_id
+    WHERE find_car_reports.report_code = ?
+  `).bind(params.code).first();
+
+  if (!report || report.status !== 'approved') return htmlResponse(reportNotFoundHtml(), 404);
+
+  const { results: vehicles } = await env.DB.prepare(
+    'SELECT * FROM report_vehicles WHERE report_id = ? ORDER BY position'
+  ).bind(report.id).all();
+
+  return htmlResponse(reportPageHtml(report, vehicles));
+}
+
 // ── Route table ───────────────────────────────────────────────────
 const ROUTES = [
   { method: 'POST',  pattern: '/api/setup/init-admin',          handler: initAdmin },
@@ -417,13 +827,23 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/admin/invites',                handler: adminListInvites, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/dealer/invites/:token',        handler: validateInvite },
   { method: 'POST',  pattern: '/api/dealer/signup',                handler: dealerSignup },
+  { method: 'GET',   pattern: '/api/admin/reports',                     handler: adminListReports, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/reports/:code',                handler: adminGetReport, auth: true, admin: true },
+  { method: 'PATCH', pattern: '/api/admin/reports/:code/vehicles/:position', handler: adminUpdateReportVehicle, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/reports/:code/approve',        handler: adminApproveReport, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/interest', handler: publicExpressReportInterest },
 ];
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
 
     const url = new URL(request.url);
+
+    if (request.method === 'GET') {
+      const reportParams = matchPath('/reports/:code', url.pathname);
+      if (reportParams) return renderReportPage(request, env, reportParams);
+    }
 
     for (const route of ROUTES) {
       if (request.method !== route.method) continue;
@@ -445,7 +865,7 @@ export default {
       }
 
       try {
-        return await route.handler(request, env, params, dealer, token);
+        return await route.handler(request, env, params, dealer, token, ctx);
       } catch (err) {
         return json({ error: 'Server error. Please try again.' }, 500);
       }
