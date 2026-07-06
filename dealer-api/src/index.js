@@ -566,6 +566,7 @@ async function findListingEntry(env, pick, lead, throttledFetch, tag, t0) {
       highway_mpg: l.build?.highway_mpg ?? null,
       exterior_color: l.exterior_color || null,
       photo_url: l.media?.photo_links_cached?.[0] || l.media?.photo_links?.[0] || null,
+      photo_urls: JSON.stringify(l.media?.photo_links_cached || l.media?.photo_links || []),
       search_log: JSON.stringify(searchResult.log),
     };
   }
@@ -577,7 +578,7 @@ async function findListingEntry(env, pick, lead, throttledFetch, tag, t0) {
   const fullLog = [...searchResult.log, ...franchiseResult.log.map(l => ({ ...l, note: 'franchise fallback (make-only) search' }))];
   return {
     ...pick,
-    price: null, mileage: null, vdp_url: null, photo_url: null,
+    price: null, mileage: null, vdp_url: null, photo_url: null, photo_urls: '[]',
     dealer_name: nearestDealer?.name || null,
     dealer_city: nearestDealer?.city || null,
     dealer_state: nearestDealer?.state || null,
@@ -681,14 +682,14 @@ async function generateReportForLead(env, leadId) {
       INSERT INTO report_vehicles (
         report_id, position, year, make, model, trim, rationale, price, mileage, dealer_name, dealer_city, dealer_state, vdp_url, source, verified,
         engine, transmission, drivetrain, city_mpg, highway_mpg, exterior_color, exterior_color_options,
-        safety_rating, cargo_space, seating_capacity, warranty, notable_features, photo_url, search_log
+        safety_rating, cargo_space, seating_capacity, warranty, notable_features, photo_url, photo_urls, search_log
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       reportId, i + 1, v.year, v.make, v.model, v.trim, v.rationale,
       v.price, v.mileage, v.dealer_name, v.dealer_city, v.dealer_state, v.vdp_url, v.source, v.verified,
       v.engine, v.transmission, v.drivetrain, v.city_mpg, v.highway_mpg, v.exterior_color, v.exterior_color_options,
-      v.safety_rating, v.cargo_space, v.seating_capacity, v.warranty, v.notable_features, v.photo_url, v.search_log
+      v.safety_rating, v.cargo_space, v.seating_capacity, v.warranty, v.notable_features, v.photo_url, v.photo_urls, v.search_log
     ).run();
   }
 
@@ -960,17 +961,33 @@ async function servePhoto(env, params) {
   });
 }
 
+function sendInterestConfirmationEmail(env, details, deepDiveUrl) {
+  const html = brandedEmailHtml(`
+    <p>Hey ${escapeHtml(details.first_name)},</p>
+    <p>Got it — we've noted your interest in the ${escapeHtml(details.year)} ${escapeHtml(details.make)} ${escapeHtml(details.model)} ${escapeHtml(details.trim)}. Jeff will be in touch shortly to help you take the next step.</p>
+    <p><a href="${deepDiveUrl}">See the full details on this vehicle →</a></p>
+    <p>— Jeff</p>
+  `);
+  return sendBrevoEmail(env, {
+    to: details.email,
+    subject: "We've got your interest — Jeff will be in touch shortly",
+    html,
+  });
+}
+
 async function publicExpressReportInterest(request, env, params) {
   const report = await env.DB.prepare(
-    `SELECT id FROM find_car_reports WHERE report_code = ? AND status = 'approved'`
+    `SELECT id, report_code FROM find_car_reports WHERE report_code = ? AND status = 'approved'`
   ).bind(params.code).first();
   if (!report) return json({ error: 'Report not found.' }, 404);
 
   const position = +params.position;
   const vehicle = await env.DB.prepare(
-    'SELECT id, interested FROM report_vehicles WHERE report_id = ? AND position = ?'
+    'SELECT id, year, make, model, trim, interested FROM report_vehicles WHERE report_id = ? AND position = ?'
   ).bind(report.id, position).first();
   if (!vehicle) return json({ error: 'Vehicle not found.' }, 404);
+
+  const deepDiveUrl = `https://theexactmatch.com/reports/${report.report_code}-${slugify(`${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim}`)}`;
 
   if (!vehicle.interested) {
     await env.DB.prepare(
@@ -996,6 +1013,50 @@ async function publicExpressReportInterest(request, env, params) {
         Email: <a href="mailto:${escapeHtml(details.email)}">${escapeHtml(details.email)}</a><br/>
         Phone: ${details.phone ? escapeHtml(details.phone) : 'not provided'}</p>
         <p><a href="https://theexactmatch.com/Dealerportal.html">View in dashboard →</a></p>
+      `),
+    });
+
+    await sendInterestConfirmationEmail(env, details, deepDiveUrl);
+  }
+
+  return json({ success: true, deep_dive_url: deepDiveUrl });
+}
+
+async function publicReadyToMoveForward(request, env, params) {
+  const report = await env.DB.prepare(
+    `SELECT id FROM find_car_reports WHERE report_code = ? AND status = 'approved'`
+  ).bind(params.code).first();
+  if (!report) return json({ error: 'Report not found.' }, 404);
+
+  const position = +params.position;
+  const vehicle = await env.DB.prepare(
+    'SELECT id, ready FROM report_vehicles WHERE report_id = ? AND position = ?'
+  ).bind(report.id, position).first();
+  if (!vehicle) return json({ error: 'Vehicle not found.' }, 404);
+
+  if (!vehicle.ready) {
+    await env.DB.prepare(
+      `UPDATE report_vehicles SET ready = 1, ready_at = datetime('now') WHERE id = ?`
+    ).bind(vehicle.id).run();
+
+    const details = await env.DB.prepare(`
+      SELECT find_car_leads.first_name, find_car_leads.last_name, find_car_leads.email, find_car_leads.phone,
+        report_vehicles.year, report_vehicles.make, report_vehicles.model, report_vehicles.trim
+      FROM report_vehicles
+      JOIN find_car_reports ON find_car_reports.id = report_vehicles.report_id
+      JOIN find_car_leads ON find_car_leads.id = find_car_reports.find_lead_id
+      WHERE report_vehicles.id = ?
+    `).bind(vehicle.id).first();
+
+    await sendBrevoEmail(env, {
+      to: 'theexactmatch@gmail.com',
+      subject: '🚗 Client ready to move forward',
+      html: brandedEmailHtml(`
+        <p><strong>${escapeHtml(details.first_name)} ${escapeHtml(details.last_name)}</strong> is ready to move forward on the
+        ${escapeHtml(details.year)} ${escapeHtml(details.make)} ${escapeHtml(details.model)} ${escapeHtml(details.trim)}.</p>
+        <p><strong>Contact:</strong><br/>
+        Email: <a href="mailto:${escapeHtml(details.email)}">${escapeHtml(details.email)}</a><br/>
+        Phone: ${details.phone ? escapeHtml(details.phone) : 'not provided'}</p>
       `),
     });
   }
@@ -1122,8 +1183,17 @@ document.querySelectorAll('.interest-btn').forEach(btn => {
     btn.textContent = 'Sending…';
     try {
       const res = await fetch('https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api/public/reports/${escapeHtml(report.report_code)}/vehicles/' + btn.dataset.position + '/interest', { method: 'POST' });
-      if (res.ok) { btn.textContent = '✓ You expressed interest'; }
-      else { btn.disabled = false; btn.textContent = "I'm interested in this one"; }
+      if (res.ok) {
+        const data = await res.json();
+        btn.textContent = '✓ You expressed interest';
+        if (data.deep_dive_url) {
+          const link = document.createElement('a');
+          link.href = data.deep_dive_url;
+          link.textContent = 'View Full Details →';
+          link.style.cssText = 'display:block;margin-top:.6rem;text-align:center;font-size:.72rem;color:var(--gold);text-decoration:none;font-weight:600;letter-spacing:.05em;text-transform:uppercase';
+          btn.insertAdjacentElement('afterend', link);
+        }
+      } else { btn.disabled = false; btn.textContent = "I'm interested in this one"; }
     } catch (e) { btn.disabled = false; btn.textContent = "I'm interested in this one"; }
   });
 });
@@ -1131,18 +1201,154 @@ document.querySelectorAll('.interest-btn').forEach(btn => {
 </body></html>`;
 }
 
+function vehicleDeepDiveHtml(report, vehicle) {
+  const v = vehicle;
+  let features = [];
+  try { features = JSON.parse(v.notable_features || '[]'); } catch { features = []; }
+  let photos = [];
+  try { photos = JSON.parse(v.photo_urls || '[]'); } catch { photos = []; }
+  if (!photos.length && v.photo_url) photos = [v.photo_url];
+
+  const specRows = [
+    v.engine && ['Engine', v.engine],
+    v.transmission && ['Transmission', v.transmission],
+    v.drivetrain && ['Drivetrain', v.drivetrain],
+    (v.city_mpg || v.highway_mpg) && ['Fuel Economy', `${v.city_mpg || '—'} city / ${v.highway_mpg || '—'} hwy MPG`],
+    v.exterior_color && ["This Unit's Color", v.exterior_color],
+    v.exterior_color_options && ['Color Options', v.exterior_color_options],
+    v.cargo_space && ['Cargo Space', v.cargo_space],
+    v.seating_capacity && ['Seating', `${v.seating_capacity} passengers`],
+    v.safety_rating && ['Safety', v.safety_rating],
+    v.warranty && ['Warranty', v.warranty],
+  ].filter(Boolean);
+
+  const gallery = photos.length
+    ? photos.map(p => `<img src="${escapeHtml(p)}" alt="${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)}" class="gphoto"/>`).join('')
+    : `<div class="gphoto gphoto-placeholder"><span>Photo coming soon</span></div>`;
+
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)} — TheExactMatch</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--navy:#0C1C33;--navy2:#152a4a;--beige:#F5F0E8;--beige2:#EDE7D9;--gold:#C09A5B;--gold2:#D4B47A;--white:#fff;--gray:#4A5568;--border:#DDD8CC;--green:#1A4731}
+  body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy)}
+  header{background:var(--navy);padding:3rem 2rem;text-align:center}
+  .backlink{display:inline-block;color:rgba(255,255,255,.55);font-size:.72rem;text-decoration:none;margin-bottom:1rem;letter-spacing:.03em}
+  .eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold2);margin-bottom:.75rem}
+  h1{font-family:'Playfair Display',serif;font-size:clamp(1.6rem,3vw,2.2rem);font-weight:500;color:var(--white)}
+  h1 em{font-style:italic;color:var(--gold2)}
+  .sub{color:rgba(255,255,255,.55);font-size:.9rem;margin-top:.75rem;font-weight:300}
+  .wrap{max-width:840px;margin:0 auto;padding:3rem 2rem}
+  .card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:1.75rem;display:flex;flex-direction:column;gap:1.25rem}
+  .gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.6rem;margin:-1.75rem -1.75rem 0}
+  .gallery .gphoto{width:100%;height:220px;object-fit:cover;display:block;background:var(--beige2)}
+  .gphoto-placeholder{display:flex;align-items:center;justify-content:center;color:var(--gray);font-size:.8rem;font-style:italic;grid-column:1/-1}
+  .vtitle{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:500;color:var(--navy)}
+  .vmeta{display:flex;flex-wrap:wrap;gap:.4rem}
+  .pill{font-size:.72rem;font-weight:500;padding:.3rem .75rem;border:1px solid var(--border);border-radius:20px;color:var(--gray)}
+  .vrationale{font-size:.92rem;color:var(--gray);line-height:1.7}
+  .vspecs{border-top:1px solid var(--border);padding-top:1rem;display:flex;flex-direction:column;gap:.5rem}
+  .spec-row{display:flex;justify-content:space-between;gap:1rem;font-size:.85rem}
+  .spec-label{color:var(--gray);flex-shrink:0}
+  .spec-value{color:var(--navy);font-weight:500;text-align:right}
+  .vfeatures{border-top:1px solid var(--border);padding-top:1rem}
+  .vfeatures-title{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem}
+  .vfeatures ul{padding-left:1.2rem;color:var(--gray);font-size:.85rem;line-height:1.7}
+  .cta-wrap{border-top:1px solid var(--border);padding-top:1.5rem;text-align:center}
+  .cta-btn{padding:1rem 2rem;background:var(--gold);color:var(--navy);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-weight:700;font-size:.85rem;letter-spacing:.04em;cursor:pointer;width:100%}
+  .cta-btn:disabled{background:var(--green);color:var(--white);cursor:default}
+  footer{text-align:center;padding:2rem;font-size:.72rem;color:var(--gray)}
+</style>
+</head>
+<body>
+<header>
+  <a class="backlink" href="https://theexactmatch.com/reports/${escapeHtml(report.report_code)}">← Back to all your options</a>
+  <div class="eyebrow">A Closer Look</div>
+  <h1>Hi ${escapeHtml(report.first_name)}, here's your <em>${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)}.</em></h1>
+  <div class="sub">Report ${escapeHtml(report.report_code)} — questions? Text Jeff at (512) 650-9328.</div>
+</header>
+<div class="wrap">
+  <div class="card">
+    <div class="gallery">${gallery}</div>
+    <div class="vtitle">${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)} ${escapeHtml(v.trim)}</div>
+    <div class="vmeta">
+      ${v.source === 'sourcing_in_progress'
+        ? `<span class="pill" style="border-color:var(--gold);color:var(--gold)">Sourcing in progress</span>`
+        : `
+          ${v.price ? `<span class="pill">$${Number(v.price).toLocaleString()}</span>` : ''}
+          ${v.mileage ? `<span class="pill">${Number(v.mileage).toLocaleString()} mi</span>` : ''}
+          ${v.dealer_name ? `<span class="pill">${escapeHtml(v.dealer_name)}</span>` : ''}
+          ${v.dealer_city ? `<span class="pill">${escapeHtml(v.dealer_city)}${v.dealer_state ? ', ' + escapeHtml(v.dealer_state) : ''}</span>` : ''}
+        `}
+    </div>
+    <div class="vrationale">${escapeHtml(v.rationale)}</div>
+    ${specRows.length ? `
+      <div class="vspecs">
+        ${specRows.map(([label, value]) => `<div class="spec-row"><span class="spec-label">${escapeHtml(label)}</span><span class="spec-value">${escapeHtml(value)}</span></div>`).join('')}
+      </div>
+    ` : ''}
+    ${features.length ? `
+      <div class="vfeatures">
+        <div class="vfeatures-title">Notable Features</div>
+        <ul>${features.map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
+      </div>
+    ` : ''}
+    <div class="cta-wrap">
+      <button class="cta-btn" id="ready-btn" data-position="${v.position}" ${v.ready ? 'disabled' : ''}>
+        ${v.ready ? "✓ Jeff's on it — expect to hear from him soon" : 'Ready to move forward? Jeff will take it from here.'}
+      </button>
+    </div>
+  </div>
+</div>
+<footer>© ${new Date().getFullYear()} TheExactMatch.com</footer>
+<script>
+document.getElementById('ready-btn').addEventListener('click', async function() {
+  const btn = this;
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  try {
+    const res = await fetch('https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api/public/reports/${escapeHtml(report.report_code)}/vehicles/' + btn.dataset.position + '/ready', { method: 'POST' });
+    if (res.ok) { btn.textContent = "✓ Jeff's on it — expect to hear from him soon"; }
+    else { btn.disabled = false; btn.textContent = 'Ready to move forward? Jeff will take it from here.'; }
+  } catch (e) { btn.disabled = false; btn.textContent = 'Ready to move forward? Jeff will take it from here.'; }
+});
+</script>
+</body></html>`;
+}
+
+function slugify(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+const REPORT_CODE_RE = /^(TEM-\d{4}-\d{4})(?:-(.+))?$/;
+
 async function renderReportPage(request, env, params) {
+  const m = (params.code || '').match(REPORT_CODE_RE);
+  if (!m) return htmlResponse(reportNotFoundHtml(), 404);
+  const [, reportCode, slug] = m;
+
   const report = await env.DB.prepare(`
     SELECT find_car_reports.*, find_car_leads.first_name, find_car_leads.last_name
     FROM find_car_reports JOIN find_car_leads ON find_car_leads.id = find_car_reports.find_lead_id
     WHERE find_car_reports.report_code = ?
-  `).bind(params.code).first();
+  `).bind(reportCode).first();
 
   if (!report || report.status !== 'approved') return htmlResponse(reportNotFoundHtml(), 404);
 
   const { results: vehicles } = await env.DB.prepare(
     'SELECT * FROM report_vehicles WHERE report_id = ? ORDER BY position'
   ).bind(report.id).all();
+
+  if (slug) {
+    const vehicle = vehicles.find(v => slugify(`${v.year} ${v.make} ${v.model} ${v.trim}`) === slug);
+    if (!vehicle) return htmlResponse(reportNotFoundHtml(), 404);
+    return htmlResponse(vehicleDeepDiveHtml(report, vehicle));
+  }
 
   return htmlResponse(reportPageHtml(report, vehicles));
 }
@@ -1177,6 +1383,7 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/admin/reports/:code/approve',        handler: adminApproveReport, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/reports/:code/vehicles/:position/photo', handler: adminUploadReportVehiclePhoto, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/interest', handler: publicExpressReportInterest },
+  { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/ready', handler: publicReadyToMoveForward },
 ];
 
 export default {

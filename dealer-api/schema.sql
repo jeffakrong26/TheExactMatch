@@ -176,7 +176,10 @@ CREATE TABLE report_vehicles (
   warranty TEXT,
   notable_features TEXT,
   photo_url TEXT,
+  photo_urls TEXT,
   search_log TEXT,
   interested INTEGER NOT NULL DEFAULT 0,
-  interested_at TEXT
+  interested_at TEXT,
+  ready INTEGER NOT NULL DEFAULT 0,
+  ready_at TEXT
 );
