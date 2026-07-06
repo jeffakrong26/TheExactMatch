@@ -427,9 +427,11 @@
 
   <div class="content-area">
 
-    <div class="tab-bar">
+    <div class="tab-bar" style="overflow-x:auto;flex-wrap:nowrap">
       <button class="tab-btn active" onclick="switchTab('tab-submissions')">Submissions</button>
+      <button class="tab-btn" onclick="switchTab('tab-find-leads')">Find Leads</button>
       <button class="tab-btn" onclick="switchTab('tab-leads')">Sell Leads</button>
+      <button class="tab-btn" onclick="switchTab('tab-messages')">Messages</button>
       <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers</button>
     </div>
 
@@ -440,11 +442,25 @@
       <div id="admin-subs-list"></div>
     </div>
 
+    <!-- Tab: Find Leads -->
+    <div class="tab-panel" id="tab-find-leads">
+      <div class="section-label">Find My Car Leads</div>
+      <div id="admin-find-leads-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+      <div id="admin-find-leads-list"></div>
+    </div>
+
     <!-- Tab: Sell Leads -->
     <div class="tab-panel" id="tab-leads">
       <div class="section-label">Sell My Car Leads</div>
       <div id="admin-leads-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
       <div id="admin-leads-list"></div>
+    </div>
+
+    <!-- Tab: Messages -->
+    <div class="tab-panel" id="tab-messages">
+      <div class="section-label">Contact Messages</div>
+      <div id="admin-messages-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+      <div id="admin-messages-list"></div>
     </div>
 
     <!-- Tab: Dealers -->
@@ -556,7 +572,9 @@ function showView(id) {
   if (id === 'view-my-submissions') loadMySubmissions();
   if (id === 'view-admin') {
     loadAdminSubmissions();
+    loadAdminFindLeads();
     loadAdminLeads();
+    loadAdminMessages();
     loadAdminDealers();
     loadAdminInvites();
   }
@@ -833,7 +851,7 @@ function switchTab(tabId) {
     b.classList.remove('active');
     if (panels[i]) panels[i].classList.remove('active');
   });
-  const tabIndex = ['tab-submissions','tab-leads','tab-dealers'].indexOf(tabId);
+  const tabIndex = ['tab-submissions','tab-find-leads','tab-leads','tab-messages','tab-dealers'].indexOf(tabId);
   document.querySelectorAll('.tab-btn')[tabIndex]?.classList.add('active');
   document.getElementById(tabId)?.classList.add('active');
 }
@@ -904,12 +922,15 @@ async function loadAdminLeads() {
   document.getElementById('admin-leads-list').innerHTML = leads.map(l => `
     <div class="item-card">
       <div>
-        <div class="item-card-title">${l.year} ${l.make} ${l.model}</div>
+        <div class="item-card-title">${l.year||''} ${l.make||''} ${l.model||''}${l.trim ? ' '+l.trim : ''}</div>
+        <div class="item-card-sub">${l.first_name} ${l.last_name} · ${l.email}${l.phone ? ' · '+l.phone : ''}</div>
         <div class="item-card-meta">
-          <span class="meta-pill">${l.mileage} miles</span>
-          <span class="meta-pill">${l.condition}</span>
-          <span class="meta-pill">${l.title_status}</span>
+          ${l.mileage ? `<span class="meta-pill">${l.mileage.toLocaleString()} miles</span>` : ''}
+          ${l.condition ? `<span class="meta-pill">${l.condition}</span>` : ''}
+          ${l.title_status ? `<span class="meta-pill">${l.title_status}</span>` : ''}
+          ${l.zip ? `<span class="meta-pill">${l.zip}</span>` : ''}
           ${l.city ? `<span class="meta-pill">${l.city}${l.state?', '+l.state:''}</span>` : ''}
+          ${l.timeline ? `<span class="meta-pill">${l.timeline}</span>` : ''}
           <span class="meta-pill" style="opacity:.6">${formatDate(l.created_at)}</span>
         </div>
         ${l.notes ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.5rem">${l.notes}</div>` : ''}
@@ -917,6 +938,77 @@ async function loadAdminLeads() {
       </div>
       <div class="item-card-actions">
         <span class="meta-pill">${l.interest_count || 0} interested</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadAdminFindLeads() {
+  document.getElementById('admin-find-leads-loading').style.display = 'block';
+  document.getElementById('admin-find-leads-list').innerHTML         = '';
+
+  const { res, data } = await apiFetch('/admin/find-leads')
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('admin-find-leads-loading').style.display = 'none';
+
+  if (!res.ok) return;
+
+  const leads = data.leads || [];
+  if (!leads.length) {
+    document.getElementById('admin-find-leads-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-text">No Find My Car submissions yet.</div></div>';
+    return;
+  }
+
+  document.getElementById('admin-find-leads-list').innerHTML = leads.map(l => `
+    <div class="item-card">
+      <div>
+        <div class="item-card-title">${l.first_name} ${l.last_name}</div>
+        <div class="item-card-sub">${l.email}${l.phone ? ' · '+l.phone : ''}${l.zip ? ' · '+l.zip : ''}</div>
+        <div class="item-card-meta">
+          ${l.vehicle_type ? `<span class="meta-pill">${l.vehicle_type}</span>` : ''}
+          ${l.size_preference ? `<span class="meta-pill">${l.size_preference}</span>` : ''}
+          ${l.condition ? `<span class="meta-pill">${l.condition}</span>` : ''}
+          ${(l.budget_min || l.budget_max) ? `<span class="meta-pill">$${l.budget_min||'0'} – $${l.budget_max||'?'}</span>` : ''}
+          ${l.timeline ? `<span class="meta-pill">${l.timeline}</span>` : ''}
+          <span class="meta-pill" style="opacity:.6">${formatDate(l.created_at)}</span>
+        </div>
+        ${l.priorities ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.5rem"><strong style="color:var(--navy)">Priorities:</strong> ${l.priorities}</div>` : ''}
+        ${l.current_vehicle ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.35rem"><strong style="color:var(--navy)">Current vehicle:</strong> ${l.current_vehicle}</div>` : ''}
+        ${l.specific_needs ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.35rem"><strong style="color:var(--navy)">Needs:</strong> ${l.specific_needs}</div>` : ''}
+        ${l.considering ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.35rem"><strong style="color:var(--navy)">Considering:</strong> ${l.considering}</div>` : ''}
+        ${l.anything_else ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.35rem">${l.anything_else}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadAdminMessages() {
+  document.getElementById('admin-messages-loading').style.display = 'block';
+  document.getElementById('admin-messages-list').innerHTML         = '';
+
+  const { res, data } = await apiFetch('/admin/contact-messages')
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('admin-messages-loading').style.display = 'none';
+
+  if (!res.ok) return;
+
+  const messages = data.messages || [];
+  if (!messages.length) {
+    document.getElementById('admin-messages-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">✉️</div><div class="empty-state-text">No messages yet.</div></div>';
+    return;
+  }
+
+  document.getElementById('admin-messages-list').innerHTML = messages.map(m => `
+    <div class="item-card">
+      <div>
+        <div class="item-card-title">${m.first_name} ${m.last_name}${m.topic ? ' — ' + m.topic : ''}</div>
+        <div class="item-card-sub">${m.email}${m.phone ? ' · '+m.phone : ''}</div>
+        <div style="font-size:.82rem;color:var(--gray);margin-top:.6rem;line-height:1.6">${m.message}</div>
+        <div class="item-card-meta"><span class="meta-pill" style="opacity:.6">${formatDate(m.created_at)}</span></div>
       </div>
     </div>
   `).join('');

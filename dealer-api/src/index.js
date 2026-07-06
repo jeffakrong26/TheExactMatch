@@ -193,9 +193,7 @@ async function adminUpdateSubmission(request, env, params) {
 
 async function adminLeads(request, env) {
   const { results } = await env.DB.prepare(`
-    SELECT sell_my_car_leads.id, sell_my_car_leads.year, sell_my_car_leads.make, sell_my_car_leads.model,
-      sell_my_car_leads.mileage, sell_my_car_leads.condition, sell_my_car_leads.title_status,
-      sell_my_car_leads.city, sell_my_car_leads.state, sell_my_car_leads.notes, sell_my_car_leads.created_at,
+    SELECT sell_my_car_leads.*,
       COUNT(lead_interest.dealer_id) as interest_count,
       GROUP_CONCAT(dealers.dealership_name) as interested_dealers
     FROM sell_my_car_leads
@@ -205,6 +203,101 @@ async function adminLeads(request, env) {
     ORDER BY sell_my_car_leads.created_at DESC
   `).all();
   return json({ leads: results });
+}
+
+async function adminFindLeads(request, env) {
+  const { results } = await env.DB.prepare(
+    `SELECT * FROM find_car_leads ORDER BY created_at DESC`
+  ).all();
+  return json({ leads: results });
+}
+
+async function adminContactMessages(request, env) {
+  const { results } = await env.DB.prepare(
+    `SELECT * FROM contact_messages ORDER BY created_at DESC`
+  ).all();
+  return json({ messages: results });
+}
+
+// ── Public marketing-site form submissions ───────────────────────
+async function submitFindCarLead(request, env) {
+  const body        = await request.json().catch(() => ({}));
+  const first_name  = (body.first_name || '').trim();
+  const last_name   = (body.last_name || '').trim();
+  const email       = (body.email || '').trim().toLowerCase();
+  const phone       = (body.phone || '').trim();
+
+  if (!first_name || !last_name || !email) return json({ error: 'Name and email are required.' }, 400);
+  if (!EMAIL_RE.test(email)) return json({ error: 'Invalid email address.' }, 400);
+
+  await env.DB.prepare(`
+    INSERT INTO find_car_leads (
+      first_name, last_name, email, phone, zip, vehicle_type, size_preference, condition,
+      budget_min, budget_max, timeline, priorities, current_vehicle, current_like, current_change,
+      trade_in, specific_needs, considering, anything_else
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    first_name, last_name, email, phone,
+    (body.zip || '').trim(), body.vehicle_type || '', body.size_preference || '', body.condition || '',
+    (body.budget_min || '').toString().trim(), (body.budget_max || '').toString().trim(), body.timeline || '', body.priorities || '',
+    (body.current_vehicle || '').trim(), (body.current_like || '').trim(), (body.current_change || '').trim(),
+    body.trade_in || '', (body.specific_needs || '').trim(), (body.considering || '').trim(), (body.anything_else || '').trim()
+  ).run();
+
+  return json({ success: true });
+}
+
+async function submitSellCarLead(request, env) {
+  const body       = await request.json().catch(() => ({}));
+  const first_name = (body.first_name || '').trim();
+  const last_name  = (body.last_name || '').trim();
+  const email      = (body.email || '').trim().toLowerCase();
+  const phone      = (body.phone || '').trim();
+
+  if (!first_name || !last_name || !email) return json({ error: 'Name and email are required.' }, 400);
+  if (!EMAIL_RE.test(email)) return json({ error: 'Invalid email address.' }, 400);
+
+  const year    = parseInt(String(body.year || '').replace(/[^0-9]/g, ''), 10) || null;
+  const mileage = parseInt(String(body.mileage || '').replace(/[^0-9]/g, ''), 10) || null;
+
+  await env.DB.prepare(`
+    INSERT INTO sell_my_car_leads (
+      first_name, last_name, email, phone, zip, year, make, model, trim, mileage, exterior_color,
+      title_status, remaining_balance, payoff_amount, condition, accidents, accidents_count, accidents_damage,
+      mechanical_issues, mechanical_desc, warning_lights, windshield, tires, modifications, modifications_desc,
+      keys, timeline, notes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    first_name, last_name, email, phone, (body.zip || '').trim(),
+    year, (body.make || '').trim(), (body.model || '').trim(), (body.trim || '').trim(),
+    mileage, (body.exterior_color || '').trim(),
+    body.title_status || '', body.remaining_balance || '', (body.payoff_amount || '').trim(), body.condition || '',
+    body.accidents || '', (body.accidents_count || '').trim(), (body.accidents_damage || '').trim(),
+    body.mechanical_issues || '', (body.mechanical_desc || '').trim(), body.warning_lights || '',
+    body.windshield || '', body.tires || '', body.modifications || '', (body.modifications_desc || '').trim(),
+    body.keys || '', body.timeline || '', (body.notes || '').trim()
+  ).run();
+
+  return json({ success: true });
+}
+
+async function submitContactMessage(request, env) {
+  const body       = await request.json().catch(() => ({}));
+  const first_name = (body.first_name || '').trim();
+  const last_name  = (body.last_name || '').trim();
+  const email      = (body.email || '').trim().toLowerCase();
+  const phone      = (body.phone || '').trim();
+  const topic      = body.topic || '';
+  const message    = (body.message || '').trim();
+
+  if (!first_name || !last_name || !email || !message) return json({ error: 'Name, email, and message are required.' }, 400);
+  if (!EMAIL_RE.test(email)) return json({ error: 'Invalid email address.' }, 400);
+
+  await env.DB.prepare(
+    `INSERT INTO contact_messages (first_name, last_name, email, phone, topic, message) VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(first_name, last_name, email, phone, topic, message).run();
+
+  return json({ success: true });
 }
 
 async function adminDealers(request, env) {
@@ -313,6 +406,11 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/admin/submissions',           handler: adminSubmissions, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/submissions/:id',       handler: adminUpdateSubmission, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/leads',                 handler: adminLeads, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/find-leads',             handler: adminFindLeads, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/contact-messages',       handler: adminContactMessages, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/public/find-car-lead',         handler: submitFindCarLead },
+  { method: 'POST',  pattern: '/api/public/sell-car-lead',         handler: submitSellCarLead },
+  { method: 'POST',  pattern: '/api/public/contact-message',       handler: submitContactMessage },
   { method: 'GET',   pattern: '/api/admin/dealers',               handler: adminDealers, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/dealers/:id',           handler: adminUpdateDealer, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/invites',                handler: adminGenerateInvite, auth: true, admin: true },

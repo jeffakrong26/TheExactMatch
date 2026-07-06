@@ -1272,11 +1272,11 @@ function toggleFaq(el) {
   if (!isOpen) el.classList.add('open');
 }
 
-// ── Formspree endpoint ────────────────────────────────────────
-const FORMSPREE = 'https://formspree.io/f/mjgdbyon';
+// ── Dealer API endpoint ────────────────────────────────────────
+const DEALER_API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';
 
 // ── Core submit helper ────────────────────────────────────────
-async function submitToFormspree(btn, wrapId, successId, errorId, payload) {
+async function submitToApi(btn, endpoint, wrapId, successId, errorId, payload) {
   // Prevent duplicate submissions
   if (btn.dataset.submitting === 'true') return;
   btn.dataset.submitting = 'true';
@@ -1287,9 +1287,9 @@ async function submitToFormspree(btn, wrapId, successId, errorId, payload) {
   btn.textContent = 'Sending…';
 
   try {
-    const res = await fetch(FORMSPREE, {
+    const res = await fetch(`${DEALER_API}${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
@@ -1302,7 +1302,6 @@ async function submitToFormspree(btn, wrapId, successId, errorId, payload) {
         if (err) err.style.display = 'none';
       }
     } else {
-      // Formspree returned an error status
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || 'Submission failed. Please try again.');
     }
@@ -1388,8 +1387,7 @@ document.addEventListener('DOMContentLoaded', function(){
 function submitFindForm() {
   const btn = document.getElementById('ff-next-btn');
   const priorities = Array.from(document.querySelectorAll('#ff-priority-grid input:checked')).map(cb => cb.value).join(', ');
-  submitToFormspree(btn, 'find-form-wrap', 'find-success', 'find-error', {
-    form_type:  'Find My Car',
+  submitToApi(btn, '/public/find-car-lead', 'find-form-wrap', 'find-success', 'find-error', {
     first_name: document.getElementById('ff-fname').value.trim(),
     last_name:  document.getElementById('ff-lname').value.trim(),
     email:      document.getElementById('ff-email').value.trim(),
@@ -1477,8 +1475,7 @@ document.addEventListener('DOMContentLoaded', function(){
 // ── Sell My Car submit ────────────────────────────────────────
 function submitSellForm() {
   const btn = document.getElementById('sf-next-btn');
-  submitToFormspree(btn, 'sell-form-wrap', 'sell-success', 'sell-error', {
-    form_type:  'Sell My Car',
+  submitToApi(btn, '/public/sell-car-lead', 'sell-form-wrap', 'sell-success', 'sell-error', {
     first_name: document.getElementById('sf-fname').value.trim(),
     last_name:  document.getElementById('sf-lname').value.trim(),
     email:      document.getElementById('sf-email').value.trim(),
@@ -1513,8 +1510,7 @@ function submitSellForm() {
 // ── Contact Us ────────────────────────────────────────────────
 function submitContactForm() {
   const btn = document.querySelector('#contact-form-wrap .sell-submit');
-  submitToFormspree(btn, 'contact-form-wrap', 'contact-success', 'contact-error', {
-    form_type:  'Contact Us',
+  submitToApi(btn, '/public/contact-message', 'contact-form-wrap', 'contact-success', 'contact-error', {
     first_name: document.getElementById('cf-fname').value.trim(),
     last_name:  document.getElementById('cf-lname').value.trim(),
     email:      document.getElementById('cf-email').value.trim(),
