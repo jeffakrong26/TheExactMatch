@@ -322,7 +322,7 @@ async function sendBrevoEmail(env, { to, subject, html }) {
 
 function buildVehiclePrompt(lead) {
   const year = new Date().getFullYear();
-  return `A car-buying client filled out our "Find My Car" form. Based on their answers, recommend exactly 3 specific vehicles (year, make, model, trim) that best fit their needs. For each, give a short rationale tied to their stated priorities and situation.
+  return `A car-buying client filled out our "Find My Car" form. Based on their answers, recommend exactly 3 specific vehicles (year, make, model, trim) that best fit their needs. For each, write a short rationale addressed DIRECTLY to the client in second person — always "you"/"your", never "they"/"their"/"the client"/"the buyer". For example: "This fits your need for extra cargo space" — not "This fits their need for extra cargo space."
 
 Client details:
 - Vehicle type: ${lead.vehicle_type || 'not specified'}
@@ -364,7 +364,7 @@ async function pickVehicles(env, lead) {
               make: { type: 'string' },
               model: { type: 'string' },
               trim: { type: 'string' },
-              rationale: { type: 'string', description: 'Why this fits their budget, priorities, and situation' },
+              rationale: { type: 'string', description: 'Why this fits your budget, priorities, and situation — written in second person, directly addressing the client as "you"/"your"' },
             },
             required: ['year', 'make', 'model', 'trim', 'rationale'],
             additionalProperties: false,
