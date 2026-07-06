@@ -431,7 +431,6 @@
       <button class="tab-btn active" onclick="switchTab('tab-submissions')">Submissions</button>
       <button class="tab-btn" onclick="switchTab('tab-leads')">Sell Leads</button>
       <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers</button>
-      <button class="tab-btn" onclick="switchTab('tab-create-dealer')">+ Add Dealer</button>
     </div>
 
     <!-- Tab: Submissions -->
@@ -450,37 +449,86 @@
 
     <!-- Tab: Dealers -->
     <div class="tab-panel" id="tab-dealers">
-      <div class="section-label">Dealer Accounts</div>
-      <div id="admin-dealers-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
-      <table class="dp-table" id="admin-dealers-table" style="display:none">
-        <thead>
-          <tr>
-            <th>Name</th><th>Dealership</th><th>Email</th><th>Status</th><th>Joined</th><th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="admin-dealers-body"></tbody>
-      </table>
-    </div>
+      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;border-bottom:none;padding-bottom:0;margin-bottom:1.5rem">
+        <span>Dealer Accounts</span>
+        <button class="btn-primary btn-sm btn-gold" style="width:auto" id="generate-invite-btn" onclick="doGenerateInvite()">+ Generate Invite Link</button>
+      </div>
 
-    <!-- Tab: Create Dealer -->
-    <div class="tab-panel" id="tab-create-dealer">
-      <div class="section-label">Create Dealer Account</div>
-      <div style="max-width:480px">
-        <div class="dp-alert dp-alert-err" id="create-dealer-error"></div>
-        <div class="dp-alert dp-alert-ok"  id="create-dealer-success"></div>
-        <div class="dp-form-row">
-          <div class="dp-form-group"><label>Contact Name</label><input type="text" id="cd-name" placeholder="John Smith"/></div>
-          <div class="dp-form-group"><label>Dealership Name</label><input type="text" id="cd-dealership" placeholder="Smith Motors"/></div>
-        </div>
-        <div class="dp-form-group"><label>Email</label><input type="email" id="cd-email" placeholder="john@smithmotors.com"/></div>
-        <div class="dp-form-group"><label>Temporary Password</label><input type="text" id="cd-password" placeholder="They should change this on first login"/></div>
-        <button class="btn-primary btn-gold" style="max-width:240px" id="create-dealer-btn" onclick="doCreateDealer()">Create Dealer Account</button>
+      <div style="margin-bottom:2.5rem">
+        <div class="section-label">Pending Invites</div>
+        <div id="admin-invites-loading" style="text-align:center;padding:1.5rem;color:var(--gray);font-size:.85rem">Loading...</div>
+        <div id="admin-invites-list"></div>
+      </div>
+
+      <div>
+        <div class="section-label">Active Dealers</div>
+        <div id="admin-dealers-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+        <table class="dp-table" id="admin-dealers-table" style="display:none">
+          <thead>
+            <tr>
+              <th>Name</th><th>Dealership</th><th>Email</th><th>Status</th><th>Joined</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="admin-dealers-body"></tbody>
+        </table>
       </div>
     </div>
 
   </div>
 
 </div><!-- /view-admin -->
+
+<!-- ════════════════════════════════════════════════════════
+     VIEW: DEALER SIGNUP (via invite link)
+═════════════════════════════════════════════════════════ -->
+<div class="view" id="view-signup">
+  <div class="login-hero">
+
+    <div class="login-left">
+      <div class="login-left-content">
+        <div class="invite-badge"><span class="invite-dot"></span>You're Invited</div>
+        <br/>
+        <h1>Join the <em>Dealer</em><br/>Partner Network</h1>
+        <p>Create your account to submit vehicles for Weekly Finds, view active Sell My Car leads, and connect with motivated buyers.</p>
+      </div>
+    </div>
+
+    <div class="login-right">
+      <div class="login-card">
+
+        <div id="signup-loading" style="text-align:center;padding:2rem 0;color:var(--gray);font-size:.88rem">Checking your invite...</div>
+
+        <div id="signup-invalid" style="display:none;text-align:center;padding:1rem 0">
+          <div style="font-size:2rem;margin-bottom:1rem">⚠</div>
+          <div class="login-card-title">Invite Not Valid</div>
+          <div class="login-card-sub" id="signup-invalid-msg">This invite link is invalid or has expired.</div>
+          <a href="/Dealerportal.html" style="color:var(--gold);font-size:.8rem;font-weight:500;text-decoration:none">← Back to Sign In</a>
+        </div>
+
+        <div id="signup-form-wrap" style="display:none">
+          <div class="login-card-title">Create Your Account</div>
+          <div class="login-card-sub">You've been invited to join TheExactMatch dealer network. Set up your account below.</div>
+
+          <div class="dp-alert dp-alert-err" id="signup-error"></div>
+
+          <div class="dp-form-row">
+            <div class="dp-form-group"><label>First Name</label><input type="text" id="su-fname" placeholder="John"/></div>
+            <div class="dp-form-group"><label>Last Name</label><input type="text" id="su-lname" placeholder="Smith"/></div>
+          </div>
+          <div class="dp-form-group"><label>Dealership Name</label><input type="text" id="su-dealership" placeholder="Smith Motors"/></div>
+          <div class="dp-form-group"><label>Email</label><input type="email" id="su-email" placeholder="you@dealership.com" autocomplete="email"/></div>
+          <div class="dp-form-group" style="margin-bottom:1.5rem">
+            <label>Password</label>
+            <input type="password" id="su-password" placeholder="Create a password" autocomplete="new-password"/>
+          </div>
+          <button class="btn-primary" id="signup-btn" onclick="doDealerSignup()">Create Account</button>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div><!-- /view-signup -->
 
 </div><!-- /portal-wrap -->
 
@@ -511,6 +559,7 @@ function showView(id) {
     loadAdminSubmissions();
     loadAdminLeads();
     loadAdminDealers();
+    loadAdminInvites();
   }
 }
 
@@ -787,7 +836,7 @@ function switchTab(tabId) {
     b.classList.remove('active');
     if (panels[i]) panels[i].classList.remove('active');
   });
-  const tabIndex = ['tab-submissions','tab-leads','tab-dealers','tab-create-dealer'].indexOf(tabId);
+  const tabIndex = ['tab-submissions','tab-leads','tab-dealers'].indexOf(tabId);
   document.querySelectorAll('.tab-btn')[tabIndex]?.classList.add('active');
   document.getElementById(tabId)?.classList.add('active');
 }
@@ -916,36 +965,132 @@ async function adminUpdateDealer(id, status) {
   else alert('Update failed.');
 }
 
-async function doCreateDealer() {
-  const name        = document.getElementById('cd-name').value.trim();
-  const dealership  = document.getElementById('cd-dealership').value.trim();
-  const email       = document.getElementById('cd-email').value.trim();
-  const password    = document.getElementById('cd-password').value.trim();
+// ── Dealer invites (admin side) ────────────────────────────────
+async function doGenerateInvite() {
+  setLoading('generate-invite-btn', true, 'Generating…');
 
-  document.getElementById('create-dealer-error').classList.remove('show');
-  document.getElementById('create-dealer-success').classList.remove('show');
+  const { res, data } = await apiFetch('/admin/invites', { method: 'POST' })
+    .catch(() => ({res:{ok:false},data:{}}));
 
-  if (!name || !dealership || !email || !password) {
-    showAlert('create-dealer-error', 'All fields are required.');
+  setLoading('generate-invite-btn', false, null, '+ Generate Invite Link');
+
+  if (!res.ok) { alert(data.error || 'Could not generate invite link.'); return; }
+
+  const url = `${window.location.origin}${window.location.pathname}?invite=${data.token}`;
+  await copyToClipboard(url);
+  alert('Invite link copied to clipboard:\n\n' + url);
+  loadAdminInvites();
+}
+
+async function doCopyInviteLink(token) {
+  const url = `${window.location.origin}${window.location.pathname}?invite=${token}`;
+  await copyToClipboard(url);
+}
+
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    window.prompt('Copy this invite link:', text);
+  }
+}
+
+async function loadAdminInvites() {
+  document.getElementById('admin-invites-loading').style.display = 'block';
+  document.getElementById('admin-invites-list').innerHTML        = '';
+
+  const { res, data } = await apiFetch('/admin/invites')
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('admin-invites-loading').style.display = 'none';
+
+  if (!res.ok) return;
+
+  const invites = data.invites || [];
+  if (!invites.length) {
+    document.getElementById('admin-invites-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">✉️</div><div class="empty-state-text">No pending invites.<br/>Generate one to invite a new dealer.</div></div>';
     return;
   }
 
-  setLoading('create-dealer-btn', true, 'Creating…');
+  document.getElementById('admin-invites-list').innerHTML = invites.map(inv => `
+    <div class="item-card">
+      <div>
+        <div class="item-card-title">Invite Link</div>
+        <div class="item-card-sub">
+          Generated ${formatDate(inv.created_at)} · Expires ${formatDate(inv.expires_at)}
+          ${inv.expired ? ' <span class="status-badge status-rejected">Expired</span>' : ''}
+        </div>
+      </div>
+      <div class="item-card-actions">
+        <button class="btn-primary btn-sm" onclick="doCopyInviteLink('${inv.token}')">Copy Link</button>
+      </div>
+    </div>
+  `).join('');
+}
 
-  const { res, data } = await apiFetch('/admin/dealers', {
-    method: 'POST', body: JSON.stringify({ name, dealership_name: dealership, email, password })
-  }).catch(() => ({res:{ok:false},data:{error:'Connection error.'}}));
+// ── Dealer signup (invited dealer side) ────────────────────────
+let inviteToken = null;
 
-  setLoading('create-dealer-btn', false, null, 'Create Dealer Account');
+async function checkForInvite() {
+  const params = new URLSearchParams(window.location.search);
+  const token  = params.get('invite');
+  if (!token) return false;
+
+  inviteToken = token;
+  showView('view-signup');
+
+  const { res, data } = await apiFetch(`/dealer/invites/${token}`)
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('signup-loading').style.display = 'none';
+
+  if (!res.ok || !data.valid) {
+    document.getElementById('signup-invalid-msg').textContent = data.error || 'This invite link is invalid or has expired.';
+    document.getElementById('signup-invalid').style.display   = 'block';
+    return true;
+  }
+
+  document.getElementById('signup-form-wrap').style.display = 'block';
+  return true;
+}
+
+async function doDealerSignup() {
+  const fname      = document.getElementById('su-fname').value.trim();
+  const lname      = document.getElementById('su-lname').value.trim();
+  const dealership = document.getElementById('su-dealership').value.trim();
+  const email      = document.getElementById('su-email').value.trim();
+  const password   = document.getElementById('su-password').value;
+
+  document.getElementById('signup-error').classList.remove('show');
+
+  if (!fname || !lname || !dealership || !email || !password) {
+    showAlert('signup-error', 'Please fill out all fields.');
+    return;
+  }
+
+  setLoading('signup-btn', true, 'Creating account…');
+
+  const { res, data } = await apiFetch('/dealer/signup', {
+    method: 'POST',
+    body: JSON.stringify({
+      token: inviteToken, first_name: fname, last_name: lname,
+      dealership_name: dealership, email, password
+    })
+  }).catch(() => ({res:{ok:false},data:{error:'Connection error. Please try again.'}}));
+
+  setLoading('signup-btn', false, null, 'Create Account');
 
   if (!res.ok) {
-    showAlert('create-dealer-error', data.error || 'Failed to create dealer.');
+    showAlert('signup-error', data.error || 'Signup failed. Please try again.');
     return;
   }
 
-  showAlert('create-dealer-success', `✓ Dealer account created for ${email}. They can now log in.`, 'ok');
-  ['cd-name','cd-dealership','cd-email','cd-password'].forEach(id => { document.getElementById(id).value = ''; });
-  loadAdminDealers();
+  authToken     = data.token;
+  localStorage.setItem('tem_dealer_token', authToken);
+  currentDealer = data.dealer;
+  window.history.replaceState({}, '', window.location.pathname);
+  enterDealerDash();
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -958,7 +1103,10 @@ function formatPrice(n) {
 }
 
 // ── Init ──────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', restoreSession);
+window.addEventListener('DOMContentLoaded', async () => {
+  const hasInvite = await checkForInvite();
+  if (!hasInvite) restoreSession();
+});
 </script>
 </body>
 </html>
