@@ -433,6 +433,30 @@
               <option>This Week</option><option>This Month</option><option>1–3 Months</option><option>Just Exploring</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>How Are You Planning to Pay?</label>
+            <select id="ff-payment-method">
+              <option value="">Select...</option>
+              <option>Financing</option><option>Leasing</option><option>Cash</option>
+            </select>
+          </div>
+          <div id="ff-financing-wrap" style="display:none">
+            <div class="form-group">
+              <label>Credit Range</label>
+              <select id="ff-credit-range">
+                <option value="">Select...</option>
+                <option>Poor</option><option>Fair</option><option>Good</option><option>Excellent</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Desired Monthly Payment — Min</label><input type="number" placeholder="400" id="ff-monthly-min"/></div>
+              <div class="form-group"><label>Desired Monthly Payment — Max</label><input type="number" placeholder="600" id="ff-monthly-max"/></div>
+            </div>
+            <div class="form-group">
+              <label>Down Payment Amount</label>
+              <input type="number" placeholder="5000" id="ff-down-payment"/>
+            </div>
+          </div>
         </div>
 
         <!-- Step 3 — Priorities -->
@@ -1381,6 +1405,22 @@ document.addEventListener('DOMContentLoaded', function(){
   boxes.forEach(cb => cb.addEventListener('change', refresh));
 });
 
+document.addEventListener('DOMContentLoaded', function(){
+  const paymentSelect = document.getElementById('ff-payment-method');
+  const wrap = document.getElementById('ff-financing-wrap');
+  if(!paymentSelect || !wrap) return;
+  paymentSelect.addEventListener('change', function(){
+    const show = paymentSelect.value === 'Financing' || paymentSelect.value === 'Leasing';
+    wrap.style.display = show ? 'block' : 'none';
+    if(!show){
+      document.getElementById('ff-credit-range').value = '';
+      document.getElementById('ff-monthly-min').value = '';
+      document.getElementById('ff-monthly-max').value = '';
+      document.getElementById('ff-down-payment').value = '';
+    }
+  });
+});
+
 // ── Find My Car submit ───────────────────────────────────────
 function submitFindForm() {
   const btn = document.getElementById('ff-next-btn');
@@ -1397,6 +1437,11 @@ function submitFindForm() {
     budget_min: document.getElementById('ff-budget-min').value.trim(),
     budget_max: document.getElementById('ff-budget-max').value.trim(),
     timeline:   document.getElementById('ff-timeline').value,
+    payment_method: document.getElementById('ff-payment-method').value,
+    credit_range: document.getElementById('ff-credit-range').value,
+    desired_monthly_min: document.getElementById('ff-monthly-min').value.trim(),
+    desired_monthly_max: document.getElementById('ff-monthly-max').value.trim(),
+    down_payment: document.getElementById('ff-down-payment').value.trim(),
     priorities: priorities,
     current_vehicle: document.getElementById('ff-current-vehicle').value.trim(),
     current_like: document.getElementById('ff-current-like').value.trim(),

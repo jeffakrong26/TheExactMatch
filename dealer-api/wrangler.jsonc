@@ -16,5 +16,8 @@
 	"routes": [
 		{ "pattern": "theexactmatch.com/reports/*", "zone_name": "theexactmatch.com" }
 	],
-	"workers_dev": true
+	"workers_dev": true,
+	"r2_buckets": [
+		{ "binding": "PHOTOS", "bucket_name": "theexactmatch-vehicle-photos" }
+	]
 }

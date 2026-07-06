@@ -1,0 +1,12 @@
+ALTER TABLE report_vehicles ADD COLUMN engine TEXT;
+ALTER TABLE report_vehicles ADD COLUMN transmission TEXT;
+ALTER TABLE report_vehicles ADD COLUMN drivetrain TEXT;
+ALTER TABLE report_vehicles ADD COLUMN city_mpg INTEGER;
+ALTER TABLE report_vehicles ADD COLUMN highway_mpg INTEGER;
+ALTER TABLE report_vehicles ADD COLUMN exterior_color TEXT;
+ALTER TABLE report_vehicles ADD COLUMN exterior_color_options TEXT;
+ALTER TABLE report_vehicles ADD COLUMN safety_rating TEXT;
+ALTER TABLE report_vehicles ADD COLUMN cargo_space TEXT;
+ALTER TABLE report_vehicles ADD COLUMN seating_capacity INTEGER;
+ALTER TABLE report_vehicles ADD COLUMN warranty TEXT;
+ALTER TABLE report_vehicles ADD COLUMN notable_features TEXT;

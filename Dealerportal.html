@@ -1020,6 +1020,7 @@ async function loadAdminReports() {
           <div class="item-card-sub">${r.email}</div>
           <div class="item-card-meta">
             <span class="status-badge ${r.status === 'approved' ? 'status-approved' : 'status-pending'}">${r.status === 'approved' ? 'approved' : 'pending approval'}</span>
+            ${r.interested_count > 0 ? `<span class="status-badge status-approved" style="background:rgba(26,71,49,.12)">★ ${r.interested_count} interested</span>` : ''}
             <span class="meta-pill" style="opacity:.6">${formatDate(r.created_at)}</span>
           </div>
         </div>
@@ -1057,6 +1058,14 @@ async function toggleReportDetail(code) {
       ${data.vehicles.map(v => `
         <div class="rv-edit" data-position="${v.position}" style="background:var(--beige);border:1px solid var(--border);border-radius:3px;padding:1.25rem">
           <div style="font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:.85rem">Option ${v.position}</div>
+          <div class="photo-upload-wrap" data-position="${v.position}" style="margin-bottom:1rem">
+            ${v.photo_url
+              ? `<img src="${v.photo_url}" style="width:100%;max-width:280px;border-radius:3px;display:block"/>`
+              : `<div style="font-size:.8rem;color:var(--gray);margin-bottom:.5rem">No photo found for this vehicle.</div>
+                 <input type="file" accept="image/*" class="photo-file-input" style="font-size:.8rem"/>
+                 <button type="button" class="btn-primary btn-sm" style="margin-left:.5rem" onclick="uploadReportVehiclePhoto('${code}', this)">Upload Photo</button>`
+            }
+          </div>
           <div class="dp-form-row">
             <div class="dp-form-group"><label>Year</label><input type="number" value="${v.year ?? ''}" data-field="year"/></div>
             <div class="dp-form-group"><label>Make</label><input type="text" value="${v.make ?? ''}" data-field="make"/></div>
@@ -1075,6 +1084,36 @@ async function toggleReportDetail(code) {
             <div class="dp-form-group"><label>Dealer City</label><input type="text" value="${v.dealer_city ?? ''}" data-field="dealer_city"/></div>
           </div>
           <div class="dp-form-group" style="max-width:160px"><label>Dealer State</label><input type="text" value="${v.dealer_state ?? ''}" data-field="dealer_state"/></div>
+          <div style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gray);margin:1rem 0 .6rem;border-top:1px solid var(--border);padding-top:.85rem">Specs</div>
+          <div class="dp-form-row">
+            <div class="dp-form-group"><label>Engine</label><input type="text" value="${v.engine ?? ''}" data-field="engine"/></div>
+            <div class="dp-form-group"><label>Transmission</label><input type="text" value="${v.transmission ?? ''}" data-field="transmission"/></div>
+          </div>
+          <div class="dp-form-row">
+            <div class="dp-form-group"><label>Drivetrain</label><input type="text" value="${v.drivetrain ?? ''}" data-field="drivetrain"/></div>
+            <div class="dp-form-group"><label>Fuel Economy (City / Hwy MPG)</label>
+              <div style="display:flex;gap:.5rem">
+                <input type="number" placeholder="City" value="${v.city_mpg ?? ''}" data-field="city_mpg"/>
+                <input type="number" placeholder="Hwy" value="${v.highway_mpg ?? ''}" data-field="highway_mpg"/>
+              </div>
+            </div>
+          </div>
+          <div class="dp-form-row">
+            <div class="dp-form-group"><label>This Unit's Color</label><input type="text" value="${v.exterior_color ?? ''}" data-field="exterior_color"/></div>
+            <div class="dp-form-group"><label>Color Options</label><input type="text" value="${v.exterior_color_options ?? ''}" data-field="exterior_color_options"/></div>
+          </div>
+          <div class="dp-form-row">
+            <div class="dp-form-group"><label>Cargo Space</label><input type="text" value="${v.cargo_space ?? ''}" data-field="cargo_space"/></div>
+            <div class="dp-form-group"><label>Seating Capacity</label><input type="number" value="${v.seating_capacity ?? ''}" data-field="seating_capacity"/></div>
+          </div>
+          <div class="dp-form-row">
+            <div class="dp-form-group"><label>Safety Rating</label><input type="text" value="${v.safety_rating ?? ''}" data-field="safety_rating"/></div>
+            <div class="dp-form-group"><label>Warranty</label><input type="text" value="${v.warranty ?? ''}" data-field="warranty"/></div>
+          </div>
+          <div class="dp-form-group">
+            <label>Notable Features (one per line)</label>
+            <textarea data-field="notable_features" style="min-height:90px">${(() => { try { return JSON.parse(v.notable_features || '[]').join('\n'); } catch { return ''; } })()}</textarea>
+          </div>
           <div style="font-size:.7rem;color:var(--gray);margin-top:.5rem">
             Source: ${v.source || '—'} · Listing: ${v.verified || '—'}${v.interested ? ' · <strong style="color:var(--green)">✓ Client interested</strong>' : ''}
           </div>
@@ -1099,7 +1138,13 @@ async function saveReportEdits(code) {
   for (const block of blocks) {
     const position = block.dataset.position;
     const payload = {};
-    block.querySelectorAll('[data-field]').forEach(el => { payload[el.dataset.field] = el.value; });
+    block.querySelectorAll('[data-field]').forEach(el => {
+      if (el.dataset.field === 'notable_features') {
+        payload.notable_features = JSON.stringify(el.value.split('\n').map(s => s.trim()).filter(Boolean));
+      } else {
+        payload[el.dataset.field] = el.value;
+      }
+    });
     const { res } = await apiFetch(`/admin/reports/${code}/vehicles/${position}`, { method: 'PATCH', body: JSON.stringify(payload) })
       .catch(() => ({res:{ok:false}}));
     if (!res.ok) { msg.textContent = 'Failed to save one or more vehicles.'; msg.style.color = 'var(--red)'; return; }
@@ -1117,6 +1162,35 @@ async function approveReport(code) {
     return;
   }
   loadAdminReports();
+}
+
+async function uploadReportVehiclePhoto(code, btn) {
+  const wrap = btn.closest('.photo-upload-wrap');
+  const position = wrap.dataset.position;
+  const input = wrap.querySelector('.photo-file-input');
+  if (!input.files.length) { alert('Choose a photo file first.'); return; }
+
+  const formData = new FormData();
+  formData.append('photo', input.files[0]);
+
+  btn.disabled = true; btn.textContent = 'Uploading…';
+  try {
+    const res = await fetch(`${API}/admin/reports/${code}/vehicles/${position}/photo`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}` },
+      body: formData,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      wrap.innerHTML = `<img src="${data.photo_url}" style="width:100%;max-width:280px;border-radius:3px;display:block"/>`;
+    } else {
+      btn.disabled = false; btn.textContent = 'Upload Photo';
+      alert('Upload failed.');
+    }
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Upload Photo';
+    alert('Upload failed.');
+  }
 }
 
 async function loadAdminMessages() {
