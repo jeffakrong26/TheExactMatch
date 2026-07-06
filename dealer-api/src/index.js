@@ -490,6 +490,125 @@ async function verifyListingLive(vdpUrl) {
   }
 }
 
+function extractJsonLdVehicle(html) {
+  const blocks = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+  for (const b of blocks) {
+    try {
+      const data = JSON.parse(b[1]);
+      const items = Array.isArray(data) ? data : (data['@graph'] || [data]);
+      for (const item of items) {
+        const type = item['@type'];
+        if (type === 'Vehicle' || type === 'Car' || (Array.isArray(type) && type.includes('Vehicle'))) return item;
+      }
+    } catch {}
+  }
+  return null;
+}
+
+function extractOgTags(html) {
+  const get = (prop) => {
+    const m = html.match(new RegExp(`<meta[^>]+property=["']og:${prop}["'][^>]+content=["']([^"']*)["']`, 'i'))
+      || html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+property=["']og:${prop}["']`, 'i'));
+    return m ? m[1] : null;
+  };
+  return { title: get('title'), image: get('image') };
+}
+
+function extractPhotosFromPage(structuredData, ogData) {
+  let photos = [];
+  if (structuredData?.image) photos = Array.isArray(structuredData.image) ? structuredData.image : [structuredData.image];
+  if (!photos.length && ogData?.image) photos = [ogData.image];
+  return photos.filter(Boolean);
+}
+
+async function extractListingWithClaude(env, html, structuredData, ogData) {
+  const cleaned = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 12000);
+
+  const tool = {
+    name: 'record_listing_data',
+    description: 'Record vehicle listing details extracted from a dealer webpage.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        year: { type: 'integer' }, make: { type: 'string' }, model: { type: 'string' }, trim: { type: 'string' },
+        price: { type: 'integer' }, mileage: { type: 'integer' }, color: { type: 'string' },
+        engine: { type: 'string' }, transmission: { type: 'string' }, drivetrain: { type: 'string' },
+        found_confidence: { type: 'string', enum: ['high', 'low', 'none'], description: 'none if this page does not look like a vehicle listing at all' },
+      },
+      required: ['found_confidence'],
+      additionalProperties: false,
+    },
+  };
+
+  const prompt = `Extract vehicle listing details from this dealer webpage content. Only fill in fields you can confidently determine — omit uncertain ones.
+${structuredData ? `\nStructured data found on page: ${JSON.stringify(structuredData).slice(0, 2000)}` : ''}
+${ogData?.title ? `\nPage title: ${ogData.title}` : ''}
+
+Page text content:
+${cleaned}`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1024, tools: [tool], tool_choice: { type: 'tool', name: 'record_listing_data' }, messages: [{ role: 'user', content: prompt }] }),
+  });
+  const data = await res.json();
+  if (data.stop_reason === 'refusal') return { found_confidence: 'none' };
+  const toolUse = (data.content || []).find(b => b.type === 'tool_use');
+  return toolUse ? toolUse.input : { found_confidence: 'none' };
+}
+
+async function adminScrapeListingUrl(request, env, params) {
+  const report = await env.DB.prepare('SELECT id FROM find_car_reports WHERE report_code = ?').bind(params.code).first();
+  if (!report) return json({ error: 'Report not found.' }, 404);
+  const existing = await env.DB.prepare('SELECT * FROM report_vehicles WHERE report_id = ? AND position = ?').bind(report.id, +params.position).first();
+  if (!existing) return json({ error: 'Vehicle not found.' }, 404);
+
+  const body = await request.json().catch(() => ({}));
+  const url = (body.url || '').trim();
+  if (!/^https?:\/\//i.test(url)) return json({ error: 'Please paste a full listing URL.' }, 400);
+
+  let html;
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchBot/1.0)' } });
+    if (!res.ok) return json({ error: `Could not fetch that page (HTTP ${res.status}). Fill in the fields below manually.` });
+    html = await res.text();
+  } catch {
+    return json({ error: 'Could not fetch that page. Fill in the fields below manually.' });
+  }
+
+  const structuredData = extractJsonLdVehicle(html);
+  const ogData = extractOgTags(html);
+  const photos = extractPhotosFromPage(structuredData, ogData);
+  const extracted = await extractListingWithClaude(env, html, structuredData, ogData);
+
+  if (extracted.found_confidence === 'none') {
+    return json({ error: "That page doesn't look like a vehicle listing. Fill in the fields below manually." });
+  }
+
+  const merged = {
+    year: extracted.year ?? existing.year, make: extracted.make || existing.make,
+    model: extracted.model || existing.model, trim: extracted.trim || existing.trim,
+    price: extracted.price ?? existing.price, mileage: extracted.mileage ?? existing.mileage,
+    exterior_color: extracted.color || existing.exterior_color,
+    engine: extracted.engine || existing.engine, transmission: extracted.transmission || existing.transmission,
+    drivetrain: extracted.drivetrain || existing.drivetrain,
+    photo_url: photos[0] || existing.photo_url,
+    photo_urls: JSON.stringify(photos.length ? photos : JSON.parse(existing.photo_urls || '[]')),
+  };
+
+  await env.DB.prepare(`
+    UPDATE report_vehicles SET year=?, make=?, model=?, trim=?, price=?, mileage=?, exterior_color=?,
+      engine=?, transmission=?, drivetrain=?, photo_url=?, photo_urls=?, vdp_url=? WHERE id=?
+  `).bind(merged.year, merged.make, merged.model, merged.trim, merged.price, merged.mileage, merged.exterior_color,
+    merged.engine, merged.transmission, merged.drivetrain, merged.photo_url, merged.photo_urls, url, existing.id).run();
+
+  return json({ success: true, confidence: extracted.found_confidence });
+}
+
 async function enrichVehicleSpecs(env, vehicle, known) {
   const tool = {
     name: 'record_vehicle_specs',
@@ -892,6 +1011,7 @@ const REPORT_VEHICLE_EDITABLE_FIELDS = [
   'year', 'make', 'model', 'trim', 'rationale', 'price', 'mileage', 'dealer_name', 'dealer_city', 'dealer_state',
   'engine', 'transmission', 'drivetrain', 'city_mpg', 'highway_mpg', 'exterior_color', 'exterior_color_options',
   'safety_rating', 'cargo_space', 'seating_capacity', 'warranty', 'notable_features',
+  'source', 'verified',
 ];
 
 async function adminUpdateReportVehicle(request, env, params) {
@@ -1382,6 +1502,7 @@ const ROUTES = [
   { method: 'PATCH', pattern: '/api/admin/reports/:code/vehicles/:position', handler: adminUpdateReportVehicle, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/reports/:code/approve',        handler: adminApproveReport, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/reports/:code/vehicles/:position/photo', handler: adminUploadReportVehiclePhoto, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/reports/:code/vehicles/:position/scrape-listing', handler: adminScrapeListingUrl, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/interest', handler: publicExpressReportInterest },
   { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/ready', handler: publicReadyToMoveForward },
 ];

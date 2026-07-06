@@ -1062,6 +1062,12 @@ async function toggleReportDetail(code) {
             <div style="background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.25);border-radius:2px;padding:.6rem .85rem;margin-bottom:.85rem;font-size:.78rem;color:#9B2335">
               <strong>⚠ Needs manual sourcing</strong> — no listing matched year/model/budget criteria.
               ${v.dealer_name ? ` Nearest ${v.make} dealer: ${v.dealer_name}${v.dealer_city ? ` (${v.dealer_city}${v.dealer_state ? ', '+v.dealer_state : ''})` : ''}.` : ''}
+              <div style="margin-top:.75rem;display:flex;gap:.5rem">
+                <input type="text" class="listing-url-input" placeholder="Paste listing URL…" style="flex:1;font-size:.8rem;padding:.5rem;border:1px solid var(--border);border-radius:2px"/>
+                <button type="button" class="btn-primary btn-sm" onclick="fetchListingForVehicle('${code}', ${v.position}, this)">Fetch Listing</button>
+              </div>
+              <div class="fetch-status" style="font-size:.75rem;margin-top:.4rem"></div>
+              <button type="button" class="btn-primary btn-sm" style="margin-top:.6rem;background:var(--green)" onclick="markVehicleReady('${code}', ${v.position}, this)">Mark as Ready</button>
             </div>
           ` : ''}
           <div class="photo-upload-wrap" data-position="${v.position}" style="margin-bottom:1rem">
@@ -1201,6 +1207,34 @@ async function uploadReportVehiclePhoto(code, btn) {
     btn.disabled = false; btn.textContent = 'Upload Photo';
     alert('Upload failed.');
   }
+}
+
+async function fetchListingForVehicle(code, position, btn) {
+  const wrap = btn.closest('div').parentElement;
+  const input = wrap.querySelector('.listing-url-input');
+  const status = wrap.querySelector('.fetch-status');
+  if (!input.value.trim()) { status.textContent = 'Paste a URL first.'; status.style.color = 'var(--red)'; return; }
+  btn.disabled = true; btn.textContent = 'Fetching…'; status.textContent = '';
+  const { res, data } = await apiFetch(`/admin/reports/${code}/vehicles/${position}/scrape-listing`, { method: 'POST', body: JSON.stringify({ url: input.value.trim() }) })
+    .catch(() => ({ res: { ok: false }, data: {} }));
+  btn.disabled = false; btn.textContent = 'Fetch Listing';
+  if (data.error) { status.textContent = data.error; status.style.color = 'var(--red)'; return; }
+  if (res.ok && data.success) {
+    status.textContent = '✓ Fetched — review the fields below, then Save Changes or Mark as Ready.';
+    status.style.color = 'var(--green)';
+    toggleReportDetail(code); toggleReportDetail(code);
+  } else {
+    status.textContent = 'Could not fetch that page. Fill in the fields below manually.';
+    status.style.color = 'var(--red)';
+  }
+}
+
+async function markVehicleReady(code, position, btn) {
+  btn.disabled = true; btn.textContent = 'Marking ready…';
+  const { res } = await apiFetch(`/admin/reports/${code}/vehicles/${position}`, { method: 'PATCH', body: JSON.stringify({ source: 'admin_manual', verified: 'admin_confirmed' }) })
+    .catch(() => ({ res: { ok: false } }));
+  if (res.ok) { toggleReportDetail(code); toggleReportDetail(code); }
+  else { btn.disabled = false; btn.textContent = 'Mark as Ready'; }
 }
 
 async function loadAdminMessages() {
