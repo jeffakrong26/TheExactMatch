@@ -1058,6 +1058,12 @@ async function toggleReportDetail(code) {
       ${data.vehicles.map(v => `
         <div class="rv-edit" data-position="${v.position}" style="background:var(--beige);border:1px solid var(--border);border-radius:3px;padding:1.25rem">
           <div style="font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:.85rem">Option ${v.position}</div>
+          ${v.source === 'sourcing_in_progress' ? `
+            <div style="background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.25);border-radius:2px;padding:.6rem .85rem;margin-bottom:.85rem;font-size:.78rem;color:#9B2335">
+              <strong>⚠ Needs manual sourcing</strong> — no listing matched year/model/budget criteria.
+              ${v.dealer_name ? ` Nearest ${v.make} dealer: ${v.dealer_name}${v.dealer_city ? ` (${v.dealer_city}${v.dealer_state ? ', '+v.dealer_state : ''})` : ''}.` : ''}
+            </div>
+          ` : ''}
           <div class="photo-upload-wrap" data-position="${v.position}" style="margin-bottom:1rem">
             ${v.photo_url
               ? `<img src="${v.photo_url}" style="width:100%;max-width:280px;border-radius:3px;display:block"/>`
@@ -1117,6 +1123,10 @@ async function toggleReportDetail(code) {
           <div style="font-size:.7rem;color:var(--gray);margin-top:.5rem">
             Source: ${v.source || '—'} · Listing: ${v.verified || '—'}${v.interested ? ' · <strong style="color:var(--green)">✓ Client interested</strong>' : ''}
           </div>
+          <details style="margin-top:.75rem">
+            <summary style="cursor:pointer;font-size:.7rem;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">View Search Log</summary>
+            <pre style="font-size:.68rem;background:var(--navy);color:#a8c4e0;padding:.75rem;border-radius:2px;overflow-x:auto;margin-top:.5rem;white-space:pre-wrap">${(() => { try { return JSON.stringify(JSON.parse(v.search_log || '[]'), null, 2); } catch { return 'No log available.'; } })()}</pre>
+          </details>
         </div>
       `).join('')}
       <div style="display:flex;gap:.75rem;align-items:center">

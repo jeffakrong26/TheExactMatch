@@ -403,22 +403,78 @@ async function pickVehicles(env, lead) {
 
 const MARKETCHECK_RADII = [25, 50, 100, 200, 300];
 
-async function searchMarketcheck(env, { make, model, zip }) {
+const MARKETCHECK_MAKE_ALIASES = {
+  'mercedes-amg': 'Mercedes-Benz',
+  'mercedes amg': 'Mercedes-Benz',
+  'amg': 'Mercedes-Benz',
+  'mercedes': 'Mercedes-Benz',
+  'chevy': 'Chevrolet',
+};
+
+function normalizeMakeForMarketcheck(make) {
+  const key = (make || '').toLowerCase().trim();
+  return MARKETCHECK_MAKE_ALIASES[key] || make;
+}
+
+function normalizeForMatch(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function trimMatches(listingTrim, recommendedTrim, listingModel, recommendedModel) {
+  const lt = normalizeForMatch(listingTrim);
+  const rt = normalizeForMatch(recommendedTrim);
+  const lm = normalizeForMatch(listingModel);
+  const rm = normalizeForMatch(recommendedModel);
+  if (rt) return lt === rt || lt.includes(rt) || rt.includes(lt);
+  return lm === rm;
+}
+
+async function searchMarketcheck(env, { make, model, trim, zip, year, budgetMax, throttledFetch }) {
+  const yearMin = year ? Number(year) - 2 : null;
+  const yearMax = year ? Number(year) + 2 : null;
+  const log = [];
+
   for (const radius of MARKETCHECK_RADII) {
     const url = new URL('https://api.marketcheck.com/v2/search/car/active');
-    url.searchParams.set('api_key', env.MARKETCHECK_API_KEY);
     url.searchParams.set('zip', zip || '78701');
     url.searchParams.set('radius', String(radius));
     url.searchParams.set('make', make);
     if (model) url.searchParams.set('model', model);
-    url.searchParams.set('rows', model ? '5' : '1');
+    if (yearMin && yearMax) url.searchParams.set('year_range', `${yearMin}-${yearMax}`);
+    if (budgetMax) url.searchParams.set('price_range', `0-${Math.round(Number(budgetMax))}`);
+    url.searchParams.set('rows', '20');
 
-    const res = await fetch(url.toString());
-    if (!res.ok) continue;
-    const data = await res.json().catch(() => ({}));
-    if (data.listings && data.listings.length) return { listings: data.listings, radius };
+    const loggedQuery = url.toString();
+    const fetchUrl = new URL(loggedQuery);
+    fetchUrl.searchParams.set('api_key', env.MARKETCHECK_API_KEY);
+
+    let listings = [];
+    let errorNote;
+    try {
+      const res = await throttledFetch(fetchUrl.toString());
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        listings = data.listings || [];
+      } else {
+        errorNote = `HTTP ${res.status}`;
+      }
+    } catch (err) {
+      errorNote = String(err);
+    }
+
+    const matched = listings.filter(l => {
+      const listingYear = l.build?.year || null;
+      if (yearMin && yearMax && (!listingYear || listingYear < yearMin || listingYear > yearMax)) return false;
+      if (budgetMax && (l.price == null || l.price > Number(budgetMax))) return false;
+      if (trim && !trimMatches(l.build?.trim, trim, l.build?.model, model)) return false;
+      return true;
+    });
+
+    log.push({ radius, query: loggedQuery, raw_count: listings.length, matched_count: matched.length, error: errorNote });
+    if (matched.length) return { listings: matched, radius, log };
   }
-  return null;
+
+  return { listings: null, radius: null, log };
 }
 
 async function verifyListingLive(vdpUrl) {
@@ -469,7 +525,7 @@ async function enrichVehicleSpecs(env, vehicle, known) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6', max_tokens: 1024,
+      model: 'claude-haiku-4-5', max_tokens: 1024,
       tools: [tool], tool_choice: { type: 'tool', name: 'record_vehicle_specs' },
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -480,25 +536,20 @@ async function enrichVehicleSpecs(env, vehicle, known) {
   return toolUse ? toolUse.input : {};
 }
 
-async function findFranchiseFallback(env, { make, zip }) {
-  const found = await searchMarketcheck(env, { make, model: null, zip });
-  if (!found) return null;
-  const l = found.listings[0];
-  return {
-    dealer_name: l.dealer?.name || null,
-    dealer_city: l.dealer?.city || null,
-    dealer_state: l.dealer?.state || null,
-    price: null, mileage: null, vdp_url: null, photo_url: null,
-    source: 'franchise_fallback', verified: 'fallback',
-  };
-}
+async function findListingEntry(env, pick, lead, throttledFetch, tag, t0) {
+  const searchMake = normalizeMakeForMarketcheck(pick.make);
+  const searchResult = await searchMarketcheck(env, {
+    make: searchMake, model: pick.model, trim: pick.trim, zip: lead.zip,
+    year: pick.year, budgetMax: lead.budget_max, throttledFetch,
+  });
+  console.log(`[timing] ${tag} primary search: ${Date.now() - t0}ms, matched=${!!searchResult.listings}`);
 
-async function processVehiclePick(env, pick, lead) {
-  const found = await searchMarketcheck(env, { make: pick.make, model: pick.model, zip: lead.zip });
-  let entry;
-  if (found) {
-    const l = found.listings[0];
-    entry = {
+  if (searchResult.listings) {
+    const l = searchResult.listings[0];
+    const tVerify = Date.now();
+    const verified = await verifyListingLive(l.vdp_url);
+    console.log(`[timing] ${tag} verify: ${Date.now() - tVerify}ms`);
+    return {
       ...pick,
       price: l.price ?? null,
       mileage: l.miles ?? null,
@@ -507,7 +558,7 @@ async function processVehiclePick(env, pick, lead) {
       dealer_state: l.dealer?.state || null,
       vdp_url: l.vdp_url || null,
       source: 'marketcheck',
-      verified: await verifyListingLive(l.vdp_url),
+      verified,
       engine: l.build?.engine || null,
       transmission: l.build?.transmission || null,
       drivetrain: l.build?.drivetrain || null,
@@ -515,13 +566,47 @@ async function processVehiclePick(env, pick, lead) {
       highway_mpg: l.build?.highway_mpg ?? null,
       exterior_color: l.exterior_color || null,
       photo_url: l.media?.photo_links_cached?.[0] || l.media?.photo_links?.[0] || null,
+      search_log: JSON.stringify(searchResult.log),
     };
-  } else {
-    const fallback = await findFranchiseFallback(env, { make: pick.make, zip: lead.zip });
-    entry = { ...pick, ...(fallback || { price: null, mileage: null, dealer_name: null, dealer_city: null, dealer_state: null, vdp_url: null, photo_url: null, source: 'none', verified: 'unverified' }) };
   }
 
-  const specs = await enrichVehicleSpecs(env, pick, { engine: entry.engine, transmission: entry.transmission, drivetrain: entry.drivetrain });
+  const tFallback = Date.now();
+  const franchiseResult = await searchMarketcheck(env, { make: searchMake, model: null, zip: lead.zip, throttledFetch });
+  console.log(`[timing] ${tag} franchise fallback: ${Date.now() - tFallback}ms`);
+  const nearestDealer = franchiseResult.listings ? franchiseResult.listings[0].dealer : null;
+  const fullLog = [...searchResult.log, ...franchiseResult.log.map(l => ({ ...l, note: 'franchise fallback (make-only) search' }))];
+  return {
+    ...pick,
+    price: null, mileage: null, vdp_url: null, photo_url: null,
+    dealer_name: nearestDealer?.name || null,
+    dealer_city: nearestDealer?.city || null,
+    dealer_state: nearestDealer?.state || null,
+    engine: null, transmission: null, drivetrain: null,
+    city_mpg: null, highway_mpg: null, exterior_color: null,
+    source: 'sourcing_in_progress',
+    verified: 'sourcing_in_progress',
+    search_log: JSON.stringify(fullLog),
+  };
+}
+
+async function processVehiclePick(env, pick, lead, throttledFetch) {
+  const t0 = Date.now();
+  const tag = `${pick.year} ${pick.make} ${pick.model}`;
+
+  // Listing search and spec enrichment are independent — Claude's spec recall
+  // doesn't require the Marketcheck result, so run them concurrently instead
+  // of stacking their latencies in series (this pipeline is on a tight ~30s
+  // ctx.waitUntil() budget).
+  const [entry, specs] = await Promise.all([
+    findListingEntry(env, pick, lead, throttledFetch, tag, t0),
+    (async () => {
+      const tSpecs = Date.now();
+      const result = await enrichVehicleSpecs(env, pick, {});
+      console.log(`[timing] ${tag} enrichSpecs: ${Date.now() - tSpecs}ms`);
+      return result;
+    })(),
+  ]);
+
   entry.engine = entry.engine || specs.engine || null;
   entry.transmission = entry.transmission || specs.transmission || null;
   entry.drivetrain = entry.drivetrain || specs.drivetrain || null;
@@ -534,15 +619,54 @@ async function processVehiclePick(env, pick, lead) {
   entry.warranty = specs.warranty || null;
   entry.notable_features = JSON.stringify(specs.notable_features || []);
 
+  console.log(`[timing] ${tag} TOTAL: ${Date.now() - t0}ms`);
   return entry;
 }
 
+function createMarketcheckThrottle(maxConcurrent = 3) {
+  let active = 0;
+  const queue = [];
+
+  function pump() {
+    if (active >= maxConcurrent || queue.length === 0) return;
+    active++;
+    const { url, resolve, reject } = queue.shift();
+    (async () => {
+      try {
+        let res = await fetch(url);
+        if (res.status === 429) {
+          await new Promise(r => setTimeout(r, 800));
+          res = await fetch(url);
+        }
+        resolve(res);
+      } catch (err) {
+        reject(err);
+      } finally {
+        active--;
+        pump();
+      }
+    })();
+  }
+
+  return function throttledFetch(url) {
+    return new Promise((resolve, reject) => {
+      queue.push({ url, resolve, reject });
+      pump();
+    });
+  };
+}
+
 async function generateReportForLead(env, leadId) {
+  const t0 = Date.now();
   const lead = await env.DB.prepare('SELECT * FROM find_car_leads WHERE id = ?').bind(leadId).first();
   if (!lead) return;
 
   const picks = await pickVehicles(env, lead);
-  const vehicles = await Promise.all(picks.map(pick => processVehiclePick(env, pick, lead)));
+  console.log(`[timing] pickVehicles: ${Date.now() - t0}ms`);
+  const throttledFetch = createMarketcheckThrottle();
+  const tVehicles = Date.now();
+  const vehicles = await Promise.all(picks.map(pick => processVehiclePick(env, pick, lead, throttledFetch)));
+  console.log(`[timing] all vehicles processed: ${Date.now() - tVehicles}ms, cumulative: ${Date.now() - t0}ms`);
 
   const reportResult = await env.DB.prepare(
     `INSERT INTO find_car_reports (report_code, find_lead_id, status) VALUES ('', ?, 'pending_approval')`
@@ -557,14 +681,14 @@ async function generateReportForLead(env, leadId) {
       INSERT INTO report_vehicles (
         report_id, position, year, make, model, trim, rationale, price, mileage, dealer_name, dealer_city, dealer_state, vdp_url, source, verified,
         engine, transmission, drivetrain, city_mpg, highway_mpg, exterior_color, exterior_color_options,
-        safety_rating, cargo_space, seating_capacity, warranty, notable_features, photo_url
+        safety_rating, cargo_space, seating_capacity, warranty, notable_features, photo_url, search_log
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       reportId, i + 1, v.year, v.make, v.model, v.trim, v.rationale,
       v.price, v.mileage, v.dealer_name, v.dealer_city, v.dealer_state, v.vdp_url, v.source, v.verified,
       v.engine, v.transmission, v.drivetrain, v.city_mpg, v.highway_mpg, v.exterior_color, v.exterior_color_options,
-      v.safety_rating, v.cargo_space, v.seating_capacity, v.warranty, v.notable_features, v.photo_url
+      v.safety_rating, v.cargo_space, v.seating_capacity, v.warranty, v.notable_features, v.photo_url, v.search_log
     ).run();
   }
 
@@ -578,9 +702,11 @@ async function generateReportForLead(env, leadId) {
         ${vehicles.map(v => `
           <li style="margin-bottom:.5rem">
             ${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)} ${escapeHtml(v.trim)} —
-            ${v.vdp_url
-              ? `<a href="${escapeHtml(v.vdp_url)}">View listing →</a> (${escapeHtml(v.verified)})`
-              : `no direct link — ${escapeHtml(v.source)}, dealer: ${escapeHtml(v.dealer_name || 'unknown')}`}
+            ${v.source === 'sourcing_in_progress'
+              ? `<strong style="color:#9B2335">⚠ Needs manual sourcing</strong>${v.dealer_name ? ` — nearest ${escapeHtml(v.make)} dealer: ${escapeHtml(v.dealer_name)}` : ''}`
+              : (v.vdp_url
+                  ? `<a href="${escapeHtml(v.vdp_url)}">View listing →</a> (${escapeHtml(v.verified)})`
+                  : `no direct link — ${escapeHtml(v.source)}, dealer: ${escapeHtml(v.dealer_name || 'unknown')}`)}
           </li>
         `).join('')}
       </ul>
@@ -914,10 +1040,14 @@ function reportPageHtml(report, vehicles) {
         : `<div class="vphoto vphoto-placeholder"><span>Photo coming soon</span></div>`}
       <div class="vtitle">${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)} ${escapeHtml(v.trim)}</div>
       <div class="vmeta">
-        ${v.price ? `<span class="pill">$${Number(v.price).toLocaleString()}</span>` : ''}
-        ${v.mileage ? `<span class="pill">${Number(v.mileage).toLocaleString()} mi</span>` : ''}
-        ${v.dealer_name ? `<span class="pill">${escapeHtml(v.dealer_name)}</span>` : ''}
-        ${v.dealer_city ? `<span class="pill">${escapeHtml(v.dealer_city)}${v.dealer_state ? ', ' + escapeHtml(v.dealer_state) : ''}</span>` : ''}
+        ${v.source === 'sourcing_in_progress'
+          ? `<span class="pill" style="border-color:var(--gold);color:var(--gold)">Sourcing in progress</span>`
+          : `
+            ${v.price ? `<span class="pill">$${Number(v.price).toLocaleString()}</span>` : ''}
+            ${v.mileage ? `<span class="pill">${Number(v.mileage).toLocaleString()} mi</span>` : ''}
+            ${v.dealer_name ? `<span class="pill">${escapeHtml(v.dealer_name)}</span>` : ''}
+            ${v.dealer_city ? `<span class="pill">${escapeHtml(v.dealer_city)}${v.dealer_state ? ', ' + escapeHtml(v.dealer_state) : ''}</span>` : ''}
+          `}
       </div>
       <div class="vrationale">${escapeHtml(v.rationale)}</div>
       ${specRows.length ? `
