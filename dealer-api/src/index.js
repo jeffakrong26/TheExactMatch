@@ -161,6 +161,16 @@ async function dealerLeads(request, env, params, dealer) {
   return json({ leads: results.map(l => ({ ...l, i_expressed_interest: !!l.i_expressed_interest, photo_confirmed: !!l.photo_confirmed })) });
 }
 
+async function fetchPhotosBySlot(env, valuationId) {
+  const { results: photoRows } = await env.DB.prepare(
+    'SELECT slot, url FROM valuation_photos WHERE valuation_id = ? ORDER BY created_at'
+  ).bind(valuationId).all();
+
+  const photosBySlot = {};
+  for (const row of photoRows) (photosBySlot[row.slot] ||= []).push(row.url);
+  return photosBySlot;
+}
+
 async function dealerGetLeadValuation(request, env, params) {
   const valuation = await env.DB.prepare(`
     SELECT vehicle_valuations.*,
@@ -172,7 +182,8 @@ async function dealerGetLeadValuation(request, env, params) {
     WHERE vehicle_valuations.lead_id = ?
   `).bind(+params.id).first();
   if (!valuation) return json({ error: 'No valuation found for this lead yet.' }, 404);
-  return json({ valuation: { ...valuation, photo_confirmed: !!valuation.photo_confirmed } });
+  const photos = await fetchPhotosBySlot(env, valuation.id);
+  return json({ valuation: { ...valuation, photo_confirmed: !!valuation.photo_confirmed }, photos });
 }
 
 async function expressInterest(request, env, params, dealer) {
@@ -243,7 +254,8 @@ async function adminGetLeadValuation(request, env, params) {
     WHERE vehicle_valuations.lead_id = ?
   `).bind(+params.id).first();
   if (!valuation) return json({ error: 'No valuation found for this lead yet.' }, 404);
-  return json({ valuation: { ...valuation, photo_confirmed: !!valuation.photo_confirmed } });
+  const photos = await fetchPhotosBySlot(env, valuation.id);
+  return json({ valuation: { ...valuation, photo_confirmed: !!valuation.photo_confirmed }, photos });
 }
 
 async function adminFindLeads(request, env) {
@@ -1205,12 +1217,7 @@ async function processPhotoConfirmedValuation(env, token) {
   `).bind(token).first();
   if (!valuation) return;
 
-  const { results: photoRows } = await env.DB.prepare(
-    'SELECT slot, url FROM valuation_photos WHERE valuation_id = ? ORDER BY created_at'
-  ).bind(valuation.id).all();
-
-  const photosBySlot = {};
-  for (const row of photoRows) (photosBySlot[row.slot] ||= []).push(row.url);
+  const photosBySlot = await fetchPhotosBySlot(env, valuation.id);
 
   const selfReported = {
     general_condition: valuation.general_condition,
@@ -1340,7 +1347,7 @@ function sellUploadPageHtml(valuation, photosBySlot) {
   </div>
   <div class="success-box" id="upload-success">
     <h2>✦ Photos received.</h2>
-    <p style="color:var(--gray)">We're reviewing now — you'll get an email with your rough value range shortly.</p>
+    <p style="color:var(--gray)">Thanks! Jeff will review everything and follow up with your numbers shortly.</p>
   </div>
 </div>
 <footer>© ${new Date().getFullYear()} TheExactMatch.com</footer>
@@ -1420,65 +1427,92 @@ async function renderSellUploadPage(request, env, params) {
 
   if (!valuation) return htmlResponse(sellNotFoundHtml(), 404);
 
-  const { results: photoRows } = await env.DB.prepare(
-    'SELECT slot, url FROM valuation_photos WHERE valuation_id = ? ORDER BY created_at'
-  ).bind(valuation.id).all();
-
-  const photosBySlot = {};
-  for (const row of photoRows) (photosBySlot[row.slot] ||= []).push(row.url);
+  const photosBySlot = await fetchPhotosBySlot(env, valuation.id);
 
   return htmlResponse(sellUploadPageHtml(valuation, photosBySlot));
 }
 
-async function serveSellPhoto(env, params) {
+async function serveSellPhoto(env, params, method) {
   const key = `sell/${params.token}/${params.slot}/${params.filename}`;
-  const object = await env.PHOTOS.get(key);
-  if (!object) return new Response('Not found', { status: 404 });
-  return new Response(object.body, {
+  const object = method === 'HEAD' ? await env.PHOTOS.head(key) : await env.PHOTOS.get(key);
+  if (!object) return new Response(method === 'HEAD' ? null : 'Not found', { status: 404 });
+  return new Response(method === 'HEAD' ? null : object.body, {
     headers: { 'Content-Type': object.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'public, max-age=86400' },
   });
 }
 
-async function uploadSellPhoto(request, env, params) {
-  const slotDef = SELL_PHOTO_ALL_SLOTS.find(s => s.key === params.slot);
-  if (!slotDef) return json({ error: 'Unknown photo slot.' }, 400);
+async function storeValuationPhoto(env, valuation, slot, file) {
+  const slotDef = SELL_PHOTO_ALL_SLOTS.find(s => s.key === slot);
+  if (!slotDef) return { error: 'Unknown photo slot.' };
 
-  const valuation = await env.DB.prepare('SELECT id FROM vehicle_valuations WHERE token = ?').bind(params.token).first();
+  const { results: existing } = await env.DB.prepare(
+    'SELECT id, url FROM valuation_photos WHERE valuation_id = ? AND slot = ?'
+  ).bind(valuation.id, slot).all();
+
+  if (slotDef.multi) {
+    if (existing.length >= slotDef.maxFiles) {
+      return { error: `You can upload up to ${slotDef.maxFiles} photos for this.` };
+    }
+  } else if (existing.length) {
+    for (const row of existing) {
+      const oldFilename = row.url.split('/').pop();
+      await env.PHOTOS.delete(`sell/${valuation.token}/${slot}/${oldFilename}`).catch(() => {});
+    }
+    await env.DB.prepare('DELETE FROM valuation_photos WHERE valuation_id = ? AND slot = ?').bind(valuation.id, slot).run();
+  }
+
+  const ext = (file.type || 'image/jpeg').split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+  const filename = `${randomHex(8)}.${ext}`;
+  const key = `sell/${valuation.token}/${slot}/${filename}`;
+  await env.PHOTOS.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'image/jpeg' } });
+
+  const url = `https://theexactmatch.com/sell/photos/${valuation.token}/${slot}/${filename}`;
+  await env.DB.prepare('INSERT INTO valuation_photos (valuation_id, slot, url) VALUES (?, ?, ?)').bind(valuation.id, slot, url).run();
+
+  return { url };
+}
+
+async function uploadSellPhoto(request, env, params) {
+  const valuation = await env.DB.prepare('SELECT id, token FROM vehicle_valuations WHERE token = ?').bind(params.token).first();
   if (!valuation) return json({ error: 'Upload link not found.' }, 404);
 
   const formData = await request.formData().catch(() => null);
   const file = formData?.get('photo');
   if (!file || typeof file === 'string') return json({ error: 'No photo file provided.' }, 400);
 
-  const { results: existing } = await env.DB.prepare(
-    'SELECT id, url FROM valuation_photos WHERE valuation_id = ? AND slot = ?'
-  ).bind(valuation.id, params.slot).all();
+  const result = await storeValuationPhoto(env, valuation, params.slot, file);
+  if (result.error) return json({ error: result.error }, 400);
+  return json({ success: true, url: result.url });
+}
 
-  if (slotDef.multi) {
-    if (existing.length >= slotDef.maxFiles) {
-      return json({ error: `You can upload up to ${slotDef.maxFiles} photos for this.` }, 400);
-    }
-  } else if (existing.length) {
-    for (const row of existing) {
-      const oldKey = row.url.replace(/^https?:\/\/[^/]+\/sell\/photos\//, '');
-      await env.PHOTOS.delete(oldKey).catch(() => {});
-    }
-    await env.DB.prepare('DELETE FROM valuation_photos WHERE valuation_id = ? AND slot = ?').bind(valuation.id, params.slot).run();
+async function adminUploadValuationPhoto(request, env, params) {
+  const valuation = await env.DB.prepare('SELECT id, token, status FROM vehicle_valuations WHERE lead_id = ?').bind(+params.id).first();
+  if (!valuation) return json({ error: 'No valuation found for this lead yet. It may still be processing — try again shortly.' }, 404);
+
+  const formData = await request.formData().catch(() => null);
+  const file = formData?.get('photo');
+  if (!file || typeof file === 'string') return json({ error: 'No photo file provided.' }, 400);
+
+  const result = await storeValuationPhoto(env, valuation, params.slot, file);
+  if (result.error) return json({ error: result.error }, 400);
+
+  if (valuation.status === 'pending_photos') {
+    await env.DB.prepare(`UPDATE vehicle_valuations SET status = 'photos_received', photos_uploaded_at = COALESCE(photos_uploaded_at, datetime('now')) WHERE id = ?`).bind(valuation.id).run();
   }
 
-  const ext = (file.type || 'image/jpeg').split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
-  const filename = `${randomHex(8)}.${ext}`;
-  const key = `sell/${params.token}/${params.slot}/${filename}`;
-  await env.PHOTOS.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'image/jpeg' } });
-
-  const url = `https://theexactmatch.com/sell/photos/${params.token}/${params.slot}/${filename}`;
-  await env.DB.prepare('INSERT INTO valuation_photos (valuation_id, slot, url) VALUES (?, ?, ?)').bind(valuation.id, params.slot, url).run();
-
-  return json({ success: true, url });
+  return json({ success: true, url: result.url });
 }
 
 async function completeSellPhotos(request, env, params, dealer, sessionToken, ctx) {
-  const valuation = await env.DB.prepare('SELECT id FROM vehicle_valuations WHERE token = ?').bind(params.token).first();
+  const valuation = await env.DB.prepare(`
+    SELECT vehicle_valuations.id,
+      sell_my_car_leads.first_name, sell_my_car_leads.last_name,
+      sell_my_car_leads.year AS lead_year, sell_my_car_leads.make AS lead_make, sell_my_car_leads.model AS lead_model,
+      vehicle_valuations.decoded_year, vehicle_valuations.decoded_make, vehicle_valuations.decoded_model
+    FROM vehicle_valuations
+    JOIN sell_my_car_leads ON sell_my_car_leads.id = vehicle_valuations.lead_id
+    WHERE vehicle_valuations.token = ?
+  `).bind(params.token).first();
   if (!valuation) return json({ error: 'Upload link not found.' }, 404);
 
   const { results: photoRows } = await env.DB.prepare(
@@ -1493,8 +1527,19 @@ async function completeSellPhotos(request, env, params, dealer, sessionToken, ct
 
   await env.DB.prepare(`UPDATE vehicle_valuations SET status = 'photos_received', photos_uploaded_at = datetime('now') WHERE id = ?`).bind(valuation.id).run();
 
+  // Automated Claude vision re-valuation (processPhotoConfirmedValuation) is paused for
+  // now — Anthropic's URL-based image fetch is currently failing account-wide, unrelated
+  // to Cloudflare. Notify admin to review the uploaded photos manually instead.
   if (ctx) {
-    ctx.waitUntil(processPhotoConfirmedValuation(env, params.token).catch(err => console.error('photo valuation pipeline failed', params.token, err)));
+    const vehicleLabel = `${valuation.decoded_year || valuation.lead_year || ''} ${valuation.decoded_make || valuation.lead_make || ''} ${valuation.decoded_model || valuation.lead_model || ''}`.trim();
+    ctx.waitUntil(sendBrevoEmail(env, {
+      to: 'theexactmatch@gmail.com',
+      subject: '📸 Photos received — ready for review',
+      html: brandedEmailHtml(`
+        <p><strong>${escapeHtml(valuation.first_name)} ${escapeHtml(valuation.last_name)}</strong> uploaded all their photos for the ${escapeHtml(vehicleLabel)}.</p>
+        <p><a href="https://theexactmatch.com/Dealerportal.html">Review photos &amp; confirm values →</a></p>
+      `),
+    }).catch(err => console.error('photos-received admin email failed', params.token, err)));
   }
 
   return json({ success: true });
@@ -1669,12 +1714,7 @@ async function renderSellReportPage(request, env, params) {
   if (!valuation) return htmlResponse(sellNotFoundHtml(), 404);
   if (valuation.status !== 'valued') return htmlResponse(sellReportPendingHtml(valuation));
 
-  const { results: photoRows } = await env.DB.prepare(
-    'SELECT slot, url FROM valuation_photos WHERE valuation_id = ? ORDER BY created_at'
-  ).bind(valuation.id).all();
-
-  const photosBySlot = {};
-  for (const row of photoRows) (photosBySlot[row.slot] ||= []).push(row.url);
+  const photosBySlot = await fetchPhotosBySlot(env, valuation.id);
 
   return htmlResponse(sellReportPageHtml(valuation, photosBySlot));
 }
@@ -1972,11 +2012,11 @@ async function adminUploadReportVehiclePhoto(request, env, params) {
   return json({ success: true, photo_url: photoUrl });
 }
 
-async function servePhoto(env, params) {
+async function servePhoto(env, params, method) {
   const key = `reports/${params.code}/${params.position}`;
-  const object = await env.PHOTOS.get(key);
-  if (!object) return new Response('Not found', { status: 404 });
-  return new Response(object.body, {
+  const object = method === 'HEAD' ? await env.PHOTOS.head(key) : await env.PHOTOS.get(key);
+  if (!object) return new Response(method === 'HEAD' ? null : 'Not found', { status: 404 });
+  return new Response(method === 'HEAD' ? null : object.body, {
     headers: { 'Content-Type': object.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'public, max-age=86400' },
   });
 }
@@ -2388,6 +2428,7 @@ const ROUTES = [
   { method: 'PATCH', pattern: '/api/admin/submissions/:id',       handler: adminUpdateSubmission, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/leads',                 handler: adminLeads, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/leads/:id/valuation',    handler: adminGetLeadValuation, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/leads/:id/valuation/photo/:slot', handler: adminUploadValuationPhoto, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/find-leads',             handler: adminFindLeads, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/contact-messages',       handler: adminContactMessages, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/public/find-car-lead',         handler: submitFindCarLead },
@@ -2418,15 +2459,17 @@ export default {
 
     const url = new URL(request.url);
 
-    if (request.method === 'GET') {
+    if (request.method === 'GET' || request.method === 'HEAD') {
       const photoParams = matchPath('/reports/photos/:code/:position', url.pathname);
-      if (photoParams) return servePhoto(env, photoParams);
-
-      const reportParams = matchPath('/reports/:code', url.pathname);
-      if (reportParams) return renderReportPage(request, env, reportParams);
+      if (photoParams) return servePhoto(env, photoParams, request.method);
 
       const sellPhotoParams = matchPath('/sell/photos/:token/:slot/:filename', url.pathname);
-      if (sellPhotoParams) return serveSellPhoto(env, sellPhotoParams);
+      if (sellPhotoParams) return serveSellPhoto(env, sellPhotoParams, request.method);
+    }
+
+    if (request.method === 'GET') {
+      const reportParams = matchPath('/reports/:code', url.pathname);
+      if (reportParams) return renderReportPage(request, env, reportParams);
 
       const sellUploadParams = matchPath('/sell/upload/:token', url.pathname);
       if (sellUploadParams) return renderSellUploadPage(request, env, sellUploadParams);

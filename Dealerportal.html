@@ -816,7 +816,7 @@ async function toggleLeadValuation(leadId) {
   detail.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--gray);font-size:.85rem">Loading...</div>';
   const { res, data } = await apiFetch(`/dealer/leads/${leadId}/valuation`).catch(() => ({res:{ok:false},data:{}}));
   if (!res.ok) { detail.innerHTML = `<div style="font-size:.82rem;color:var(--gray)">${data.error || 'No valuation yet.'}</div>`; return; }
-  detail.innerHTML = renderValuationDetailHtml(data.valuation);
+  detail.innerHTML = renderValuationDetailHtml({ ...data.valuation, photos: data.photos }, { canUpload: false, leadId });
   detail.dataset.loaded = 'true';
 }
 
@@ -994,7 +994,7 @@ async function toggleAdminLeadValuation(leadId) {
   detail.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--gray);font-size:.85rem">Loading...</div>';
   const { res, data } = await apiFetch(`/admin/leads/${leadId}/valuation`).catch(() => ({res:{ok:false},data:{}}));
   if (!res.ok) { detail.innerHTML = `<div style="font-size:.82rem;color:var(--gray)">${data.error || 'No valuation yet.'}</div>`; return; }
-  detail.innerHTML = renderValuationDetailHtml(data.valuation);
+  detail.innerHTML = renderValuationDetailHtml({ ...data.valuation, photos: data.photos }, { canUpload: true, leadId });
   detail.dataset.loaded = 'true';
 }
 
@@ -1493,11 +1493,91 @@ function formatPrice(n) {
 // ── Vehicle valuation (Sell My Car) ────────────────────────────
 function valuationStatusMeta(status) {
   if (status === 'valued') return { cls: 'status-approved', label: 'valued' };
-  if (status === 'photos_received') return { cls: 'status-published', label: 'processing photos' };
+  if (status === 'photos_received') return { cls: 'status-published', label: 'ready for review' };
   return { cls: 'status-pending', label: 'awaiting photos' };
 }
 
-function renderValuationDetailHtml(v) {
+const SELL_PHOTO_SLOTS_CLIENT = [
+  { key: 'front_34', label: 'Front 3/4' },
+  { key: 'rear_34', label: 'Rear 3/4' },
+  { key: 'driver_side', label: 'Driver Side' },
+  { key: 'passenger_side', label: 'Passenger Side' },
+  { key: 'odometer', label: 'Odometer' },
+  { key: 'dashboard', label: 'Dashboard / Instrument Cluster' },
+  { key: 'front_seats', label: 'Front Seats' },
+  { key: 'rear_seats', label: 'Rear Seats' },
+  { key: 'tires', label: 'All 4 Tires (Tread)' },
+  { key: 'engine_bay', label: 'Engine Bay' },
+  { key: 'vin_plate', label: 'VIN Plate (Door Jamb/Dash)' },
+  { key: 'issue', label: 'Flag an Issue' },
+];
+
+function photosSectionHtml(photos, opts) {
+  photos = photos || {};
+  return `
+    <div>
+      <div style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:.5rem">
+        Photos${opts.canUpload ? ' — received by email? Upload them here' : ''}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem">
+        ${SELL_PHOTO_SLOTS_CLIENT.map(slot => {
+          const urls = photos[slot.key] || [];
+          return `
+            <div style="background:var(--beige);border:1px solid var(--border);border-radius:3px;padding:.65rem;display:flex;flex-direction:column;gap:.4rem">
+              <div style="font-size:.7rem;font-weight:600;color:var(--navy)">${slot.label}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:.3rem" id="photo-thumbs-${opts.leadId}-${slot.key}">
+                ${urls.map(u => `<img src="${u}" style="width:52px;height:52px;object-fit:cover;border-radius:2px;border:1px solid var(--border)"/>`).join('')}
+              </div>
+              ${opts.canUpload ? `
+                <label style="font-size:.66rem;padding:.35rem .5rem;background:var(--white);border:1px solid var(--border);border-radius:2px;text-align:center;cursor:pointer;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:var(--navy)">
+                  Upload
+                  <input type="file" accept="image/*" style="display:none" onchange="adminUploadValuationPhoto(${opts.leadId}, '${slot.key}', this)"/>
+                </label>
+                <div style="font-size:.66rem;min-height:1em" id="photo-status-${opts.leadId}-${slot.key}"></div>
+              ` : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+async function adminUploadValuationPhoto(leadId, slot, input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById(`photo-status-${leadId}-${slot}`);
+  const thumbsEl = document.getElementById(`photo-thumbs-${leadId}-${slot}`);
+  if (statusEl) { statusEl.textContent = 'Uploading…'; statusEl.style.color = 'var(--gray)'; }
+
+  const formData = new FormData();
+  formData.append('photo', file);
+
+  try {
+    const res = await fetch(`${API}/admin/leads/${leadId}/valuation/photo/${slot}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}` },
+      body: formData,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.url) {
+      const img = document.createElement('img');
+      img.src = data.url;
+      img.style.cssText = 'width:52px;height:52px;object-fit:cover;border-radius:2px;border:1px solid var(--border)';
+      if (thumbsEl) thumbsEl.appendChild(img);
+      if (statusEl) { statusEl.textContent = '✓ uploaded'; statusEl.style.color = 'var(--green)'; }
+    } else {
+      if (statusEl) { statusEl.textContent = data.error || 'Upload failed.'; statusEl.style.color = 'var(--red)'; }
+    }
+  } catch (e) {
+    if (statusEl) { statusEl.textContent = 'Upload failed. Try again.'; statusEl.style.color = 'var(--red)'; }
+  }
+  input.value = '';
+}
+
+function renderValuationDetailHtml(v, opts) {
+  opts = opts || {};
   if (!v) return '<div style="font-size:.82rem;color:var(--gray)">No valuation yet.</div>';
 
   let comps = [];     try { comps = JSON.parse(v.marketcheck_comps || '[]'); } catch { comps = []; }
@@ -1529,6 +1609,7 @@ function renderValuationDetailHtml(v) {
         ${valueBlock('Trade-In Value', v.final_trade_in_value, reasoning.trade_in)}
         ${valueBlock('Private-Sale Value', v.final_private_sale_value, reasoning.private_sale)}
       </div>
+      ${photosSectionHtml(v.photos, opts)}
       ${condition ? `
         <details>
           <summary style="cursor:pointer;font-size:.7rem;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">View Photo Condition Scoring</summary>
