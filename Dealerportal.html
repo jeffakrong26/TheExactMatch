@@ -1633,6 +1633,31 @@ async function adminUploadValuationPhoto(leadId, slot, input) {
   input.value = '';
 }
 
+async function sendValuationToCustomer(leadId) {
+  const btn = document.getElementById(`send-valuation-btn-${leadId}`);
+  if (!btn || btn.disabled) return;
+  btn.disabled = true; btn.textContent = 'Sending…';
+
+  const retailEl  = document.getElementById(`value-retail-${leadId}`);
+  const tradeEl   = document.getElementById(`value-trade_in-${leadId}`);
+  const privateEl = document.getElementById(`value-private_sale-${leadId}`);
+  const body = JSON.stringify({
+    retail_value: retailEl ? retailEl.value : undefined,
+    trade_in_value: tradeEl ? tradeEl.value : undefined,
+    private_sale_value: privateEl ? privateEl.value : undefined,
+  });
+
+  const { res, data } = await apiFetch(`/admin/leads/${leadId}/send-valuation`, { method: 'POST', body })
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  if (res.ok) {
+    btn.textContent = '✓ Sent to customer';
+  } else {
+    btn.disabled = false; btn.textContent = 'Send Value to Customer';
+    alert(data.error || 'Could not send. Please try again.');
+  }
+}
+
 function renderValuationDetailHtml(v, opts) {
   opts = opts || {};
   if (!v) return '<div style="font-size:.82rem;color:var(--gray)">No valuation yet.</div>';
@@ -1641,10 +1666,13 @@ function renderValuationDetailHtml(v, opts) {
   let reasoning = {};  try { reasoning = JSON.parse(v.valuation_reasoning || '{}'); } catch { reasoning = {}; }
   let condition = null; try { condition = v.ai_condition_score ? JSON.parse(v.ai_condition_score) : null; } catch { condition = null; }
 
-  const valueBlock = (label, value, reason) => `
+  const valueBlock = (label, field, value, reason) => `
     <div style="background:var(--beige);border:1px solid var(--border);border-radius:3px;padding:1rem">
       <div style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem">${label}</div>
-      <div style="font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--navy);margin-bottom:.5rem">${value != null ? formatPrice(value) : '—'}</div>
+      ${opts.canUpload
+        ? `<input type="number" id="value-${field}-${opts.leadId}" value="${value ?? ''}" style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--navy);border:1px solid var(--border);border-radius:2px;padding:.3rem .5rem;width:100%;margin-bottom:.5rem;background:var(--white)"/>`
+        : `<div style="font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--navy);margin-bottom:.5rem">${value != null ? formatPrice(value) : '—'}</div>`
+      }
       <div style="font-size:.78rem;color:var(--gray);line-height:1.6">${reason || ''}</div>
     </div>
   `;
@@ -1662,11 +1690,19 @@ function renderValuationDetailHtml(v, opts) {
         Based on self-reported information, subject to revision${v.photo_confirmed ? ' — photo-confirmed.' : ' — pending photo confirmation.'}
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.85rem">
-        ${valueBlock('Retail Comp Value', v.final_retail_value, reasoning.retail)}
-        ${valueBlock('Trade-In Value', v.final_trade_in_value, reasoning.trade_in)}
-        ${valueBlock('Private-Sale Value', v.final_private_sale_value, reasoning.private_sale)}
+        ${valueBlock('Retail Comp Value', 'retail', v.final_retail_value, reasoning.retail)}
+        ${valueBlock('Trade-In Value', 'trade_in', v.final_trade_in_value, reasoning.trade_in)}
+        ${valueBlock('Private-Sale Value', 'private_sale', v.final_private_sale_value, reasoning.private_sale)}
       </div>
       ${photosSectionHtml(v.photos, opts)}
+      ${opts.canUpload ? `
+        <div>
+          <button class="btn-primary btn-sm btn-gold" id="send-valuation-btn-${opts.leadId}" onclick="sendValuationToCustomer(${opts.leadId})" ${v.customer_notified_at ? 'disabled' : ''}>
+            ${v.customer_notified_at ? '✓ Sent to customer' : 'Send Value to Customer'}
+          </button>
+          <div style="font-size:.7rem;color:var(--gray);margin-top:.4rem">Adjust the values above if needed, then send — emails the customer their value range and lets them know we're lining up offers from our dealer/buyer partners.</div>
+        </div>
+      ` : ''}
       ${condition ? `
         <details>
           <summary style="cursor:pointer;font-size:.7rem;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">View Photo Condition Scoring</summary>

@@ -1193,16 +1193,16 @@ function sendSellCarValueRangeEmail(env, { first_name, email, low, high, token }
   const reportUrl = `https://theexactmatch.com/sell/report/${token}`;
   const html = brandedEmailHtml(`
     <p>Hey ${escapeHtml(first_name)},</p>
-    <p>Thanks for sending over the photos. Based on everything you've shared, here's your rough value range:</p>
+    <p>Thanks for sending over the photos. Based on everything you've shared, here's your vehicle's value range:</p>
     <p style="font-family:Georgia,serif;font-size:1.4rem;color:#0C1C33;text-align:center;margin:1.5rem 0"><strong>$${Number(low).toLocaleString()} – $${Number(high).toLocaleString()}</strong></p>
-    <p style="font-size:.8rem;color:#4A5568">Based on self-reported and photo-confirmed information, subject to revision.</p>
+    <p style="font-size:.8rem;color:#4A5568">Based on the information and photos you provided, subject to revision.</p>
+    <p>We're now reaching out to our network of dealer and buyer partners to line up real offers on your vehicle. We'll be in touch as soon as we hear back.</p>
     <p><a href="${reportUrl}">View your full valuation report →</a></p>
-    <p>Jeff will follow up shortly with next steps.</p>
     <p>— Jeff</p>
   `);
   return sendBrevoEmail(env, {
     to: email,
-    subject: 'Your rough value range is ready',
+    subject: "Your vehicle's value — we're lining up offers now",
     html,
   });
 }
@@ -1503,6 +1503,46 @@ async function adminUploadValuationPhoto(request, env, params) {
   }
 
   return json({ success: true, url: result.url });
+}
+
+function parseEditedPrice(val, fallback) {
+  if (val === undefined || val === null || val === '') return fallback;
+  const n = Math.round(Number(val));
+  return Number.isNaN(n) ? fallback : n;
+}
+
+async function adminSendValuationEmail(request, env, params) {
+  const body = await request.json().catch(() => ({}));
+
+  const valuation = await env.DB.prepare(`
+    SELECT vehicle_valuations.id, vehicle_valuations.token,
+      vehicle_valuations.final_retail_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
+      sell_my_car_leads.first_name, sell_my_car_leads.email
+    FROM vehicle_valuations
+    JOIN sell_my_car_leads ON sell_my_car_leads.id = vehicle_valuations.lead_id
+    WHERE vehicle_valuations.lead_id = ?
+  `).bind(+params.id).first();
+  if (!valuation) return json({ error: 'No valuation found for this lead yet.' }, 404);
+
+  const retail    = parseEditedPrice(body.retail_value, valuation.final_retail_value);
+  const tradeIn   = parseEditedPrice(body.trade_in_value, valuation.final_trade_in_value);
+  const private_  = parseEditedPrice(body.private_sale_value, valuation.final_private_sale_value);
+  if (retail == null || tradeIn == null || private_ == null) {
+    return json({ error: 'Please enter values for all three prices before sending.' }, 400);
+  }
+
+  await env.DB.prepare(`
+    UPDATE vehicle_valuations SET final_retail_value = ?, final_trade_in_value = ?, final_private_sale_value = ?,
+      status = 'valued', customer_notified_at = datetime('now') WHERE id = ?
+  `).bind(retail, tradeIn, private_, valuation.id).run();
+
+  await sendSellCarValueRangeEmail(env, {
+    first_name: valuation.first_name, email: valuation.email, token: valuation.token,
+    low: Math.min(retail, tradeIn, private_),
+    high: Math.max(retail, tradeIn, private_),
+  });
+
+  return json({ success: true });
 }
 
 async function completeSellPhotos(request, env, params, dealer, sessionToken, ctx) {
@@ -2431,6 +2471,7 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/admin/leads',                 handler: adminLeads, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/leads/:id/valuation',    handler: adminGetLeadValuation, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/leads/:id/valuation/photo/:slot', handler: adminUploadValuationPhoto, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/leads/:id/send-valuation',   handler: adminSendValuationEmail, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/find-leads',             handler: adminFindLeads, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/contact-messages',       handler: adminContactMessages, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/public/find-car-lead',         handler: submitFindCarLead },
