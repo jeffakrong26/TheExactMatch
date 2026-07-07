@@ -560,6 +560,15 @@
   <div class="footer-logo">The<span>Exact</span>Match</div>
   <div class="footer-copy">© 2026 TheExactMatch.com · Dealer Portal · Invite Only</div>
 </footer>
+
+<div id="photo-lightbox" style="display:none;position:fixed;inset:0;background:rgba(12,28,51,.9);z-index:1000;overflow-y:auto;padding:2rem 1.5rem" onclick="if(event.target===this)closePhotoLightbox()">
+  <div style="max-width:1000px;margin:0 auto;background:var(--beige);border-radius:6px;padding:1.75rem;position:relative">
+    <button onclick="closePhotoLightbox()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;line-height:1;cursor:pointer;color:var(--gray)">&times;</button>
+    <div id="photo-lightbox-title" style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--navy);margin-bottom:1.25rem;padding-right:2rem"></div>
+    <div id="photo-lightbox-body"></div>
+  </div>
+</div>
+
 <script>
 // ── Config ────────────────────────────────────────────────────
 const API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';  // proxied via Cloudflare Pages to the Worker
@@ -774,7 +783,8 @@ async function loadLeads() {
 
   document.getElementById('leads-list').innerHTML = leads.map(lead => `
     <div class="item-card" style="flex-direction:column;display:flex;gap:0">
-      <div style="display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:start;width:100%">
+      <div style="display:grid;grid-template-columns:auto 1fr auto;gap:1rem;align-items:start;width:100%">
+        ${leadAvatarHtml(lead, false)}
         <div>
           <div class="item-card-title">${lead.year} ${lead.make} ${lead.model}</div>
           <div class="item-card-sub">${lead.notes ? lead.notes : 'No additional notes.'}</div>
@@ -953,7 +963,8 @@ async function loadAdminLeads() {
 
   document.getElementById('admin-leads-list').innerHTML = leads.map(l => `
     <div class="item-card" style="flex-direction:column;display:flex;gap:0">
-      <div style="display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:start;width:100%">
+      <div style="display:grid;grid-template-columns:auto 1fr auto;gap:1rem;align-items:start;width:100%">
+        ${leadAvatarHtml(l, true)}
         <div>
           <div class="item-card-title">${l.year||''} ${l.make||''} ${l.model||''}${l.trim ? ' '+l.trim : ''}</div>
           <div class="item-card-sub">${l.first_name} ${l.last_name} · ${l.email}${l.phone ? ' · '+l.phone : ''}</div>
@@ -1491,6 +1502,52 @@ function formatPrice(n) {
 }
 
 // ── Vehicle valuation (Sell My Car) ────────────────────────────
+function leadAvatarHtml(lead, isAdmin) {
+  const hasPhoto = !!lead.front_photo_url;
+  return `
+    <div onclick="${hasPhoto ? `openPhotoLightbox(${lead.id}, ${isAdmin})` : ''}"
+      style="width:64px;height:64px;border-radius:6px;overflow:hidden;flex-shrink:0;background:var(--beige2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;${hasPhoto ? 'cursor:pointer' : ''}">
+      ${hasPhoto
+        ? `<img src="${lead.front_photo_url}" style="width:100%;height:100%;object-fit:cover"/>`
+        : `<span style="font-size:1.4rem;opacity:.35">🚗</span>`}
+    </div>
+  `;
+}
+
+async function openPhotoLightbox(leadId, isAdmin) {
+  const overlay = document.getElementById('photo-lightbox');
+  const titleEl = document.getElementById('photo-lightbox-title');
+  const bodyEl  = document.getElementById('photo-lightbox-body');
+  overlay.style.display = 'block';
+  titleEl.textContent = 'Loading photos…';
+  bodyEl.innerHTML = '';
+
+  const endpoint = isAdmin ? `/admin/leads/${leadId}/valuation` : `/dealer/leads/${leadId}/valuation`;
+  const { res, data } = await apiFetch(endpoint).catch(() => ({res:{ok:false},data:{}}));
+  if (!res.ok) { titleEl.textContent = data.error || 'Could not load photos.'; return; }
+
+  const v = data.valuation || {};
+  const photos = data.photos || {};
+  const vehicleLabel = [v.decoded_year || v.lead_year, v.decoded_make || v.lead_make, v.decoded_model || v.lead_model, v.decoded_trim || v.lead_trim].filter(Boolean).join(' ');
+  titleEl.textContent = vehicleLabel || 'Vehicle Photos';
+
+  const slots = SELL_PHOTO_SLOTS_CLIENT.filter(slot => (photos[slot.key] || []).length);
+  bodyEl.innerHTML = slots.length
+    ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem">
+        ${slots.map(slot => photos[slot.key].map(url => `
+          <div>
+            <img src="${url}" style="width:100%;height:200px;object-fit:cover;border-radius:4px;border:1px solid var(--border);display:block"/>
+            <div style="font-size:.7rem;color:var(--gray);margin-top:.35rem;text-align:center">${slot.label}</div>
+          </div>
+        `).join('')).join('')}
+      </div>`
+    : '<div style="color:var(--gray);font-size:.85rem">No photos uploaded yet.</div>';
+}
+
+function closePhotoLightbox() {
+  document.getElementById('photo-lightbox').style.display = 'none';
+}
+
 function valuationStatusMeta(status) {
   if (status === 'valued') return { cls: 'status-approved', label: 'valued' };
   if (status === 'photos_received') return { cls: 'status-published', label: 'ready for review' };

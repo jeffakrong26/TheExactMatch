@@ -152,6 +152,7 @@ async function dealerLeads(request, env, params, dealer) {
        vehicle_valuations.status as valuation_status, vehicle_valuations.vin as valuation_vin,
        vehicle_valuations.final_retail_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
        vehicle_valuations.photo_confirmed,
+       (SELECT url FROM valuation_photos WHERE valuation_id = vehicle_valuations.id AND slot = 'front_34' LIMIT 1) as front_photo_url,
        EXISTS(SELECT 1 FROM lead_interest WHERE lead_id = sell_my_car_leads.id AND dealer_id = ?) as i_expressed_interest
      FROM sell_my_car_leads
      LEFT JOIN vehicle_valuations ON vehicle_valuations.lead_id = sell_my_car_leads.id
@@ -231,7 +232,8 @@ async function adminLeads(request, env) {
       vehicle_valuations.status as valuation_status,
       vehicle_valuations.vin as valuation_vin,
       vehicle_valuations.final_retail_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
-      vehicle_valuations.photo_confirmed
+      vehicle_valuations.photo_confirmed,
+      (SELECT url FROM valuation_photos WHERE valuation_id = vehicle_valuations.id AND slot = 'front_34' LIMIT 1) as front_photo_url
     FROM sell_my_car_leads
     LEFT JOIN lead_interest ON lead_interest.lead_id = sell_my_car_leads.id
     LEFT JOIN dealers ON dealers.id = lead_interest.dealer_id
