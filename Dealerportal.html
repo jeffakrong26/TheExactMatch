@@ -934,9 +934,17 @@ async function loadAdminSubmissions() {
         ${s.status === 'approved' ? `
           <button class="btn-primary btn-sm" onclick="adminUpdateSub(${s.id},'published')">Publish</button>
         ` : ''}
+        <button class="btn-primary btn-sm btn-danger" onclick="adminDeleteSubmission(${s.id})">Delete</button>
       </div>
     </div>
   `).join('');
+}
+
+async function adminDeleteSubmission(id) {
+  if (!confirm('Delete this submission? This cannot be undone.')) return;
+  const { res } = await apiFetch(`/admin/submissions/${id}`, { method: 'DELETE' }).catch(() => ({res:{ok:false}}));
+  if (res.ok) loadAdminSubmissions();
+  else alert('Delete failed.');
 }
 
 async function adminUpdateSub(id, status) {
@@ -985,11 +993,19 @@ async function loadAdminLeads() {
         <div class="item-card-actions">
           <span class="meta-pill">${l.interest_count || 0} interested</span>
           ${l.valuation_status ? `<button class="btn-primary btn-sm" onclick="toggleAdminLeadValuation(${l.id})" id="admin-valuation-btn-${l.id}">View Valuation</button>` : ''}
+          <button class="btn-primary btn-sm btn-danger" onclick="adminDeleteLead(${l.id})">Delete</button>
         </div>
       </div>
       ${l.valuation_status ? `<div id="admin-lead-valuation-${l.id}" style="display:none;width:100%;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)"></div>` : ''}
     </div>
   `).join('');
+}
+
+async function adminDeleteLead(id) {
+  if (!confirm('Delete this lead and all its valuation data/photos? This cannot be undone.')) return;
+  const { res } = await apiFetch(`/admin/leads/${id}`, { method: 'DELETE' }).catch(() => ({res:{ok:false}}));
+  if (res.ok) loadAdminLeads();
+  else alert('Delete failed.');
 }
 
 async function toggleAdminLeadValuation(leadId) {

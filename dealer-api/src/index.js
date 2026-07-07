@@ -224,6 +224,11 @@ async function adminUpdateSubmission(request, env, params) {
   return json({ success: true });
 }
 
+async function adminDeleteSubmission(request, env, params) {
+  await env.DB.prepare('DELETE FROM inventory_submissions WHERE id = ?').bind(+params.id).run();
+  return json({ success: true });
+}
+
 async function adminLeads(request, env) {
   const { results } = await env.DB.prepare(`
     SELECT sell_my_car_leads.*,
@@ -242,6 +247,26 @@ async function adminLeads(request, env) {
     ORDER BY sell_my_car_leads.created_at DESC
   `).all();
   return json({ leads: results.map(l => ({ ...l, photo_confirmed: !!l.photo_confirmed })) });
+}
+
+async function deleteSellCarLead(env, leadId) {
+  const valuation = await env.DB.prepare('SELECT id, token FROM vehicle_valuations WHERE lead_id = ?').bind(leadId).first();
+  if (valuation) {
+    const { results: photos } = await env.DB.prepare('SELECT slot, url FROM valuation_photos WHERE valuation_id = ?').bind(valuation.id).all();
+    for (const photo of photos) {
+      const filename = photo.url.split('/').pop();
+      await env.PHOTOS.delete(`sell/${valuation.token}/${photo.slot}/${filename}`).catch(() => {});
+    }
+    await env.DB.prepare('DELETE FROM valuation_photos WHERE valuation_id = ?').bind(valuation.id).run();
+    await env.DB.prepare('DELETE FROM vehicle_valuations WHERE id = ?').bind(valuation.id).run();
+  }
+  await env.DB.prepare('DELETE FROM lead_interest WHERE lead_id = ?').bind(leadId).run();
+  await env.DB.prepare('DELETE FROM sell_my_car_leads WHERE id = ?').bind(leadId).run();
+}
+
+async function adminDeleteLead(request, env, params) {
+  await deleteSellCarLead(env, +params.id);
+  return json({ success: true });
 }
 
 async function adminGetLeadValuation(request, env, params) {
@@ -2479,7 +2504,9 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/dealer/my-submissions',       handler: mySubmissions, auth: true },
   { method: 'GET',   pattern: '/api/admin/submissions',           handler: adminSubmissions, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/submissions/:id',       handler: adminUpdateSubmission, auth: true, admin: true },
+  { method: 'DELETE', pattern: '/api/admin/submissions/:id',      handler: adminDeleteSubmission, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/leads',                 handler: adminLeads, auth: true, admin: true },
+  { method: 'DELETE', pattern: '/api/admin/leads/:id',            handler: adminDeleteLead, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/leads/:id/valuation',    handler: adminGetLeadValuation, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/leads/:id/valuation/photo/:slot', handler: adminUploadValuationPhoto, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/leads/:id/send-valuation',   handler: adminSendValuationEmail, auth: true, admin: true },
@@ -2506,6 +2533,27 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/interest', handler: publicExpressReportInterest },
   { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/ready', handler: publicReadyToMoveForward },
 ];
+
+async function cleanupStaleRecords(env) {
+  const subsDeleted = await env.DB.prepare(`
+    DELETE FROM inventory_submissions
+    WHERE status IN ('pending', 'rejected') AND created_at < datetime('now', '-45 days')
+  `).run();
+
+  const { results: staleLeads } = await env.DB.prepare(`
+    SELECT sell_my_car_leads.id
+    FROM sell_my_car_leads
+    LEFT JOIN vehicle_valuations ON vehicle_valuations.lead_id = sell_my_car_leads.id
+    WHERE sell_my_car_leads.created_at < datetime('now', '-45 days')
+      AND (vehicle_valuations.status IS NULL OR vehicle_valuations.status != 'valued')
+  `).all();
+
+  for (const lead of staleLeads) {
+    await deleteSellCarLead(env, lead.id).catch(err => console.error('cleanup failed for lead', lead.id, err));
+  }
+
+  console.log(`[cleanup] removed ${subsDeleted.meta.changes} stale submissions, ${staleLeads.length} stale sell-car leads`);
+}
 
 export default {
   async fetch(request, env, ctx) {
@@ -2559,5 +2607,9 @@ export default {
     }
 
     return json({ error: 'Not found.' }, 404);
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(cleanupStaleRecords(env));
   },
 };

@@ -20,5 +20,8 @@
 	"workers_dev": true,
 	"r2_buckets": [
 		{ "binding": "PHOTOS", "bucket_name": "theexactmatch-vehicle-photos" }
-	]
+	],
+	"triggers": {
+		"crons": ["0 6 * * *"]
+	}
 }
