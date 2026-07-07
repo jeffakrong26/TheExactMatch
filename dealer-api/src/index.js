@@ -1551,7 +1551,7 @@ async function completeSellPhotos(request, env, params, dealer, sessionToken, ct
 function sellReportPendingHtml(valuation) {
   const message = valuation.status === 'pending_photos'
     ? `<p>We're still waiting on your photos. <a href="https://theexactmatch.com/sell/upload/${escapeHtml(valuation.token)}">Upload them here →</a></p>`
-    : `<p>We're finalizing your numbers now — you'll get an email as soon as your value range is ready.</p>`;
+    : `<p>Got your photos! Jeff is reviewing everything now and will follow up with your numbers shortly.</p>`;
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Valuation In Progress — TheExactMatch</title>
 <style>body{font-family:sans-serif;background:#F5F0E8;color:#0C1C33;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
