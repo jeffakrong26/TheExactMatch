@@ -646,6 +646,10 @@
               <div class="form-group"><label>Model</label><input type="text" placeholder="911 Carrera S" id="sf-model"/></div>
               <div class="form-group"><label>Trim (Optional)</label><input type="text" placeholder="Carrera S" id="sf-trim"/></div>
             </div>
+            <div class="form-group">
+              <label>VIN (Optional)</label>
+              <input type="text" placeholder="17-character VIN" id="sf-vin" maxlength="17" style="text-transform:uppercase"/>
+            </div>
             <div class="form-row">
               <div class="form-group"><label>Mileage</label><input type="text" placeholder="18,500" id="sf-mileage"/></div>
               <div class="form-group"><label>Exterior Color</label><input type="text" placeholder="Jet Black" id="sf-color"/></div>
@@ -680,26 +684,31 @@
               </select>
             </div>
             <div class="form-group">
-              <label>Accidents or Insurance Claims?</label>
-              <select id="sf-accidents-yn">
+              <label>Accident History</label>
+              <select id="sf-accident-history">
                 <option value="">Select...</option>
-                <option>Yes</option><option>No</option>
+                <option value="none">None</option>
+                <option value="minor">Minor</option>
+                <option value="moderate">Moderate</option>
+                <option value="major">Major</option>
               </select>
             </div>
-            <div class="form-row" id="sf-accidents-wrap" style="display:none">
-              <div class="form-group"><label>Number of Incidents</label><input type="text" placeholder="1" id="sf-accidents-count"/></div>
-              <div class="form-group"><label>Approximate Damage Amount</label><input type="text" placeholder="$2,500" id="sf-accidents-damage"/></div>
+            <div class="form-group" id="sf-accident-notes-wrap" style="display:none">
+              <label>Describe the Accident(s)</label>
+              <textarea placeholder="What happened, when, and any repairs made..." id="sf-accident-notes"></textarea>
             </div>
             <div class="form-group">
-              <label>Mechanical Issues?</label>
-              <select id="sf-mechanical-yn">
+              <label>Mechanical Status</label>
+              <select id="sf-mechanical-status">
                 <option value="">Select...</option>
-                <option>Yes</option><option>No</option>
+                <option value="running well">Running Well</option>
+                <option value="needs work">Needs Work</option>
+                <option value="not running">Not Running</option>
               </select>
             </div>
-            <div class="form-group" id="sf-mechanical-wrap" style="display:none">
+            <div class="form-group" id="sf-mechanical-notes-wrap" style="display:none">
               <label>Describe the Issue</label>
-              <textarea placeholder="Check engine light, transmission slipping..." id="sf-mechanical-desc"></textarea>
+              <textarea placeholder="Check engine light, transmission slipping..." id="sf-mechanical-notes"></textarea>
             </div>
             <div class="form-group">
               <label>Any Warning Lights On?</label>
@@ -1510,11 +1519,21 @@ function sfToggleConditional(selectId, wrapId, fieldIds, displayMode){
   });
 }
 
+function sfToggleConditionalUnless(selectId, wrapId, fieldIds, displayMode, hiddenValues){
+  const sel = document.getElementById(selectId);
+  const wrap = document.getElementById(wrapId);
+  sel.addEventListener('change', function(){
+    const show = !hiddenValues.includes(sel.value);
+    wrap.style.display = show ? displayMode : 'none';
+    if(!show){ fieldIds.forEach(id => document.getElementById(id).value = ''); }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function(){
   if(!document.getElementById('sell-form-wrap')) return;
   sfToggleConditional('sf-payoff-yn', 'sf-payoff-wrap', ['sf-payoff-amount'], 'block');
-  sfToggleConditional('sf-accidents-yn', 'sf-accidents-wrap', ['sf-accidents-count','sf-accidents-damage'], 'grid');
-  sfToggleConditional('sf-mechanical-yn', 'sf-mechanical-wrap', ['sf-mechanical-desc'], 'block');
+  sfToggleConditionalUnless('sf-accident-history', 'sf-accident-notes-wrap', ['sf-accident-notes'], 'block', ['', 'none']);
+  sfToggleConditionalUnless('sf-mechanical-status', 'sf-mechanical-notes-wrap', ['sf-mechanical-notes'], 'block', ['', 'running well']);
   sfToggleConditional('sf-mods-yn', 'sf-mods-wrap', ['sf-mods-desc'], 'block');
 });
 
@@ -1531,17 +1550,17 @@ function submitSellForm() {
     make:       document.getElementById('sf-make').value.trim(),
     model:      document.getElementById('sf-model').value.trim(),
     trim:       document.getElementById('sf-trim').value.trim(),
+    vin:        document.getElementById('sf-vin').value.trim(),
     mileage:    document.getElementById('sf-mileage').value.trim(),
     exterior_color: document.getElementById('sf-color').value.trim(),
     title_status: document.getElementById('sf-title').value,
     remaining_balance: document.getElementById('sf-payoff-yn').value,
     payoff_amount: document.getElementById('sf-payoff-amount').value.trim(),
     condition:  document.getElementById('sf-condition').value,
-    accidents:  document.getElementById('sf-accidents-yn').value,
-    accidents_count: document.getElementById('sf-accidents-count').value.trim(),
-    accidents_damage: document.getElementById('sf-accidents-damage').value.trim(),
-    mechanical_issues: document.getElementById('sf-mechanical-yn').value,
-    mechanical_desc: document.getElementById('sf-mechanical-desc').value.trim(),
+    accident_history: document.getElementById('sf-accident-history').value,
+    accident_notes: document.getElementById('sf-accident-notes').value.trim(),
+    mechanical_status: document.getElementById('sf-mechanical-status').value,
+    mechanical_notes: document.getElementById('sf-mechanical-notes').value.trim(),
     warning_lights: document.getElementById('sf-warning-yn').value,
     windshield: document.getElementById('sf-windshield').value,
     tires:      document.getElementById('sf-tires').value,

@@ -1,0 +1,5 @@
+dealer-api
+node_modules
+.git
+.wrangler
+.claude

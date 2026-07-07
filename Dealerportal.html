@@ -773,28 +773,51 @@ async function loadLeads() {
   }
 
   document.getElementById('leads-list').innerHTML = leads.map(lead => `
-    <div class="item-card">
-      <div>
-        <div class="item-card-title">${lead.year} ${lead.make} ${lead.model}</div>
-        <div class="item-card-sub">${lead.notes ? lead.notes : 'No additional notes.'}</div>
-        <div class="item-card-meta">
-          <span class="meta-pill">${lead.mileage} miles</span>
-          <span class="meta-pill">${lead.condition}</span>
-          <span class="meta-pill">${lead.title_status}</span>
-          ${lead.city ? `<span class="meta-pill">${lead.city}${lead.state ? ', ' + lead.state : ''}</span>` : ''}
-          <span class="meta-pill" style="color:var(--gray);opacity:.6">${formatDate(lead.created_at)}</span>
+    <div class="item-card" style="flex-direction:column;display:flex;gap:0">
+      <div style="display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:start;width:100%">
+        <div>
+          <div class="item-card-title">${lead.year} ${lead.make} ${lead.model}</div>
+          <div class="item-card-sub">${lead.notes ? lead.notes : 'No additional notes.'}</div>
+          <div class="item-card-meta">
+            <span class="meta-pill">${lead.mileage} miles</span>
+            <span class="meta-pill">${lead.condition}</span>
+            <span class="meta-pill">${lead.title_status}</span>
+            ${lead.city ? `<span class="meta-pill">${lead.city}${lead.state ? ', ' + lead.state : ''}</span>` : ''}
+            ${lead.valuation_status ? `<span class="status-badge ${valuationStatusMeta(lead.valuation_status).cls}">${valuationStatusMeta(lead.valuation_status).label}</span>` : ''}
+            ${lead.final_retail_value ? `<span class="meta-pill">Retail ${formatPrice(lead.final_retail_value)}</span>` : ''}
+            <span class="meta-pill" style="color:var(--gray);opacity:.6">${formatDate(lead.created_at)}</span>
+          </div>
+        </div>
+        <div class="item-card-actions">
+          <button class="interest-btn ${lead.i_expressed_interest ? 'interested' : ''}"
+            id="interest-btn-${lead.id}"
+            onclick="doExpressInterest(${lead.id})"
+            ${lead.i_expressed_interest ? 'disabled' : ''}>
+            ${lead.i_expressed_interest ? '✓ Interested' : "I'm Interested"}
+          </button>
+          ${lead.valuation_status ? `<button class="btn-primary btn-sm" onclick="toggleLeadValuation(${lead.id})" id="valuation-btn-${lead.id}">View Valuation</button>` : ''}
         </div>
       </div>
-      <div class="item-card-actions">
-        <button class="interest-btn ${lead.i_expressed_interest ? 'interested' : ''}"
-          id="interest-btn-${lead.id}"
-          onclick="doExpressInterest(${lead.id})"
-          ${lead.i_expressed_interest ? 'disabled' : ''}>
-          ${lead.i_expressed_interest ? '✓ Interested' : "I'm Interested"}
-        </button>
-      </div>
+      ${lead.valuation_status ? `<div id="lead-valuation-${lead.id}" style="display:none;width:100%;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)"></div>` : ''}
     </div>
   `).join('');
+}
+
+async function toggleLeadValuation(leadId) {
+  const detail = document.getElementById(`lead-valuation-${leadId}`);
+  const btn    = document.getElementById(`valuation-btn-${leadId}`);
+  const isOpen = detail.style.display === 'block';
+  if (isOpen) { detail.style.display = 'none'; btn.textContent = 'View Valuation'; return; }
+
+  btn.textContent = 'Hide';
+  detail.style.display = 'block';
+  if (detail.dataset.loaded === 'true') return;
+
+  detail.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--gray);font-size:.85rem">Loading...</div>';
+  const { res, data } = await apiFetch(`/dealer/leads/${leadId}/valuation`).catch(() => ({res:{ok:false},data:{}}));
+  if (!res.ok) { detail.innerHTML = `<div style="font-size:.82rem;color:var(--gray)">${data.error || 'No valuation yet.'}</div>`; return; }
+  detail.innerHTML = renderValuationDetailHtml(data.valuation);
+  detail.dataset.loaded = 'true';
 }
 
 async function doExpressInterest(leadId) {
@@ -929,27 +952,50 @@ async function loadAdminLeads() {
   if (!leads.length) { document.getElementById('admin-leads-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">No sell leads yet.</div></div>'; return; }
 
   document.getElementById('admin-leads-list').innerHTML = leads.map(l => `
-    <div class="item-card">
-      <div>
-        <div class="item-card-title">${l.year||''} ${l.make||''} ${l.model||''}${l.trim ? ' '+l.trim : ''}</div>
-        <div class="item-card-sub">${l.first_name} ${l.last_name} · ${l.email}${l.phone ? ' · '+l.phone : ''}</div>
-        <div class="item-card-meta">
-          ${l.mileage ? `<span class="meta-pill">${l.mileage.toLocaleString()} miles</span>` : ''}
-          ${l.condition ? `<span class="meta-pill">${l.condition}</span>` : ''}
-          ${l.title_status ? `<span class="meta-pill">${l.title_status}</span>` : ''}
-          ${l.zip ? `<span class="meta-pill">${l.zip}</span>` : ''}
-          ${l.city ? `<span class="meta-pill">${l.city}${l.state?', '+l.state:''}</span>` : ''}
-          ${l.timeline ? `<span class="meta-pill">${l.timeline}</span>` : ''}
-          <span class="meta-pill" style="opacity:.6">${formatDate(l.created_at)}</span>
+    <div class="item-card" style="flex-direction:column;display:flex;gap:0">
+      <div style="display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:start;width:100%">
+        <div>
+          <div class="item-card-title">${l.year||''} ${l.make||''} ${l.model||''}${l.trim ? ' '+l.trim : ''}</div>
+          <div class="item-card-sub">${l.first_name} ${l.last_name} · ${l.email}${l.phone ? ' · '+l.phone : ''}</div>
+          <div class="item-card-meta">
+            ${l.mileage ? `<span class="meta-pill">${l.mileage.toLocaleString()} miles</span>` : ''}
+            ${l.condition ? `<span class="meta-pill">${l.condition}</span>` : ''}
+            ${l.title_status ? `<span class="meta-pill">${l.title_status}</span>` : ''}
+            ${l.zip ? `<span class="meta-pill">${l.zip}</span>` : ''}
+            ${l.city ? `<span class="meta-pill">${l.city}${l.state?', '+l.state:''}</span>` : ''}
+            ${l.timeline ? `<span class="meta-pill">${l.timeline}</span>` : ''}
+            ${l.valuation_status ? `<span class="status-badge ${valuationStatusMeta(l.valuation_status).cls}">${valuationStatusMeta(l.valuation_status).label}</span>` : ''}
+            ${l.final_retail_value ? `<span class="meta-pill">Retail ${formatPrice(l.final_retail_value)}</span>` : ''}
+            <span class="meta-pill" style="opacity:.6">${formatDate(l.created_at)}</span>
+          </div>
+          ${l.notes ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.5rem">${l.notes}</div>` : ''}
+          ${l.interest_count > 0 ? `<div style="font-size:.75rem;color:var(--green);margin-top:.5rem;font-weight:600">✓ ${l.interest_count} dealer${l.interest_count>1?'s':''} interested${l.interested_dealers ? ': ' + l.interested_dealers : ''}</div>` : ''}
         </div>
-        ${l.notes ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.5rem">${l.notes}</div>` : ''}
-        ${l.interest_count > 0 ? `<div style="font-size:.75rem;color:var(--green);margin-top:.5rem;font-weight:600">✓ ${l.interest_count} dealer${l.interest_count>1?'s':''} interested${l.interested_dealers ? ': ' + l.interested_dealers : ''}</div>` : ''}
+        <div class="item-card-actions">
+          <span class="meta-pill">${l.interest_count || 0} interested</span>
+          ${l.valuation_status ? `<button class="btn-primary btn-sm" onclick="toggleAdminLeadValuation(${l.id})" id="admin-valuation-btn-${l.id}">View Valuation</button>` : ''}
+        </div>
       </div>
-      <div class="item-card-actions">
-        <span class="meta-pill">${l.interest_count || 0} interested</span>
-      </div>
+      ${l.valuation_status ? `<div id="admin-lead-valuation-${l.id}" style="display:none;width:100%;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)"></div>` : ''}
     </div>
   `).join('');
+}
+
+async function toggleAdminLeadValuation(leadId) {
+  const detail = document.getElementById(`admin-lead-valuation-${leadId}`);
+  const btn    = document.getElementById(`admin-valuation-btn-${leadId}`);
+  const isOpen = detail.style.display === 'block';
+  if (isOpen) { detail.style.display = 'none'; btn.textContent = 'View Valuation'; return; }
+
+  btn.textContent = 'Hide';
+  detail.style.display = 'block';
+  if (detail.dataset.loaded === 'true') return;
+
+  detail.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--gray);font-size:.85rem">Loading...</div>';
+  const { res, data } = await apiFetch(`/admin/leads/${leadId}/valuation`).catch(() => ({res:{ok:false},data:{}}));
+  if (!res.ok) { detail.innerHTML = `<div style="font-size:.82rem;color:var(--gray)">${data.error || 'No valuation yet.'}</div>`; return; }
+  detail.innerHTML = renderValuationDetailHtml(data.valuation);
+  detail.dataset.loaded = 'true';
 }
 
 async function loadAdminFindLeads() {
@@ -1442,6 +1488,68 @@ function formatDate(str) {
 }
 function formatPrice(n) {
   return '$' + Number(n).toLocaleString();
+}
+
+// ── Vehicle valuation (Sell My Car) ────────────────────────────
+function valuationStatusMeta(status) {
+  if (status === 'valued') return { cls: 'status-approved', label: 'valued' };
+  if (status === 'photos_received') return { cls: 'status-published', label: 'processing photos' };
+  return { cls: 'status-pending', label: 'awaiting photos' };
+}
+
+function renderValuationDetailHtml(v) {
+  if (!v) return '<div style="font-size:.82rem;color:var(--gray)">No valuation yet.</div>';
+
+  let comps = [];     try { comps = JSON.parse(v.marketcheck_comps || '[]'); } catch { comps = []; }
+  let reasoning = {};  try { reasoning = JSON.parse(v.valuation_reasoning || '{}'); } catch { reasoning = {}; }
+  let condition = null; try { condition = v.ai_condition_score ? JSON.parse(v.ai_condition_score) : null; } catch { condition = null; }
+
+  const valueBlock = (label, value, reason) => `
+    <div style="background:var(--beige);border:1px solid var(--border);border-radius:3px;padding:1rem">
+      <div style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem">${label}</div>
+      <div style="font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--navy);margin-bottom:.5rem">${value != null ? formatPrice(value) : '—'}</div>
+      <div style="font-size:.78rem;color:var(--gray);line-height:1.6">${reason || ''}</div>
+    </div>
+  `;
+
+  return `
+    <div style="display:flex;flex-direction:column;gap:1.25rem">
+      <div class="item-card-meta">
+        ${v.vin ? `<span class="meta-pill">VIN ${v.vin}</span>` : ''}
+        ${(v.decoded_year || v.decoded_make) ? `<span class="meta-pill">Decoded: ${v.decoded_year||''} ${v.decoded_make||''} ${v.decoded_model||''} ${v.decoded_trim||''}</span>` : ''}
+        <span class="meta-pill">Accident: ${v.accident_history}${v.accident_notes ? ' — ' + v.accident_notes : ''}</span>
+        ${v.mechanical_status ? `<span class="meta-pill">Mechanical: ${v.mechanical_status}${v.mechanical_notes ? ' — ' + v.mechanical_notes : ''}</span>` : ''}
+        ${v.general_condition ? `<span class="meta-pill">Condition: ${v.general_condition}</span>` : ''}
+      </div>
+      <div style="font-size:.7rem;color:var(--gray);font-style:italic">
+        Based on self-reported information, subject to revision${v.photo_confirmed ? ' — photo-confirmed.' : ' — pending photo confirmation.'}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.85rem">
+        ${valueBlock('Retail Comp Value', v.final_retail_value, reasoning.retail)}
+        ${valueBlock('Trade-In Value', v.final_trade_in_value, reasoning.trade_in)}
+        ${valueBlock('Private-Sale Value', v.final_private_sale_value, reasoning.private_sale)}
+      </div>
+      ${condition ? `
+        <details>
+          <summary style="cursor:pointer;font-size:.7rem;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">View Photo Condition Scoring</summary>
+          <pre style="font-size:.68rem;background:var(--navy);color:#a8c4e0;padding:.75rem;border-radius:2px;overflow-x:auto;margin-top:.5rem;white-space:pre-wrap">${JSON.stringify(condition, null, 2)}</pre>
+        </details>
+      ` : ''}
+      <details>
+        <summary style="cursor:pointer;font-size:.7rem;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">View Comparable Listings (${comps.length})</summary>
+        <div style="margin-top:.5rem;display:flex;flex-direction:column;gap:.4rem">
+          ${comps.length ? comps.map(c => `
+            <div style="font-size:.78rem;color:var(--navy);border-bottom:1px solid var(--border);padding-bottom:.4rem">
+              ${c.build?.year||''} ${c.build?.make||''} ${c.build?.model||''} ${c.build?.trim||''} —
+              ${c.miles != null ? Number(c.miles).toLocaleString()+' mi' : '—'} —
+              ${c.price != null ? formatPrice(c.price) : '—'} —
+              ${c.dealer?.name || ''}${c.dealer?.city ? ' ('+c.dealer.city+(c.dealer.state?', '+c.dealer.state:'')+')' : ''}
+            </div>
+          `).join('') : '<div style="font-size:.78rem;color:var(--gray)">No comps found.</div>'}
+        </div>
+      </details>
+    </div>
+  `;
 }
 
 // ── Init ──────────────────────────────────────────────────────

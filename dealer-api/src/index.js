@@ -146,12 +146,33 @@ async function submitVehicle(request, env, params, dealer) {
 
 async function dealerLeads(request, env, params, dealer) {
   const { results } = await env.DB.prepare(
-    `SELECT id, year, make, model, mileage, condition, title_status, city, state, notes, created_at,
+    `SELECT sell_my_car_leads.id, sell_my_car_leads.year, sell_my_car_leads.make, sell_my_car_leads.model,
+       sell_my_car_leads.mileage, sell_my_car_leads.condition, sell_my_car_leads.title_status,
+       sell_my_car_leads.city, sell_my_car_leads.state, sell_my_car_leads.notes, sell_my_car_leads.created_at,
+       vehicle_valuations.status as valuation_status, vehicle_valuations.vin as valuation_vin,
+       vehicle_valuations.final_retail_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
+       vehicle_valuations.photo_confirmed,
        EXISTS(SELECT 1 FROM lead_interest WHERE lead_id = sell_my_car_leads.id AND dealer_id = ?) as i_expressed_interest
-     FROM sell_my_car_leads ORDER BY created_at DESC`
+     FROM sell_my_car_leads
+     LEFT JOIN vehicle_valuations ON vehicle_valuations.lead_id = sell_my_car_leads.id
+     ORDER BY sell_my_car_leads.created_at DESC`
   ).bind(dealer.id).all();
 
-  return json({ leads: results.map(l => ({ ...l, i_expressed_interest: !!l.i_expressed_interest })) });
+  return json({ leads: results.map(l => ({ ...l, i_expressed_interest: !!l.i_expressed_interest, photo_confirmed: !!l.photo_confirmed })) });
+}
+
+async function dealerGetLeadValuation(request, env, params) {
+  const valuation = await env.DB.prepare(`
+    SELECT vehicle_valuations.*,
+      sell_my_car_leads.zip, sell_my_car_leads.year AS lead_year, sell_my_car_leads.make AS lead_make,
+      sell_my_car_leads.model AS lead_model, sell_my_car_leads.trim AS lead_trim,
+      sell_my_car_leads.exterior_color, sell_my_car_leads.title_status
+    FROM vehicle_valuations
+    JOIN sell_my_car_leads ON sell_my_car_leads.id = vehicle_valuations.lead_id
+    WHERE vehicle_valuations.lead_id = ?
+  `).bind(+params.id).first();
+  if (!valuation) return json({ error: 'No valuation found for this lead yet.' }, 404);
+  return json({ valuation: { ...valuation, photo_confirmed: !!valuation.photo_confirmed } });
 }
 
 async function expressInterest(request, env, params, dealer) {
@@ -195,14 +216,34 @@ async function adminLeads(request, env) {
   const { results } = await env.DB.prepare(`
     SELECT sell_my_car_leads.*,
       COUNT(lead_interest.dealer_id) as interest_count,
-      GROUP_CONCAT(dealers.dealership_name) as interested_dealers
+      GROUP_CONCAT(dealers.dealership_name) as interested_dealers,
+      vehicle_valuations.status as valuation_status,
+      vehicle_valuations.vin as valuation_vin,
+      vehicle_valuations.final_retail_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
+      vehicle_valuations.photo_confirmed
     FROM sell_my_car_leads
     LEFT JOIN lead_interest ON lead_interest.lead_id = sell_my_car_leads.id
     LEFT JOIN dealers ON dealers.id = lead_interest.dealer_id
+    LEFT JOIN vehicle_valuations ON vehicle_valuations.lead_id = sell_my_car_leads.id
     GROUP BY sell_my_car_leads.id
     ORDER BY sell_my_car_leads.created_at DESC
   `).all();
-  return json({ leads: results });
+  return json({ leads: results.map(l => ({ ...l, photo_confirmed: !!l.photo_confirmed })) });
+}
+
+async function adminGetLeadValuation(request, env, params) {
+  const valuation = await env.DB.prepare(`
+    SELECT vehicle_valuations.*,
+      sell_my_car_leads.first_name, sell_my_car_leads.last_name, sell_my_car_leads.email, sell_my_car_leads.phone,
+      sell_my_car_leads.zip, sell_my_car_leads.year AS lead_year, sell_my_car_leads.make AS lead_make,
+      sell_my_car_leads.model AS lead_model, sell_my_car_leads.trim AS lead_trim,
+      sell_my_car_leads.exterior_color, sell_my_car_leads.title_status
+    FROM vehicle_valuations
+    JOIN sell_my_car_leads ON sell_my_car_leads.id = vehicle_valuations.lead_id
+    WHERE vehicle_valuations.lead_id = ?
+  `).bind(+params.id).first();
+  if (!valuation) return json({ error: 'No valuation found for this lead yet.' }, 404);
+  return json({ valuation: { ...valuation, photo_confirmed: !!valuation.photo_confirmed } });
 }
 
 async function adminFindLeads(request, env) {
@@ -835,7 +876,847 @@ async function generateReportForLead(env, leadId) {
   });
 }
 
-async function submitSellCarLead(request, env) {
+// ── Sell My Car valuation pipeline ────────────────────────────────
+async function decodeVin(env, vin) {
+  if (!vin || vin.length !== 17) return null;
+  try {
+    const url = new URL(`https://api.marketcheck.com/v2/decode/car/${encodeURIComponent(vin)}/specs`);
+    url.searchParams.set('api_key', env.MARKETCHECK_API_KEY);
+    const res = await fetch(url.toString());
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null);
+    if (!data || data.is_valid === false) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+async function searchMarketcheckComps(env, { make, model, trim, zip, year, mileage, throttledFetch }) {
+  if (!make) return { comps: [], log: [{ note: 'No make/model available to search comps.' }] };
+
+  const yearMin = year ? Number(year) - 2 : null;
+  const yearMax = year ? Number(year) + 2 : null;
+  const log = [];
+
+  for (const radius of MARKETCHECK_RADII) {
+    const url = new URL('https://api.marketcheck.com/v2/search/car/active');
+    url.searchParams.set('zip', zip || '78701');
+    url.searchParams.set('radius', String(radius));
+    url.searchParams.set('make', make);
+    if (model) url.searchParams.set('model', model);
+    if (yearMin && yearMax) url.searchParams.set('year_range', `${yearMin}-${yearMax}`);
+    url.searchParams.set('rows', '20');
+
+    const loggedQuery = url.toString();
+    const fetchUrl = new URL(loggedQuery);
+    fetchUrl.searchParams.set('api_key', env.MARKETCHECK_API_KEY);
+
+    let listings = [];
+    let errorNote;
+    try {
+      const res = await throttledFetch(fetchUrl.toString());
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        listings = data.listings || [];
+      } else {
+        errorNote = `HTTP ${res.status}`;
+      }
+    } catch (err) {
+      errorNote = String(err);
+    }
+
+    const matched = listings.filter(l => {
+      const listingYear = l.build?.year || null;
+      if (yearMin && yearMax && (!listingYear || listingYear < yearMin || listingYear > yearMax)) return false;
+      if (trim && !trimMatches(l.build?.trim, trim, l.build?.model, model)) return false;
+      return true;
+    });
+
+    log.push({ radius, query: loggedQuery, raw_count: listings.length, matched_count: matched.length, error: errorNote });
+
+    if (matched.length) {
+      if (mileage) matched.sort((a, b) => Math.abs((a.miles ?? mileage) - mileage) - Math.abs((b.miles ?? mileage) - mileage));
+      return { comps: matched.slice(0, 15), log };
+    }
+  }
+
+  return { comps: [], log };
+}
+
+function buildValuationPrompt({ vehicle, mileage, comps, selfReported, photoAssessment }) {
+  const compsText = comps.length
+    ? comps.map(c => `- ${c.build?.year || '?'} ${c.build?.make || ''} ${c.build?.model || ''} ${c.build?.trim || ''}, ${c.miles != null ? Number(c.miles).toLocaleString() + ' mi' : 'mileage unknown'}, listed at $${c.price != null ? Number(c.price).toLocaleString() : '?'} — ${c.dealer?.city || ''}${c.dealer?.state ? ', ' + c.dealer.state : ''}`).join('\n')
+    : 'No comparable active retail listings were found for this spec/mileage/region.';
+
+  const photoCaveat = photoAssessment
+    ? 'You have now reviewed photos of this vehicle (see the photo-confirmed condition assessment below) — weight that over the self-report where they differ.'
+    : 'You have NOT seen photos yet, so weight the self-reported details accordingly and be conservative if the self-report suggests anything below excellent condition.';
+
+  const photoSection = photoAssessment ? `
+
+Photo-confirmed condition assessment:
+- Exterior: ${photoAssessment.exterior_score}/10 — ${photoAssessment.exterior_notes}
+- Interior: ${photoAssessment.interior_score}/10 — ${photoAssessment.interior_notes}
+- Tires: ${photoAssessment.tires_score}/10 — ${photoAssessment.tires_notes}
+- Engine bay: ${photoAssessment.engine_bay_score}/10 — ${photoAssessment.engine_bay_notes}
+${photoAssessment.mismatches?.length ? `- Mismatches vs. self-report: ${photoAssessment.mismatches.join('; ')}` : '- No mismatches vs. self-report noted.'}
+` : '';
+
+  return `A client is selling their vehicle through our "Sell My Car" service. Estimate three values for this vehicle: retail comp value (what a dealer would likely list it for at retail), trade-in value (what a dealer would offer to acquire it outright), and private-sale value (what a private-party buyer would likely pay). Base your estimate on the comparable listings below and the client's self-reported condition/accident/mechanical information. ${photoCaveat}
+
+Vehicle: ${vehicle.year || '?'} ${vehicle.make || '?'} ${vehicle.model || '?'} ${vehicle.trim || ''}
+Mileage: ${mileage != null ? Number(mileage).toLocaleString() + ' mi' : 'not provided'}
+
+Self-reported condition:
+- General condition: ${selfReported.general_condition || 'not specified'}
+- Accident history: ${selfReported.accident_history}${selfReported.accident_notes ? ` — ${selfReported.accident_notes}` : ''}
+- Mechanical status: ${selfReported.mechanical_status || 'not specified'}${selfReported.mechanical_notes ? ` — ${selfReported.mechanical_notes}` : ''}
+${photoSection}
+Comparable active retail listings:
+${compsText}
+
+For each of the three values, give a short reasoning (2-3 sentences) grounded in the comps${photoAssessment ? ', the photo-confirmed condition,' : ' and the self-reported condition'}.`;
+}
+
+async function synthesizeValuation(env, args) {
+  const tool = {
+    name: 'record_valuation',
+    description: 'Record the three valuation figures for this vehicle, each with reasoning.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        retail_value: { type: 'integer', description: 'Estimated retail comp value in USD' },
+        retail_reasoning: { type: 'string' },
+        trade_in_value: { type: 'integer', description: 'Estimated dealer trade-in value in USD' },
+        trade_in_reasoning: { type: 'string' },
+        private_sale_value: { type: 'integer', description: 'Estimated private-party sale value in USD' },
+        private_sale_reasoning: { type: 'string' },
+      },
+      required: ['retail_value', 'retail_reasoning', 'trade_in_value', 'trade_in_reasoning', 'private_sale_value', 'private_sale_reasoning'],
+      additionalProperties: false,
+    },
+  };
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1536,
+      tools: [tool],
+      tool_choice: { type: 'tool', name: 'record_valuation' },
+      messages: [{ role: 'user', content: buildValuationPrompt(args) }],
+    }),
+  });
+
+  const data = await res.json();
+  if (data.stop_reason === 'refusal') throw new Error('Claude declined the valuation request');
+  const toolUse = (data.content || []).find(b => b.type === 'tool_use');
+  if (!toolUse) throw new Error('Claude did not return a tool_use block: ' + JSON.stringify(data));
+  return toolUse.input;
+}
+
+function sendSellCarReceivedEmail(env, { first_name, email, token }) {
+  const uploadUrl = `https://theexactmatch.com/sell/upload/${token}`;
+  const html = brandedEmailHtml(`
+    <p>Hey ${escapeHtml(first_name)},</p>
+    <p>We got your vehicle info and we're already working on it. To get you an accurate offer, we just need a few photos.</p>
+    <p><a href="${uploadUrl}">Upload photos of your vehicle →</a></p>
+    <p>It only takes a couple minutes, and it's the last step before we get you real numbers.</p>
+    <p>— Jeff</p>
+  `);
+  return sendBrevoEmail(env, {
+    to: email,
+    subject: "We've got your vehicle info — a few photos and we're set",
+    html,
+  });
+}
+
+async function generateValuationForLead(env, leadId, input) {
+  const t0 = Date.now();
+  const lead = await env.DB.prepare('SELECT * FROM sell_my_car_leads WHERE id = ?').bind(leadId).first();
+  if (!lead) return;
+
+  const decoded = await decodeVin(env, input.vin);
+  console.log(`[timing] valuation lead ${leadId} decode: ${Date.now() - t0}ms, decoded=${!!decoded}`);
+
+  const vehicle = {
+    year:  decoded?.year  || input.year  || null,
+    make:  decoded?.make  || input.make  || null,
+    model: decoded?.model || input.model || null,
+    trim:  decoded?.trim  || input.trim  || null,
+  };
+
+  const throttledFetch = createMarketcheckThrottle();
+  const tComps = Date.now();
+  const { comps, log } = await searchMarketcheckComps(env, {
+    make: normalizeMakeForMarketcheck(vehicle.make), model: vehicle.model, trim: vehicle.trim,
+    zip: input.zip, year: vehicle.year, mileage: input.mileage, throttledFetch,
+  });
+  console.log(`[timing] valuation lead ${leadId} comps: ${Date.now() - tComps}ms, count=${comps.length}`);
+
+  const selfReported = {
+    general_condition: input.general_condition || null,
+    accident_history: input.accident_history || 'none',
+    accident_notes: input.accident_notes || null,
+    mechanical_status: input.mechanical_status || null,
+    mechanical_notes: input.mechanical_notes || null,
+  };
+
+  const tSynth = Date.now();
+  const valuation = await synthesizeValuation(env, { vehicle, mileage: input.mileage, comps, selfReported });
+  console.log(`[timing] valuation lead ${leadId} synthesis: ${Date.now() - tSynth}ms`);
+
+  const token = randomHex(20);
+  await env.DB.prepare(`
+    INSERT INTO vehicle_valuations (
+      lead_id, token, vin, decoded_year, decoded_make, decoded_model, decoded_trim, decoded_engine, decoded_drivetrain, decoded_body_type, decode_raw,
+      mileage, accident_history, accident_notes, general_condition, mechanical_status, mechanical_notes,
+      marketcheck_comps, marketcheck_log,
+      final_retail_value, final_trade_in_value, final_private_sale_value, valuation_reasoning,
+      status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_photos')
+  `).bind(
+    leadId, token, input.vin || null,
+    decoded?.year ?? null, decoded?.make || null, decoded?.model || null, decoded?.trim || null,
+    decoded?.engine || null, decoded?.drivetrain || null, decoded?.body_type || null, decoded ? JSON.stringify(decoded) : null,
+    input.mileage ?? null, selfReported.accident_history, selfReported.accident_notes,
+    selfReported.general_condition, selfReported.mechanical_status, selfReported.mechanical_notes,
+    JSON.stringify(comps), JSON.stringify(log),
+    valuation.retail_value, valuation.trade_in_value, valuation.private_sale_value,
+    JSON.stringify({ retail: valuation.retail_reasoning, trade_in: valuation.trade_in_reasoning, private_sale: valuation.private_sale_reasoning })
+  ).run();
+
+  await sendSellCarReceivedEmail(env, { first_name: lead.first_name, email: lead.email, token });
+
+  console.log(`[timing] valuation lead ${leadId} TOTAL: ${Date.now() - t0}ms`);
+}
+
+// ── Sell My Car photo upload + photo-confirmed re-valuation ──────
+const SELL_PHOTO_SLOTS = [
+  { key: 'front_34',       label: 'Front 3/4',                      multi: false },
+  { key: 'rear_34',        label: 'Rear 3/4',                       multi: false },
+  { key: 'driver_side',    label: 'Driver Side',                    multi: false },
+  { key: 'passenger_side', label: 'Passenger Side',                 multi: false },
+  { key: 'odometer',       label: 'Odometer',                       multi: false },
+  { key: 'dashboard',      label: 'Dashboard / Instrument Cluster', multi: false },
+  { key: 'front_seats',    label: 'Front Seats',                    multi: false },
+  { key: 'rear_seats',     label: 'Rear Seats',                     multi: false },
+  { key: 'tires',          label: 'All 4 Tires (Tread)',            multi: true, maxFiles: 4 },
+  { key: 'engine_bay',     label: 'Engine Bay',                     multi: false },
+  { key: 'vin_plate',      label: 'VIN Plate (Door Jamb/Dash)',     multi: false },
+];
+const SELL_PHOTO_ISSUE_SLOT = { key: 'issue', label: 'Flag an Issue (optional)', multi: true, maxFiles: 4 };
+const SELL_PHOTO_ALL_SLOTS = [...SELL_PHOTO_SLOTS, SELL_PHOTO_ISSUE_SLOT];
+const SELL_PHOTO_REQUIRED_KEYS = SELL_PHOTO_SLOTS.map(s => s.key);
+
+function buildConditionAssessmentPrompt({ selfReported }) {
+  return `A client submitted photos of their vehicle for a "Sell My Car" valuation. Review the photos (grouped and labeled by area above) and score the condition of each area. Then compare what you see to the client's self-reported condition and flag any mismatches — for example, if they said "excellent" condition but the tires show heavy wear, or said no accidents but photos show visible collision damage or panel misalignment.
+
+Client's self-reported condition:
+- General condition: ${selfReported.general_condition || 'not specified'}
+- Accident history: ${selfReported.accident_history}${selfReported.accident_notes ? ` — ${selfReported.accident_notes}` : ''}
+- Mechanical status: ${selfReported.mechanical_status || 'not specified'}${selfReported.mechanical_notes ? ` — ${selfReported.mechanical_notes}` : ''}
+
+Score each area 1-10 (10 = like-new) based only on what's visible in the photos.`;
+}
+
+async function assessConditionFromPhotos(env, { selfReported, photosBySlot }) {
+  const tool = {
+    name: 'record_condition_assessment',
+    description: 'Record a per-area condition assessment from vehicle photos, and any mismatches against the self-reported condition.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        exterior_score: { type: 'integer', description: '1-10, based on body/paint photos' },
+        exterior_notes: { type: 'string' },
+        interior_score: { type: 'integer', description: '1-10, based on seat/dashboard photos' },
+        interior_notes: { type: 'string' },
+        tires_score: { type: 'integer', description: '1-10, based on tire tread photos' },
+        tires_notes: { type: 'string' },
+        engine_bay_score: { type: 'integer', description: '1-10, based on engine bay photo' },
+        engine_bay_notes: { type: 'string' },
+        mismatches: { type: 'array', items: { type: 'string' }, description: 'Each entry describes one mismatch between self-reported condition and what the photos show. Empty array if none.' },
+        overall_assessment: { type: 'string', description: '2-3 sentence overall summary of condition based on photos' },
+      },
+      required: ['exterior_score', 'exterior_notes', 'interior_score', 'interior_notes', 'tires_score', 'tires_notes', 'engine_bay_score', 'engine_bay_notes', 'mismatches', 'overall_assessment'],
+      additionalProperties: false,
+    },
+  };
+
+  const content = [];
+  for (const slotDef of SELL_PHOTO_ALL_SLOTS) {
+    const urls = photosBySlot[slotDef.key] || [];
+    if (!urls.length) continue;
+    content.push({ type: 'text', text: `${slotDef.label}:` });
+    for (const url of urls) content.push({ type: 'image', source: { type: 'url', url } });
+  }
+  content.push({ type: 'text', text: buildConditionAssessmentPrompt({ selfReported }) });
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1536,
+      tools: [tool],
+      tool_choice: { type: 'tool', name: 'record_condition_assessment' },
+      messages: [{ role: 'user', content }],
+    }),
+  });
+
+  const data = await res.json();
+  if (data.stop_reason === 'refusal') throw new Error('Claude declined the condition assessment request');
+  const toolUse = (data.content || []).find(b => b.type === 'tool_use');
+  if (!toolUse) throw new Error('Claude did not return a tool_use block: ' + JSON.stringify(data));
+  return toolUse.input;
+}
+
+function sendSellCarValueRangeEmail(env, { first_name, email, low, high, token }) {
+  const reportUrl = `https://theexactmatch.com/sell/report/${token}`;
+  const html = brandedEmailHtml(`
+    <p>Hey ${escapeHtml(first_name)},</p>
+    <p>Thanks for sending over the photos. Based on everything you've shared, here's your rough value range:</p>
+    <p style="font-family:Georgia,serif;font-size:1.4rem;color:#0C1C33;text-align:center;margin:1.5rem 0"><strong>$${Number(low).toLocaleString()} – $${Number(high).toLocaleString()}</strong></p>
+    <p style="font-size:.8rem;color:#4A5568">Based on self-reported and photo-confirmed information, subject to revision.</p>
+    <p><a href="${reportUrl}">View your full valuation report →</a></p>
+    <p>Jeff will follow up shortly with next steps.</p>
+    <p>— Jeff</p>
+  `);
+  return sendBrevoEmail(env, {
+    to: email,
+    subject: 'Your rough value range is ready',
+    html,
+  });
+}
+
+async function processPhotoConfirmedValuation(env, token) {
+  const t0 = Date.now();
+  const valuation = await env.DB.prepare(`
+    SELECT vehicle_valuations.*, sell_my_car_leads.first_name, sell_my_car_leads.email,
+      sell_my_car_leads.year AS lead_year, sell_my_car_leads.make AS lead_make,
+      sell_my_car_leads.model AS lead_model, sell_my_car_leads.trim AS lead_trim
+    FROM vehicle_valuations
+    JOIN sell_my_car_leads ON sell_my_car_leads.id = vehicle_valuations.lead_id
+    WHERE vehicle_valuations.token = ?
+  `).bind(token).first();
+  if (!valuation) return;
+
+  const { results: photoRows } = await env.DB.prepare(
+    'SELECT slot, url FROM valuation_photos WHERE valuation_id = ? ORDER BY created_at'
+  ).bind(valuation.id).all();
+
+  const photosBySlot = {};
+  for (const row of photoRows) (photosBySlot[row.slot] ||= []).push(row.url);
+
+  const selfReported = {
+    general_condition: valuation.general_condition,
+    accident_history: valuation.accident_history,
+    accident_notes: valuation.accident_notes,
+    mechanical_status: valuation.mechanical_status,
+    mechanical_notes: valuation.mechanical_notes,
+  };
+
+  const assessment = await assessConditionFromPhotos(env, { selfReported, photosBySlot });
+  console.log(`[timing] photo valuation ${token} assessment: ${Date.now() - t0}ms`);
+
+  let comps = [];
+  try { comps = JSON.parse(valuation.marketcheck_comps || '[]'); } catch { comps = []; }
+
+  const vehicle = {
+    year:  valuation.decoded_year  || valuation.lead_year  || null,
+    make:  valuation.decoded_make  || valuation.lead_make  || null,
+    model: valuation.decoded_model || valuation.lead_model || null,
+    trim:  valuation.decoded_trim  || valuation.lead_trim  || null,
+  };
+
+  const tSynth = Date.now();
+  const revaluation = await synthesizeValuation(env, {
+    vehicle, mileage: valuation.mileage, comps, selfReported, photoAssessment: assessment,
+  });
+  console.log(`[timing] photo valuation ${token} synthesis: ${Date.now() - tSynth}ms`);
+
+  await env.DB.prepare(`
+    UPDATE vehicle_valuations SET
+      ai_condition_score = ?, photo_confirmed = 1,
+      final_retail_value = ?, final_trade_in_value = ?, final_private_sale_value = ?,
+      valuation_reasoning = ?, status = 'valued', customer_notified_at = datetime('now')
+    WHERE id = ?
+  `).bind(
+    JSON.stringify(assessment),
+    revaluation.retail_value, revaluation.trade_in_value, revaluation.private_sale_value,
+    JSON.stringify({ retail: revaluation.retail_reasoning, trade_in: revaluation.trade_in_reasoning, private_sale: revaluation.private_sale_reasoning }),
+    valuation.id
+  ).run();
+
+  await sendSellCarValueRangeEmail(env, {
+    first_name: valuation.first_name, email: valuation.email, token,
+    low: Math.min(revaluation.retail_value, revaluation.trade_in_value, revaluation.private_sale_value),
+    high: Math.max(revaluation.retail_value, revaluation.trade_in_value, revaluation.private_sale_value),
+  });
+
+  console.log(`[timing] photo valuation ${token} TOTAL: ${Date.now() - t0}ms`);
+}
+
+function sellNotFoundHtml() {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Link Not Found — TheExactMatch</title>
+<style>body{font-family:sans-serif;background:#F5F0E8;color:#0C1C33;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.box{text-align:center;padding:3rem;max-width:480px}</style></head><body>
+<div class="box"><h1>Link not found</h1><p>This upload link is invalid or has expired. Contact Jeff at (512) 650-9328 if you think this is a mistake.</p></div>
+</body></html>`;
+}
+
+function sellUploadPageHtml(valuation, photosBySlot) {
+  const vehicleLabel = [
+    valuation.decoded_year || valuation.lead_year, valuation.decoded_make || valuation.lead_make,
+    valuation.decoded_model || valuation.lead_model, valuation.decoded_trim || valuation.lead_trim,
+  ].filter(Boolean).join(' ');
+
+  const slotCard = (slot) => {
+    const urls = photosBySlot[slot.key] || [];
+    return `
+    <div class="slot-card">
+      <div class="slot-label">${escapeHtml(slot.label)}${slot.multi ? ` <span class="slot-hint">(up to ${slot.maxFiles})</span>` : ''}</div>
+      <div class="slot-thumbs" id="thumbs-${slot.key}">${urls.map(u => `<img src="${escapeHtml(u)}" class="thumb"/>`).join('')}</div>
+      <label class="slot-upload-btn">
+        Choose Photo${slot.multi ? 's' : ''}
+        <input type="file" accept="image/*" ${slot.multi ? 'multiple' : ''} onchange="uploadSlotPhoto('${valuation.token}','${slot.key}', this)"/>
+      </label>
+      <div class="slot-status" id="status-${slot.key}">${urls.length ? '✓ uploaded' : ''}</div>
+    </div>`;
+  };
+
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Upload Vehicle Photos — TheExactMatch</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--navy:#0C1C33;--navy2:#152a4a;--beige:#F5F0E8;--beige2:#EDE7D9;--gold:#C09A5B;--gold2:#D4B47A;--white:#fff;--gray:#4A5568;--border:#DDD8CC;--green:#1A4731}
+  body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy)}
+  header{background:var(--navy);padding:3rem 2rem;text-align:center}
+  .eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold2);margin-bottom:.75rem}
+  h1{font-family:'Playfair Display',serif;font-size:clamp(1.6rem,3vw,2.2rem);font-weight:500;color:var(--white)}
+  h1 em{font-style:italic;color:var(--gold2)}
+  .sub{color:rgba(255,255,255,.55);font-size:.9rem;margin-top:.75rem;font-weight:300}
+  .wrap{max-width:900px;margin:0 auto;padding:3rem 2rem}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem;margin-bottom:2rem}
+  .slot-card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:1.25rem;display:flex;flex-direction:column;gap:.6rem}
+  .slot-label{font-size:.85rem;font-weight:500;color:var(--navy)}
+  .slot-hint{font-size:.7rem;color:var(--gray);font-weight:300}
+  .slot-thumbs{display:flex;flex-wrap:wrap;gap:.4rem}
+  .thumb{width:64px;height:64px;object-fit:cover;border-radius:3px;border:1px solid var(--border)}
+  .slot-upload-btn{display:inline-block;padding:.55rem .9rem;background:var(--beige2);border:1px solid var(--border);border-radius:2px;font-size:.72rem;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--navy);cursor:pointer;text-align:center}
+  .slot-upload-btn input{display:none}
+  .slot-status{font-size:.72rem;color:var(--green);font-weight:600;min-height:1em}
+  .cta-wrap{text-align:center}
+  .cta-btn{padding:1rem 2.5rem;background:var(--gold);color:var(--navy);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-weight:700;font-size:.85rem;letter-spacing:.04em;cursor:pointer}
+  .cta-btn:disabled{background:var(--border);color:var(--gray);cursor:not-allowed}
+  .success-box{display:none;text-align:center;padding:3rem 2rem}
+  .success-box h2{font-family:'Playfair Display',serif;font-size:1.5rem;margin-bottom:1rem}
+  footer{text-align:center;padding:2rem;font-size:.72rem;color:var(--gray)}
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">Sell My Car</div>
+  <h1>Hi ${escapeHtml(valuation.first_name)}, let's see <em>your ${escapeHtml(vehicleLabel || 'vehicle')}.</em></h1>
+  <div class="sub">A few photos and we'll have your value range ready. Questions? Text Jeff at (512) 650-9328.</div>
+</header>
+<div class="wrap">
+  <div id="upload-wrap">
+    <div class="grid">
+      ${SELL_PHOTO_SLOTS.map(slotCard).join('')}
+      ${slotCard(SELL_PHOTO_ISSUE_SLOT)}
+    </div>
+    <div class="cta-wrap">
+      <button class="cta-btn" id="submit-photos-btn" disabled onclick="submitPhotos('${valuation.token}')">Submit Photos</button>
+    </div>
+  </div>
+  <div class="success-box" id="upload-success">
+    <h2>✦ Photos received.</h2>
+    <p style="color:var(--gray)">We're reviewing now — you'll get an email with your rough value range shortly.</p>
+  </div>
+</div>
+<footer>© ${new Date().getFullYear()} TheExactMatch.com</footer>
+<script>
+const REQUIRED_SLOTS = ${JSON.stringify(SELL_PHOTO_REQUIRED_KEYS)};
+const API_BASE = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api/public/sell';
+
+function checkAllUploaded() {
+  const allDone = REQUIRED_SLOTS.every(key => document.querySelectorAll('#thumbs-' + key + ' img').length > 0);
+  document.getElementById('submit-photos-btn').disabled = !allDone;
+}
+
+async function uploadSlotPhoto(token, slot, input) {
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  const statusEl = document.getElementById('status-' + slot);
+  const thumbsEl = document.getElementById('thumbs-' + slot);
+  statusEl.textContent = 'Uploading…'; statusEl.style.color = 'var(--gray)';
+
+  for (const file of files) {
+    const fd = new FormData();
+    fd.append('photo', file);
+    try {
+      const res = await fetch(API_BASE + '/' + token + '/photo/' + slot, { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.url) {
+        const img = document.createElement('img');
+        img.src = data.url; img.className = 'thumb';
+        thumbsEl.appendChild(img);
+      } else {
+        statusEl.textContent = data.error || 'Upload failed.'; statusEl.style.color = '#9B2335';
+        return;
+      }
+    } catch (e) {
+      statusEl.textContent = 'Upload failed. Try again.'; statusEl.style.color = '#9B2335';
+      return;
+    }
+  }
+  statusEl.textContent = '✓ uploaded'; statusEl.style.color = 'var(--green)';
+  input.value = '';
+  checkAllUploaded();
+}
+
+async function submitPhotos(token) {
+  const btn = document.getElementById('submit-photos-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    const res = await fetch(API_BASE + '/' + token + '/complete', { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      document.getElementById('upload-wrap').style.display = 'none';
+      document.getElementById('upload-success').style.display = 'block';
+    } else {
+      btn.disabled = false; btn.textContent = 'Submit Photos';
+      alert(data.error || 'Could not submit. Please try again.');
+    }
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Submit Photos';
+    alert('Could not submit. Please try again.');
+  }
+}
+
+checkAllUploaded();
+</script>
+</body></html>`;
+}
+
+async function renderSellUploadPage(request, env, params) {
+  const valuation = await env.DB.prepare(`
+    SELECT vehicle_valuations.*, sell_my_car_leads.first_name,
+      sell_my_car_leads.year AS lead_year, sell_my_car_leads.make AS lead_make,
+      sell_my_car_leads.model AS lead_model, sell_my_car_leads.trim AS lead_trim
+    FROM vehicle_valuations
+    JOIN sell_my_car_leads ON sell_my_car_leads.id = vehicle_valuations.lead_id
+    WHERE vehicle_valuations.token = ?
+  `).bind(params.token).first();
+
+  if (!valuation) return htmlResponse(sellNotFoundHtml(), 404);
+
+  const { results: photoRows } = await env.DB.prepare(
+    'SELECT slot, url FROM valuation_photos WHERE valuation_id = ? ORDER BY created_at'
+  ).bind(valuation.id).all();
+
+  const photosBySlot = {};
+  for (const row of photoRows) (photosBySlot[row.slot] ||= []).push(row.url);
+
+  return htmlResponse(sellUploadPageHtml(valuation, photosBySlot));
+}
+
+async function serveSellPhoto(env, params) {
+  const key = `sell/${params.token}/${params.slot}/${params.filename}`;
+  const object = await env.PHOTOS.get(key);
+  if (!object) return new Response('Not found', { status: 404 });
+  return new Response(object.body, {
+    headers: { 'Content-Type': object.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'public, max-age=86400' },
+  });
+}
+
+async function uploadSellPhoto(request, env, params) {
+  const slotDef = SELL_PHOTO_ALL_SLOTS.find(s => s.key === params.slot);
+  if (!slotDef) return json({ error: 'Unknown photo slot.' }, 400);
+
+  const valuation = await env.DB.prepare('SELECT id FROM vehicle_valuations WHERE token = ?').bind(params.token).first();
+  if (!valuation) return json({ error: 'Upload link not found.' }, 404);
+
+  const formData = await request.formData().catch(() => null);
+  const file = formData?.get('photo');
+  if (!file || typeof file === 'string') return json({ error: 'No photo file provided.' }, 400);
+
+  const { results: existing } = await env.DB.prepare(
+    'SELECT id, url FROM valuation_photos WHERE valuation_id = ? AND slot = ?'
+  ).bind(valuation.id, params.slot).all();
+
+  if (slotDef.multi) {
+    if (existing.length >= slotDef.maxFiles) {
+      return json({ error: `You can upload up to ${slotDef.maxFiles} photos for this.` }, 400);
+    }
+  } else if (existing.length) {
+    for (const row of existing) {
+      const oldKey = row.url.replace(/^https?:\/\/[^/]+\/sell\/photos\//, '');
+      await env.PHOTOS.delete(oldKey).catch(() => {});
+    }
+    await env.DB.prepare('DELETE FROM valuation_photos WHERE valuation_id = ? AND slot = ?').bind(valuation.id, params.slot).run();
+  }
+
+  const ext = (file.type || 'image/jpeg').split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+  const filename = `${randomHex(8)}.${ext}`;
+  const key = `sell/${params.token}/${params.slot}/${filename}`;
+  await env.PHOTOS.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'image/jpeg' } });
+
+  const url = `https://theexactmatch.com/sell/photos/${params.token}/${params.slot}/${filename}`;
+  await env.DB.prepare('INSERT INTO valuation_photos (valuation_id, slot, url) VALUES (?, ?, ?)').bind(valuation.id, params.slot, url).run();
+
+  return json({ success: true, url });
+}
+
+async function completeSellPhotos(request, env, params, dealer, sessionToken, ctx) {
+  const valuation = await env.DB.prepare('SELECT id FROM vehicle_valuations WHERE token = ?').bind(params.token).first();
+  if (!valuation) return json({ error: 'Upload link not found.' }, 404);
+
+  const { results: photoRows } = await env.DB.prepare(
+    'SELECT DISTINCT slot FROM valuation_photos WHERE valuation_id = ?'
+  ).bind(valuation.id).all();
+  const uploadedSlots = new Set(photoRows.map(r => r.slot));
+  const missing = SELL_PHOTO_REQUIRED_KEYS.filter(key => !uploadedSlots.has(key));
+  if (missing.length) {
+    const labels = missing.map(k => SELL_PHOTO_SLOTS.find(s => s.key === k).label);
+    return json({ error: `Please upload a photo for: ${labels.join(', ')}.` }, 400);
+  }
+
+  await env.DB.prepare(`UPDATE vehicle_valuations SET status = 'photos_received', photos_uploaded_at = datetime('now') WHERE id = ?`).bind(valuation.id).run();
+
+  if (ctx) {
+    ctx.waitUntil(processPhotoConfirmedValuation(env, params.token).catch(err => console.error('photo valuation pipeline failed', params.token, err)));
+  }
+
+  return json({ success: true });
+}
+
+// ── Hosted seller report ──────────────────────────────────────────
+function sellReportPendingHtml(valuation) {
+  const message = valuation.status === 'pending_photos'
+    ? `<p>We're still waiting on your photos. <a href="https://theexactmatch.com/sell/upload/${escapeHtml(valuation.token)}">Upload them here →</a></p>`
+    : `<p>We're finalizing your numbers now — you'll get an email as soon as your value range is ready.</p>`;
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Valuation In Progress — TheExactMatch</title>
+<style>body{font-family:sans-serif;background:#F5F0E8;color:#0C1C33;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.box{text-align:center;padding:3rem;max-width:480px}.box a{color:#C09A5B}</style></head><body>
+<div class="box"><h1>Almost there</h1>${message}<p style="margin-top:1rem;font-size:.85rem;color:#4A5568">Questions? Text Jeff at (512) 650-9328.</p></div>
+</body></html>`;
+}
+
+function sellReportPageHtml(valuation, photosBySlot) {
+  const vehicleLabel = [
+    valuation.decoded_year || valuation.lead_year, valuation.decoded_make || valuation.lead_make,
+    valuation.decoded_model || valuation.lead_model, valuation.decoded_trim || valuation.lead_trim,
+  ].filter(Boolean).join(' ');
+
+  let comps = [];        try { comps = JSON.parse(valuation.marketcheck_comps || '[]'); } catch { comps = []; }
+  let reasoning = {};     try { reasoning = JSON.parse(valuation.valuation_reasoning || '{}'); } catch { reasoning = {}; }
+
+  const specRows = [
+    valuation.vin && ['VIN', valuation.vin],
+    valuation.mileage && ['Mileage', `${Number(valuation.mileage).toLocaleString()} mi`],
+    (valuation.decoded_engine) && ['Engine', valuation.decoded_engine],
+    (valuation.decoded_drivetrain) && ['Drivetrain', valuation.decoded_drivetrain],
+    (valuation.decoded_body_type) && ['Body Type', valuation.decoded_body_type],
+    valuation.general_condition && ['Self-Reported Condition', valuation.general_condition],
+    valuation.accident_history && ['Accident History', `${valuation.accident_history}${valuation.accident_notes ? ' — ' + valuation.accident_notes : ''}`],
+    valuation.mechanical_status && ['Mechanical Status', `${valuation.mechanical_status}${valuation.mechanical_notes ? ' — ' + valuation.mechanical_notes : ''}`],
+  ].filter(Boolean);
+
+  const valueCard = (label, value, reason) => `
+    <div class="value-card">
+      <div class="value-label">${escapeHtml(label)}</div>
+      <div class="value-amount">${value != null ? '$' + Number(value).toLocaleString() : '—'}</div>
+      <div class="value-reasoning">${escapeHtml(reason || '')}</div>
+    </div>`;
+
+  const compsHtml = comps.length
+    ? comps.map(c => `
+      <div class="comp-row">
+        <span>${escapeHtml(`${c.build?.year || ''} ${c.build?.make || ''} ${c.build?.model || ''} ${c.build?.trim || ''}`.trim())}</span>
+        <span>${c.miles != null ? Number(c.miles).toLocaleString() + ' mi' : '—'}</span>
+        <span>${c.price != null ? '$' + Number(c.price).toLocaleString() : '—'}</span>
+        <span>${escapeHtml(c.dealer?.name || '')}${c.dealer?.city ? escapeHtml(` (${c.dealer.city}${c.dealer.state ? ', ' + c.dealer.state : ''})`) : ''}</span>
+      </div>`).join('')
+    : `<div class="comp-row"><span>No comparable active listings were found for this spec/mileage/region.</span></div>`;
+
+  const slotLabel = (key) => (SELL_PHOTO_ALL_SLOTS.find(s => s.key === key) || {}).label || key;
+  const photoKeys = Object.keys(photosBySlot).filter(k => photosBySlot[k]?.length);
+  const photosHtml = photoKeys.length
+    ? photoKeys.map(key => photosBySlot[key].map(url => `
+        <div class="photo-tile">
+          <img src="${escapeHtml(url)}" alt="${escapeHtml(slotLabel(key))}"/>
+          <div class="photo-tile-label">${escapeHtml(slotLabel(key))}</div>
+        </div>`).join('')).join('')
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Your Vehicle Valuation — TheExactMatch</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--navy:#0C1C33;--navy2:#152a4a;--beige:#F5F0E8;--beige2:#EDE7D9;--gold:#C09A5B;--gold2:#D4B47A;--white:#fff;--gray:#4A5568;--border:#DDD8CC;--green:#1A4731}
+  body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy)}
+  header{background:var(--navy);padding:3rem 2rem;text-align:center}
+  .eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold2);margin-bottom:.75rem}
+  h1{font-family:'Playfair Display',serif;font-size:clamp(1.6rem,3vw,2.2rem);font-weight:500;color:var(--white)}
+  h1 em{font-style:italic;color:var(--gold2)}
+  .sub{color:rgba(255,255,255,.55);font-size:.9rem;margin-top:.75rem;font-weight:300}
+  .wrap{max-width:1000px;margin:0 auto;padding:3rem 2rem;display:flex;flex-direction:column;gap:2.5rem}
+  .card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:1.75rem}
+  .section-title{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem}
+  .spec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem}
+  .spec-row{display:flex;flex-direction:column;gap:.2rem}
+  .spec-label{font-size:.68rem;color:var(--gray);text-transform:uppercase;letter-spacing:.05em}
+  .spec-value{font-size:.9rem;color:var(--navy);font-weight:500}
+  .value-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1.25rem}
+  .value-card{background:var(--beige);border:1px solid var(--border);border-radius:4px;padding:1.5rem;display:flex;flex-direction:column;gap:.6rem}
+  .value-label{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
+  .value-amount{font-family:'Playfair Display',serif;font-size:1.9rem;color:var(--navy)}
+  .value-reasoning{font-size:.82rem;color:var(--gray);line-height:1.6}
+  .footnote{font-size:.75rem;color:var(--gray);font-style:italic}
+  .comp-row{display:grid;grid-template-columns:2fr 1fr 1fr 1.5fr;gap:1rem;font-size:.82rem;padding:.6rem 0;border-bottom:1px solid var(--border)}
+  .comp-row:last-child{border-bottom:none}
+  .photo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem}
+  .photo-tile img{width:100%;height:130px;object-fit:cover;border-radius:3px;border:1px solid var(--border);display:block}
+  .photo-tile-label{font-size:.7rem;color:var(--gray);margin-top:.4rem;text-align:center}
+  .cta-wrap{text-align:center}
+  .cta-btn{padding:1rem 2.5rem;background:var(--gold);color:var(--navy);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-weight:700;font-size:.85rem;letter-spacing:.04em;cursor:pointer}
+  .cta-btn:disabled{background:var(--green);color:var(--white);cursor:default}
+  footer{text-align:center;padding:2rem;font-size:.72rem;color:var(--gray)}
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">Your Vehicle Valuation</div>
+  <h1>Hi ${escapeHtml(valuation.first_name)}, here's <em>your ${escapeHtml(vehicleLabel || 'vehicle')}.</em></h1>
+  <div class="sub">Questions? Text Jeff at (512) 650-9328.</div>
+</header>
+<div class="wrap">
+  <div class="card">
+    <div class="section-title">Vehicle Summary</div>
+    <div class="spec-grid">
+      ${specRows.map(([label, value]) => `<div class="spec-row"><span class="spec-label">${escapeHtml(label)}</span><span class="spec-value">${escapeHtml(value)}</span></div>`).join('')}
+    </div>
+  </div>
+
+  <div>
+    <div class="value-grid">
+      ${valueCard('Retail Comp Value', valuation.final_retail_value, reasoning.retail)}
+      ${valueCard('Trade-In Value', valuation.final_trade_in_value, reasoning.trade_in)}
+      ${valueCard('Private-Sale Value', valuation.final_private_sale_value, reasoning.private_sale)}
+    </div>
+    <p class="footnote" style="margin-top:1rem">Based on self-reported and photo-confirmed information, subject to revision.</p>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Comparable Listings</div>
+    ${compsHtml}
+  </div>
+
+  ${photoKeys.length ? `
+  <div class="card">
+    <div class="section-title">Condition Photos</div>
+    <div class="photo-grid">${photosHtml}</div>
+  </div>` : ''}
+
+  <div class="cta-wrap">
+    <button class="cta-btn" id="ready-btn" ${valuation.ready_to_sell ? 'disabled' : ''} onclick="markReadyToSell('${valuation.token}')">
+      ${valuation.ready_to_sell ? "✓ Jeff's on it — expect to hear from him soon" : "Ready to Sell? Let's Talk"}
+    </button>
+  </div>
+</div>
+<footer>© ${new Date().getFullYear()} TheExactMatch.com</footer>
+<script>
+async function markReadyToSell(token) {
+  const btn = document.getElementById('ready-btn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  try {
+    const res = await fetch('https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api/public/sell/' + token + '/ready', { method: 'POST' });
+    if (res.ok) { btn.textContent = "✓ Jeff's on it — expect to hear from him soon"; }
+    else { btn.disabled = false; btn.textContent = "Ready to Sell? Let's Talk"; }
+  } catch (e) { btn.disabled = false; btn.textContent = "Ready to Sell? Let's Talk"; }
+}
+</script>
+</body></html>`;
+}
+
+async function renderSellReportPage(request, env, params) {
+  const valuation = await env.DB.prepare(`
+    SELECT vehicle_valuations.*, sell_my_car_leads.first_name,
+      sell_my_car_leads.year AS lead_year, sell_my_car_leads.make AS lead_make,
+      sell_my_car_leads.model AS lead_model, sell_my_car_leads.trim AS lead_trim
+    FROM vehicle_valuations
+    JOIN sell_my_car_leads ON sell_my_car_leads.id = vehicle_valuations.lead_id
+    WHERE vehicle_valuations.token = ?
+  `).bind(params.token).first();
+
+  if (!valuation) return htmlResponse(sellNotFoundHtml(), 404);
+  if (valuation.status !== 'valued') return htmlResponse(sellReportPendingHtml(valuation));
+
+  const { results: photoRows } = await env.DB.prepare(
+    'SELECT slot, url FROM valuation_photos WHERE valuation_id = ? ORDER BY created_at'
+  ).bind(valuation.id).all();
+
+  const photosBySlot = {};
+  for (const row of photoRows) (photosBySlot[row.slot] ||= []).push(row.url);
+
+  return htmlResponse(sellReportPageHtml(valuation, photosBySlot));
+}
+
+async function publicMarkReadyToSell(request, env, params) {
+  const valuation = await env.DB.prepare(`
+    SELECT vehicle_valuations.id, vehicle_valuations.ready_to_sell,
+      vehicle_valuations.final_retail_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
+      sell_my_car_leads.first_name, sell_my_car_leads.last_name, sell_my_car_leads.email, sell_my_car_leads.phone,
+      sell_my_car_leads.year AS lead_year, sell_my_car_leads.make AS lead_make, sell_my_car_leads.model AS lead_model,
+      vehicle_valuations.decoded_year, vehicle_valuations.decoded_make, vehicle_valuations.decoded_model
+    FROM vehicle_valuations
+    JOIN sell_my_car_leads ON sell_my_car_leads.id = vehicle_valuations.lead_id
+    WHERE vehicle_valuations.token = ?
+  `).bind(params.token).first();
+  if (!valuation) return json({ error: 'Valuation not found.' }, 404);
+
+  if (!valuation.ready_to_sell) {
+    await env.DB.prepare(`UPDATE vehicle_valuations SET ready_to_sell = 1, ready_to_sell_at = datetime('now') WHERE id = ?`).bind(valuation.id).run();
+
+    const vehicleLabel = `${valuation.decoded_year || valuation.lead_year || ''} ${valuation.decoded_make || valuation.lead_make || ''} ${valuation.decoded_model || valuation.lead_model || ''}`.trim();
+
+    await sendBrevoEmail(env, {
+      to: 'theexactmatch@gmail.com',
+      subject: '🚗 Seller ready to move forward',
+      html: brandedEmailHtml(`
+        <p><strong>${escapeHtml(valuation.first_name)} ${escapeHtml(valuation.last_name)}</strong> is ready to sell their ${escapeHtml(vehicleLabel)}.</p>
+        <p><strong>Values:</strong> Retail ${valuation.final_retail_value ? '$' + Number(valuation.final_retail_value).toLocaleString() : '—'} ·
+          Trade-In ${valuation.final_trade_in_value ? '$' + Number(valuation.final_trade_in_value).toLocaleString() : '—'} ·
+          Private-Sale ${valuation.final_private_sale_value ? '$' + Number(valuation.final_private_sale_value).toLocaleString() : '—'}</p>
+        <p><strong>Contact:</strong><br/>
+        Email: <a href="mailto:${escapeHtml(valuation.email)}">${escapeHtml(valuation.email)}</a><br/>
+        Phone: ${valuation.phone ? escapeHtml(valuation.phone) : 'not provided'}</p>
+        <p><a href="https://theexactmatch.com/Dealerportal.html">View in dashboard →</a></p>
+      `),
+    });
+  }
+
+  return json({ success: true });
+}
+
+async function submitSellCarLead(request, env, params, dealer, token, ctx) {
   const body       = await request.json().catch(() => ({}));
   const first_name = (body.first_name || '').trim();
   const last_name  = (body.last_name || '').trim();
@@ -847,8 +1728,17 @@ async function submitSellCarLead(request, env) {
 
   const year    = parseInt(String(body.year || '').replace(/[^0-9]/g, ''), 10) || null;
   const mileage = parseInt(String(body.mileage || '').replace(/[^0-9]/g, ''), 10) || null;
+  const zip     = (body.zip || '').trim();
+  const make    = (body.make || '').trim();
+  const model   = (body.model || '').trim();
+  const trim    = (body.trim || '').trim();
+  const vin     = (body.vin || '').trim().toUpperCase() || null;
+  const accident_history  = (body.accident_history || '').trim().toLowerCase() || 'none';
+  const accident_notes    = (body.accident_notes || '').trim();
+  const mechanical_status = (body.mechanical_status || '').trim();
+  const mechanical_notes  = (body.mechanical_notes || '').trim();
 
-  await env.DB.prepare(`
+  const result = await env.DB.prepare(`
     INSERT INTO sell_my_car_leads (
       first_name, last_name, email, phone, zip, year, make, model, trim, mileage, exterior_color,
       title_status, remaining_balance, payoff_amount, condition, accidents, accidents_count, accidents_damage,
@@ -856,8 +1746,8 @@ async function submitSellCarLead(request, env) {
       keys, timeline, notes
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
-    first_name, last_name, email, phone, (body.zip || '').trim(),
-    year, (body.make || '').trim(), (body.model || '').trim(), (body.trim || '').trim(),
+    first_name, last_name, email, phone, zip,
+    year, make, model, trim,
     mileage, (body.exterior_color || '').trim(),
     body.title_status || '', body.remaining_balance || '', (body.payoff_amount || '').trim(), body.condition || '',
     body.accidents || '', (body.accidents_count || '').trim(), (body.accidents_damage || '').trim(),
@@ -865,6 +1755,16 @@ async function submitSellCarLead(request, env) {
     body.windshield || '', body.tires || '', body.modifications || '', (body.modifications_desc || '').trim(),
     body.keys || '', body.timeline || '', (body.notes || '').trim()
   ).run();
+
+  const leadId = result.meta.last_row_id;
+
+  if (ctx) {
+    ctx.waitUntil(generateValuationForLead(env, leadId, {
+      vin, mileage, year, make, model, trim, zip,
+      general_condition: body.condition || '',
+      accident_history, accident_notes, mechanical_status, mechanical_notes,
+    }).catch(err => console.error('valuation pipeline failed for lead', leadId, err)));
+  }
 
   return json({ success: true });
 }
@@ -1481,15 +2381,20 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/dealer/me',                   handler: dealerMe, auth: true },
   { method: 'POST',  pattern: '/api/dealer/submit-vehicle',       handler: submitVehicle, auth: true },
   { method: 'GET',   pattern: '/api/dealer/leads',                 handler: dealerLeads, auth: true },
+  { method: 'GET',   pattern: '/api/dealer/leads/:id/valuation',   handler: dealerGetLeadValuation, auth: true },
   { method: 'POST',  pattern: '/api/dealer/leads/:id/interest',   handler: expressInterest, auth: true },
   { method: 'GET',   pattern: '/api/dealer/my-submissions',       handler: mySubmissions, auth: true },
   { method: 'GET',   pattern: '/api/admin/submissions',           handler: adminSubmissions, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/submissions/:id',       handler: adminUpdateSubmission, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/leads',                 handler: adminLeads, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/leads/:id/valuation',    handler: adminGetLeadValuation, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/find-leads',             handler: adminFindLeads, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/contact-messages',       handler: adminContactMessages, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/public/find-car-lead',         handler: submitFindCarLead },
   { method: 'POST',  pattern: '/api/public/sell-car-lead',         handler: submitSellCarLead },
+  { method: 'POST',  pattern: '/api/public/sell/:token/photo/:slot', handler: uploadSellPhoto },
+  { method: 'POST',  pattern: '/api/public/sell/:token/complete',    handler: completeSellPhotos },
+  { method: 'POST',  pattern: '/api/public/sell/:token/ready',       handler: publicMarkReadyToSell },
   { method: 'POST',  pattern: '/api/public/contact-message',       handler: submitContactMessage },
   { method: 'GET',   pattern: '/api/admin/dealers',               handler: adminDealers, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/dealers/:id',           handler: adminUpdateDealer, auth: true, admin: true },
@@ -1519,6 +2424,15 @@ export default {
 
       const reportParams = matchPath('/reports/:code', url.pathname);
       if (reportParams) return renderReportPage(request, env, reportParams);
+
+      const sellPhotoParams = matchPath('/sell/photos/:token/:slot/:filename', url.pathname);
+      if (sellPhotoParams) return serveSellPhoto(env, sellPhotoParams);
+
+      const sellUploadParams = matchPath('/sell/upload/:token', url.pathname);
+      if (sellUploadParams) return renderSellUploadPage(request, env, sellUploadParams);
+
+      const sellReportParams = matchPath('/sell/report/:token', url.pathname);
+      if (sellReportParams) return renderSellReportPage(request, env, sellReportParams);
     }
 
     for (const route of ROUTES) {

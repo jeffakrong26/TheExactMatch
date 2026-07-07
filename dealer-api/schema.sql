@@ -146,6 +146,63 @@ CREATE TABLE find_car_reports (
   approved_at TEXT
 );
 
+-- Sell My Car automation: valuation pipeline (VIN decode, Marketcheck comps,
+-- Claude synthesis, photo-confirmed re-valuation). One row per sell_my_car_leads lead.
+-- `token` is the unique tokenized link sent in Brevo email #1 for photo upload.
+CREATE TABLE vehicle_valuations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  lead_id INTEGER NOT NULL REFERENCES sell_my_car_leads(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+
+  vin TEXT,
+  decoded_year INTEGER,
+  decoded_make TEXT,
+  decoded_model TEXT,
+  decoded_trim TEXT,
+  decoded_engine TEXT,
+  decoded_drivetrain TEXT,
+  decoded_body_type TEXT,
+  decode_raw TEXT,
+
+  mileage INTEGER,
+
+  accident_history TEXT NOT NULL DEFAULT 'none',
+  accident_notes TEXT,
+  general_condition TEXT,
+  mechanical_status TEXT,
+  mechanical_notes TEXT,
+
+  marketcheck_comps TEXT,
+  marketcheck_log TEXT,
+
+  final_retail_value INTEGER,
+  final_trade_in_value INTEGER,
+  final_private_sale_value INTEGER,
+  valuation_reasoning TEXT,
+
+  ai_condition_score TEXT,
+  photo_confirmed INTEGER NOT NULL DEFAULT 0,
+  photos_uploaded_at TEXT,
+
+  status TEXT NOT NULL DEFAULT 'pending_photos',
+  customer_notified_at TEXT,
+  ready_to_sell INTEGER NOT NULL DEFAULT 0,
+  ready_to_sell_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_vehicle_valuations_lead_id ON vehicle_valuations(lead_id);
+
+CREATE TABLE valuation_photos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  valuation_id INTEGER NOT NULL REFERENCES vehicle_valuations(id) ON DELETE CASCADE,
+  slot TEXT NOT NULL,
+  url TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_valuation_photos_valuation_id ON valuation_photos(valuation_id);
+
 CREATE TABLE report_vehicles (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   report_id INTEGER NOT NULL REFERENCES find_car_reports(id) ON DELETE CASCADE,
