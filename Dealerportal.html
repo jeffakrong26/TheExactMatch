@@ -540,6 +540,7 @@
             <div class="dp-form-group"><label>Last Name</label><input type="text" id="su-lname" placeholder="Smith"/></div>
           </div>
           <div class="dp-form-group"><label>Dealership Name</label><input type="text" id="su-dealership" placeholder="Smith Motors"/></div>
+          <div class="dp-form-group"><label>Dealership Website</label><input type="url" id="su-website" placeholder="https://www.smithmotors.com"/></div>
           <div class="dp-form-group"><label>Email</label><input type="email" id="su-email" placeholder="you@dealership.com" autocomplete="email"/></div>
           <div class="dp-form-group" style="margin-bottom:1.5rem">
             <label>Password</label>
@@ -1474,12 +1475,13 @@ async function doDealerSignup() {
   const fname      = document.getElementById('su-fname').value.trim();
   const lname      = document.getElementById('su-lname').value.trim();
   const dealership = document.getElementById('su-dealership').value.trim();
+  const website    = document.getElementById('su-website').value.trim();
   const email      = document.getElementById('su-email').value.trim();
   const password   = document.getElementById('su-password').value;
 
   document.getElementById('signup-error').classList.remove('show');
 
-  if (!fname || !lname || !dealership || !email || !password) {
+  if (!fname || !lname || !dealership || !website || !email || !password) {
     showAlert('signup-error', 'Please fill out all fields.');
     return;
   }
@@ -1490,7 +1492,7 @@ async function doDealerSignup() {
     method: 'POST',
     body: JSON.stringify({
       token: inviteToken, first_name: fname, last_name: lname,
-      dealership_name: dealership, email, password
+      dealership_name: dealership, dealership_website: website, email, password
     })
   }).catch(() => ({res:{ok:false},data:{error:'Connection error. Please try again.'}}));
 

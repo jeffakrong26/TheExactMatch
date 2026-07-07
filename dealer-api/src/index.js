@@ -3,6 +3,21 @@
 // PBKDF2 password hashing.
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Accepts "smithmotors.com" or "https://smithmotors.com" and normalizes to a
+// full URL. Returns { url: null, error } if the input isn't a plausible website.
+function normalizeWebsiteUrl(input) {
+  const trimmed = (input || '').trim();
+  if (!trimmed) return { url: null, error: null };
+  const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const u = new URL(withProto);
+    if (!u.hostname.includes('.')) return { url: null, error: 'Please enter a valid dealership website.' };
+    return { url: u.toString(), error: null };
+  } catch {
+    return { url: null, error: 'Please enter a valid dealership website.' };
+  }
+}
 const VALID_SUB_STATUSES    = ['pending', 'approved', 'rejected', 'published'];
 const VALID_DEALER_STATUSES = ['active', 'suspended'];
 
@@ -509,7 +524,53 @@ function trimMatches(listingTrim, recommendedTrim, listingModel, recommendedMode
   return lm === rm;
 }
 
-async function searchMarketcheck(env, { make, model, trim, zip, year, budgetMax, throttledFetch }) {
+function normalizeDomain(url) {
+  if (!url) return null;
+  try {
+    const withProto = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    return new URL(withProto).hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+async function loadPartnerDealers(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT id, dealership_name, dealership_website FROM dealers
+     WHERE role != 'admin' AND status = 'active'
+       AND dealership_website IS NOT NULL AND dealership_website != ''`
+  ).all();
+  return results;
+}
+
+// Splits Marketcheck listings into ones sold by a registered partner dealer
+// (matched by website domain first, dealer name as a fallback for listings
+// syndicated through a marketplace under a different source domain) vs.
+// everything else. Partner listings are returned first so they're prioritized
+// without a second Marketcheck query.
+function partitionByPartnerDealer(listings, partnerDealers) {
+  const byDomain = new Map();
+  const byName = new Map();
+  for (const d of partnerDealers) {
+    const domain = normalizeDomain(d.dealership_website);
+    if (domain) byDomain.set(domain, d);
+    const nameKey = normalizeForMatch(d.dealership_name);
+    if (nameKey) byName.set(nameKey, d);
+  }
+
+  const partner = [];
+  const other = [];
+  for (const l of listings) {
+    const domain = normalizeDomain(l.dealer?.website);
+    const nameKey = normalizeForMatch(l.dealer?.name);
+    const match = (domain && byDomain.get(domain)) || (nameKey && byName.get(nameKey));
+    if (match) partner.push({ ...l, partner_dealer_id: match.id });
+    else other.push(l);
+  }
+  return partner.length ? [...partner, ...other] : listings;
+}
+
+async function searchMarketcheck(env, { make, model, trim, zip, year, budgetMax, throttledFetch, partnerDealers }) {
   const yearMin = year ? Number(year) - 2 : null;
   const yearMax = year ? Number(year) + 2 : null;
   const log = [];
@@ -542,7 +603,7 @@ async function searchMarketcheck(env, { make, model, trim, zip, year, budgetMax,
       errorNote = String(err);
     }
 
-    const matched = listings.filter(l => {
+    let matched = listings.filter(l => {
       const listingYear = l.build?.year || null;
       if (yearMin && yearMax && (!listingYear || listingYear < yearMin || listingYear > yearMax)) return false;
       if (budgetMax && (l.price == null || l.price > Number(budgetMax))) return false;
@@ -550,7 +611,10 @@ async function searchMarketcheck(env, { make, model, trim, zip, year, budgetMax,
       return true;
     });
 
-    log.push({ radius, query: loggedQuery, raw_count: listings.length, matched_count: matched.length, error: errorNote });
+    if (partnerDealers?.length) matched = partitionByPartnerDealer(matched, partnerDealers);
+    const partnerMatchCount = matched.filter(l => l.partner_dealer_id).length;
+
+    log.push({ radius, query: loggedQuery, raw_count: listings.length, matched_count: matched.length, partner_match_count: partnerMatchCount, error: errorNote });
     if (matched.length) return { listings: matched, radius, log };
   }
 
@@ -735,11 +799,11 @@ async function enrichVehicleSpecs(env, vehicle, known) {
   return toolUse ? toolUse.input : {};
 }
 
-async function findListingEntry(env, pick, lead, throttledFetch, tag, t0) {
+async function findListingEntry(env, pick, lead, throttledFetch, tag, t0, partnerDealers) {
   const searchMake = normalizeMakeForMarketcheck(pick.make);
   const searchResult = await searchMarketcheck(env, {
     make: searchMake, model: pick.model, trim: pick.trim, zip: lead.zip,
-    year: pick.year, budgetMax: lead.budget_max, throttledFetch,
+    year: pick.year, budgetMax: lead.budget_max, throttledFetch, partnerDealers,
   });
   console.log(`[timing] ${tag} primary search: ${Date.now() - t0}ms, matched=${!!searchResult.listings}`);
 
@@ -771,7 +835,7 @@ async function findListingEntry(env, pick, lead, throttledFetch, tag, t0) {
   }
 
   const tFallback = Date.now();
-  const franchiseResult = await searchMarketcheck(env, { make: searchMake, model: null, zip: lead.zip, throttledFetch });
+  const franchiseResult = await searchMarketcheck(env, { make: searchMake, model: null, zip: lead.zip, throttledFetch, partnerDealers });
   console.log(`[timing] ${tag} franchise fallback: ${Date.now() - tFallback}ms`);
   const nearestDealer = franchiseResult.listings ? franchiseResult.listings[0].dealer : null;
   const fullLog = [...searchResult.log, ...franchiseResult.log.map(l => ({ ...l, note: 'franchise fallback (make-only) search' }))];
@@ -789,7 +853,7 @@ async function findListingEntry(env, pick, lead, throttledFetch, tag, t0) {
   };
 }
 
-async function processVehiclePick(env, pick, lead, throttledFetch) {
+async function processVehiclePick(env, pick, lead, throttledFetch, partnerDealers) {
   const t0 = Date.now();
   const tag = `${pick.year} ${pick.make} ${pick.model}`;
 
@@ -798,7 +862,7 @@ async function processVehiclePick(env, pick, lead, throttledFetch) {
   // of stacking their latencies in series (this pipeline is on a tight ~30s
   // ctx.waitUntil() budget).
   const [entry, specs] = await Promise.all([
-    findListingEntry(env, pick, lead, throttledFetch, tag, t0),
+    findListingEntry(env, pick, lead, throttledFetch, tag, t0, partnerDealers),
     (async () => {
       const tSpecs = Date.now();
       const result = await enrichVehicleSpecs(env, pick, {});
@@ -863,9 +927,10 @@ async function generateReportForLead(env, leadId) {
 
   const picks = await pickVehicles(env, lead);
   console.log(`[timing] pickVehicles: ${Date.now() - t0}ms`);
+  const partnerDealers = await loadPartnerDealers(env);
   const throttledFetch = createMarketcheckThrottle();
   const tVehicles = Date.now();
-  const vehicles = await Promise.all(picks.map(pick => processVehiclePick(env, pick, lead, throttledFetch)));
+  const vehicles = await Promise.all(picks.map(pick => processVehiclePick(env, pick, lead, throttledFetch, partnerDealers)));
   console.log(`[timing] all vehicles processed: ${Date.now() - tVehicles}ms, cumulative: ${Date.now() - t0}ms`);
 
   const reportResult = await env.DB.prepare(
@@ -1950,11 +2015,14 @@ async function dealerSignup(request, env) {
   const password        = body.password || '';
 
   if (!token) return json({ error: 'Missing invite token.' }, 400);
-  if (!first_name || !last_name || !dealership_name || !email || !password) {
+  if (!first_name || !last_name || !dealership_name || !email || !password || !body.dealership_website) {
     return json({ error: 'All fields are required.' }, 400);
   }
   if (!EMAIL_RE.test(email)) return json({ error: 'Invalid email address.' }, 400);
   if (password.length < 8) return json({ error: 'Password must be at least 8 characters.' }, 400);
+
+  const { url: dealership_website, error: websiteError } = normalizeWebsiteUrl(body.dealership_website);
+  if (websiteError) return json({ error: websiteError }, 400);
 
   const invite = await env.DB.prepare(
     `SELECT id, status, (expires_at < datetime('now')) as expired FROM dealer_invites WHERE token = ?`
@@ -1971,9 +2039,9 @@ async function dealerSignup(request, env) {
   const name = `${first_name} ${last_name}`;
 
   const result = await env.DB.prepare(
-    `INSERT INTO dealers (name, dealership_name, email, password_hash, password_salt, role, status)
-     VALUES (?, ?, ?, ?, ?, 'dealer', 'active')`
-  ).bind(name, dealership_name, email, hash, salt).run();
+    `INSERT INTO dealers (name, dealership_name, dealership_website, email, password_hash, password_salt, role, status)
+     VALUES (?, ?, ?, ?, ?, ?, 'dealer', 'active')`
+  ).bind(name, dealership_name, dealership_website, email, hash, salt).run();
 
   const dealerId = result.meta.last_row_id;
 
@@ -1988,7 +2056,7 @@ async function dealerSignup(request, env) {
 
   return json({
     token: sessionToken,
-    dealer: { id: dealerId, name, dealership_name, email, role: 'dealer' },
+    dealer: { id: dealerId, name, dealership_name, dealership_website, email, role: 'dealer' },
   });
 }
 

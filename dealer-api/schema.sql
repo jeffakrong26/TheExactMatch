@@ -8,6 +8,7 @@ CREATE TABLE dealers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   dealership_name TEXT NOT NULL,
+  dealership_website TEXT,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   password_salt TEXT NOT NULL DEFAULT '',
