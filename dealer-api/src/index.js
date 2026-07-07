@@ -906,11 +906,21 @@ async function decodeVin(env, vin) {
   }
 }
 
+function mileageTolerance(mileage) {
+  if (mileage == null) return null;
+  if (mileage < 10000) return 3000;
+  if (mileage < 20000) return 5000;
+  if (mileage < 50000) return 10000;
+  if (mileage < 100000) return 15000;
+  return 20000;
+}
+
 async function searchMarketcheckComps(env, { make, model, trim, zip, year, mileage, throttledFetch }) {
   if (!make) return { comps: [], log: [{ note: 'No make/model available to search comps.' }] };
 
-  const yearMin = year ? Number(year) - 2 : null;
-  const yearMax = year ? Number(year) + 2 : null;
+  const yearMin = year ? Number(year) - 1 : null;
+  const yearMax = year ? Number(year) + 1 : null;
+  const mileageTol = mileageTolerance(mileage);
   const log = [];
 
   for (const radius of MARKETCHECK_RADII) {
@@ -944,6 +954,7 @@ async function searchMarketcheckComps(env, { make, model, trim, zip, year, milea
       const listingYear = l.build?.year || null;
       if (yearMin && yearMax && (!listingYear || listingYear < yearMin || listingYear > yearMax)) return false;
       if (trim && !trimMatches(l.build?.trim, trim, l.build?.model, model)) return false;
+      if (mileageTol != null && (l.miles == null || Math.abs(l.miles - mileage) > mileageTol)) return false;
       return true;
     });
 
