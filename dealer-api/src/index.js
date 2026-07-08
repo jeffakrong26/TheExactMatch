@@ -549,6 +549,29 @@ function trimMatches(listingTrim, recommendedTrim, listingModel, recommendedMode
   return lm === rm;
 }
 
+// Minimum number of candidates we want in a pool before we're willing to stop
+// expanding radius — gives the dedup/ranking step enough options to hand out
+// 3 distinct listings instead of the same one 3 times.
+const MIN_LISTING_POOL_SIZE = 5;
+
+// Rough "good deal" heuristic built only from fields Marketcheck already
+// returns (price, mileage, year, trim match) — cheaper, lower mileage, newer,
+// and closer to the recommended trim all push a listing up. This is not a
+// real market-value model (no comp/valuation data here), just a directional
+// way to rank a pool of candidates for the same nominal vehicle.
+function scoreListingDeal(l, { trim, model }) {
+  if (l.price == null) return -Infinity;
+  let score = -(l.price / 1000);
+  if (l.miles != null) score -= l.miles / 15000;
+  if (l.build?.year != null) score += l.build.year * 2.5;
+  if (trim && trimMatches(l.build?.trim, trim, l.build?.model, model)) score += 10;
+  return score;
+}
+
+function sortListingsByDeal(listings, ctx) {
+  return [...listings].sort((a, b) => scoreListingDeal(b, ctx) - scoreListingDeal(a, ctx));
+}
+
 function normalizeDomain(url) {
   if (!url) return null;
   try {
@@ -599,6 +622,7 @@ async function searchMarketcheck(env, { make, model, trim, zip, year, budgetMax,
   const yearMin = year ? Number(year) - 2 : null;
   const yearMax = year ? Number(year) + 2 : null;
   const log = [];
+  let bestPool = null; // largest non-empty pool seen, in case we never reach MIN_LISTING_POOL_SIZE
 
   for (const radius of MARKETCHECK_RADII) {
     const url = new URL('https://api.marketcheck.com/v2/search/car/active');
@@ -608,7 +632,7 @@ async function searchMarketcheck(env, { make, model, trim, zip, year, budgetMax,
     if (model) url.searchParams.set('model', model);
     if (yearMin && yearMax) url.searchParams.set('year_range', `${yearMin}-${yearMax}`);
     if (budgetMax) url.searchParams.set('price_range', `0-${Math.round(Number(budgetMax))}`);
-    url.searchParams.set('rows', '20');
+    url.searchParams.set('rows', '50');
 
     const loggedQuery = url.toString();
     const fetchUrl = new URL(loggedQuery);
@@ -636,18 +660,21 @@ async function searchMarketcheck(env, { make, model, trim, zip, year, budgetMax,
       return true;
     });
 
+    matched = sortListingsByDeal(matched, { trim, model });
     if (partnerDealers?.length) matched = partitionByPartnerDealer(matched, partnerDealers);
     const partnerMatchCount = matched.filter(l => l.partner_dealer_id).length;
 
     log.push({ radius, query: loggedQuery, raw_count: listings.length, matched_count: matched.length, partner_match_count: partnerMatchCount, error: errorNote });
-    if (matched.length) return { listings: matched, radius, log };
+
+    if (matched.length) bestPool = { listings: matched, radius };
+    if (matched.length >= MIN_LISTING_POOL_SIZE) return { listings: matched, radius, log };
     // A rejected request (e.g. radius past what the plan allows) isn't the same
     // as a confirmed empty result — don't keep burning calls on larger radii
     // that will fail the same way.
     if (errorNote) break;
   }
 
-  return { listings: null, radius: null, log };
+  return bestPool ? { ...bestPool, log } : { listings: null, radius: null, log };
 }
 
 async function verifyListingLive(vdpUrl) {
@@ -865,42 +892,58 @@ async function enrichVehicleSpecs(env, vehicle, known) {
   return toolUse ? toolUse.input : {};
 }
 
-async function findListingEntry(env, pick, lead, throttledFetch, tag, t0, partnerDealers) {
+// Fetches the candidate pool for one vehicle pick (already deal-ranked by
+// searchMarketcheck). Doesn't pick a winner or verify anything — that happens
+// after all 3 positions' pools are in hand, so positions can be deduped
+// against each other instead of independently grabbing the same top listing.
+async function fetchListingPool(env, pick, lead, throttledFetch, partnerDealers, tag) {
+  const t0 = Date.now();
   const searchMake = normalizeMakeForMarketcheck(pick.make);
   const searchModel = normalizeModelForMarketcheck(pick.model);
   const searchResult = await searchMarketcheck(env, {
     make: searchMake, model: searchModel, trim: pick.trim, zip: lead.zip,
     year: pick.year, budgetMax: lead.budget_max, throttledFetch, partnerDealers,
   });
-  console.log(`[timing] ${tag} primary search: ${Date.now() - t0}ms, matched=${!!searchResult.listings}`);
+  console.log(`[timing] ${tag} primary search: ${Date.now() - t0}ms, pool_size=${searchResult.listings?.length || 0}`);
+  return { searchMake, searchResult };
+}
 
-  if (searchResult.listings) {
-    const l = searchResult.listings[0];
+function listingVin(l) {
+  return l?.vin || l?.build?.vin || null;
+}
+
+async function buildVehicleEntry(env, pick, winner, poolInfo, lead, throttledFetch, partnerDealers, tag) {
+  const { searchMake, searchResult } = poolInfo;
+
+  if (winner) {
     const tVerify = Date.now();
-    const verified = await verifyListingLive(l.vdp_url);
+    const verified = await verifyListingLive(winner.vdp_url);
     console.log(`[timing] ${tag} verify: ${Date.now() - tVerify}ms`);
     return {
       ...pick,
-      price: l.price ?? null,
-      mileage: l.miles ?? null,
-      dealer_name: l.dealer?.name || null,
-      dealer_city: l.dealer?.city || null,
-      dealer_state: l.dealer?.state || null,
-      vdp_url: l.vdp_url || null,
+      price: winner.price ?? null,
+      mileage: winner.miles ?? null,
+      dealer_name: winner.dealer?.name || null,
+      dealer_city: winner.dealer?.city || null,
+      dealer_state: winner.dealer?.state || null,
+      vdp_url: winner.vdp_url || null,
       source: 'marketcheck',
       verified,
-      engine: l.build?.engine || null,
-      transmission: l.build?.transmission || null,
-      drivetrain: l.build?.drivetrain || null,
-      city_mpg: l.build?.city_mpg ?? null,
-      highway_mpg: l.build?.highway_mpg ?? null,
-      exterior_color: l.exterior_color || null,
-      photo_url: l.media?.photo_links_cached?.[0] || l.media?.photo_links?.[0] || null,
-      photo_urls: JSON.stringify(l.media?.photo_links_cached || l.media?.photo_links || []),
+      engine: winner.build?.engine || null,
+      transmission: winner.build?.transmission || null,
+      drivetrain: winner.build?.drivetrain || null,
+      city_mpg: winner.build?.city_mpg ?? null,
+      highway_mpg: winner.build?.highway_mpg ?? null,
+      exterior_color: winner.exterior_color || null,
+      photo_url: winner.media?.photo_links_cached?.[0] || winner.media?.photo_links?.[0] || null,
+      photo_urls: JSON.stringify(winner.media?.photo_links_cached || winner.media?.photo_links || []),
       search_log: JSON.stringify(searchResult.log),
     };
   }
 
+  // No unclaimed candidate for this position (pool empty, or every candidate
+  // was already claimed by another position in this report) — franchise
+  // fallback, same as before.
   const tFallback = Date.now();
   const franchiseResult = await searchMarketcheck(env, { make: searchMake, model: null, zip: lead.zip, throttledFetch, partnerDealers });
   console.log(`[timing] ${tag} franchise fallback: ${Date.now() - tFallback}ms`);
@@ -918,40 +961,6 @@ async function findListingEntry(env, pick, lead, throttledFetch, tag, t0, partne
     verified: 'sourcing_in_progress',
     search_log: JSON.stringify(fullLog),
   };
-}
-
-async function processVehiclePick(env, pick, lead, throttledFetch, partnerDealers) {
-  const t0 = Date.now();
-  const tag = `${pick.year} ${pick.make} ${pick.model}`;
-
-  // Listing search and spec enrichment are independent — Claude's spec recall
-  // doesn't require the Marketcheck result, so run them concurrently instead
-  // of stacking their latencies in series (this pipeline is on a tight ~30s
-  // ctx.waitUntil() budget).
-  const [entry, specs] = await Promise.all([
-    findListingEntry(env, pick, lead, throttledFetch, tag, t0, partnerDealers),
-    (async () => {
-      const tSpecs = Date.now();
-      const result = await enrichVehicleSpecs(env, pick, {});
-      console.log(`[timing] ${tag} enrichSpecs: ${Date.now() - tSpecs}ms`);
-      return result;
-    })(),
-  ]);
-
-  entry.engine = entry.engine || specs.engine || null;
-  entry.transmission = entry.transmission || specs.transmission || null;
-  entry.drivetrain = entry.drivetrain || specs.drivetrain || null;
-  entry.city_mpg = entry.city_mpg ?? specs.city_mpg ?? null;
-  entry.highway_mpg = entry.highway_mpg ?? specs.highway_mpg ?? null;
-  entry.exterior_color_options = specs.exterior_color_options || null;
-  entry.safety_rating = specs.safety_rating || null;
-  entry.cargo_space = specs.cargo_space || null;
-  entry.seating_capacity = specs.seating_capacity ?? null;
-  entry.warranty = specs.warranty || null;
-  entry.notable_features = JSON.stringify(specs.notable_features || []);
-
-  console.log(`[timing] ${tag} TOTAL: ${Date.now() - t0}ms`);
-  return entry;
 }
 
 function createMarketcheckThrottle(maxConcurrent = 3) {
@@ -997,7 +1006,53 @@ async function generateReportForLead(env, leadId) {
   const partnerDealers = await loadPartnerDealers(env);
   const throttledFetch = createMarketcheckThrottle();
   const tVehicles = Date.now();
-  const vehicles = await Promise.all(picks.map(pick => processVehiclePick(env, pick, lead, throttledFetch, partnerDealers)));
+  const tags = picks.map(pick => `${pick.year} ${pick.make} ${pick.model}`);
+
+  // Phase A (parallel I/O): fetch each position's candidate pool and its
+  // generic spec enrichment independently — these don't depend on each other.
+  const [pools, specsList] = await Promise.all([
+    Promise.all(picks.map((pick, i) => fetchListingPool(env, pick, lead, throttledFetch, partnerDealers, tags[i]))),
+    Promise.all(picks.map((pick, i) => (async () => {
+      const tSpecs = Date.now();
+      const result = await enrichVehicleSpecs(env, pick, {});
+      console.log(`[timing] ${tags[i]} enrichSpecs: ${Date.now() - tSpecs}ms`);
+      return result;
+    })())),
+  ]);
+
+  // Phase B (sync, no I/O): claim distinct listings across positions so the
+  // same live listing isn't recommended 3 times in one report. Pools are
+  // already deal-ranked (price/mileage/year/trim), so this just walks each
+  // position's ranked pool for the best VIN nobody else has taken yet.
+  const claimedVins = new Set();
+  const winners = pools.map(({ searchResult }) => {
+    const candidate = (searchResult.listings || []).find(l => {
+      const vin = listingVin(l);
+      return !vin || !claimedVins.has(vin);
+    });
+    const vin = candidate && listingVin(candidate);
+    if (vin) claimedVins.add(vin);
+    return candidate || null;
+  });
+
+  // Phase C (parallel I/O): verify the winning listing is still live and
+  // build each position's final entry, merging in the spec enrichment.
+  const vehicles = await Promise.all(picks.map(async (pick, i) => {
+    const entry = await buildVehicleEntry(env, pick, winners[i], pools[i], lead, throttledFetch, partnerDealers, tags[i]);
+    const specs = specsList[i];
+    entry.engine = entry.engine || specs.engine || null;
+    entry.transmission = entry.transmission || specs.transmission || null;
+    entry.drivetrain = entry.drivetrain || specs.drivetrain || null;
+    entry.city_mpg = entry.city_mpg ?? specs.city_mpg ?? null;
+    entry.highway_mpg = entry.highway_mpg ?? specs.highway_mpg ?? null;
+    entry.exterior_color_options = specs.exterior_color_options || null;
+    entry.safety_rating = specs.safety_rating || null;
+    entry.cargo_space = specs.cargo_space || null;
+    entry.seating_capacity = specs.seating_capacity ?? null;
+    entry.warranty = specs.warranty || null;
+    entry.notable_features = JSON.stringify(specs.notable_features || []);
+    return entry;
+  }));
   console.log(`[timing] all vehicles processed: ${Date.now() - tVehicles}ms, cumulative: ${Date.now() - t0}ms`);
 
   const reportResult = await env.DB.prepare(
