@@ -514,6 +514,23 @@ function normalizeMakeForMarketcheck(make) {
   return MARKETCHECK_MAKE_ALIASES[key] || make;
 }
 
+// Claude recommends vehicles by their manufacturer marketing name, but
+// Marketcheck's own model taxonomy sometimes drops generation/performance
+// prefixes (verified live against the API — e.g. "718 Cayman" returns 0
+// results while "Cayman" returns real inventory). Only entries confirmed
+// against live Marketcheck data belong here.
+const MARKETCHECK_MODEL_ALIASES = {
+  'gr supra': 'Supra',
+  '718 cayman': 'Cayman',
+  '718 boxster': 'Boxster',
+  'tt rs': 'TT',
+};
+
+function normalizeModelForMarketcheck(model) {
+  const key = (model || '').toLowerCase().trim();
+  return MARKETCHECK_MODEL_ALIASES[key] || model;
+}
+
 function normalizeForMatch(s) {
   return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
@@ -808,8 +825,9 @@ async function enrichVehicleSpecs(env, vehicle, known) {
 
 async function findListingEntry(env, pick, lead, throttledFetch, tag, t0, partnerDealers) {
   const searchMake = normalizeMakeForMarketcheck(pick.make);
+  const searchModel = normalizeModelForMarketcheck(pick.model);
   const searchResult = await searchMarketcheck(env, {
-    make: searchMake, model: pick.model, trim: pick.trim, zip: lead.zip,
+    make: searchMake, model: searchModel, trim: pick.trim, zip: lead.zip,
     year: pick.year, budgetMax: lead.budget_max, throttledFetch, partnerDealers,
   });
   console.log(`[timing] ${tag} primary search: ${Date.now() - t0}ms, matched=${!!searchResult.listings}`);
@@ -1174,7 +1192,7 @@ async function generateValuationForLead(env, leadId, input) {
   const throttledFetch = createMarketcheckThrottle();
   const tComps = Date.now();
   const { comps, log } = await searchMarketcheckComps(env, {
-    make: normalizeMakeForMarketcheck(vehicle.make), model: vehicle.model, trim: vehicle.trim,
+    make: normalizeMakeForMarketcheck(vehicle.make), model: normalizeModelForMarketcheck(vehicle.model), trim: vehicle.trim,
     zip: input.zip, year: vehicle.year, mileage: input.mileage, throttledFetch,
   });
   console.log(`[timing] valuation lead ${leadId} comps: ${Date.now() - tComps}ms, count=${comps.length}`);
