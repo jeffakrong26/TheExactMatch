@@ -417,7 +417,12 @@ async function sendBrevoEmail(env, { to, subject, html }) {
 
 function buildVehiclePrompt(lead) {
   const year = new Date().getFullYear();
+  const consideringSpecificModel = (lead.considering || '').trim().length > 0;
   return `A car-buying client filled out our "Find My Car" form. Based on their answers, recommend exactly 3 specific vehicles (year, make, model, trim) that best fit their needs. For each, write a short rationale addressed DIRECTLY to the client in second person — always "you"/"your", never "they"/"their"/"the client"/"the buyer". For example: "This fits your need for extra cargo space" — not "This fits their need for extra cargo space."
+
+${consideringSpecificModel
+  ? `The client already told us the specific make/model they want: "${lead.considering}". All 3 recommendations MUST be that exact make and model — vary them by year, trim, or configuration only. Do not substitute a different make/model, even a similar one, unless what they wrote isn't a real, buildable vehicle.`
+  : `The client did not name a specific make/model, so use the rest of their answers (vehicle type, priorities, budget, etc.) to recommend the 3 best-fitting vehicles — these may span different makes/models.`}
 
 Client details:
 - Vehicle type: ${lead.vehicle_type || 'not specified'}
@@ -689,7 +694,32 @@ function extractPhotosFromPage(structuredData, ogData) {
   return photos.filter(Boolean);
 }
 
-async function extractListingWithClaude(env, html, structuredData, ogData) {
+// schema.org Vehicle markup gives exact, machine-readable values — pull these
+// directly instead of asking Claude to re-derive them from a truncated JSON
+// dump (the "description" field alone commonly runs several thousand
+// characters of marketing bullet points and was pushing price/image past any
+// reasonable prompt slice).
+function extractStructuredVehicleFields(structuredData) {
+  if (!structuredData) return {};
+  const offers = Array.isArray(structuredData.offers) ? structuredData.offers[0] : structuredData.offers;
+  const engine = structuredData.vehicleEngine;
+  const year = parseInt(structuredData.vehicleModelDate || structuredData.productionDate, 10);
+  const price = offers?.price != null ? Math.round(Number(offers.price)) : null;
+  const mileage = structuredData.mileageFromOdometer?.value != null ? Math.round(Number(structuredData.mileageFromOdometer.value)) : null;
+  return {
+    year: Number.isFinite(year) ? year : null,
+    make: structuredData.manufacturer?.name || structuredData.brand?.name || null,
+    model: structuredData.model || null,
+    price: Number.isFinite(price) ? price : null,
+    mileage: Number.isFinite(mileage) ? mileage : null,
+    color: structuredData.color || null,
+    engine: typeof engine === 'string' ? engine : (engine?.name || null),
+    transmission: structuredData.vehicleTransmission || null,
+    drivetrain: structuredData.driveWheelConfiguration || null,
+  };
+}
+
+async function extractListingWithClaude(env, html, structuredFields, ogData) {
   const cleaned = html
     .replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
     .replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 12000);
@@ -701,19 +731,25 @@ async function extractListingWithClaude(env, html, structuredData, ogData) {
     input_schema: {
       type: 'object',
       properties: {
-        year: { type: 'integer' }, make: { type: 'string' }, model: { type: 'string' }, trim: { type: 'string' },
+        year: { type: 'integer' }, make: { type: 'string' }, model: { type: 'string' },
+        trim: { type: 'string', description: 'The trim/edition name only, e.g. "Premium", "S", "Limited" — usually the last word(s) of the page title after year/make/model. Empty string if truly not stated anywhere.' },
         price: { type: 'integer' }, mileage: { type: 'integer' }, color: { type: 'string' },
         engine: { type: 'string' }, transmission: { type: 'string' }, drivetrain: { type: 'string' },
         found_confidence: { type: 'string', enum: ['high', 'low', 'none'], description: 'none if this page does not look like a vehicle listing at all' },
       },
-      required: ['found_confidence'],
+      required: ['found_confidence', 'trim'],
       additionalProperties: false,
     },
   };
 
-  const prompt = `Extract vehicle listing details from this dealer webpage content. Only fill in fields you can confidently determine — omit uncertain ones.
-${structuredData ? `\nStructured data found on page: ${JSON.stringify(structuredData).slice(0, 2000)}` : ''}
+  const knownFields = Object.fromEntries(Object.entries(structuredFields || {}).filter(([, v]) => v != null && v !== ''));
+  const hasKnownFields = Object.keys(knownFields).length > 0;
+
+  const prompt = `Extract vehicle listing details from this dealer webpage content.
+${hasKnownFields ? `\nThese fields were already reliably extracted from the page's own structured data — repeat them back as-is, do not second-guess or omit them: ${JSON.stringify(knownFields)}` : ''}
 ${ogData?.title ? `\nPage title: ${ogData.title}` : ''}
+
+Fill in any fields not already listed above (especially trim, which usually only appears in the page title or text, e.g. "Premium" in "2024 Toyota GR86 Premium") using the page text below. Only omit a field if it's genuinely not determinable from the title or page text.
 
 Page text content:
 ${cleaned}`;
@@ -751,19 +787,25 @@ async function adminScrapeListingUrl(request, env, params) {
   const structuredData = extractJsonLdVehicle(html);
   const ogData = extractOgTags(html);
   const photos = extractPhotosFromPage(structuredData, ogData);
-  const extracted = await extractListingWithClaude(env, html, structuredData, ogData);
+  const structuredFields = extractStructuredVehicleFields(structuredData);
+  const extracted = await extractListingWithClaude(env, html, structuredFields, ogData);
 
-  if (extracted.found_confidence === 'none') {
+  const hasAnyData = extracted.found_confidence !== 'none' || Object.values(structuredFields).some(v => v != null);
+  if (!hasAnyData) {
     return json({ error: "That page doesn't look like a vehicle listing. Fill in the fields below manually." });
   }
 
   const merged = {
-    year: extracted.year ?? existing.year, make: extracted.make || existing.make,
-    model: extracted.model || existing.model, trim: extracted.trim || existing.trim,
-    price: extracted.price ?? existing.price, mileage: extracted.mileage ?? existing.mileage,
-    exterior_color: extracted.color || existing.exterior_color,
-    engine: extracted.engine || existing.engine, transmission: extracted.transmission || existing.transmission,
-    drivetrain: extracted.drivetrain || existing.drivetrain,
+    year: structuredFields.year ?? extracted.year ?? existing.year,
+    make: structuredFields.make || extracted.make || existing.make,
+    model: structuredFields.model || extracted.model || existing.model,
+    trim: extracted.trim || existing.trim,
+    price: structuredFields.price ?? extracted.price ?? existing.price,
+    mileage: structuredFields.mileage ?? extracted.mileage ?? existing.mileage,
+    exterior_color: structuredFields.color || extracted.color || existing.exterior_color,
+    engine: structuredFields.engine || extracted.engine || existing.engine,
+    transmission: structuredFields.transmission || extracted.transmission || existing.transmission,
+    drivetrain: structuredFields.drivetrain || extracted.drivetrain || existing.drivetrain,
     photo_url: photos[0] || existing.photo_url,
     photo_urls: JSON.stringify(photos.length ? photos : JSON.parse(existing.photo_urls || '[]')),
   };
