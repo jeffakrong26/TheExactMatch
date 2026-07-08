@@ -496,7 +496,10 @@ async function pickVehicles(env, lead) {
   return vehicles;
 }
 
-const MARKETCHECK_RADII = [25, 50, 100, 200, 300];
+// 200mi/300mi both 422 on our Marketcheck plan (radius cap is plan-dependent —
+// confirmed via search_log: 100mi returns 200 OK with 0 results, 200mi+ is
+// rejected outright). Keep this at or below whatever the account's plan allows.
+const MARKETCHECK_RADII = [25, 50, 100];
 
 const MARKETCHECK_MAKE_ALIASES = {
   'mercedes-amg': 'Mercedes-Benz',
@@ -616,6 +619,10 @@ async function searchMarketcheck(env, { make, model, trim, zip, year, budgetMax,
 
     log.push({ radius, query: loggedQuery, raw_count: listings.length, matched_count: matched.length, partner_match_count: partnerMatchCount, error: errorNote });
     if (matched.length) return { listings: matched, radius, log };
+    // A rejected request (e.g. radius past what the plan allows) isn't the same
+    // as a confirmed empty result — don't keep burning calls on larger radii
+    // that will fail the same way.
+    if (errorNote) break;
   }
 
   return { listings: null, radius: null, log };
