@@ -346,7 +346,11 @@ async function submitFindCarLead(request, env, params, dealer, token, ctx) {
   const leadId = result.meta.last_row_id;
   if (ctx) {
     ctx.waitUntil(sendClientConfirmationEmail(env, { first_name, email }).catch(err => console.error('confirmation email failed', leadId, err)));
-    ctx.waitUntil(generateReportForLead(env, leadId).catch(err => console.error('report pipeline failed for lead', leadId, err)));
+    // The report pipeline (Claude + Marketcheck, multiple round trips) can run
+    // long enough to hit the hard 30s ctx.waitUntil() ceiling for HTTP-triggered
+    // Workers, which silently kills the job with no trace. Queue consumers get
+    // their own execution budget instead, so hand it off rather than run it inline.
+    ctx.waitUntil(env.JOB_QUEUE.send({ type: 'find_car_report', leadId }).catch(err => console.error('failed to enqueue report job for lead', leadId, err)));
   }
 
   return json({ success: true });
@@ -492,6 +496,7 @@ async function pickVehicles(env, lead) {
     }),
   });
 
+  if (!res.ok) throw new Error(`Claude API error (recommendations): HTTP ${res.status}`);
   const data = await res.json();
   if (data.stop_reason === 'refusal') throw new Error('Claude declined the recommendation request');
   const toolUse = (data.content || []).find(b => b.type === 'tool_use');
@@ -786,6 +791,7 @@ ${cleaned}`;
     headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1024, tools: [tool], tool_choice: { type: 'tool', name: 'record_listing_data' }, messages: [{ role: 'user', content: prompt }] }),
   });
+  if (!res.ok) return { found_confidence: 'none' };
   const data = await res.json();
   if (data.stop_reason === 'refusal') return { found_confidence: 'none' };
   const toolUse = (data.content || []).find(b => b.type === 'tool_use');
@@ -886,6 +892,7 @@ async function enrichVehicleSpecs(env, vehicle, known) {
       messages: [{ role: 'user', content: prompt }],
     }),
   });
+  if (!res.ok) return {};
   const data = await res.json();
   if (data.stop_reason === 'refusal') return {};
   const toolUse = (data.content || []).find(b => b.type === 'tool_use');
@@ -1248,6 +1255,7 @@ async function synthesizeValuation(env, args) {
     }),
   });
 
+  if (!res.ok) throw new Error(`Claude API error (valuation): HTTP ${res.status}`);
   const data = await res.json();
   if (data.stop_reason === 'refusal') throw new Error('Claude declined the valuation request');
   const toolUse = (data.content || []).find(b => b.type === 'tool_use');
@@ -1405,6 +1413,7 @@ async function assessConditionFromPhotos(env, { selfReported, photosBySlot }) {
     }),
   });
 
+  if (!res.ok) throw new Error(`Claude API error (condition assessment): HTTP ${res.status}`);
   const data = await res.json();
   if (data.stop_reason === 'refusal') throw new Error('Claude declined the condition assessment request');
   const toolUse = (data.content || []).find(b => b.type === 'tool_use');
@@ -2064,11 +2073,15 @@ async function submitSellCarLead(request, env, params, dealer, token, ctx) {
   const leadId = result.meta.last_row_id;
 
   if (ctx) {
-    ctx.waitUntil(generateValuationForLead(env, leadId, {
+    // Same hard 30s ctx.waitUntil() ceiling risk as the Find My Car pipeline —
+    // hand off to the queue instead of running the VIN decode + comps + Claude
+    // valuation chain inline.
+    const input = {
       vin, mileage, year, make, model, trim, zip,
       general_condition: body.condition || '',
       accident_history, accident_notes, mechanical_status, mechanical_notes,
-    }).catch(err => console.error('valuation pipeline failed for lead', leadId, err)));
+    };
+    ctx.waitUntil(env.JOB_QUEUE.send({ type: 'sell_car_valuation', leadId, input }).catch(err => console.error('failed to enqueue valuation job for lead', leadId, err)));
   }
 
   return json({ success: true });
@@ -2801,5 +2814,44 @@ export default {
 
   async scheduled(event, env, ctx) {
     ctx.waitUntil(cleanupStaleRecords(env));
+  },
+
+  async queue(batch, env) {
+    if (batch.queue.endsWith('-dlq')) {
+      // Every retry has already been exhausted for these — the only thing left
+      // to do is make sure a human finds out, since nothing else will surface it.
+      for (const message of batch.messages) {
+        const body = message.body;
+        await sendBrevoEmail(env, {
+          to: 'theexactmatch@gmail.com',
+          subject: '⚠️ Background job permanently failed',
+          html: brandedEmailHtml(`
+            <p>A queued job exhausted all retries and was moved to the dead-letter queue — it will <strong>not</strong> run again automatically.</p>
+            <p><strong>Type:</strong> ${escapeHtml(body?.type || 'unknown')}<br/>
+            <strong>Lead ID:</strong> ${escapeHtml(body?.leadId ?? 'unknown')}</p>
+            <p>Check the Cloudflare dashboard's Workers Logs for theexactmatch-dealer-api around this time for the actual error, then re-trigger manually if needed.</p>
+          `),
+        }).catch(err => console.error('dead-letter alert email failed', body, err));
+        message.ack();
+      }
+      return;
+    }
+
+    for (const message of batch.messages) {
+      try {
+        const body = message.body;
+        if (body.type === 'find_car_report') {
+          await generateReportForLead(env, body.leadId);
+        } else if (body.type === 'sell_car_valuation') {
+          await generateValuationForLead(env, body.leadId, body.input);
+        } else {
+          console.error('unknown queue job type', body.type);
+        }
+        message.ack();
+      } catch (err) {
+        console.error('queue job failed', message.body, err);
+        message.retry();
+      }
+    }
   },
 };

@@ -21,6 +21,15 @@
 	"r2_buckets": [
 		{ "binding": "PHOTOS", "bucket_name": "theexactmatch-vehicle-photos" }
 	],
+	"queues": {
+		"producers": [
+			{ "queue": "tem-report-jobs", "binding": "JOB_QUEUE" }
+		],
+		"consumers": [
+			{ "queue": "tem-report-jobs", "max_batch_size": 5, "max_batch_timeout": 5, "max_retries": 3, "dead_letter_queue": "tem-report-jobs-dlq" },
+			{ "queue": "tem-report-jobs-dlq", "max_batch_size": 5, "max_batch_timeout": 5 }
+		]
+	},
 	"triggers": {
 		"crons": ["0 6 * * *"]
 	}
