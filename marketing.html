@@ -220,25 +220,25 @@
       </div>
 
       <label>Headline</label>
-      <input type="text" id="inHeadline" value="Just landed" oninput="render()">
-      <input type="text" id="inHeadlineAccent" value="in Houston." style="margin-top:6px;" oninput="render()">
+      <input type="text" id="inHeadline" value="" placeholder="e.g. Just landed" oninput="render()">
+      <input type="text" id="inHeadlineAccent" value="" placeholder="e.g. in Houston." style="margin-top:6px;" oninput="render()">
 
       <div id="vehicleFields">
         <label>Year, make & model</label>
-        <input type="text" id="inVehicle" value="2026 Mazda CX-5 2.5 S" oninput="render()">
+        <input type="text" id="inVehicle" value="" placeholder="e.g. 2026 Mazda CX-5 2.5 S" oninput="render()">
 
         <label>Trim / color</label>
-        <input type="text" id="inTrim" value="Jet Black Mica" oninput="render()">
+        <input type="text" id="inTrim" value="" placeholder="e.g. Jet Black Mica" oninput="render()">
 
         <label>Price</label>
-        <input type="text" id="inPrice" value="$33,945" oninput="render()">
+        <input type="text" id="inPrice" value="" placeholder="e.g. $33,945" oninput="render()">
 
         <label>Mileage (leave blank if new)</label>
         <input type="text" id="inMiles" value="" placeholder="e.g. 18,400 mi" oninput="render()">
       </div>
 
       <label id="noteLabel">Caption</label>
-      <textarea id="inNote" oninput="render()">Found the right fit again. If this looks like your exact match, tell us what you're looking for — it's free, and we do the rest.</textarea>
+      <textarea id="inNote" placeholder="Write your caption here…" oninput="render()"></textarea>
 
       <label>Vehicle photo</label>
       <div class="upload" onclick="document.getElementById('photoInput').click()">
@@ -257,18 +257,18 @@
           <div class="content">
             <div class="top-block">
               <span class="type-badge" id="typeBadge">NEW ARRIVAL</span>
-              <h1 class="card-h" id="headline">Just landed<br><em id="headlineAccent">in Houston.</em></h1>
+              <h1 class="card-h" id="headline"><br><em id="headlineAccent"></em></h1>
             </div>
             <div class="spacer"></div>
             <div class="bottom-block">
               <div class="facts" id="factsRow">
                 <div>
                   <p class="fact-label">VEHICLE</p>
-                  <p class="fact-value" id="factVehicle">2026 Mazda CX-5 2.5 S</p>
+                  <p class="fact-value" id="factVehicle"></p>
                 </div>
                 <div>
                   <p class="fact-label">TRIM</p>
-                  <p class="fact-value" id="factTrim">Jet Black Mica</p>
+                  <p class="fact-value" id="factTrim"></p>
                 </div>
                 <div id="milesBlock" style="display:none;">
                   <p class="fact-label">MILES</p>
@@ -276,10 +276,10 @@
                 </div>
                 <div>
                   <p class="fact-label">PRICE</p>
-                  <p class="fact-value" id="factPrice">$33,945</p>
+                  <p class="fact-value" id="factPrice"></p>
                 </div>
               </div>
-              <p class="note" id="noteText">Found the right fit again. If this looks like your exact match, tell us what you're looking for — it's free, and we do the rest.</p>
+              <p class="note" id="noteText"></p>
               <div class="card-footer">
                 <div>
                   <p class="wordmark">The<span class="accent">Exact</span>Match</p>
