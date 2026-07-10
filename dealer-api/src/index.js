@@ -3230,6 +3230,35 @@ async function adminUpdateDealer(request, env, params) {
   return json({ success: true });
 }
 
+// Manually (re-)sends the "Dealer Welcome" Brevo template to an existing
+// dealer — the automatic send only fires once, 30 minutes after invite
+// signup. Unlike sendBrevoTemplateEmail (used by the queue consumer, which
+// deliberately swallows errors so a bad send never breaks the pipeline),
+// this reports the real Brevo response back to the admin, since a manual
+// send should surface whether it actually worked.
+async function adminSendDealerWelcomeEmail(request, env, params) {
+  const dealer = await env.DB.prepare('SELECT id, name, email FROM dealers WHERE id = ?').bind(+params.id).first();
+  if (!dealer) return json({ error: 'Dealer not found.' }, 404);
+
+  const firstName = (dealer.name || '').trim().split(/\s+/)[0] || dealer.name;
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'api-key': env.BREVO_API_KEY },
+    body: JSON.stringify({
+      to: [{ email: dealer.email }],
+      templateId: DEALER_WELCOME_TEMPLATE_ID,
+      params: { FIRSTNAME: firstName },
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    return json({ error: `Brevo rejected the send (HTTP ${res.status}).`, detail: body }, 502);
+  }
+
+  return json({ success: true, sent_to: dealer.email });
+}
+
 // Auto.dev has no exact dealerId filter, only a name filter — and dealer
 // names aren't unique (confirmed live: two unrelated dealers both named
 // "Audi North Austin"). This searches by the partner's registered
@@ -4129,6 +4158,7 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/admin/notification-counts/:section/items/:itemId/seen',  handler: adminMarkItemSeen, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/dealers/:id',           handler: adminUpdateDealer, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/dealers/:id/autodev-lookup', handler: adminAutodevDealerLookup, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/dealers/:id/send-welcome-email', handler: adminSendDealerWelcomeEmail, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/invites',                handler: adminGenerateInvite, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/invites',                handler: adminListInvites, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/dealer/invites/:token',        handler: validateInvite },
