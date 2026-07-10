@@ -14,7 +14,8 @@ CREATE TABLE dealers (
   password_salt TEXT NOT NULL DEFAULT '',
   role TEXT NOT NULL DEFAULT 'dealer',
   status TEXT NOT NULL DEFAULT 'active',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  autodev_dealer_id TEXT
 );
 
 CREATE TABLE dealer_sessions (
@@ -261,5 +262,23 @@ CREATE TABLE report_vehicles (
   interested INTEGER NOT NULL DEFAULT 0,
   interested_at TEXT,
   ready INTEGER NOT NULL DEFAULT 0,
-  ready_at TEXT
+  ready_at TEXT,
+  white_glove_requested INTEGER NOT NULL DEFAULT 0,
+  white_glove_requested_at TEXT,
+  white_glove_fee INTEGER,
+  photos_missing INTEGER NOT NULL DEFAULT 0
 );
+
+-- Tracks every Auto.dev API call (Find My Car listings + finalist photos) so
+-- usage can be checked against the 1,000-call/month free tier.
+CREATE TABLE autodev_api_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  endpoint TEXT NOT NULL,
+  params TEXT,
+  status_code INTEGER,
+  result_count INTEGER,
+  lead_id INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_autodev_api_log_created_at ON autodev_api_log(created_at);

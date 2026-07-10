@@ -7,7 +7,8 @@
 		"enabled": true
 	},
 	"vars": {
-		"DEALER_WELCOME_EMAIL_ENABLED": "true"
+		"DEALER_WELCOME_EMAIL_ENABLED": "true",
+		"CRM_HOOK_URL": "https://crm.theexactmatch.com"
 	},
 	"d1_databases": [
 		{
@@ -30,7 +31,7 @@
 			{ "queue": "tem-report-jobs", "binding": "JOB_QUEUE" }
 		],
 		"consumers": [
-			{ "queue": "tem-report-jobs", "max_batch_size": 5, "max_batch_timeout": 5, "max_retries": 3, "dead_letter_queue": "tem-report-jobs-dlq" },
+			{ "queue": "tem-report-jobs", "max_batch_size": 5, "max_batch_timeout": 5, "max_retries": 3, "max_concurrency": 1, "dead_letter_queue": "tem-report-jobs-dlq" },
 			{ "queue": "tem-report-jobs-dlq", "max_batch_size": 5, "max_batch_timeout": 5 }
 		]
 	},

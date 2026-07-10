@@ -2,6 +2,25 @@
 // Cloudflare Worker + D1 (dealer-portal database). Bearer-token sessions,
 // PBKDF2 password hashing.
 
+// US ZIP (ZCTA) -> [lat, lng] centroids, from the Census Bureau's public-domain
+// 2024 Gazetteer file. Used to compute distance from a client's zip to a
+// listing's coordinates without any extra geocoding API call. PO-box-only
+// zips (e.g. 77001) have no ZCTA and won't be in this table.
+import ZIP_CENTROIDS from './zip-centroids.json';
+
+function zipCentroid(zip) {
+  return ZIP_CENTROIDS[(zip || '').trim()] || null;
+}
+
+function haversineMiles([lat1, lng1], [lat2, lng2]) {
+  const R = 3958.8; // Earth radius in miles
+  const toRad = d => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DEALER_WELCOME_TEMPLATE_ID = 7; // Brevo "Dealer Welcome — Portal Invite Accepted"
 
@@ -517,11 +536,32 @@ async function submitFindCarLead(request, env, params, dealer, token, ctx) {
   const leadId = result.meta.last_row_id;
   if (ctx) {
     ctx.waitUntil(sendClientConfirmationEmail(env, { first_name, email }).catch(err => console.error('confirmation email failed', leadId, err)));
-    // The report pipeline (Claude + Marketcheck, multiple round trips) can run
+    // The report pipeline (Claude + Auto.dev, multiple round trips) can run
     // long enough to hit the hard 30s ctx.waitUntil() ceiling for HTTP-triggered
     // Workers, which silently kills the job with no trace. Queue consumers get
     // their own execution budget instead, so hand it off rather than run it inline.
     ctx.waitUntil(env.JOB_QUEUE.send({ type: 'find_car_report', leadId }).catch(err => console.error('failed to enqueue report job for lead', leadId, err)));
+
+    // Sequential, not two parallel waitUntil calls — the touch-log call needs the
+    // deal to already exist, and parallel calls have no ordering guarantee, which
+    // let this 404 silently and drop the confirmation-email log entry.
+    ctx.waitUntil((async () => {
+      try {
+        await notifyCrm(env, '/api/hooks/lead-created', {
+          funnel_type: 'find_my_car', source_lead_id: leadId,
+          first_name, last_name, email, phone,
+          current_vehicle: (body.current_vehicle || '').trim() || null,
+          vehicle_description: [body.vehicle_type, body.size_preference].filter(Boolean).join(' · ') || null,
+          budget_min: body.budget_min || null, budget_max: body.budget_max || null, credit_range: body.credit_range || null,
+          trade_in: body.trade_in && !/^no$/i.test(String(body.trade_in).trim()) ? 1 : 0,
+        });
+        await notifyCrm(env, '/api/hooks/log-touch', {
+          funnel_type: 'find_my_car', source_lead_id: leadId, type: 'confirmation_email',
+        });
+      } catch (err) {
+        console.error('CRM hook failed', leadId, err);
+      }
+    })());
   }
 
   return json({ success: true });
@@ -607,6 +647,23 @@ async function sendBrevoTemplateEmail(env, { to, templateId, params }) {
     }
   } catch (err) {
     console.error('Brevo template email failed', err);
+  }
+}
+
+// ── CRM notification hooks ─────────────────────────────────────────
+// Fire-and-forget calls into the standalone CRM Worker so it can track leads
+// and log milestone emails. Every call site wraps this in ctx.waitUntil(...).catch(...)
+// (or a plain .catch() inside a queue consumer) — a CRM outage or bug here must
+// never affect the live Find My Car / Sell My Car pipeline.
+async function notifyCrm(env, path, body) {
+  const res = await fetch(env.CRM_HOOK_URL + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Hook-Secret': env.CRM_HOOK_SECRET },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`CRM hook ${path} returned ${res.status}: ${errBody}`);
   }
 }
 
@@ -697,6 +754,263 @@ async function pickVehicles(env, lead) {
   return vehicles;
 }
 
+// ── Find My Car: Auto.dev vehicle listings + photos ──────────────
+// Replaces Marketcheck for sourcing real inventory (below). Sell My Car's
+// separate valuation pipeline (VIN decode + comps, further down this file)
+// still uses Marketcheck independently — not part of this migration.
+const AUTODEV_BASE_URL = 'https://api.auto.dev';
+
+// NOTE: listings calls deliberately do NOT use ?select=. retailListing.dealerId
+// — required for safe partner-dealer matching — silently returns null under
+// ?select= no matter the field path (confirmed live, several variants tried).
+// Full nested objects cost more payload but that's not what the free tier
+// meters; call count is, and this doesn't add any calls.
+
+// Shared wrapper for every Auto.dev call: Bearer auth, one retry after a 1s
+// wait on 429 (free tier is 5 req/s), and a row in autodev_api_log so
+// monthly usage can be tracked against the 1,000-call/month free tier.
+async function autodevFetch(env, path, params, { leadId } = {}) {
+  const url = new URL(AUTODEV_BASE_URL + path);
+  for (const [k, v] of Object.entries(params || {})) {
+    if (v != null && v !== '') url.searchParams.set(k, String(v));
+  }
+
+  const doFetch = () => fetch(url.toString(), {
+    headers: { 'Authorization': `Bearer ${env.AUTODEV_API_KEY}`, 'Content-Type': 'application/json' },
+  });
+
+  let res = await doFetch();
+  if (res.status === 429) {
+    await new Promise(r => setTimeout(r, 1000));
+    res = await doFetch();
+  }
+
+  const data = await res.json().catch(() => null);
+  const resultCount = Array.isArray(data?.data) ? data.data.length
+    : Array.isArray(data?.data?.retail) ? data.data.retail.length
+    : null;
+
+  try {
+    await env.DB.prepare(
+      `INSERT INTO autodev_api_log (endpoint, params, status_code, result_count, lead_id) VALUES (?, ?, ?, ?, ?)`
+    ).bind(path, JSON.stringify(params || {}), res.status, resultCount, leadId ?? null).run();
+  } catch (err) {
+    console.error('autodev_api_log insert failed', err);
+  }
+
+  return { ok: res.ok, status: res.status, data };
+}
+
+// Auto.dev returns [lng, lat] (GeoJSON order). [0, 0] means the listing's
+// location never resolved — treat it as unknown distance, not "at the
+// equator/prime meridian".
+function autodevListingDistance(clientCentroid, location) {
+  if (!clientCentroid || !Array.isArray(location) || location.length !== 2) return null;
+  const [lng, lat] = location;
+  if (lat === 0 && lng === 0) return null;
+  return haversineMiles(clientCentroid, [lat, lng]);
+}
+
+// Some Auto.dev listings (confirmed live — regional/superstore dealers like
+// EchoPark and Avis Car Sales especially) carry a synthetic "#1234..."
+// fragment in retailListing.vdp instead of a real link.
+function isValidVdpUrl(url) {
+  if (!url) return false;
+  return /^https?:\/\//i.test(url);
+}
+
+// Maps one full (non-select) listing object to the shape the rest of the
+// pipeline expects. Field names verified against a live Auto.dev response,
+// not assumed from docs alone.
+function mapAutodevListing(raw, distanceMiles) {
+  const v = raw.vehicle || {};
+  const r = raw.retailListing || {};
+  return {
+    vin: v.vin || raw.vin || null,
+    year: v.year ?? null,
+    make: v.make || null,
+    model: v.model || null,
+    trim: v.trim || null,
+    drivetrain: v.drivetrain || null,
+    transmission: v.transmission || null,
+    engine: v.engine || null,
+    exterior_color: v.exteriorColor || null,
+    price: r.price ?? null,
+    mileage: r.miles ?? null,
+    dealer_name: r.dealer || null,
+    autodev_dealer_id: r.dealerId || null,
+    dealer_city: r.city || null,
+    dealer_state: r.state || null,
+    vdp_url: r.vdp || null,
+    primary_image: r.primaryImage || null,
+    photo_count: r.photoCount ?? null,
+    distance_miles: distanceMiles,
+  };
+}
+
+// Caps how many partner-dealer-scoped supplementary searches fire per
+// searchAutodevListings call, so partner count growth can't blow up the
+// per-report call budget.
+const MAX_PARTNER_INVENTORY_SEARCHES = 3;
+
+// Auto.dev has no exact dealerId filter (confirmed: 400 "Invalid parameter"
+// on retailListing.dealerId) — only a dealer NAME filter, and that name
+// isn't unique (confirmed live: two unrelated dealers both named "Audi
+// North Austin", one of them selling unrelated used inventory). So this
+// searches by name, then discards anything whose returned dealerId doesn't
+// match the one captured for this partner via the admin lookup route,
+// rather than trusting the name match alone.
+async function searchAutodevPartnerInventory(env, dealer, { make, model, yearMin, yearMax, priceMax, used, zip, leadId, clientCentroid }) {
+  const params = {
+    'retailListing.dealer': dealer.dealership_name,
+    'vehicle.make': make || undefined,
+    'vehicle.model': model || undefined,
+    'vehicle.year': (yearMin && yearMax) ? `${yearMin}-${yearMax}` : undefined,
+    'retailListing.price': priceMax ? `0-${Math.round(Number(priceMax))}` : undefined,
+    'retailListing.used': used === true ? 'true' : (used === false ? 'false' : undefined),
+    zip: zip || undefined,
+    limit: 20,
+  };
+  const { ok, data } = await autodevFetch(env, '/listings', params, { leadId });
+  if (!ok || !Array.isArray(data?.data)) return [];
+  return data.data
+    .map(raw => mapAutodevListing(raw, autodevListingDistance(clientCentroid, raw.location)))
+    .filter(l => l.autodev_dealer_id === dealer.autodev_dealer_id && isValidVdpUrl(l.vdp_url));
+}
+
+// Single call at 100mi; if empty, exactly one fallback call at 300mi — no
+// radius ladder, no pool-size threshold. Sorted by distance from the
+// client's zip in-Worker, since Auto.dev doesn't support distance sort
+// server-side (confirmed in docs).
+async function searchAutodevListings(env, { make, model, trim, zip, yearMin, yearMax, priceMax, used, leadId, partnerDealers }) {
+  const clientCentroid = zipCentroid(zip);
+
+  const baseParams = {
+    'vehicle.make': make || undefined,
+    'vehicle.model': model || undefined,
+    'vehicle.year': (yearMin && yearMax) ? `${yearMin}-${yearMax}` : undefined,
+    'retailListing.price': priceMax ? `0-${Math.round(Number(priceMax))}` : undefined,
+    'retailListing.used': used === true ? 'true' : (used === false ? 'false' : undefined),
+    zip: zip || undefined,
+    limit: 50,
+  };
+
+  async function callAt(distance) {
+    const { ok, status, data } = await autodevFetch(env, '/listings', { ...baseParams, distance }, { leadId });
+    return { ok, status, listings: (ok && Array.isArray(data?.data)) ? data.data : [] };
+  }
+
+  let radius = 100;
+  let result = await callAt(radius);
+  let usedFallback = false;
+  if (result.ok && result.listings.length === 0) {
+    radius = 300;
+    result = await callAt(radius);
+    usedFallback = true;
+  }
+
+  // A meaningful share of Auto.dev listings (regional/superstore dealers in
+  // particular — EchoPark, Avis Car Sales) carry a synthetic "#1234..."
+  // fragment in retailListing.vdp instead of a real URL. A candidate we can't
+  // link the client to isn't usable inventory, so it's filtered out here
+  // rather than surfaced with a dead link.
+  let mapped = result.listings
+    .map(raw => mapAutodevListing(raw, autodevListingDistance(clientCentroid, raw.location)))
+    .filter(l => isValidVdpUrl(l.vdp_url));
+  if (trim) {
+    const trimFiltered = mapped.filter(l => trimMatches(l.trim, trim, l.model, model));
+    if (trimFiltered.length) mapped = trimFiltered;
+  }
+
+  // Dedicated per-partner-dealer search, merged in before the general sort
+  // so partner inventory is guaranteed to be considered even if it wouldn't
+  // otherwise surface in the general 100/300mi pool (e.g. a partner dealer
+  // just outside the general search's candidate cutoff). Capped and
+  // deduped by VIN against what the general search already found.
+  if (partnerDealers?.length) {
+    const existingVins = new Set(mapped.map(l => l.vin).filter(Boolean));
+    const partnerBatches = await Promise.all(
+      partnerDealers.slice(0, MAX_PARTNER_INVENTORY_SEARCHES).map(d =>
+        searchAutodevPartnerInventory(env, d, { make, model, yearMin, yearMax, priceMax, used, zip, leadId, clientCentroid })
+      )
+    );
+    for (const batch of partnerBatches) {
+      for (const l of batch) {
+        if (l.vin && existingVins.has(l.vin)) continue;
+        if (l.vin) existingVins.add(l.vin);
+        mapped.push(l);
+      }
+    }
+  }
+
+  mapped.sort((a, b) => {
+    if (a.distance_miles == null && b.distance_miles == null) return 0;
+    if (a.distance_miles == null) return 1;
+    if (b.distance_miles == null) return -1;
+    return a.distance_miles - b.distance_miles;
+  });
+
+  // Partner dealers rank first (exact dealerId match), distance-sorted
+  // within each group since the partition preserves whatever order it
+  // received.
+  if (partnerDealers?.length) mapped = partitionByPartnerDealer(mapped, partnerDealers);
+
+  return { listings: mapped, radius, usedFallback, ok: result.ok, status: result.status };
+}
+
+// Called only for the 3 finalist vehicles, never the full candidate pools.
+// Sequential with a ~250ms stagger after the first call (not Promise.all) so
+// a single report generation, combined with its listings calls, stays well
+// under the 5 req/s free-tier limit. Never fails the pipeline — an empty
+// photo array just flags the vehicle for Jeff to source images manually.
+async function fetchAutodevPhotos(env, vin, { leadId, staggerMs = 0 } = {}) {
+  if (!vin) return { photos: [], photosMissing: true };
+  if (staggerMs > 0) await new Promise(r => setTimeout(r, staggerMs));
+
+  const { ok, data } = await autodevFetch(env, `/photos/${encodeURIComponent(vin)}`, {}, { leadId });
+  const retail = ok ? (data?.data?.retail || []) : [];
+  return { photos: retail, photosMissing: retail.length === 0 };
+}
+
+async function fetchFinalistPhotos(env, finalists, leadId) {
+  const out = [];
+  for (let i = 0; i < finalists.length; i++) {
+    out.push(await fetchAutodevPhotos(env, finalists[i]?.vin, { leadId, staggerMs: i === 0 ? 0 : 250 }));
+  }
+  return out;
+}
+
+// TEMPORARY admin-only route to run a real end-to-end Auto.dev search +
+// finalist-photo call and inspect the raw response mapping before the new
+// pipeline is wired into generateReportForLead. Remove once the migration
+// is confirmed and shipped.
+async function debugAutodevTest(request, env) {
+  const url = new URL(request.url);
+  const make = url.searchParams.get('make') || 'Mazda';
+  const model = url.searchParams.get('model') || 'CX-5';
+  const zip = url.searchParams.get('zip') || '77002';
+  const yearMin = url.searchParams.get('yearMin') ? +url.searchParams.get('yearMin') : undefined;
+  const yearMax = url.searchParams.get('yearMax') ? +url.searchParams.get('yearMax') : undefined;
+  const priceMax = url.searchParams.get('priceMax') ? +url.searchParams.get('priceMax') : undefined;
+  const used = url.searchParams.get('used') === 'false' ? false : true;
+  const finalistCount = Math.min(3, +(url.searchParams.get('finalists') || 3));
+
+  const search = await searchAutodevListings(env, { make, model, zip, yearMin, yearMax, priceMax, used, leadId: null });
+
+  const finalists = search.listings.filter(l => l.vin).slice(0, finalistCount);
+  const photos = await fetchFinalistPhotos(env, finalists, null);
+
+  return json({
+    query: { make, model, zip, yearMin, yearMax, priceMax, used },
+    client_zip_centroid: zipCentroid(zip),
+    radius_used: search.radius,
+    used_300mi_fallback: search.usedFallback,
+    total_candidates_returned: search.listings.length,
+    top_10_by_distance: search.listings.slice(0, 10),
+    finalists: finalists.map((f, i) => ({ ...f, photos: photos[i].photos, photos_missing: photos[i].photosMissing })),
+  });
+}
+
 // 200mi/300mi both 422 on our Marketcheck plan (radius cap is plan-dependent —
 // confirmed via search_log: 100mi returns 200 OK with 0 results, 200mi+ is
 // rejected outright). Keep this at or below whatever the account's plan allows.
@@ -745,132 +1059,36 @@ function trimMatches(listingTrim, recommendedTrim, listingModel, recommendedMode
   return lm === rm;
 }
 
-// Minimum number of candidates we want in a pool before we're willing to stop
-// expanding radius — gives the dedup/ranking step enough options to hand out
-// 3 distinct listings instead of the same one 3 times.
-const MIN_LISTING_POOL_SIZE = 5;
-
-// Rough "good deal" heuristic built only from fields Marketcheck already
-// returns (price, mileage, year, trim match) — cheaper, lower mileage, newer,
-// and closer to the recommended trim all push a listing up. This is not a
-// real market-value model (no comp/valuation data here), just a directional
-// way to rank a pool of candidates for the same nominal vehicle.
-function scoreListingDeal(l, { trim, model }) {
-  if (l.price == null) return -Infinity;
-  let score = -(l.price / 1000);
-  if (l.miles != null) score -= l.miles / 15000;
-  if (l.build?.year != null) score += l.build.year * 2.5;
-  if (trim && trimMatches(l.build?.trim, trim, l.build?.model, model)) score += 10;
-  return score;
-}
-
-function sortListingsByDeal(listings, ctx) {
-  return [...listings].sort((a, b) => scoreListingDeal(b, ctx) - scoreListingDeal(a, ctx));
-}
-
-function normalizeDomain(url) {
-  if (!url) return null;
-  try {
-    const withProto = /^https?:\/\//i.test(url) ? url : `https://${url}`;
-    return new URL(withProto).hostname.replace(/^www\./i, '').toLowerCase();
-  } catch {
-    return null;
-  }
-}
-
+// Only dealers with a captured Auto.dev dealerId (set once by an admin via
+// the autodev-lookup route) are usable for matching. Auto.dev's dealer NAME
+// is not unique — confirmed live, two unrelated dealers both named "Audi
+// North Austin" — so name/website matching risks crediting the wrong lot's
+// inventory to a partner. Exact dealerId is the only safe signal.
 async function loadPartnerDealers(env) {
   const { results } = await env.DB.prepare(
-    `SELECT id, dealership_name, dealership_website FROM dealers
-     WHERE role != 'admin' AND status = 'active'
-       AND dealership_website IS NOT NULL AND dealership_website != ''`
+    `SELECT id, dealership_name, autodev_dealer_id FROM dealers
+     WHERE role != 'admin' AND status = 'active' AND autodev_dealer_id IS NOT NULL AND autodev_dealer_id != ''`
   ).all();
   return results;
 }
 
-// Splits Marketcheck listings into ones sold by a registered partner dealer
-// (matched by website domain first, dealer name as a fallback for listings
-// syndicated through a marketplace under a different source domain) vs.
-// everything else. Partner listings are returned first so they're prioritized
-// without a second Marketcheck query.
+// Splits listings into ones sold by a registered partner dealer (exact
+// autodev_dealer_id match only) vs. everything else. Partner listings are
+// returned first so they're prioritized without a second Auto.dev query.
 function partitionByPartnerDealer(listings, partnerDealers) {
-  const byDomain = new Map();
-  const byName = new Map();
+  const byId = new Map();
   for (const d of partnerDealers) {
-    const domain = normalizeDomain(d.dealership_website);
-    if (domain) byDomain.set(domain, d);
-    const nameKey = normalizeForMatch(d.dealership_name);
-    if (nameKey) byName.set(nameKey, d);
+    if (d.autodev_dealer_id) byId.set(d.autodev_dealer_id, d);
   }
 
   const partner = [];
   const other = [];
   for (const l of listings) {
-    const domain = normalizeDomain(l.dealer?.website);
-    const nameKey = normalizeForMatch(l.dealer?.name);
-    const match = (domain && byDomain.get(domain)) || (nameKey && byName.get(nameKey));
+    const match = l.autodev_dealer_id && byId.get(l.autodev_dealer_id);
     if (match) partner.push({ ...l, partner_dealer_id: match.id });
     else other.push(l);
   }
   return partner.length ? [...partner, ...other] : listings;
-}
-
-async function searchMarketcheck(env, { make, model, trim, zip, year, budgetMax, throttledFetch, partnerDealers }) {
-  const yearMin = year ? Number(year) - 2 : null;
-  const yearMax = year ? Number(year) + 2 : null;
-  const log = [];
-  let bestPool = null; // largest non-empty pool seen, in case we never reach MIN_LISTING_POOL_SIZE
-
-  for (const radius of MARKETCHECK_RADII) {
-    const url = new URL('https://api.marketcheck.com/v2/search/car/active');
-    url.searchParams.set('zip', zip || '78701');
-    url.searchParams.set('radius', String(radius));
-    url.searchParams.set('make', make);
-    if (model) url.searchParams.set('model', model);
-    if (yearMin && yearMax) url.searchParams.set('year_range', `${yearMin}-${yearMax}`);
-    if (budgetMax) url.searchParams.set('price_range', `0-${Math.round(Number(budgetMax))}`);
-    url.searchParams.set('rows', '50');
-
-    const loggedQuery = url.toString();
-    const fetchUrl = new URL(loggedQuery);
-    fetchUrl.searchParams.set('api_key', env.MARKETCHECK_API_KEY);
-
-    let listings = [];
-    let errorNote;
-    try {
-      const res = await throttledFetch(fetchUrl.toString());
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        listings = data.listings || [];
-      } else {
-        errorNote = `HTTP ${res.status}`;
-      }
-    } catch (err) {
-      errorNote = String(err);
-    }
-
-    let matched = listings.filter(l => {
-      const listingYear = l.build?.year || null;
-      if (yearMin && yearMax && (!listingYear || listingYear < yearMin || listingYear > yearMax)) return false;
-      if (budgetMax && (l.price == null || l.price > Number(budgetMax))) return false;
-      if (trim && !trimMatches(l.build?.trim, trim, l.build?.model, model)) return false;
-      return true;
-    });
-
-    matched = sortListingsByDeal(matched, { trim, model });
-    if (partnerDealers?.length) matched = partitionByPartnerDealer(matched, partnerDealers);
-    const partnerMatchCount = matched.filter(l => l.partner_dealer_id).length;
-
-    log.push({ radius, query: loggedQuery, raw_count: listings.length, matched_count: matched.length, partner_match_count: partnerMatchCount, error: errorNote });
-
-    if (matched.length) bestPool = { listings: matched, radius };
-    if (matched.length >= MIN_LISTING_POOL_SIZE) return { listings: matched, radius, log };
-    // A rejected request (e.g. radius past what the plan allows) isn't the same
-    // as a confirmed empty result — don't keep burning calls on larger radii
-    // that will fail the same way.
-    if (errorNote) break;
-  }
-
-  return bestPool ? { ...bestPool, log } : { listings: null, radius: null, log };
 }
 
 async function verifyListingLive(vdpUrl) {
@@ -878,7 +1096,14 @@ async function verifyListingLive(vdpUrl) {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(vdpUrl, { method: 'HEAD', redirect: 'follow', signal: controller.signal });
+    // Auto.dev's real links are frequently CloudFront-fronted aggregators
+    // (autolist.com, vast.com) that 403 a request with no/non-browser
+    // User-Agent — confirmed live. A realistic UA is required for this
+    // check to mean anything against that traffic.
+    const res = await fetch(vdpUrl, {
+      method: 'HEAD', redirect: 'follow', signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+    });
     clearTimeout(timeout);
     return res.ok ? 'verified' : 'unverified';
   } catch {
@@ -1236,32 +1461,49 @@ async function enrichVehicleSpecs(env, vehicle, known) {
   return toolUse ? toolUse.input : {};
 }
 
-// Fetches the candidate pool for one vehicle pick (already deal-ranked by
-// searchMarketcheck). Doesn't pick a winner or verify anything — that happens
-// after all 3 positions' pools are in hand, so positions can be deduped
-// against each other instead of independently grabbing the same top listing.
-async function fetchListingPool(env, pick, lead, throttledFetch, partnerDealers, tag) {
+// Only filters on used/new when the lead's free-text condition field is
+// unambiguous ("used", "new") — anything else (empty, "either", "doesn't
+// matter", unrecognized phrasing) applies no filter, matching prior behavior
+// exactly rather than risk over-filtering a real lead's search to zero results.
+function leadUsedFilter(condition) {
+  const c = (condition || '').toLowerCase();
+  const hasNew = c.includes('new');
+  const hasUsed = c.includes('used');
+  if (hasNew && !hasUsed) return false;
+  if (hasUsed && !hasNew) return true;
+  return undefined;
+}
+
+// Fetches the candidate pool for one vehicle pick (already distance-ranked,
+// partner dealers first, by searchAutodevListings). Doesn't pick a winner or
+// verify anything — that happens after all 3 positions' pools are in hand,
+// so positions can be deduped against each other instead of independently
+// grabbing the same top listing.
+async function fetchListingPool(env, pick, lead, partnerDealers, tag) {
   const t0 = Date.now();
-  const searchMake = normalizeMakeForMarketcheck(pick.make);
-  const searchModel = normalizeModelForMarketcheck(pick.model);
-  const searchResult = await searchMarketcheck(env, {
-    make: searchMake, model: searchModel, trim: pick.trim, zip: lead.zip,
-    year: pick.year, budgetMax: lead.budget_max, throttledFetch, partnerDealers,
+  const searchResult = await searchAutodevListings(env, {
+    make: pick.make, model: pick.model, trim: pick.trim, zip: lead.zip,
+    yearMin: pick.year ? pick.year - 2 : undefined,
+    yearMax: pick.year ? pick.year + 2 : undefined,
+    priceMax: lead.budget_max, used: leadUsedFilter(lead.condition),
+    leadId: lead.id, partnerDealers,
   });
   console.log(`[timing] ${tag} primary search: ${Date.now() - t0}ms, pool_size=${searchResult.listings?.length || 0}`);
-  return { searchMake, searchResult };
+  return { searchResult };
 }
 
 function listingVin(l) {
-  return l?.vin || l?.build?.vin || null;
+  return l?.vin || null;
 }
 
-async function buildVehicleEntry(env, pick, winner, poolInfo, lead, throttledFetch, partnerDealers, tag) {
-  const { searchMake, searchResult } = poolInfo;
+async function buildVehicleEntry(env, pick, winner, poolInfo, photos, lead, partnerDealers, tag) {
+  const { searchResult } = poolInfo;
 
   // A winner without a source URL can't be shown to the client or verified
   // by admin against the original listing — route it to manual review
-  // instead of silently presenting it as a confirmed match.
+  // instead of silently presenting it as a confirmed match. (searchAutodevListings
+  // already drops candidates with an unusable vdp_url, so this is really just
+  // a defensive check at this point.)
   if (winner && winner.vdp_url) {
     const tVerify = Date.now();
     const verified = await verifyListingLive(winner.vdp_url);
@@ -1272,50 +1514,55 @@ async function buildVehicleEntry(env, pick, winner, poolInfo, lead, throttledFet
       // listing is matched, every spec value must come from that listing's
       // own record, never from Claude's original guess. (A matched listing
       // can legitimately be a different model year than the pick, since
-      // searchMarketcheck queries year ± 2.)
-      year: winner.build?.year ?? pick.year,
-      make: winner.build?.make || pick.make,
-      model: winner.build?.model || pick.model,
-      trim: winner.build?.trim || pick.trim,
+      // searchAutodevListings queries year ± 2.)
+      year: winner.year ?? pick.year,
+      make: winner.make || pick.make,
+      model: winner.model || pick.model,
+      trim: winner.trim || pick.trim,
       price: winner.price ?? null,
-      mileage: winner.miles ?? null,
-      dealer_name: winner.dealer?.name || null,
-      dealer_city: winner.dealer?.city || null,
-      dealer_state: winner.dealer?.state || null,
+      mileage: winner.mileage ?? null,
+      dealer_name: winner.dealer_name || null,
+      dealer_city: winner.dealer_city || null,
+      dealer_state: winner.dealer_state || null,
       vdp_url: winner.vdp_url || null,
-      source: 'marketcheck',
+      source: 'autodev',
       verified,
-      engine: winner.build?.engine || null,
-      transmission: winner.build?.transmission || null,
-      drivetrain: winner.build?.drivetrain || null,
-      city_mpg: winner.build?.city_mpg ?? null,
-      highway_mpg: winner.build?.highway_mpg ?? null,
+      engine: winner.engine || null,
+      transmission: winner.transmission || null,
+      drivetrain: winner.drivetrain || null,
+      city_mpg: null, highway_mpg: null, // not in Auto.dev's schema — filled by enrichVehicleSpecs
       exterior_color: winner.exterior_color || null,
-      photo_url: winner.media?.photo_links_cached?.[0] || winner.media?.photo_links?.[0] || null,
-      photo_urls: JSON.stringify(winner.media?.photo_links_cached || winner.media?.photo_links || []),
-      search_log: JSON.stringify(searchResult.log),
+      photo_url: photos?.photos?.[0] || null,
+      photo_urls: JSON.stringify(photos?.photos || []),
+      photos_missing: photos?.photosMissing ? 1 : 0,
+      search_log: JSON.stringify({ radius: searchResult.radius, used_300mi_fallback: searchResult.usedFallback }),
     };
   }
 
   // No unclaimed candidate for this position (pool empty, or every candidate
   // was already claimed by another position in this report) — franchise
-  // fallback, same as before.
+  // fallback, same as before: a make-only search just to find the nearest
+  // dealer to show the admin.
   const tFallback = Date.now();
-  const franchiseResult = await searchMarketcheck(env, { make: searchMake, model: null, zip: lead.zip, throttledFetch, partnerDealers });
+  const franchiseResult = await searchAutodevListings(env, {
+    make: pick.make, zip: lead.zip, used: leadUsedFilter(lead.condition), leadId: lead.id, partnerDealers,
+  });
   console.log(`[timing] ${tag} franchise fallback: ${Date.now() - tFallback}ms`);
-  const nearestDealer = franchiseResult.listings ? franchiseResult.listings[0].dealer : null;
-  const fullLog = [...searchResult.log, ...franchiseResult.log.map(l => ({ ...l, note: 'franchise fallback (make-only) search' }))];
+  const nearestDealer = franchiseResult.listings?.[0] || null;
   return {
     ...pick,
-    price: null, mileage: null, vdp_url: null, photo_url: null, photo_urls: '[]',
-    dealer_name: nearestDealer?.name || null,
-    dealer_city: nearestDealer?.city || null,
-    dealer_state: nearestDealer?.state || null,
+    price: null, mileage: null, vdp_url: null, photo_url: null, photo_urls: '[]', photos_missing: 1,
+    dealer_name: nearestDealer?.dealer_name || null,
+    dealer_city: nearestDealer?.dealer_city || null,
+    dealer_state: nearestDealer?.dealer_state || null,
     engine: null, transmission: null, drivetrain: null,
     city_mpg: null, highway_mpg: null, exterior_color: null,
     source: 'sourcing_in_progress',
     verified: 'sourcing_in_progress',
-    search_log: JSON.stringify(fullLog),
+    search_log: JSON.stringify({
+      radius: searchResult.radius, used_300mi_fallback: searchResult.usedFallback,
+      franchise_radius: franchiseResult.radius, franchise_used_300mi_fallback: franchiseResult.usedFallback,
+    }),
   };
 }
 
@@ -1360,17 +1607,17 @@ async function generateReportForLead(env, leadId) {
   const picks = await pickVehicles(env, lead);
   console.log(`[timing] pickVehicles: ${Date.now() - t0}ms`);
   const partnerDealers = await loadPartnerDealers(env);
-  const throttledFetch = createMarketcheckThrottle();
   const tVehicles = Date.now();
   const tags = picks.map(pick => `${pick.year} ${pick.make} ${pick.model}`);
 
   // Phase A (parallel I/O): fetch each position's candidate pool.
-  const pools = await Promise.all(picks.map((pick, i) => fetchListingPool(env, pick, lead, throttledFetch, partnerDealers, tags[i])));
+  const pools = await Promise.all(picks.map((pick, i) => fetchListingPool(env, pick, lead, partnerDealers, tags[i])));
 
   // Phase B (sync, no I/O): claim distinct listings across positions so the
   // same live listing isn't recommended 3 times in one report. Pools are
-  // already deal-ranked (price/mileage/year/trim), so this just walks each
-  // position's ranked pool for the best VIN nobody else has taken yet.
+  // already distance-ranked (partner dealers first, then closest), so this
+  // just walks each position's ranked pool for the best VIN nobody else has
+  // taken yet.
   const claimedVins = new Set();
   const winners = pools.map(({ searchResult }) => {
     const candidate = (searchResult.listings || []).find(l => {
@@ -1382,13 +1629,21 @@ async function generateReportForLead(env, leadId) {
     return candidate || null;
   });
 
+  // Phase B.5 (sequential I/O, ~250ms staggered): fetch photos for these 3
+  // finalists only — never the full candidate pools — per Auto.dev's 5 req/s
+  // free-tier limit. Positions with no winner get {photos:[], photosMissing:true}
+  // immediately, no API call.
+  const tPhotos = Date.now();
+  const photosByPosition = await fetchFinalistPhotos(env, winners, leadId);
+  console.log(`[timing] finalist photos: ${Date.now() - tPhotos}ms`);
+
   // Phase C (parallel I/O): verify the winning listing is still live, build
   // each position's final entry (year/make/model/trim bound to the matched
   // listing, not the pick), then run spec enrichment against that same
   // corrected vehicle so trim-level specs (safety rating, cargo space, etc.)
   // describe the actual matched car rather than Claude's original guess.
   const vehicles = await Promise.all(picks.map(async (pick, i) => {
-    const entry = await buildVehicleEntry(env, pick, winners[i], pools[i], lead, throttledFetch, partnerDealers, tags[i]);
+    const entry = await buildVehicleEntry(env, pick, winners[i], pools[i], photosByPosition[i], lead, partnerDealers, tags[i]);
     const tSpecs = Date.now();
     const specs = await enrichVehicleSpecs(env, entry, {});
     console.log(`[timing] ${tags[i]} enrichSpecs: ${Date.now() - tSpecs}ms`);
@@ -1420,14 +1675,14 @@ async function generateReportForLead(env, leadId) {
       INSERT INTO report_vehicles (
         report_id, position, year, make, model, trim, rationale, price, mileage, dealer_name, dealer_city, dealer_state, vdp_url, source, verified,
         engine, transmission, drivetrain, city_mpg, highway_mpg, exterior_color, exterior_color_options,
-        safety_rating, cargo_space, seating_capacity, warranty, notable_features, photo_url, photo_urls, search_log
+        safety_rating, cargo_space, seating_capacity, warranty, notable_features, photo_url, photo_urls, photos_missing, search_log
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       reportId, i + 1, v.year, v.make, v.model, v.trim, v.rationale,
       v.price, v.mileage, v.dealer_name, v.dealer_city, v.dealer_state, v.vdp_url, v.source, v.verified,
       v.engine, v.transmission, v.drivetrain, v.city_mpg, v.highway_mpg, v.exterior_color, v.exterior_color_options,
-      v.safety_rating, v.cargo_space, v.seating_capacity, v.warranty, v.notable_features, v.photo_url, v.photo_urls, v.search_log
+      v.safety_rating, v.cargo_space, v.seating_capacity, v.warranty, v.notable_features, v.photo_url, v.photo_urls, v.photos_missing ?? 0, v.search_log
     ).run();
   }
 
@@ -1446,6 +1701,7 @@ async function generateReportForLead(env, leadId) {
               : (v.vdp_url
                   ? `<a href="${escapeHtml(v.vdp_url)}">View listing →</a> (${escapeHtml(v.verified)})`
                   : `no direct link — ${escapeHtml(v.source)}, dealer: ${escapeHtml(v.dealer_name || 'unknown')}`)}
+            ${v.photos_missing && v.source !== 'sourcing_in_progress' ? `<br/><strong style="color:#9B2335">⚠ No photos found — please source manually</strong>` : ''}
           </li>
         `).join('')}
       </ul>
@@ -1867,6 +2123,10 @@ async function generateValuationForLead(env, leadId, input) {
   ).run();
 
   await sendSellCarReceivedEmail(env, { first_name: lead.first_name, email: lead.email, token });
+
+  await notifyCrm(env, '/api/hooks/log-touch', {
+    funnel_type: 'sell_my_car', source_lead_id: leadId, type: 'confirmation_email',
+  }).catch(err => console.error('CRM log-touch hook failed', leadId, err));
 
   console.log(`[timing] valuation lead ${leadId} TOTAL: ${Date.now() - t0}ms`);
 }
@@ -2719,6 +2979,14 @@ async function submitSellCarLead(request, env, params, dealer, token, ctx) {
       accident_history, accident_notes, mechanical_status, mechanical_notes,
     };
     ctx.waitUntil(env.JOB_QUEUE.send({ type: 'sell_car_valuation', leadId, input }).catch(err => console.error('failed to enqueue valuation job for lead', leadId, err)));
+
+    const currentVehicle = [year, make, model, trim].filter(Boolean).join(' ') || null;
+    ctx.waitUntil(notifyCrm(env, '/api/hooks/lead-created', {
+      funnel_type: 'sell_my_car', source_lead_id: leadId,
+      first_name, last_name, email, phone,
+      current_vehicle: currentVehicle, vehicle_description: currentVehicle,
+      trade_in: 0,
+    }).catch(err => console.error('CRM lead-created hook failed', leadId, err)));
   }
 
   return json({ success: true });
@@ -2884,9 +3152,72 @@ async function dealerSignup(request, env, params, dealer, token2, ctx) {
 
 async function adminUpdateDealer(request, env, params) {
   const body = await request.json().catch(() => ({}));
-  if (!VALID_DEALER_STATUSES.includes(body.status)) return json({ error: 'Invalid status.' }, 400);
-  await env.DB.prepare('UPDATE dealers SET status = ? WHERE id = ?').bind(body.status, +params.id).run();
+  const sets = [];
+  const values = [];
+
+  if ('status' in body) {
+    if (!VALID_DEALER_STATUSES.includes(body.status)) return json({ error: 'Invalid status.' }, 400);
+    sets.push('status = ?'); values.push(body.status);
+  }
+  if ('autodev_dealer_id' in body) {
+    sets.push('autodev_dealer_id = ?'); values.push(body.autodev_dealer_id || null);
+  }
+  if (!sets.length) return json({ error: 'Nothing to update.' }, 400);
+
+  values.push(+params.id);
+  await env.DB.prepare(`UPDATE dealers SET ${sets.join(', ')} WHERE id = ?`).bind(...values).run();
   return json({ success: true });
+}
+
+// Auto.dev has no exact dealerId filter, only a name filter — and dealer
+// names aren't unique (confirmed live: two unrelated dealers both named
+// "Audi North Austin"). This searches by the partner's registered
+// dealership_name and groups results by the dealerId Auto.dev actually
+// returns, so an admin can visually confirm the right one (by city/state/
+// sample listings) before saving it via PATCH /api/admin/dealers/:id.
+async function adminAutodevDealerLookup(request, env, params) {
+  const url = new URL(request.url);
+  const dealer = await env.DB.prepare('SELECT id, dealership_name FROM dealers WHERE id = ?').bind(+params.id).first();
+  if (!dealer) return json({ error: 'Dealer not found.' }, 404);
+
+  const zip = url.searchParams.get('zip') || '';
+  const distance = url.searchParams.get('distance') || '50';
+  // No ?select= — retailListing.dealerId silently returns null under
+  // select regardless of field path (confirmed live), and that's the one
+  // field this lookup exists to get right.
+  const { ok, status, data } = await autodevFetch(env, '/listings', {
+    'retailListing.dealer': dealer.dealership_name,
+    zip: zip || undefined,
+    distance: zip ? distance : undefined,
+    limit: 50,
+  }, {});
+
+  if (!ok) return json({ error: `Auto.dev search failed (HTTP ${status}).` }, 502);
+
+  const byId = new Map();
+  for (const raw of data?.data || []) {
+    const v = raw.vehicle || {};
+    const r = raw.retailListing || {};
+    const id = r.dealerId;
+    if (!id) continue;
+    if (!byId.has(id)) {
+      byId.set(id, {
+        autodev_dealer_id: id,
+        dealer_name: r.dealer || null,
+        city: r.city || null,
+        state: r.state || null,
+        zip: r.zip || null,
+        sample_makes: new Set(),
+        listing_count: 0,
+      });
+    }
+    const entry = byId.get(id);
+    entry.listing_count++;
+    if (v.make) entry.sample_makes.add(v.make);
+  }
+
+  const candidates = [...byId.values()].map(e => ({ ...e, sample_makes: [...e.sample_makes] }));
+  return json({ searched_name: dealer.dealership_name, candidates });
 }
 
 // ── Vehicle report admin actions ──────────────────────────────────
@@ -2939,7 +3270,7 @@ async function adminUpdateReportVehicle(request, env, params) {
   return json({ success: true });
 }
 
-async function adminApproveReport(request, env, params) {
+async function adminApproveReport(request, env, params, dealer, token, ctx) {
   const report = await env.DB.prepare(`
     SELECT find_car_reports.*, find_car_leads.first_name, find_car_leads.email
     FROM find_car_reports JOIN find_car_leads ON find_car_leads.id = find_car_reports.find_lead_id
@@ -2957,6 +3288,12 @@ async function adminApproveReport(request, env, params) {
            <p><a href="https://theexactmatch.com/reports/${escapeHtml(report.report_code)}">View your matches →</a></p>
            <p>Questions? Text Jeff directly at (512) 650-9328.</p>`,
   });
+
+  if (ctx) {
+    ctx.waitUntil(notifyCrm(env, '/api/hooks/log-touch', {
+      funnel_type: 'find_my_car', source_lead_id: report.find_lead_id, type: 'report_email', advance_stage: 'report_sent',
+    }).catch(err => console.error('CRM log-touch hook failed', report.id, err)));
+  }
 
   return json({ success: true });
 }
@@ -3003,9 +3340,9 @@ function sendInterestConfirmationEmail(env, details, deepDiveUrl) {
   });
 }
 
-async function publicExpressReportInterest(request, env, params) {
+async function publicExpressReportInterest(request, env, params, dealer, token, ctx) {
   const report = await env.DB.prepare(
-    `SELECT id, report_code FROM find_car_reports WHERE report_code = ? AND status = 'approved'`
+    `SELECT id, report_code, find_lead_id FROM find_car_reports WHERE report_code = ? AND status = 'approved'`
   ).bind(params.code).first();
   if (!report) return json({ error: 'Report not found.' }, 404);
 
@@ -3045,9 +3382,80 @@ async function publicExpressReportInterest(request, env, params) {
     });
 
     await sendInterestConfirmationEmail(env, details, deepDiveUrl);
+
+    if (ctx) {
+      ctx.waitUntil(notifyCrm(env, '/api/hooks/log-touch', {
+        funnel_type: 'find_my_car', source_lead_id: report.find_lead_id, type: 'interested',
+        summary: `${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim}`,
+        advance_stage: 'negotiation',
+      }).catch(err => console.error('CRM log-touch hook failed', vehicle.id, err)));
+    }
   }
 
   return json({ success: true, deep_dive_url: deepDiveUrl });
+}
+
+// White Glove fee tiers. Above $200k there's no defined tier yet, so the
+// customer sees "I'll follow up with pricing" instead of a number, and we
+// flag it for Jeff to price manually rather than guessing.
+function computeWhiteGloveFee(price) {
+  if (price == null) return null;
+  if (price < 50000) return 250;
+  if (price < 100000) return 350;
+  if (price < 200000) return 500;
+  return null;
+}
+
+async function publicRequestWhiteGlove(request, env, params, dealer, token, ctx) {
+  const report = await env.DB.prepare(
+    `SELECT id, report_code, find_lead_id FROM find_car_reports WHERE report_code = ? AND status = 'approved'`
+  ).bind(params.code).first();
+  if (!report) return json({ error: 'Report not found.' }, 404);
+
+  const position = +params.position;
+  const vehicle = await env.DB.prepare(
+    'SELECT id, year, make, model, trim, price, white_glove_requested, white_glove_fee FROM report_vehicles WHERE report_id = ? AND position = ?'
+  ).bind(report.id, position).first();
+  if (!vehicle) return json({ error: 'Vehicle not found.' }, 404);
+
+  const fee = vehicle.white_glove_requested ? vehicle.white_glove_fee : computeWhiteGloveFee(vehicle.price);
+
+  if (!vehicle.white_glove_requested) {
+    await env.DB.prepare(
+      `UPDATE report_vehicles SET white_glove_requested = 1, white_glove_requested_at = datetime('now'), white_glove_fee = ? WHERE id = ?`
+    ).bind(fee, vehicle.id).run();
+
+    const details = await env.DB.prepare(`
+      SELECT find_car_leads.first_name, find_car_leads.last_name, find_car_leads.email, find_car_leads.phone
+      FROM find_car_reports JOIN find_car_leads ON find_car_leads.id = find_car_reports.find_lead_id
+      WHERE find_car_reports.id = ?
+    `).bind(report.id).first();
+
+    await sendBrevoEmail(env, {
+      to: 'theexactmatch@gmail.com',
+      subject: '🎩 White Glove request — needs prompt follow-up',
+      html: brandedEmailHtml(`
+        <p><strong>${escapeHtml(details.first_name)} ${escapeHtml(details.last_name)}</strong> requested White Glove Service on the
+        ${escapeHtml(vehicle.year)} ${escapeHtml(vehicle.make)} ${escapeHtml(vehicle.model)} ${escapeHtml(vehicle.trim)}.</p>
+        <p><strong>Fee:</strong> ${fee != null ? '$' + fee.toLocaleString() : 'Over $200k — needs manual pricing'}</p>
+        <p><strong>Contact:</strong><br/>
+        Email: <a href="mailto:${escapeHtml(details.email)}">${escapeHtml(details.email)}</a><br/>
+        Phone: ${details.phone ? escapeHtml(details.phone) : 'not provided'}</p>
+        <p><a href="https://theexactmatch.com/Dealerportal.html">View in dashboard →</a></p>
+      `),
+    });
+
+    if (ctx) {
+      ctx.waitUntil(notifyCrm(env, '/api/hooks/log-touch', {
+        funnel_type: 'find_my_car', source_lead_id: report.find_lead_id, type: 'white_glove_requested',
+        summary: `${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim} — fee ${fee != null ? '$' + fee : 'TBD (over $200k)'}`,
+        advance_stage: 'negotiation',
+        set_fields: { white_glove: 1, ...(fee != null ? { fee_amount: fee } : {}) },
+      }).catch(err => console.error('CRM log-touch hook failed', vehicle.id, err)));
+    }
+  }
+
+  return json({ success: true, fee, manual_pricing: fee == null });
 }
 
 async function publicReadyToMoveForward(request, env, params) {
@@ -3105,56 +3513,26 @@ function reportNotFoundHtml() {
 }
 
 function reportPageHtml(report, vehicles) {
+  const multi = vehicles.length > 1;
   const cards = vehicles.map(v => {
-    let features = [];
-    try { features = JSON.parse(v.notable_features || '[]'); } catch { features = []; }
-
-    const specRows = [
-      v.engine && ['Engine', v.engine],
-      v.transmission && ['Transmission', v.transmission],
-      v.drivetrain && ['Drivetrain', v.drivetrain],
-      (v.city_mpg || v.highway_mpg) && ['Fuel Economy', `${v.city_mpg || '—'} city / ${v.highway_mpg || '—'} hwy MPG`],
-      v.exterior_color && ["This Unit's Color", v.exterior_color],
-      v.exterior_color_options && ['Color Options', v.exterior_color_options],
-      v.cargo_space && ['Cargo Space', v.cargo_space],
-      v.seating_capacity && ['Seating', `${v.seating_capacity} passengers`],
-      v.safety_rating && ['Safety', v.safety_rating],
-      v.warranty && ['Warranty', v.warranty],
-    ].filter(Boolean);
-
+    const detailUrl = `https://theexactmatch.com/reports/${report.report_code}-${slugify(`${v.year} ${v.make} ${v.model} ${v.trim}`)}`;
     return `
     <div class="vcard">
       ${v.photo_url
         ? `<img src="${escapeHtml(v.photo_url)}" alt="${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)}" class="vphoto"/>`
         : `<div class="vphoto vphoto-placeholder"><span>Photo coming soon</span></div>`}
-      <div class="vtitle">${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)} ${escapeHtml(v.trim)}</div>
-      <div class="vmeta">
-        ${v.source === 'sourcing_in_progress'
-          ? `<span class="pill" style="border-color:var(--gold);color:var(--gold)">Sourcing in progress</span>`
-          : `
-            ${v.price ? `<span class="pill">$${Number(v.price).toLocaleString()}</span>` : ''}
-            ${v.mileage ? `<span class="pill">${Number(v.mileage).toLocaleString()} mi</span>` : ''}
-            ${v.dealer_name ? `<span class="pill">${escapeHtml(v.dealer_name)}</span>` : ''}
-            ${v.dealer_city ? `<span class="pill">${escapeHtml(v.dealer_city)}${v.dealer_state ? ', ' + escapeHtml(v.dealer_state) : ''}</span>` : ''}
-          `}
+      <div class="vbody">
+        <div>
+          <div class="vtitle">${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)}</div>
+          <div class="vtrim">${escapeHtml(v.trim || '')}</div>
+        </div>
+        <div>
+          <div class="vprice-label">${v.source === 'sourcing_in_progress' ? 'Status' : 'Listed Price'}</div>
+          <div class="vprice">${v.source === 'sourcing_in_progress' ? 'Sourcing in progress' : (v.price != null ? '$' + Number(v.price).toLocaleString() : '—')}</div>
+        </div>
+        <a class="more-btn" href="${detailUrl}">More Details</a>
       </div>
-      <div class="vrationale">${escapeHtml(v.rationale)}</div>
-      ${specRows.length ? `
-        <div class="vspecs">
-          ${specRows.map(([label, value]) => `<div class="spec-row"><span class="spec-label">${escapeHtml(label)}</span><span class="spec-value">${escapeHtml(value)}</span></div>`).join('')}
-        </div>
-      ` : ''}
-      ${features.length ? `
-        <div class="vfeatures">
-          <div class="vfeatures-title">Notable Features</div>
-          <ul>${features.map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
-        </div>
-      ` : ''}
-      <button class="interest-btn" data-position="${v.position}" ${v.interested ? 'disabled' : ''}>
-        ${v.interested ? '✓ You expressed interest' : "I'm interested in this one"}
-      </button>
-    </div>
-  `;
+    </div>`;
   }).join('');
 
   return `<!DOCTYPE html>
@@ -3162,75 +3540,63 @@ function reportPageHtml(report, vehicles) {
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Your Matches — TheExactMatch</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,500&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  :root{--navy:#0C1C33;--navy2:#152a4a;--beige:#F5F0E8;--beige2:#EDE7D9;--gold:#C09A5B;--gold2:#D4B47A;--white:#fff;--gray:#4A5568;--border:#DDD8CC;--green:#1A4731}
-  body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy)}
-  header{background:var(--navy);padding:3rem 2rem;text-align:center}
-  .eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold2);margin-bottom:.75rem}
-  h1{font-family:'Playfair Display',serif;font-size:clamp(1.6rem,3vw,2.2rem);font-weight:500;color:var(--white)}
-  h1 em{font-style:italic;color:var(--gold2)}
-  .sub{color:rgba(255,255,255,.55);font-size:.9rem;margin-top:.75rem;font-weight:300}
-  .wrap{max-width:1000px;margin:0 auto;padding:3rem 2rem}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem}
-  .vcard{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:1.75rem;display:flex;flex-direction:column;gap:.85rem}
-  .vphoto{width:calc(100% + 3.5rem);height:180px;object-fit:cover;margin:-1.75rem -1.75rem 0;display:block;background:var(--beige2)}
-  .vphoto-placeholder{display:flex;align-items:center;justify-content:center;color:var(--gray);font-size:.75rem;font-style:italic}
-  .vtitle{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:500;color:var(--navy)}
-  .vmeta{display:flex;flex-wrap:wrap;gap:.4rem}
-  .pill{font-size:.68rem;font-weight:500;padding:.25rem .65rem;border:1px solid var(--border);border-radius:20px;color:var(--gray)}
-  .vrationale{font-size:.82rem;color:var(--gray);line-height:1.6}
-  .vspecs{border-top:1px solid var(--border);padding-top:.85rem;display:flex;flex-direction:column;gap:.4rem}
-  .spec-row{display:flex;justify-content:space-between;gap:1rem;font-size:.78rem}
-  .spec-label{color:var(--gray);flex-shrink:0}
-  .spec-value{color:var(--navy);font-weight:500;text-align:right}
-  .vfeatures{border-top:1px solid var(--border);padding-top:.85rem}
-  .vfeatures-title{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:.5rem}
-  .vfeatures ul{padding-left:1.1rem;color:var(--gray);font-size:.78rem;line-height:1.6}
-  .interest-btn{padding:.75rem;background:var(--gold);color:var(--navy);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:auto}
-  .interest-btn:disabled{background:var(--green);color:var(--white);cursor:default}
-  footer{text-align:center;padding:2rem;font-size:.72rem;color:var(--gray)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#152238;--navy2:#1e2f4d;--gold:#c9a227;--bronze:#8a6a12;--cream:#f7f4ee;--white:#fff;--ink:#1a1a1a;--border:rgba(21,34,56,.12);--muted:#5b5b5b}
+html,body{background:var(--cream)}
+body{font-family:'Jost',sans-serif;color:var(--ink);font-weight:300;font-size:.92rem}
+h1{font-family:'Playfair Display',serif;font-weight:500;color:var(--white)}
+header.hero{background:var(--navy);padding:3.5rem 2rem 3rem;text-align:center}
+.eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:.9rem}
+h1.title{font-size:clamp(1.7rem,3.4vw,2.4rem);line-height:1.25}
+h1.title em{font-style:italic;color:var(--gold)}
+.sub{color:rgba(247,244,238,.62);font-size:.88rem;margin-top:.85rem;font-weight:300}
+.wrap{max-width:1080px;margin:0 auto;padding:3rem 2rem 4rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.6rem}
+.vcard{background:var(--white);border:1px solid var(--border);border-radius:5px;overflow:hidden;display:flex;flex-direction:column;transition:box-shadow .2s,transform .2s}
+.vcard:hover{box-shadow:0 10px 28px rgba(21,34,56,.12);transform:translateY(-2px)}
+.vphoto{width:100%;height:190px;object-fit:cover;display:block;background:var(--cream)}
+.vphoto-placeholder{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.75rem;font-style:italic}
+.vbody{padding:1.4rem 1.4rem 1.5rem;display:flex;flex-direction:column;gap:.8rem;flex:1}
+.vtitle{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:500;color:var(--ink);line-height:1.3}
+.vtrim{font-size:.74rem;color:var(--muted);margin-top:.15rem}
+.vprice{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:600;color:var(--navy);margin-top:.2rem}
+.vprice-label{font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--bronze);margin-bottom:.15rem}
+.more-btn{margin-top:auto;padding:.8rem;background:var(--gold);color:var(--navy);border:none;border-radius:3px;font-family:'Jost',sans-serif;font-weight:700;font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;cursor:pointer;text-align:center;text-decoration:none;display:block}
+.more-btn:hover{background:#d8b23c}
+footer{text-align:center;padding:2.2rem;font-size:.72rem;color:var(--muted)}
 </style>
 </head>
 <body>
-<header>
+<header class="hero">
   <div class="eyebrow">Your Curated Matches</div>
-  <h1>Hi ${escapeHtml(report.first_name)}, here are <em>your 3 options.</em></h1>
-  <div class="sub">Report ${escapeHtml(report.report_code)} — questions? Text Jeff at (512) 650-9328.</div>
+  <h1 class="title">Hi ${escapeHtml(report.first_name)}, here ${multi ? `are <em>your ${vehicles.length} options.</em>` : `is <em>your match.</em>`}</h1>
+  <div class="sub">Report ${escapeHtml(report.report_code)}. Questions? Text Jeff at (512) 650-9328.</div>
 </header>
 <div class="wrap">
   <div class="grid">${cards}</div>
 </div>
 <footer>© ${new Date().getFullYear()} TheExactMatch.com</footer>
-<script>
-document.querySelectorAll('.interest-btn').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    if (btn.disabled) return;
-    btn.disabled = true;
-    btn.textContent = 'Sending…';
-    try {
-      const res = await fetch('https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api/public/reports/${escapeHtml(report.report_code)}/vehicles/' + btn.dataset.position + '/interest', { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        btn.textContent = '✓ You expressed interest';
-        if (data.deep_dive_url) {
-          const link = document.createElement('a');
-          link.href = data.deep_dive_url;
-          link.textContent = 'View Full Details →';
-          link.style.cssText = 'display:block;margin-top:.6rem;text-align:center;font-size:.72rem;color:var(--gold);text-decoration:none;font-weight:600;letter-spacing:.05em;text-transform:uppercase';
-          btn.insertAdjacentElement('afterend', link);
-        }
-      } else { btn.disabled = false; btn.textContent = "I'm interested in this one"; }
-    } catch (e) { btn.disabled = false; btn.textContent = "I'm interested in this one"; }
-  });
-});
-</script>
 </body></html>`;
 }
 
-function vehicleDeepDiveHtml(report, vehicle) {
+// Jeff's Target: a realistic below-asking negotiation range, capped so the
+// discount never exceeds $5k even on very expensive vehicles. Both bounds
+// share the same cap — capping only the 5% end would invert the range once
+// 2% alone exceeds $5k (~$250k+ vehicles).
+function computeJeffsTarget(price) {
+  if (price == null) return null;
+  const discountMin = Math.min(price * 0.02, 5000);
+  const discountMax = Math.min(price * 0.05, 5000);
+  return { low: Math.round(price - discountMax), high: Math.round(price - discountMin) };
+}
+
+const OPTION_ACCENT_COLORS = ['#2f5fa8', '#b3492f', '#3f7a52'];
+
+function vehicleDeepDiveHtml(report, vehicle, vehicleCount) {
   const v = vehicle;
+  const sourcing = v.source === 'sourcing_in_progress';
   let features = [];
   try { features = JSON.parse(v.notable_features || '[]'); } catch { features = []; }
   let photos = [];
@@ -3241,14 +3607,13 @@ function vehicleDeepDiveHtml(report, vehicle) {
     v.engine && ['Engine', v.engine],
     v.transmission && ['Transmission', v.transmission],
     v.drivetrain && ['Drivetrain', v.drivetrain],
-    (v.city_mpg || v.highway_mpg) && ['Fuel Economy', `${v.city_mpg || '—'} city / ${v.highway_mpg || '—'} hwy MPG`],
-    v.exterior_color && ["This Unit's Color", v.exterior_color],
-    v.exterior_color_options && ['Color Options', v.exterior_color_options],
-    v.cargo_space && ['Cargo Space', v.cargo_space],
-    v.seating_capacity && ['Seating', `${v.seating_capacity} passengers`],
-    v.safety_rating && ['Safety', v.safety_rating],
-    v.warranty && ['Warranty', v.warranty],
+    v.mileage != null && ['Mileage', `${Number(v.mileage).toLocaleString()} mi`],
+    v.exterior_color && ['Exterior Color', v.exterior_color],
   ].filter(Boolean);
+
+  const accent = OPTION_ACCENT_COLORS[((v.position || 1) - 1) % OPTION_ACCENT_COLORS.length];
+  const target = sourcing ? null : computeJeffsTarget(v.price);
+  const fee = sourcing ? null : computeWhiteGloveFee(v.price);
 
   const gallery = photos.length
     ? photos.map(p => `<img src="${escapeHtml(p)}" alt="${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)}" class="gphoto"/>`).join('')
@@ -3259,97 +3624,258 @@ function vehicleDeepDiveHtml(report, vehicle) {
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)} — TheExactMatch</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,500&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  :root{--navy:#0C1C33;--navy2:#152a4a;--beige:#F5F0E8;--beige2:#EDE7D9;--gold:#C09A5B;--gold2:#D4B47A;--white:#fff;--gray:#4A5568;--border:#DDD8CC;--green:#1A4731}
-  body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy)}
-  header{background:var(--navy);padding:3rem 2rem;text-align:center}
-  .backlink{display:inline-block;color:rgba(255,255,255,.55);font-size:.72rem;text-decoration:none;margin-bottom:1rem;letter-spacing:.03em}
-  .eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold2);margin-bottom:.75rem}
-  h1{font-family:'Playfair Display',serif;font-size:clamp(1.6rem,3vw,2.2rem);font-weight:500;color:var(--white)}
-  h1 em{font-style:italic;color:var(--gold2)}
-  .sub{color:rgba(255,255,255,.55);font-size:.9rem;margin-top:.75rem;font-weight:300}
-  .wrap{max-width:840px;margin:0 auto;padding:3rem 2rem}
-  .card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:1.75rem;display:flex;flex-direction:column;gap:1.25rem}
-  .gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.6rem;margin:-1.75rem -1.75rem 0}
-  .gallery .gphoto{width:100%;height:220px;object-fit:cover;display:block;background:var(--beige2)}
-  .gphoto-placeholder{display:flex;align-items:center;justify-content:center;color:var(--gray);font-size:.8rem;font-style:italic;grid-column:1/-1}
-  .vtitle{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:500;color:var(--navy)}
-  .vmeta{display:flex;flex-wrap:wrap;gap:.4rem}
-  .pill{font-size:.72rem;font-weight:500;padding:.3rem .75rem;border:1px solid var(--border);border-radius:20px;color:var(--gray)}
-  .vrationale{font-size:.92rem;color:var(--gray);line-height:1.7}
-  .vspecs{border-top:1px solid var(--border);padding-top:1rem;display:flex;flex-direction:column;gap:.5rem}
-  .spec-row{display:flex;justify-content:space-between;gap:1rem;font-size:.85rem}
-  .spec-label{color:var(--gray);flex-shrink:0}
-  .spec-value{color:var(--navy);font-weight:500;text-align:right}
-  .vfeatures{border-top:1px solid var(--border);padding-top:1rem}
-  .vfeatures-title{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem}
-  .vfeatures ul{padding-left:1.2rem;color:var(--gray);font-size:.85rem;line-height:1.7}
-  .cta-wrap{border-top:1px solid var(--border);padding-top:1.5rem;text-align:center}
-  .cta-btn{padding:1rem 2rem;background:var(--gold);color:var(--navy);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-weight:700;font-size:.85rem;letter-spacing:.04em;cursor:pointer;width:100%}
-  .cta-btn:disabled{background:var(--green);color:var(--white);cursor:default}
-  footer{text-align:center;padding:2rem;font-size:.72rem;color:var(--gray)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#152238;--navy2:#1e2f4d;--gold:#c9a227;--bronze:#8a6a12;--cream:#f7f4ee;--white:#fff;--ink:#1a1a1a;--border:rgba(21,34,56,.12);--muted:#5b5b5b;--status-good:#2f7a4f}
+html,body{background:var(--cream)}
+body{font-family:'Jost',sans-serif;color:var(--ink);font-weight:300;font-size:.92rem}
+h1,h2,h3{font-family:'Playfair Display',serif;font-weight:500;color:var(--ink)}
+.page{max-width:760px;margin:0 auto;padding:0 0 4rem}
+.backlink{display:block;padding:1.2rem 1.5rem 0;font-size:.74rem;color:var(--muted);text-decoration:none}
+.backlink:hover{color:var(--ink)}
+header.vhead{padding:1.4rem 1.5rem 1.8rem;border-bottom:4px solid ${accent}}
+.option-badge{display:inline-flex;align-items:center;gap:.4rem;font-size:.68rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--white);background:${accent};padding:.3rem .8rem;border-radius:20px;margin-bottom:1rem}
+h1.vname{font-size:clamp(1.5rem,3.4vw,2rem);line-height:1.25;margin-bottom:.5rem}
+.vdealer{font-size:.82rem;color:var(--muted)}
+.specs-bar{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin:1.4rem 1.5rem 0;border-radius:4px;overflow:hidden}
+.spec-tile{background:var(--white);padding:1.1rem 1.2rem}
+.spec-tile-label{font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--bronze);margin-bottom:.35rem}
+.spec-tile-value{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:600;color:var(--navy);line-height:1.15}
+.spec-tile-value .unit{font-family:'Jost',sans-serif;font-size:.7rem;font-weight:500;color:var(--muted);margin-left:.25rem}
+.photos-toggle{display:block;width:calc(100% - 3rem);margin:1.6rem 1.5rem 0;padding:.85rem;background:var(--white);border:1px solid var(--border);border-radius:4px;font-family:'Jost',sans-serif;font-weight:600;font-size:.78rem;letter-spacing:.04em;color:var(--navy);cursor:pointer;text-align:center}
+.photos-toggle:hover{border-color:var(--gold)}
+.gallery{display:none;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.5rem;margin:.7rem 1.5rem 0}
+.gallery.open{display:grid}
+.gallery img,.gphoto{width:100%;height:200px;object-fit:cover;border-radius:4px;background:var(--cream);display:block}
+.gphoto-placeholder{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem;font-style:italic;grid-column:1/-1}
+.section{margin:2rem 1.5rem 0}
+.section-title{font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--bronze);margin-bottom:.9rem;padding-bottom:.6rem;border-bottom:1px solid var(--border)}
+.spec-rows{display:flex;flex-direction:column}
+.spec-row{display:flex;justify-content:space-between;gap:1rem;padding:.6rem 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.spec-row:last-child{border-bottom:none}
+.spec-row-label{color:var(--muted)}
+.spec-row-value{color:var(--ink);font-weight:500;text-align:right}
+.features-list{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.9rem}
+.feature-chip{font-size:.72rem;color:var(--navy);background:var(--cream);border:1px solid var(--border);padding:.35rem .75rem;border-radius:20px}
+.jeff-take{background:var(--white);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:4px;padding:1.3rem 1.4rem}
+.jeff-take p{font-size:.9rem;line-height:1.7;color:var(--ink)}
+.jeff-signoff{font-size:.78rem;color:var(--muted);margin-top:.8rem;font-style:italic}
+.target-box{background:var(--navy);color:var(--white);border-radius:4px;padding:1.2rem 1.4rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.8rem;margin-bottom:1.1rem}
+.target-label{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+.target-value{font-family:'Playfair Display',serif;font-size:1.35rem;font-weight:600;margin-top:.25rem}
+.target-vs{font-size:.75rem;color:rgba(247,244,238,.6);text-align:right}
+.tactics-list{display:flex;flex-direction:column;gap:.9rem}
+.tactic{display:flex;gap:.8rem;align-items:flex-start}
+.tactic-num{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--cream);border:1.5px solid var(--bronze);color:var(--bronze);font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center}
+.tactic-text{font-size:.85rem;line-height:1.6;color:var(--ink);padding-top:.1rem}
+.tactic-text b{color:var(--navy)}
+.wg-intro{font-size:.88rem;line-height:1.7;color:var(--ink);margin-bottom:1.3rem}
+.wg-steps{display:flex;flex-direction:column;gap:0;margin-bottom:1.2rem}
+.wg-step{display:flex;gap:1rem;padding:.85rem 0;border-bottom:1px solid var(--border)}
+.wg-step:last-child{border-bottom:none}
+.wg-step-num{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--navy);color:var(--gold);font-family:'Playfair Display',serif;font-size:.8rem;font-weight:600;display:flex;align-items:center;justify-content:center}
+.wg-step-text{font-size:.85rem;line-height:1.55;color:var(--ink);padding-top:.15rem}
+.wg-value-callout{background:rgba(201,162,39,.1);border-left:3px solid var(--gold);border-radius:4px;padding:1rem 1.2rem;font-size:.85rem;line-height:1.65;color:var(--ink)}
+.wg-value-callout b{color:var(--bronze)}
+.listing-link-wrap{text-align:center;padding:1.5rem 0 .5rem}
+.listing-link{font-size:.72rem;color:var(--muted);text-decoration:underline;text-underline-offset:2px}
+.listing-link:hover{color:var(--ink)}
+.action-bar{background:var(--white);border-top:1px solid var(--border);margin:1.5rem 1.5rem 0;padding:1.3rem 0 0;display:flex;flex-direction:column;gap:.7rem}
+.action-btn{padding:.9rem;border-radius:4px;font-family:'Jost',sans-serif;font-weight:700;font-size:.78rem;letter-spacing:.05em;text-align:center;cursor:pointer;border:none}
+.action-btn.primary{background:var(--gold);color:var(--navy)}
+.action-btn.primary:hover{background:#d8b23c}
+.action-btn.primary:disabled{background:var(--status-good);color:var(--white);cursor:default}
+.action-btn.secondary{background:var(--navy);color:var(--white)}
+.action-btn.secondary:hover{background:var(--navy2)}
+.conf-overlay{position:fixed;inset:0;background:rgba(21,34,56,.6);display:none;align-items:center;justify-content:center;padding:1.2rem;z-index:50}
+.conf-overlay.open{display:flex}
+.conf-box{background:var(--white);border-radius:6px;padding:2rem 1.8rem;max-width:440px;width:100%;max-height:90vh;overflow-y:auto}
+.conf-title{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:500;color:var(--ink);margin-bottom:.8rem}
+.conf-body{font-size:.88rem;line-height:1.7;color:var(--ink);margin-bottom:1rem}
+.conf-recap{background:var(--cream);border-radius:4px;padding:1rem 1.2rem;margin-bottom:1rem}
+.conf-recap-title{font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--bronze);margin-bottom:.6rem}
+.conf-recap ul{list-style:none;display:flex;flex-direction:column;gap:.4rem}
+.conf-recap li{font-size:.82rem;color:var(--ink);padding-left:1rem;position:relative}
+.conf-recap li::before{content:'';position:absolute;left:0;top:.5em;width:5px;height:5px;border-radius:50%;background:var(--gold)}
+.conf-fee-box{display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:var(--white);border-radius:4px;padding:1rem 1.2rem;margin-bottom:1rem}
+.conf-fee-label{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
+.conf-fee-value{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:600;margin-top:.2rem}
+.conf-fee-note{font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1.2rem}
+.conf-close{width:100%;padding:.85rem;background:var(--gold);color:var(--navy);border:none;border-radius:4px;font-family:'Jost',sans-serif;font-weight:700;font-size:.78rem;letter-spacing:.05em;cursor:pointer;margin-bottom:.6rem}
+.conf-close:hover{background:#d8b23c}
+.conf-cancel{width:100%;padding:.7rem;background:none;border:none;color:var(--muted);font-family:'Jost',sans-serif;font-size:.76rem;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.conf-cancel:hover{color:var(--ink)}
+.hidden{display:none}
+@media (min-width:600px){ .action-bar{flex-direction:row} .action-btn{flex:1} .specs-bar{grid-template-columns:repeat(3,1fr)} }
 </style>
 </head>
 <body>
-<header>
-  <a class="backlink" href="https://theexactmatch.com/reports/${escapeHtml(report.report_code)}">← Back to all your options</a>
-  <div class="eyebrow">A Closer Look</div>
-  <h1>Hi ${escapeHtml(report.first_name)}, here's your <em>${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)}.</em></h1>
-  <div class="sub">Report ${escapeHtml(report.report_code)} — questions? Text Jeff at (512) 650-9328.</div>
-</header>
-<div class="wrap">
-  <div class="card">
-    <div class="gallery">${gallery}</div>
-    <div class="vtitle">${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)} ${escapeHtml(v.trim)}</div>
-    <div class="vmeta">
-      ${v.source === 'sourcing_in_progress'
-        ? `<span class="pill" style="border-color:var(--gold);color:var(--gold)">Sourcing in progress</span>`
-        : `
-          ${v.price ? `<span class="pill">$${Number(v.price).toLocaleString()}</span>` : ''}
-          ${v.mileage ? `<span class="pill">${Number(v.mileage).toLocaleString()} mi</span>` : ''}
-          ${v.dealer_name ? `<span class="pill">${escapeHtml(v.dealer_name)}</span>` : ''}
-          ${v.dealer_city ? `<span class="pill">${escapeHtml(v.dealer_city)}${v.dealer_state ? ', ' + escapeHtml(v.dealer_state) : ''}</span>` : ''}
-        `}
+<div class="page">
+  <a class="backlink" href="https://theexactmatch.com/reports/${escapeHtml(report.report_code)}">&larr; Back to all your options</a>
+
+  <header class="vhead">
+    ${vehicleCount > 1 ? `<div class="option-badge">Option ${escapeHtml(v.position)}</div>` : ''}
+    <h1 class="vname">${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)} ${escapeHtml(v.trim)}</h1>
+    ${!sourcing && (v.dealer_name || v.dealer_city) ? `<div class="vdealer">${v.dealer_name ? escapeHtml(v.dealer_name) : ''}${v.dealer_name && v.dealer_city ? ', ' : ''}${v.dealer_city ? escapeHtml(v.dealer_city) + (v.dealer_state ? ', ' + escapeHtml(v.dealer_state) : '') : ''}</div>` : ''}
+  </header>
+
+  ${sourcing ? `
+  <div class="section"><div class="jeff-take"><p>This one's still being sourced. I'll have full details for you shortly.</p></div></div>
+  ` : `
+  <div class="specs-bar">
+    <div class="spec-tile"><div class="spec-tile-label">This Listing</div><div class="spec-tile-value">${v.price != null ? '$' + Number(v.price).toLocaleString() : '—'}</div></div>
+    <div class="spec-tile"><div class="spec-tile-label">MPG</div><div class="spec-tile-value">${v.city_mpg || '—'}<span class="unit">city</span> / ${v.highway_mpg || '—'}<span class="unit">hwy</span></div></div>
+    <div class="spec-tile"><div class="spec-tile-label">Cargo Space</div><div class="spec-tile-value" style="font-size:1rem">${v.cargo_space ? escapeHtml(v.cargo_space) : '—'}</div></div>
+    <div class="spec-tile"><div class="spec-tile-label">Safety</div><div class="spec-tile-value" style="font-size:1rem">${v.safety_rating ? escapeHtml(v.safety_rating) : '—'}</div></div>
+  </div>
+
+  ${photos.length ? `
+  <button class="photos-toggle" id="photos-toggle">View Photos <span>(${photos.length})</span></button>
+  <div class="gallery" id="gallery">${gallery}</div>
+  ` : ''}
+
+  ${(specRows.length || features.length) ? `
+  <div class="section">
+    <div class="section-title">Vehicle Specs</div>
+    ${specRows.length ? `<div class="spec-rows">${specRows.map(([label, value]) => `<div class="spec-row"><span class="spec-row-label">${escapeHtml(label)}</span><span class="spec-row-value">${escapeHtml(value)}</span></div>`).join('')}</div>` : ''}
+    ${features.length ? `<div class="features-list">${features.map(f => `<span class="feature-chip">${escapeHtml(f)}</span>`).join('')}</div>` : ''}
+  </div>
+  ` : ''}
+
+  ${v.rationale ? `
+  <div class="section">
+    <div class="section-title">Jeff's Take</div>
+    <div class="jeff-take">
+      <p>${escapeHtml(v.rationale)}</p>
+      <div class="jeff-signoff">Jeff</div>
     </div>
-    <div class="vrationale">${escapeHtml(v.rationale)}</div>
-    ${specRows.length ? `
-      <div class="vspecs">
-        ${specRows.map(([label, value]) => `<div class="spec-row"><span class="spec-label">${escapeHtml(label)}</span><span class="spec-value">${escapeHtml(value)}</span></div>`).join('')}
+  </div>
+  ` : ''}
+
+  <div class="section">
+    <div class="section-title">Negotiation Tactics</div>
+    ${target ? `
+    <div class="target-box">
+      <div><div class="target-label">Your Target</div><div class="target-value">$${target.low.toLocaleString()} &ndash; $${target.high.toLocaleString()}</div></div>
+      <div class="target-vs">vs. $${Number(v.price).toLocaleString()} asking</div>
+    </div>` : ''}
+    <div class="tactics-list">
+      <div class="tactic"><div class="tactic-num">1</div><div class="tactic-text">Ask how long it's been on the lot. <b>The longer it's sat, the more room the dealer usually has to move on price</b>, since they're paying to keep it there.</div></div>
+      <div class="tactic"><div class="tactic-num">2</div><div class="tactic-text">Get the <b>full out-the-door price in writing</b> before you say a word about trade-in or financing. Negotiate the vehicle price as its own conversation.</div></div>
+      <div class="tactic"><div class="tactic-num">3</div><div class="tactic-text"><b>Don't let financing and trade-in get bundled</b> into the same number as the car. Handle each as a separate line item so you can see exactly what you're paying for what.</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">White Glove Service</div>
+    <div class="wg-intro">Most buyers spend 4-6 hours on this: researching, calling dealers, negotiating, then doing it all again for financing and paperwork, usually solo against a sales team that does this every day. If you'd rather not, I'll do it for you.</div>
+    <div class="wg-steps">
+      <div class="wg-step"><div class="wg-step-num">1</div><div class="wg-step-text">Schedule your test drive, often right at your home.</div></div>
+      <div class="wg-step"><div class="wg-step-num">2</div><div class="wg-step-text">Negotiate on your behalf to your target price and payment.</div></div>
+      <div class="wg-step"><div class="wg-step-num">3</div><div class="wg-step-text">Handle your trade-in valuation.</div></div>
+      <div class="wg-step"><div class="wg-step-num">4</div><div class="wg-step-text">Coordinate financing and paperwork before you ever sign anything.</div></div>
+      <div class="wg-step"><div class="wg-step-num">5</div><div class="wg-step-text">Arrange delivery, if that's easier for you.</div></div>
+    </div>
+    <div class="wg-value-callout"><b>What you're really getting:</b> the hours back, and someone in your corner negotiating for you, not the dealer.</div>
+  </div>
+
+  ${v.vdp_url ? `<div class="listing-link-wrap"><a class="listing-link" href="${escapeHtml(v.vdp_url)}" target="_blank" rel="noopener">View original listing (dealer site)</a></div>` : ''}
+
+  <div class="action-bar">
+    <button class="action-btn primary" id="interested-btn" data-position="${v.position}" ${v.interested ? 'disabled' : ''}>${v.interested ? '✓ You expressed interest' : "I'm Interested: Send Me to the Dealer"}</button>
+    <button class="action-btn secondary" id="wg-btn" data-position="${v.position}">${v.white_glove_requested ? 'White Glove Requested' : 'White Glove Service'}</button>
+  </div>
+  `}
+</div>
+
+<div class="conf-overlay" id="interested-overlay">
+  <div class="conf-box">
+    <div class="conf-title">Got it.</div>
+    <div class="conf-body">I'll connect you directly with <b>${v.dealer_name ? escapeHtml(v.dealer_name) : 'the dealer'}</b> and make sure they know exactly what you're looking for. Expect to hear from me shortly.</div>
+    <button class="conf-close" id="interested-close">Close</button>
+  </div>
+</div>
+
+<div class="conf-overlay" id="wg-overlay">
+  <div class="conf-box">
+    <div id="wg-proposal">
+      <div class="conf-title">White Glove Service</div>
+      <div class="conf-body">Here's what I'll personally handle for you, and what it costs.</div>
+      <div class="conf-recap">
+        <div class="conf-recap-title">What I'm Doing</div>
+        <ul>
+          <li>Schedule your test drive</li>
+          <li>Negotiate on your behalf to your target price</li>
+          <li>Handle your trade-in valuation</li>
+          <li>Coordinate financing and paperwork</li>
+          <li>Arrange delivery if needed</li>
+        </ul>
       </div>
-    ` : ''}
-    ${features.length ? `
-      <div class="vfeatures">
-        <div class="vfeatures-title">Notable Features</div>
-        <ul>${features.map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
+      <div class="conf-fee-box">
+        <div><div class="conf-fee-label">White Glove Fee</div><div class="conf-fee-value">${fee != null ? '$' + fee.toLocaleString() : "I'll follow up with pricing"}</div></div>
       </div>
-    ` : ''}
-    ${v.vdp_url && v.source !== 'sourcing_in_progress' ? `
-      <div style="text-align:center">
-        <a href="${escapeHtml(v.vdp_url)}" target="_blank" rel="noopener" style="font-size:.72rem;color:var(--gray);text-decoration:underline;letter-spacing:.02em">View original listing →</a>
-      </div>
-    ` : ''}
-    <div class="cta-wrap">
-      <button class="cta-btn" id="ready-btn" data-position="${v.position}" ${v.ready ? 'disabled' : ''}>
-        ${v.ready ? "✓ Jeff's on it — expect to hear from him soon" : 'Ready to move forward? Jeff will take it from here.'}
-      </button>
+      <div class="conf-fee-note">${fee != null ? 'This fee is only due if you move forward, nothing is charged now.' : "This one's outside our standard pricing tiers, so I'll follow up with the right number for you."}</div>
+      <button class="conf-close" id="wg-proceed">Yes, Let's Do This</button>
+      <button class="conf-cancel" id="wg-cancel">Not Right Now</button>
+    </div>
+    <div id="wg-confirmed" class="hidden">
+      <div class="conf-title">You're all set.</div>
+      <div class="conf-body">Got it. I'll follow up with you shortly to get started.</div>
+      <button class="conf-close" id="wg-close">Close</button>
     </div>
   </div>
 </div>
-<footer>© ${new Date().getFullYear()} TheExactMatch.com</footer>
+
 <script>
-document.getElementById('ready-btn').addEventListener('click', async function() {
-  const btn = this;
-  if (btn.disabled) return;
-  btn.disabled = true;
-  btn.textContent = 'Sending…';
-  try {
-    const res = await fetch('https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api/public/reports/${escapeHtml(report.report_code)}/vehicles/' + btn.dataset.position + '/ready', { method: 'POST' });
-    if (res.ok) { btn.textContent = "✓ Jeff's on it — expect to hear from him soon"; }
-    else { btn.disabled = false; btn.textContent = 'Ready to move forward? Jeff will take it from here.'; }
-  } catch (e) { btn.disabled = false; btn.textContent = 'Ready to move forward? Jeff will take it from here.'; }
-});
+(function(){
+  var API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api/public/reports/${escapeHtml(report.report_code)}/vehicles/';
+  var photosToggle = document.getElementById('photos-toggle');
+  if (photosToggle) {
+    photosToggle.addEventListener('click', function() {
+      var gallery = document.getElementById('gallery');
+      var open = gallery.classList.toggle('open');
+      this.innerHTML = open ? 'Hide Photos' : 'View Photos <span>(${photos.length})</span>';
+    });
+  }
+
+  var interestedBtn = document.getElementById('interested-btn');
+  if (interestedBtn) {
+    interestedBtn.addEventListener('click', async function() {
+      if (this.disabled) return;
+      document.getElementById('interested-overlay').classList.add('open');
+      try {
+        await fetch(API + this.dataset.position + '/interest', { method: 'POST' });
+        this.disabled = true;
+        this.textContent = '✓ You expressed interest';
+      } catch (e) {}
+    });
+  }
+  document.getElementById('interested-close').addEventListener('click', function() {
+    document.getElementById('interested-overlay').classList.remove('open');
+  });
+
+  var wgBtn = document.getElementById('wg-btn');
+  if (wgBtn) {
+    wgBtn.addEventListener('click', function() {
+      document.getElementById('wg-proposal').classList.remove('hidden');
+      document.getElementById('wg-confirmed').classList.add('hidden');
+      document.getElementById('wg-overlay').classList.add('open');
+    });
+  }
+  document.getElementById('wg-cancel').addEventListener('click', function() {
+    document.getElementById('wg-overlay').classList.remove('open');
+  });
+  document.getElementById('wg-proceed').addEventListener('click', async function() {
+    try { await fetch(API + wgBtn.dataset.position + '/white-glove', { method: 'POST' }); } catch (e) {}
+    document.getElementById('wg-proposal').classList.add('hidden');
+    document.getElementById('wg-confirmed').classList.remove('hidden');
+    if (wgBtn) wgBtn.textContent = 'White Glove Requested';
+  });
+  document.getElementById('wg-close').addEventListener('click', function() {
+    document.getElementById('wg-overlay').classList.remove('open');
+  });
+})();
 </script>
 </body></html>`;
 }
@@ -3360,6 +3886,10 @@ function slugify(s) {
 
 const REPORT_CODE_RE = /^(TEM-\d{4}-\d{4})(?:-(.+))?$/;
 
+// ── TEMP diagnostic: market trend graph data-availability check ─────
+// Not part of the product — buckets active listings by first-seen month to
+// see what a "price trend" line would actually look like with real data.
+// Remove after the Screen 2 trend-graph section is validated.
 async function renderReportPage(request, env, params) {
   const m = (params.code || '').match(REPORT_CODE_RE);
   if (!m) return htmlResponse(reportNotFoundHtml(), 404);
@@ -3380,7 +3910,7 @@ async function renderReportPage(request, env, params) {
   if (slug) {
     const vehicle = vehicles.find(v => slugify(`${v.year} ${v.make} ${v.model} ${v.trim}`) === slug);
     if (!vehicle) return htmlResponse(reportNotFoundHtml(), 404);
-    return htmlResponse(vehicleDeepDiveHtml(report, vehicle));
+    return htmlResponse(vehicleDeepDiveHtml(report, vehicle, vehicles.length));
   }
 
   return htmlResponse(reportPageHtml(report, vehicles));
@@ -3420,10 +3950,12 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/admin/notification-counts',                              handler: adminNotificationCounts, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/notification-counts/:section/items/:itemId/seen',  handler: adminMarkItemSeen, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/dealers/:id',           handler: adminUpdateDealer, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/dealers/:id/autodev-lookup', handler: adminAutodevDealerLookup, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/invites',                handler: adminGenerateInvite, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/invites',                handler: adminListInvites, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/dealer/invites/:token',        handler: validateInvite },
   { method: 'POST',  pattern: '/api/dealer/signup',                handler: dealerSignup },
+  { method: 'GET',   pattern: '/api/admin/debug/autodev-test',         handler: debugAutodevTest, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/reports',                     handler: adminListReports, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/reports/:code',                handler: adminGetReport, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/reports/:code/vehicles/:position', handler: adminUpdateReportVehicle, auth: true, admin: true },
@@ -3431,6 +3963,7 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/admin/reports/:code/vehicles/:position/photo', handler: adminUploadReportVehiclePhoto, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/reports/:code/vehicles/:position/scrape-listing', handler: adminScrapeListingUrl, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/interest', handler: publicExpressReportInterest },
+  { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/white-glove', handler: publicRequestWhiteGlove },
   { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/ready', handler: publicReadyToMoveForward },
 ];
 
