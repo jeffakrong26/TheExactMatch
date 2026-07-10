@@ -2867,13 +2867,13 @@ async function dealerSignup(request, env, params, dealer, token2, ctx) {
     `INSERT INTO dealer_sessions (id, dealer_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))`
   ).bind(sessionToken, dealerId).run();
 
-  // Gated behind DEALER_WELCOME_EMAIL_ENABLED until the template is reviewed and approved to go live.
+  // Gated behind DEALER_WELCOME_EMAIL_ENABLED. Sent 30 minutes after signup via the job
+  // queue rather than immediately, so a dealer isn't mid-onboarding-form when it lands.
   if (env.DEALER_WELCOME_EMAIL_ENABLED === 'true' && ctx) {
-    ctx.waitUntil(sendBrevoTemplateEmail(env, {
-      to: email,
-      templateId: DEALER_WELCOME_TEMPLATE_ID,
-      params: { FIRSTNAME: first_name },
-    }).catch(err => console.error('dealer welcome email failed', dealerId, err)));
+    ctx.waitUntil(env.JOB_QUEUE.send(
+      { type: 'dealer_welcome_email', to: email, firstName: first_name },
+      { delaySeconds: 1800 }
+    ).catch(err => console.error('failed to enqueue welcome email for dealer', dealerId, err)));
   }
 
   return json({
@@ -3544,6 +3544,12 @@ export default {
           await generateReportForLead(env, body.leadId);
         } else if (body.type === 'sell_car_valuation') {
           await generateValuationForLead(env, body.leadId, body.input);
+        } else if (body.type === 'dealer_welcome_email') {
+          await sendBrevoTemplateEmail(env, {
+            to: body.to,
+            templateId: DEALER_WELCOME_TEMPLATE_ID,
+            params: { FIRSTNAME: body.firstName },
+          });
         } else {
           console.error('unknown queue job type', body.type);
         }

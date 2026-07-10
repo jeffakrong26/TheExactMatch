@@ -6,6 +6,9 @@
 	"observability": {
 		"enabled": true
 	},
+	"vars": {
+		"DEALER_WELCOME_EMAIL_ENABLED": "true"
+	},
 	"d1_databases": [
 		{
 			"binding": "DB",
