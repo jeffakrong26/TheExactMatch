@@ -667,17 +667,8 @@ async function notifyCrm(env, path, body) {
   }
 }
 
-function buildVehiclePrompt(lead) {
-  const year = new Date().getFullYear();
-  const consideringSpecificModel = (lead.considering || '').trim().length > 0;
-  return `A car-buying client filled out our "Find My Car" form. Based on their answers, recommend exactly 3 specific vehicles (year, make, model, trim) that best fit their needs. For each, write a short rationale addressed DIRECTLY to the client in second person — always "you"/"your", never "they"/"their"/"the client"/"the buyer". For example: "This fits your need for extra cargo space" — not "This fits their need for extra cargo space."
-
-${consideringSpecificModel
-  ? `The client already told us the specific make/model they want: "${lead.considering}". All 3 recommendations MUST be that exact make and model — vary them by year, trim, or configuration only. Do not substitute a different make/model, even a similar one, unless what they wrote isn't a real, buildable vehicle.`
-  : `The client did not name a specific make/model, so use the rest of their answers (vehicle type, priorities, budget, etc.) to recommend the 3 best-fitting vehicles — these may span different makes/models.`}
-
-Client details:
-- Vehicle type: ${lead.vehicle_type || 'not specified'}
+function clientDetailsBlock(lead) {
+  return `- Vehicle type: ${lead.vehicle_type || 'not specified'}
 - Size preference: ${lead.size_preference || 'not specified'}
 - Condition: ${lead.condition || 'not specified'}
 - Budget: $${lead.budget_min || '?'} to $${lead.budget_max || '?'}
@@ -693,9 +684,71 @@ ${(lead.payment_method === 'Financing' || lead.payment_method === 'Leasing') ? `
 - Interested in a trade-in: ${lead.trade_in || 'not specified'}
 - Specific needs/requirements: ${lead.specific_needs || 'none stated'}
 - Makes/models already considering: ${lead.considering || 'none stated'}
-- Anything else: ${lead.anything_else || 'none stated'}
+- Anything else: ${lead.anything_else || 'none stated'}`;
+}
+
+function buildVehiclePrompt(lead) {
+  const year = new Date().getFullYear();
+  const consideringSpecificModel = (lead.considering || '').trim().length > 0;
+  return `A car-buying client filled out our "Find My Car" form. Based on their answers, recommend exactly 3 specific vehicles (year, make, model, trim) that best fit their needs. For each, write a short rationale addressed DIRECTLY to the client in second person — always "you"/"your", never "they"/"their"/"the client"/"the buyer". For example: "This fits your need for extra cargo space" — not "This fits their need for extra cargo space."
+
+${consideringSpecificModel
+  ? `The client already told us the specific make/model they want: "${lead.considering}". All 3 recommendations MUST be that exact make and model — vary them by year, trim, or configuration only. Do not substitute a different make/model, even a similar one, unless what they wrote isn't a real, buildable vehicle.`
+  : `The client did not name a specific make/model, so use the rest of their answers (vehicle type, priorities, budget, etc.) to recommend the 3 best-fitting vehicles — these may span different makes/models.`}
+
+Client details:
+${clientDetailsBlock(lead)}
 
 Recommend real vehicles (roughly ${year - 3}–${year} model years) that a dealer network would realistically have in stock, fitting their stated budget range. Overall vehicle price/value is still the primary constraint, but when paying via financing or leasing, use their credit range, desired monthly payment, and down payment to judge which specific trims and model years are realistic for them.`;
+}
+
+// pickVehicles' rationale describes an imagined vehicle written before any
+// real search happens — the eventual matched listing can differ in year,
+// trim, price, and mileage from what Claude guessed. This regenerates the
+// rationale against the actual matched listing so the paragraph a client
+// reads always describes the real car in front of them, not the original
+// guess. Called only for a real match (source === 'autodev'), never for
+// sourcing_in_progress placeholders.
+async function regenerateRationale(env, lead, vehicle) {
+  const tool = {
+    name: 'record_rationale',
+    description: 'Write why this specific, real, currently-listed vehicle fits this buyer.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        rationale: { type: 'string', description: 'Why this fits your budget, priorities, and situation, written in second person, directly addressing the client as "you"/"your". No em dashes — use periods or commas instead.' },
+      },
+      required: ['rationale'],
+      additionalProperties: false,
+    },
+  };
+
+  const prompt = `A car-buying client filled out our "Find My Car" form. We found this real, currently-listed vehicle for them. Write a short rationale (2-4 sentences) explaining why THIS SPECIFIC vehicle, with its real price and mileage, fits them. Written in second person, directly addressing the client as "you"/"your" — never "they"/"their"/"the client"/"the buyer". Do not use em dashes.
+
+Client details:
+${clientDetailsBlock(lead)}
+
+The real vehicle we found for them:
+- ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim}
+- Price: $${vehicle.price != null ? Number(vehicle.price).toLocaleString() : 'not listed'}
+- Mileage: ${vehicle.mileage != null ? Number(vehicle.mileage).toLocaleString() + ' miles' : 'not listed'}
+- Dealer: ${vehicle.dealer_name || 'unknown'}${vehicle.dealer_city ? `, ${vehicle.dealer_city}` : ''}${vehicle.dealer_state ? `, ${vehicle.dealer_state}` : ''}`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6', max_tokens: 1024,
+      tools: [tool], tool_choice: { type: 'tool', name: 'record_rationale' },
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (data.stop_reason === 'refusal') return null;
+  const toolUse = (data.content || []).find(b => b.type === 'tool_use');
+  return toolUse ? toolUse.input.rationale : null;
 }
 
 async function pickVehicles(env, lead) {
@@ -1639,13 +1692,18 @@ async function generateReportForLead(env, leadId) {
 
   // Phase C (parallel I/O): verify the winning listing is still live, build
   // each position's final entry (year/make/model/trim bound to the matched
-  // listing, not the pick), then run spec enrichment against that same
-  // corrected vehicle so trim-level specs (safety rating, cargo space, etc.)
-  // describe the actual matched car rather than Claude's original guess.
+  // listing, not the pick), then run spec enrichment AND rationale
+  // regeneration against that same corrected vehicle in parallel, so both
+  // the trim-level specs (safety rating, cargo space, etc.) and the
+  // paragraph the client reads describe the actual matched car rather than
+  // Claude's original guess.
   const vehicles = await Promise.all(picks.map(async (pick, i) => {
     const entry = await buildVehicleEntry(env, pick, winners[i], pools[i], photosByPosition[i], lead, partnerDealers, tags[i]);
     const tSpecs = Date.now();
-    const specs = await enrichVehicleSpecs(env, entry, {});
+    const [specs, freshRationale] = await Promise.all([
+      enrichVehicleSpecs(env, entry, {}),
+      entry.source === 'autodev' ? regenerateRationale(env, lead, entry) : Promise.resolve(null),
+    ]);
     console.log(`[timing] ${tags[i]} enrichSpecs: ${Date.now() - tSpecs}ms`);
     entry.engine = entry.engine || specs.engine || null;
     entry.transmission = entry.transmission || specs.transmission || null;
@@ -1658,6 +1716,9 @@ async function generateReportForLead(env, leadId) {
     entry.seating_capacity = specs.seating_capacity ?? null;
     entry.warranty = specs.warranty || null;
     entry.notable_features = JSON.stringify(specs.notable_features || []);
+    // Keep the original pick rationale on failure/refusal rather than
+    // blanking it — an imperfect-but-plausible paragraph beats none.
+    if (freshRationale) entry.rationale = freshRationale;
     return entry;
   }));
   console.log(`[timing] all vehicles processed: ${Date.now() - tVehicles}ms, cumulative: ${Date.now() - t0}ms`);
