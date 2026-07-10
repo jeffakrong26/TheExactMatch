@@ -3594,6 +3594,56 @@ function computeJeffsTarget(price) {
 
 const OPTION_ACCENT_COLORS = ['#2f5fa8', '#b3492f', '#3f7a52'];
 
+// Estimated-payments assumptions. Not lender-sourced, illustrative only —
+// disclosed as such in the rendered note. Flat TX rate/fees regardless of
+// the vehicle's dealer state, since the client's registration state isn't
+// collected on the form.
+const CREDIT_TIERS = [
+  { key: 'excellent', label: 'Excellent', apr: 0.06 },
+  { key: 'good', label: 'Good', apr: 0.09 },
+  { key: 'fair', label: 'Fair', apr: 0.13 },
+  { key: 'poor', label: 'Poor', apr: 0.18 },
+];
+const OTD_TAX_RATE = 0.0625;
+const OTD_FLAT_FEES = 300;
+const FINANCING_TERMS = [48, 60, 72];
+
+function creditTierFor(creditRange) {
+  const key = (creditRange || '').toLowerCase().trim();
+  return CREDIT_TIERS.find(t => t.key === key) || CREDIT_TIERS.find(t => t.key === 'good');
+}
+
+function computeOtdPrice(price) {
+  if (price == null) return null;
+  return Math.round((price * (1 + OTD_TAX_RATE) + OTD_FLAT_FEES) * 100) / 100;
+}
+
+function monthlyPayment(principal, annualApr, termMonths) {
+  if (principal <= 0) return 0;
+  const r = annualApr / 12;
+  const factor = Math.pow(1 + r, termMonths);
+  return principal * r * factor / (factor - 1);
+}
+
+// Shown for any payment method (including Cash/Leasing, which don't collect
+// credit_range/down_payment on the form) so the section is never conditional
+// on a specific answer — missing credit tier falls back to "Good", missing
+// down payment falls back to 10% of price, so there's always a sensible
+// illustrative table rather than nothing.
+function computeFinancingTable(price, downPaymentRaw, creditRange) {
+  if (price == null) return null;
+  const tier = creditTierFor(creditRange);
+  const otd = computeOtdPrice(price);
+  const parsedDown = Number(downPaymentRaw);
+  const stated = Number.isFinite(parsedDown) && parsedDown > 0 ? parsedDown : Math.round(price * 0.1);
+  const downOptions = [Math.max(0, Math.round(stated * 0.8)), stated, Math.round(stated * 1.2)];
+  const rows = FINANCING_TERMS.map(term => ({
+    term,
+    payments: downOptions.map(down => monthlyPayment(otd - down, tier.apr, term)),
+  }));
+  return { tier, otd, downOptions, rows };
+}
+
 function vehicleDeepDiveHtml(report, vehicle, vehicleCount) {
   const v = vehicle;
   const sourcing = v.source === 'sourcing_in_progress';
@@ -3614,6 +3664,7 @@ function vehicleDeepDiveHtml(report, vehicle, vehicleCount) {
   const accent = OPTION_ACCENT_COLORS[((v.position || 1) - 1) % OPTION_ACCENT_COLORS.length];
   const target = sourcing ? null : computeJeffsTarget(v.price);
   const fee = sourcing ? null : computeWhiteGloveFee(v.price);
+  const financing = sourcing ? null : computeFinancingTable(v.price, report.down_payment, report.credit_range);
 
   const gallery = photos.length
     ? photos.map(p => `<img src="${escapeHtml(p)}" alt="${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)}" class="gphoto"/>`).join('')
@@ -3661,6 +3712,18 @@ h1.vname{font-size:clamp(1.5rem,3.4vw,2rem);line-height:1.25;margin-bottom:.5rem
 .jeff-take{background:var(--white);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:4px;padding:1.3rem 1.4rem}
 .jeff-take p{font-size:.9rem;line-height:1.7;color:var(--ink)}
 .jeff-signoff{font-size:.78rem;color:var(--muted);margin-top:.8rem;font-style:italic}
+.finance-meta{display:flex;flex-wrap:wrap;gap:1.2rem;margin-bottom:1rem;font-size:.78rem;color:var(--muted)}
+.finance-meta b{color:var(--ink);font-weight:600}
+.finance-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:4px;background:var(--white)}
+table.finance-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.finance-table th,.finance-table td{padding:.75rem 1rem;text-align:right;font-size:.85rem;white-space:nowrap}
+.finance-table th{background:var(--navy);color:var(--cream);font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.finance-table th:first-child,.finance-table td:first-child{text-align:left}
+.finance-table td:first-child{font-weight:600;color:var(--ink);background:var(--cream)}
+.finance-table tbody tr:not(:last-child) td{border-bottom:1px solid var(--border)}
+.finance-table td.stated-col{color:var(--navy);font-weight:700;background:rgba(201,162,39,.08)}
+.finance-table th.stated-col{background:var(--navy2)}
+.finance-note{font-size:.72rem;color:var(--muted);margin-top:.8rem;line-height:1.6}
 .target-box{background:var(--navy);color:var(--white);border-radius:4px;padding:1.2rem 1.4rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.8rem;margin-bottom:1.1rem}
 .target-label{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
 .target-value{font-family:'Playfair Display',serif;font-size:1.35rem;font-weight:600;margin-top:.25rem}
@@ -3750,6 +3813,39 @@ h1.vname{font-size:clamp(1.5rem,3.4vw,2rem);line-height:1.25;margin-bottom:.5rem
       <p>${escapeHtml(v.rationale)}</p>
       <div class="jeff-signoff">Jeff</div>
     </div>
+  </div>
+  ` : ''}
+
+  ${financing ? `
+  <div class="section">
+    <div class="section-title">Estimated Payments</div>
+    <div class="finance-meta">
+      <span>Credit tier: <b>${escapeHtml(financing.tier.label)} (${Math.round(financing.tier.apr * 100)}% APR)</b></span>
+      <span>Stated down payment: <b>$${financing.downOptions[1].toLocaleString()}</b></span>
+      <span>Out-the-door before down payment: <b>$${financing.otd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b> <span style="color:var(--muted)">(price + 6.25% TX tax + $300 fees)</span></span>
+    </div>
+    <div class="finance-table-wrap">
+      <table class="finance-table">
+        <thead>
+          <tr>
+            <th>Term</th>
+            <th>$${financing.downOptions[0].toLocaleString()} down</th>
+            <th class="stated-col">$${financing.downOptions[1].toLocaleString()} down</th>
+            <th>$${financing.downOptions[2].toLocaleString()} down</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${financing.rows.map(row => `
+          <tr>
+            <td>${row.term} months</td>
+            <td>$${row.payments[0].toFixed(2)}/mo</td>
+            <td class="stated-col">$${row.payments[1].toFixed(2)}/mo</td>
+            <td>$${row.payments[2].toFixed(2)}/mo</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="finance-note">These are estimates only. Your actual rate, term, and payment depend on lender approval and may vary from what's shown here.</div>
   </div>
   ` : ''}
 
@@ -3896,7 +3992,8 @@ async function renderReportPage(request, env, params) {
   const [, reportCode, slug] = m;
 
   const report = await env.DB.prepare(`
-    SELECT find_car_reports.*, find_car_leads.first_name, find_car_leads.last_name
+    SELECT find_car_reports.*, find_car_leads.first_name, find_car_leads.last_name,
+      find_car_leads.payment_method, find_car_leads.credit_range, find_car_leads.down_payment
     FROM find_car_reports JOIN find_car_leads ON find_car_leads.id = find_car_reports.find_lead_id
     WHERE find_car_reports.report_code = ?
   `).bind(reportCode).first();
