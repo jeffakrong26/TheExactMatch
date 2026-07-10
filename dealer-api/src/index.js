@@ -3298,6 +3298,26 @@ async function adminApproveReport(request, env, params, dealer, token, ctx) {
   return json({ success: true });
 }
 
+// Re-runs sourcing for a lead whose report failed to find real listings
+// (e.g. an Auto.dev outage left every position "sourcing_in_progress")
+// without asking the client to resubmit. Deletes this report_code and its
+// vehicles first so the failed attempt doesn't sit in the admin queue
+// alongside the fresh one — the new report gets its own report_code.
+// Not gated on report status: an admin using this deliberately should be
+// trusted the same as any other admin action in this file.
+async function adminRegenerateReport(request, env, params) {
+  const report = await env.DB.prepare('SELECT id, find_lead_id FROM find_car_reports WHERE report_code = ?').bind(params.code).first();
+  if (!report) return json({ error: 'Report not found.' }, 404);
+
+  await env.DB.prepare('DELETE FROM report_vehicles WHERE report_id = ?').bind(report.id).run();
+  await env.DB.prepare('DELETE FROM find_car_reports WHERE id = ?').bind(report.id).run();
+
+  await generateReportForLead(env, report.find_lead_id);
+
+  const fresh = await env.DB.prepare('SELECT report_code, status FROM find_car_reports WHERE find_lead_id = ? ORDER BY id DESC LIMIT 1').bind(report.find_lead_id).first();
+  return json({ success: true, report: fresh });
+}
+
 // ── Public hosted report page + client interest ───────────────────
 async function adminUploadReportVehiclePhoto(request, env, params) {
   const report = await env.DB.prepare('SELECT id FROM find_car_reports WHERE report_code = ?').bind(params.code).first();
@@ -4057,6 +4077,7 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/admin/reports/:code',                handler: adminGetReport, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/reports/:code/vehicles/:position', handler: adminUpdateReportVehicle, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/reports/:code/approve',        handler: adminApproveReport, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/reports/:code/regenerate',     handler: adminRegenerateReport, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/reports/:code/vehicles/:position/photo', handler: adminUploadReportVehiclePhoto, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/reports/:code/vehicles/:position/scrape-listing', handler: adminScrapeListingUrl, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/interest', handler: publicExpressReportInterest },
