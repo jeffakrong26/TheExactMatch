@@ -3,6 +3,7 @@
 // PBKDF2 password hashing.
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DEALER_WELCOME_TEMPLATE_ID = 7; // Brevo "Dealer Welcome — Portal Invite Accepted"
 
 // Accepts "smithmotors.com" or "https://smithmotors.com" and normalizes to a
 // full URL. Returns { url: null, error } if the input isn't a plausible website.
@@ -586,6 +587,26 @@ async function sendBrevoEmail(env, { to, subject, html }) {
     }
   } catch (err) {
     console.error('Brevo email failed', err);
+  }
+}
+
+async function sendBrevoTemplateEmail(env, { to, templateId, params }) {
+  try {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'api-key': env.BREVO_API_KEY },
+      body: JSON.stringify({
+        to: [{ email: to }],
+        templateId,
+        params,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error('Brevo template email rejected', res.status, body);
+    }
+  } catch (err) {
+    console.error('Brevo template email failed', err);
   }
 }
 
@@ -2797,7 +2818,7 @@ async function validateInvite(request, env, params) {
   return json({ valid: true });
 }
 
-async function dealerSignup(request, env) {
+async function dealerSignup(request, env, params, dealer, token2, ctx) {
   const body = await request.json().catch(() => ({}));
   const token           = (body.token || '').trim();
   const first_name      = (body.first_name || '').trim();
@@ -2845,6 +2866,15 @@ async function dealerSignup(request, env) {
   await env.DB.prepare(
     `INSERT INTO dealer_sessions (id, dealer_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))`
   ).bind(sessionToken, dealerId).run();
+
+  // Gated behind DEALER_WELCOME_EMAIL_ENABLED until the template is reviewed and approved to go live.
+  if (env.DEALER_WELCOME_EMAIL_ENABLED === 'true' && ctx) {
+    ctx.waitUntil(sendBrevoTemplateEmail(env, {
+      to: email,
+      templateId: DEALER_WELCOME_TEMPLATE_ID,
+      params: { FIRSTNAME: first_name },
+    }).catch(err => console.error('dealer welcome email failed', dealerId, err)));
+  }
 
   return json({
     token: sessionToken,
