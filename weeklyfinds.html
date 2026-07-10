@@ -147,7 +147,7 @@ body{font-family:'Jost',sans-serif;background:var(--paper);color:var(--ink);over
 @media(max-width:900px){
   .masthead-hero{padding:3rem 1.5rem 2.5rem}
   .masthead-top{padding:1rem 1.5rem}
-  .toc-inner{grid-template-columns:repeat(3,1fr)}
+  .toc-inner{grid-template-columns:repeat(3,1fr);padding:1.5rem 1rem}
   .vp-hero{height:360px}
   .vp-hero-content{padding:1.5rem}
   .vp-price-badge{top:1rem;right:1rem;padding:.65rem .85rem}
@@ -158,6 +158,9 @@ body{font-family:'Jost',sans-serif;background:var(--paper);color:var(--ink);over
   .photo-strip-full{padding:0 1.5rem 2rem}
   .issue-strip{padding:.6rem 1.5rem}
   .newsletter-footer{padding:2rem 1.5rem}
+}
+@media(max-width:480px){
+  .toc-inner{grid-template-columns:repeat(2,1fr)}
 }
 </style>
 </head>

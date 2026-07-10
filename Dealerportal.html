@@ -13,6 +13,10 @@
       --gold:#C09A5B;--gold2:#D4B47A;
       --white:#fff;--gray:#4A5568;--border:#DDD8CC;
       --green:#1A4731;--red:#9B2335;--amber:#92600A;
+      /* Referenced by inline card sub-grids so the mobile media query can
+         collapse them without !important. */
+      --card-grid-3:auto 1fr auto;
+      --card-grid-2:1fr auto;
     }
     html{scroll-behavior:smooth}
     body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy);overflow-x:hidden;min-height:100vh}
@@ -149,9 +153,11 @@
 
     /* ── ADMIN TAB BAR ── */
     .tab-bar{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:2rem}
-    .tab-btn{font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.75rem 1.5rem;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;color:var(--gray);transition:all .2s}
+    .tab-btn{position:relative;font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.75rem 1.5rem;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;color:var(--gray);transition:all .2s}
     .tab-btn.active{color:var(--navy);border-bottom-color:var(--gold)}
     .tab-btn:hover:not(.active){color:var(--navy)}
+    .tab-badge{display:none;position:absolute;top:.1rem;right:.4rem;background:#E0293E;color:#fff;font-size:.62rem;font-weight:700;line-height:1;min-width:1.1rem;height:1.1rem;border-radius:1rem;padding:0 .3rem;align-items:center;justify-content:center;letter-spacing:0}
+    .tab-badge.show{display:flex}
     .tab-panel{display:none}.tab-panel.active{display:block}
 
     /* ── INTEREST CTA ── */
@@ -171,6 +177,7 @@
 
     /* ── RESPONSIVE ── */
     @media(max-width:900px){
+      :root{--card-grid-3:1fr;--card-grid-2:1fr}
       .login-hero{grid-template-columns:1fr}
       .login-left{display:none}
       .login-right{min-height:calc(100vh - 64px);padding:2rem 1.5rem}
@@ -180,7 +187,7 @@
       .content-area{padding:1.75rem}
       .dp-form-row{grid-template-columns:1fr}
       .item-card{grid-template-columns:1fr}
-      .item-card-actions{flex-direction:row;align-items:center}
+      .item-card-actions{flex-direction:row;align-items:center;flex-wrap:wrap}
       footer{flex-direction:column;gap:1rem;text-align:center;padding:1.75rem}
     }
   </style>
@@ -308,50 +315,24 @@
       <div class="dp-alert dp-alert-err" id="submit-error"></div>
       <div class="dp-alert dp-alert-ok"  id="submit-success"></div>
 
-      <div class="dp-form-row">
-        <div class="dp-form-group">
-          <label>Year</label>
-          <input type="number" id="sv-year" placeholder="2022" min="1990" max="2026"/>
-        </div>
-        <div class="dp-form-group">
-          <label>Category</label>
-          <select id="sv-category">
-            <option value="">Select category...</option>
-            <option>Luxury</option>
-            <option>Exotic</option>
-            <option>Under $50k</option>
-            <option>Truck</option>
-          </select>
-        </div>
-      </div>
-      <div class="dp-form-row">
-        <div class="dp-form-group">
-          <label>Make</label>
-          <input type="text" id="sv-make" placeholder="Porsche"/>
-        </div>
-        <div class="dp-form-group">
-          <label>Model</label>
-          <input type="text" id="sv-model" placeholder="911 Carrera S"/>
-        </div>
-      </div>
-      <div class="dp-form-row">
-        <div class="dp-form-group">
-          <label>Price ($)</label>
-          <input type="number" id="sv-price" placeholder="142500"/>
-        </div>
-        <div class="dp-form-group">
-          <label>Mileage</label>
-          <input type="number" id="sv-mileage" placeholder="12400"/>
-        </div>
+      <div class="dp-form-group">
+        <label>Listing URL</label>
+        <input type="text" id="sv-listing-url" placeholder="https://yourdealership.com/inventory/..."/>
+        <div style="font-size:.7rem;color:var(--gray);margin-top:.4rem;font-weight:300">We'll pull year, make, model, trim, price, mileage, and photos directly from this page.</div>
       </div>
       <div class="dp-form-group">
-        <label>Description</label>
-        <textarea id="sv-description" placeholder="Exterior color, interior, key options, condition notes, any relevant history..."></textarea>
+        <label>Category</label>
+        <select id="sv-category">
+          <option value="">Select category...</option>
+          <option>Luxury</option>
+          <option>Exotic</option>
+          <option>Under $50k</option>
+          <option>Truck</option>
+        </select>
       </div>
       <div class="dp-form-group">
-        <label>Photo URLs (one per line)</label>
-        <textarea id="sv-images" placeholder="https://your-cdn.com/photo1.jpg&#10;https://your-cdn.com/photo2.jpg" style="min-height:70px"></textarea>
-        <div style="font-size:.7rem;color:var(--gray);margin-top:.4rem;font-weight:300">Paste direct image URLs — or leave blank and attach photos via email to info@theexactmatch.com</div>
+        <label>Notes (optional)</label>
+        <textarea id="sv-description" placeholder="Anything not on the listing page — condition notes, relevant history, why it's a good fit for the newsletter..."></textarea>
       </div>
 
       <button class="btn-primary" id="submit-btn" onclick="doSubmitVehicle()" style="max-width:300px;margin-top:.5rem">
@@ -428,17 +409,45 @@
   <div class="content-area">
 
     <div class="tab-bar" style="overflow-x:auto;flex-wrap:nowrap">
-      <button class="tab-btn active" onclick="switchTab('tab-submissions')">Submissions</button>
+      <button class="tab-btn active" onclick="switchTab('tab-submissions')">Submissions<span class="tab-badge" data-section="newsletter"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-find-leads')">Find Leads</button>
-      <button class="tab-btn" onclick="switchTab('tab-reports')">Reports</button>
-      <button class="tab-btn" onclick="switchTab('tab-leads')">Sell Leads</button>
-      <button class="tab-btn" onclick="switchTab('tab-messages')">Messages</button>
-      <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers</button>
+      <button class="tab-btn" onclick="switchTab('tab-reports')">Reports<span class="tab-badge" data-section="find_car"></span></button>
+      <button class="tab-btn" onclick="switchTab('tab-leads')">Sell Leads<span class="tab-badge" data-section="sell_car"></span></button>
+      <button class="tab-btn" onclick="switchTab('tab-messages')">Messages<span class="tab-badge" data-section="messages"></span></button>
+      <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers<span class="tab-badge" data-section="dealers"></span></button>
     </div>
 
     <!-- Tab: Submissions -->
     <div class="tab-panel active" id="tab-submissions">
-      <div class="section-label">Vehicle Submissions</div>
+      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;border-bottom:none;padding-bottom:0;margin-bottom:1.5rem">
+        <span>Vehicle Submissions</span>
+        <button class="btn-primary btn-sm btn-gold" style="width:auto" id="admin-submit-toggle-btn" onclick="toggleAdminSubmitForm()">+ Submit a Vehicle</button>
+      </div>
+
+      <div id="admin-submit-form" style="display:none;background:var(--beige);border:1px solid var(--border);border-radius:3px;padding:1.25rem;margin-bottom:1.5rem">
+        <div class="dp-alert dp-alert-err" id="admin-submit-error"></div>
+        <div class="dp-alert dp-alert-ok"  id="admin-submit-success"></div>
+        <div class="dp-form-group">
+          <label>Listing URL</label>
+          <input type="text" id="admin-sv-listing-url" placeholder="https://dealer.com/inventory/..."/>
+        </div>
+        <div class="dp-form-group">
+          <label>Category</label>
+          <select id="admin-sv-category">
+            <option value="">Select category...</option>
+            <option>Luxury</option>
+            <option>Exotic</option>
+            <option>Under $50k</option>
+            <option>Truck</option>
+          </select>
+        </div>
+        <div class="dp-form-group">
+          <label>Notes (optional)</label>
+          <textarea id="admin-sv-description"></textarea>
+        </div>
+        <button class="btn-primary" id="admin-submit-btn" onclick="doAdminSubmitVehicle()" style="max-width:260px">Submit Vehicle</button>
+      </div>
+
       <div id="admin-subs-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
       <div id="admin-subs-list"></div>
     </div>
@@ -487,14 +496,16 @@
       <div>
         <div class="section-label">Active Dealers</div>
         <div id="admin-dealers-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
-        <table class="dp-table" id="admin-dealers-table" style="display:none">
-          <thead>
-            <tr>
-              <th>Name</th><th>Dealership</th><th>Email</th><th>Status</th><th>Joined</th><th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="admin-dealers-body"></tbody>
-        </table>
+        <div style="overflow-x:auto">
+          <table class="dp-table" id="admin-dealers-table" style="display:none">
+            <thead>
+              <tr>
+                <th>Name</th><th>Dealership</th><th>Email</th><th>Status</th><th>Joined</th><th></th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="admin-dealers-body"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -596,6 +607,10 @@ function showView(id) {
     loadAdminMessages();
     loadAdminDealers();
     loadAdminInvites();
+    startNotificationPolling();
+  } else if (notificationPollHandle) {
+    clearInterval(notificationPollHandle);
+    notificationPollHandle = null;
   }
 }
 
@@ -716,33 +731,23 @@ async function restoreSession() {
 
 // ── Submit Vehicle ────────────────────────────────────────────
 async function doSubmitVehicle() {
-  const year        = document.getElementById('sv-year').value.trim();
-  const make        = document.getElementById('sv-make').value.trim();
-  const model       = document.getElementById('sv-model').value.trim();
-  const price       = document.getElementById('sv-price').value.trim();
-  const mileage     = document.getElementById('sv-mileage').value.trim();
+  const listing_url = document.getElementById('sv-listing-url').value.trim();
   const category    = document.getElementById('sv-category').value;
   const description = document.getElementById('sv-description').value.trim();
-  const imagesRaw   = document.getElementById('sv-images').value.trim();
 
   document.getElementById('submit-error').classList.remove('show');
   document.getElementById('submit-success').classList.remove('show');
 
-  if (!year || !make || !model || !price || !mileage || !category) {
-    showAlert('submit-error', 'Please fill in Year, Make, Model, Price, Mileage, and Category.');
+  if (!listing_url || !category) {
+    showAlert('submit-error', 'Please provide a Listing URL and Category.');
     return;
   }
 
-  const image_urls = imagesRaw
-    ? imagesRaw.split('\n').map(s => s.trim()).filter(Boolean)
-    : [];
-
-  setLoading('submit-btn', true, 'Submitting…');
+  setLoading('submit-btn', true, 'Fetching listing…');
 
   const { res, data } = await apiFetch('/dealer/submit-vehicle', {
     method: 'POST',
-    body:   JSON.stringify({ year: +year, make, model, price: +price,
-                              mileage: +mileage, category, description, image_urls })
+    body:   JSON.stringify({ listing_url, category, description })
   }).catch(() => ({res:{ok:false},data:{error:'Connection error.'}}));
 
   setLoading('submit-btn', false, null, 'Submit Vehicle');
@@ -754,8 +759,7 @@ async function doSubmitVehicle() {
 
   showAlert('submit-success', '✓ Vehicle submitted. Jeff will review and be in touch.', 'ok');
   // Clear form
-  ['sv-year','sv-make','sv-model','sv-price','sv-mileage','sv-description','sv-images']
-    .forEach(id => { document.getElementById(id).value = ''; });
+  ['sv-listing-url','sv-description'].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('sv-category').value = '';
 }
 
@@ -784,7 +788,7 @@ async function loadLeads() {
 
   document.getElementById('leads-list').innerHTML = leads.map(lead => `
     <div class="item-card" style="flex-direction:column;display:flex;gap:0">
-      <div style="display:grid;grid-template-columns:auto 1fr auto;gap:1rem;align-items:start;width:100%">
+      <div style="display:grid;grid-template-columns:var(--card-grid-3);gap:1rem;align-items:start;width:100%">
         ${leadAvatarHtml(lead, false)}
         <div>
           <div class="item-card-title">${lead.year} ${lead.make} ${lead.model}</div>
@@ -795,6 +799,7 @@ async function loadLeads() {
             <span class="meta-pill">${lead.title_status}</span>
             ${lead.city ? `<span class="meta-pill">${lead.city}${lead.state ? ', ' + lead.state : ''}</span>` : ''}
             ${lead.valuation_status ? `<span class="status-badge ${valuationStatusMeta(lead.valuation_status).cls}">${valuationStatusMeta(lead.valuation_status).label}</span>` : ''}
+            ${lead.final_cash_value ? `<span class="meta-pill">Cash ${formatPrice(lead.final_cash_value)}</span>` : ''}
             ${lead.final_retail_value ? `<span class="meta-pill">Retail ${formatPrice(lead.final_retail_value)}</span>` : ''}
             <span class="meta-pill" style="color:var(--gray);opacity:.6">${formatDate(lead.created_at)}</span>
           </div>
@@ -871,14 +876,17 @@ async function loadMySubmissions() {
 
   document.getElementById('subs-list').innerHTML = subs.map(s => `
     <div class="item-card">
+      ${s.photo_url ? `<img src="${s.photo_url}" style="width:90px;height:64px;object-fit:cover;border-radius:3px;margin-right:1rem"/>` : ''}
       <div>
-        <div class="item-card-title">${s.year} ${s.make} ${s.model}</div>
+        <div class="item-card-title">${s.year} ${s.make} ${s.model}${s.trim ? ' ' + s.trim : ''}</div>
         <div class="item-card-meta">
-          <span class="meta-pill">${formatPrice(s.price)}</span>
-          <span class="meta-pill">${s.mileage.toLocaleString()} miles</span>
+          ${s.price ? `<span class="meta-pill">${formatPrice(s.price)}</span>` : ''}
+          ${s.mileage ? `<span class="meta-pill">${s.mileage.toLocaleString()} miles</span>` : ''}
           <span class="meta-pill">${s.category}</span>
           <span class="meta-pill" style="color:var(--gray);opacity:.6">${formatDate(s.created_at)}</span>
         </div>
+        ${s.listing_url ? `<a href="${s.listing_url}" target="_blank" rel="noopener" style="font-size:.72rem;color:var(--gold)">View listing →</a>` : ''}
+        ${s.write_up ? `<div style="font-size:.76rem;color:var(--gray);margin-top:.4rem;line-height:1.6">${s.write_up}</div>` : ''}
       </div>
       <div class="item-card-actions">
         <span class="status-badge status-${s.status}">${s.status}</span>
@@ -897,6 +905,76 @@ function switchTab(tabId) {
   const tabIndex = ['tab-submissions','tab-find-leads','tab-reports','tab-leads','tab-messages','tab-dealers'].indexOf(tabId);
   document.querySelectorAll('.tab-btn')[tabIndex]?.classList.add('active');
   document.getElementById(tabId)?.classList.add('active');
+  // Note: switching tabs never clears a badge — only reviewing/approving/
+  // expanding a specific item does (see markItemSeen), so opening a tab
+  // can't accidentally hide a submission nobody's actually looked at.
+}
+
+async function loadNotificationCounts() {
+  const { res, data } = await apiFetch('/admin/notification-counts').catch(() => ({res:{ok:false},data:{}}));
+  if (!res.ok) return;
+  const counts = data.counts || {};
+  document.querySelectorAll('.tab-badge').forEach(badge => {
+    const n = counts[badge.dataset.section] || 0;
+    badge.textContent = n > 99 ? '99+' : n;
+    badge.classList.toggle('show', n > 0);
+  });
+}
+
+async function markItemSeen(section, itemId) {
+  await apiFetch(`/admin/notification-counts/${section}/items/${itemId}/seen`, { method: 'POST' }).catch(() => {});
+  loadNotificationCounts();
+}
+
+let notificationPollHandle = null;
+function startNotificationPolling() {
+  loadNotificationCounts();
+  if (notificationPollHandle) clearInterval(notificationPollHandle);
+  notificationPollHandle = setInterval(loadNotificationCounts, 30000);
+}
+
+function toggleAdminSubmitForm() {
+  const form = document.getElementById('admin-submit-form');
+  const isHidden = form.style.display === 'none';
+  form.style.display = isHidden ? 'block' : 'none';
+  document.getElementById('admin-submit-toggle-btn').textContent = isHidden ? 'Cancel' : '+ Submit a Vehicle';
+}
+
+async function doAdminSubmitVehicle() {
+  const listing_url = document.getElementById('admin-sv-listing-url').value.trim();
+  const category    = document.getElementById('admin-sv-category').value;
+  const description = document.getElementById('admin-sv-description').value.trim();
+
+  document.getElementById('admin-submit-error').classList.remove('show');
+  document.getElementById('admin-submit-success').classList.remove('show');
+
+  if (!listing_url || !category) {
+    showAlert('admin-submit-error', 'Please provide a Listing URL and Category.');
+    return;
+  }
+
+  setLoading('admin-submit-btn', true, 'Fetching listing…');
+
+  // Same endpoint dealers use — an admin's own session is just a dealer
+  // row with role='admin', so this attributes the submission to Jeff's
+  // own account rather than needing a separate admin-only code path.
+  const { res, data } = await apiFetch('/dealer/submit-vehicle', {
+    method: 'POST',
+    body:   JSON.stringify({ listing_url, category, description })
+  }).catch(() => ({res:{ok:false},data:{error:'Connection error.'}}));
+
+  setLoading('admin-submit-btn', false, null, 'Submit Vehicle');
+
+  if (!res.ok) {
+    showAlert('admin-submit-error', data.error || 'Submission failed. Please try again.');
+    return;
+  }
+
+  showAlert('admin-submit-success', '✓ Vehicle submitted.', 'ok');
+  document.getElementById('admin-sv-listing-url').value = '';
+  document.getElementById('admin-sv-description').value = '';
+  document.getElementById('admin-sv-category').value = '';
+  loadAdminSubmissions();
 }
 
 async function loadAdminSubmissions() {
@@ -913,32 +991,154 @@ async function loadAdminSubmissions() {
   const subs = data.submissions || [];
   if (!subs.length) { document.getElementById('admin-subs-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">No submissions yet.</div></div>'; return; }
 
-  document.getElementById('admin-subs-list').innerHTML = subs.map(s => `
-    <div class="item-card">
-      <div>
-        <div class="item-card-title">${s.year} ${s.make} ${s.model}</div>
-        <div class="item-card-sub" style="margin-bottom:.4rem">${s.dealership_name} · ${s.dealer_name}</div>
-        <div class="item-card-meta">
-          <span class="meta-pill">${formatPrice(s.price)}</span>
-          <span class="meta-pill">${(s.mileage||0).toLocaleString()} miles</span>
-          <span class="meta-pill">${s.category}</span>
-          <span class="meta-pill" style="opacity:.6">${formatDate(s.created_at)}</span>
+  document.getElementById('admin-subs-list').innerHTML = subs.map(s => {
+    let photos = []; try { photos = JSON.parse(s.image_urls || '[]'); } catch { photos = []; }
+    return `
+    <div class="item-card" style="flex-direction:column;display:flex;gap:0;align-items:stretch">
+      <div style="display:flex;gap:1rem;flex-wrap:wrap">
+        ${s.photo_url ? `<img src="${s.photo_url}" style="width:110px;height:78px;object-fit:cover;border-radius:3px;flex-shrink:0"/>` : ''}
+        <div style="flex:1">
+          <div class="item-card-title">${s.year} ${s.make} ${s.model}${s.trim ? ' ' + s.trim : ''}</div>
+          <div class="item-card-sub" style="margin-bottom:.4rem">${s.dealership_name} · ${s.dealer_name}</div>
+          <div class="item-card-meta">
+            ${s.price ? `<span class="meta-pill">${formatPrice(s.price)}</span>` : ''}
+            ${s.mileage ? `<span class="meta-pill">${s.mileage.toLocaleString()} miles</span>` : ''}
+            <span class="meta-pill">${s.category}</span>
+            <span class="meta-pill" style="opacity:.6">${formatDate(s.created_at)}</span>
+          </div>
+          ${s.listing_url ? `<a href="${s.listing_url}" target="_blank" rel="noopener" style="font-size:.78rem;color:var(--gold);font-weight:600;text-decoration:none">View original listing →</a>` : `<span style="font-size:.78rem;color:#9B2335">⚠ No listing URL on file</span>`}
+          ${s.write_up ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.5rem;line-height:1.6">${s.write_up}</div>` : ''}
+          ${s.description ? `<div style="font-size:.75rem;color:var(--gray);margin-top:.4rem;line-height:1.6"><strong style="color:var(--navy)">Dealer notes:</strong> ${s.description}</div>` : ''}
         </div>
-        ${s.description ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.5rem;line-height:1.6">${s.description}</div>` : ''}
+        <div class="item-card-actions">
+          <span class="status-badge status-${s.status}">${s.status}</span>
+          <button class="btn-primary btn-sm" onclick="toggleSubDetail(${s.id})" id="sub-review-btn-${s.id}">Review</button>
+          ${s.status === 'pending' ? `
+            <button class="btn-primary btn-sm btn-success" onclick="adminUpdateSub(${s.id},'approved')">Approve</button>
+            <button class="btn-primary btn-sm btn-danger"  onclick="adminUpdateSub(${s.id},'rejected')">Reject</button>
+          ` : ''}
+          ${s.status === 'approved' ? `
+            <button class="btn-primary btn-sm" onclick="adminUpdateSub(${s.id},'published')">Publish</button>
+          ` : ''}
+          <button class="btn-primary btn-sm btn-danger" onclick="adminDeleteSubmission(${s.id})">Delete</button>
+        </div>
       </div>
-      <div class="item-card-actions">
-        <span class="status-badge status-${s.status}">${s.status}</span>
-        ${s.status === 'pending' ? `
-          <button class="btn-primary btn-sm btn-success" onclick="adminUpdateSub(${s.id},'approved')">Approve</button>
-          <button class="btn-primary btn-sm btn-danger"  onclick="adminUpdateSub(${s.id},'rejected')">Reject</button>
-        ` : ''}
-        ${s.status === 'approved' ? `
-          <button class="btn-primary btn-sm" onclick="adminUpdateSub(${s.id},'published')">Publish</button>
-        ` : ''}
-        <button class="btn-primary btn-sm btn-danger" onclick="adminDeleteSubmission(${s.id})">Delete</button>
+      <div id="sub-detail-${s.id}" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+        ${photos.length
+          ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">${photos.map(p => `<img src="${p}" style="width:130px;height:90px;object-fit:cover;border-radius:3px"/>`).join('')}</div>`
+          : `<div class="photo-upload-wrap" data-id="${s.id}" style="margin-bottom:1rem">
+               <div style="font-size:.8rem;color:var(--gray);margin-bottom:.5rem">No photo found for this vehicle — extraction couldn't find one on the listing page.</div>
+               <input type="file" accept="image/*" class="photo-file-input" style="font-size:.8rem"/>
+               <button type="button" class="btn-primary btn-sm" style="margin-left:.5rem" onclick="uploadSubmissionPhoto(${s.id}, this)">Upload Photo</button>
+             </div>`}
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Year</label><input type="number" value="${s.year ?? ''}" data-field="year"/></div>
+          <div class="dp-form-group"><label>Make</label><input type="text" value="${s.make ?? ''}" data-field="make"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Model</label><input type="text" value="${s.model ?? ''}" data-field="model"/></div>
+          <div class="dp-form-group"><label>Trim</label><input type="text" value="${s.trim ?? ''}" data-field="trim"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Price ($)</label><input type="number" value="${s.price ?? ''}" data-field="asking_price"/></div>
+          <div class="dp-form-group"><label>Mileage</label><input type="number" value="${s.mileage ?? ''}" data-field="mileage"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>VIN</label><input type="text" value="${s.vin ?? ''}" data-field="vin"/></div>
+          <div class="dp-form-group"><label>Color</label><input type="text" value="${s.exterior_color ?? ''}" data-field="exterior_color"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Engine</label><input type="text" value="${s.engine ?? ''}" data-field="engine"/></div>
+          <div class="dp-form-group"><label>Transmission</label><input type="text" value="${s.transmission ?? ''}" data-field="transmission"/></div>
+        </div>
+        <div class="dp-form-group">
+          <label>Listing URL</label>
+          <div style="display:flex;gap:.5rem">
+            <input type="text" id="sub-listing-input-${s.id}" value="${s.listing_url ?? ''}" data-field="listing_url" style="flex:1"/>
+            <button type="button" class="btn-primary btn-sm" onclick="fetchListingForSubmission(${s.id}, this)">Fetch Listing</button>
+          </div>
+          <div class="fetch-status" id="sub-fetch-status-${s.id}" style="font-size:.75rem;margin-top:.4rem"></div>
+        </div>
+        <div class="dp-form-group"><label>Write-up (auto-generated, editable)</label><textarea data-field="write_up">${s.write_up ?? ''}</textarea></div>
+        <div class="dp-form-group"><label>Dealer Notes (optional, additional)</label><textarea data-field="description">${s.description ?? ''}</textarea></div>
+        <div style="display:flex;gap:.75rem;align-items:center;margin-top:.5rem">
+          <button class="btn-primary btn-sm" onclick="saveSubEdits(${s.id})">Save Changes</button>
+          <span id="sub-save-msg-${s.id}" style="font-size:.8rem"></span>
+        </div>
       </div>
     </div>
-  `).join('');
+  `}).join('');
+}
+
+function toggleSubDetail(id) {
+  const detail = document.getElementById(`sub-detail-${id}`);
+  const isHidden = detail.style.display === 'none';
+  detail.style.display = isHidden ? 'block' : 'none';
+  document.getElementById(`sub-review-btn-${id}`).textContent = isHidden ? 'Hide' : 'Review';
+  if (isHidden) markItemSeen('newsletter', id);
+}
+
+async function saveSubEdits(id) {
+  const detail = document.getElementById(`sub-detail-${id}`);
+  const msg = document.getElementById(`sub-save-msg-${id}`);
+  msg.textContent = 'Saving…'; msg.style.color = 'var(--gray)';
+
+  const payload = {};
+  detail.querySelectorAll('[data-field]').forEach(el => { payload[el.dataset.field] = el.value; });
+
+  const { res } = await apiFetch(`/admin/submissions/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+    .catch(() => ({res:{ok:false}}));
+  if (!res.ok) { msg.textContent = 'Failed to save.'; msg.style.color = 'var(--red)'; return; }
+  msg.textContent = '✓ Saved.'; msg.style.color = 'var(--green)';
+  loadAdminSubmissions();
+}
+
+async function fetchListingForSubmission(id, btn) {
+  const input = document.getElementById(`sub-listing-input-${id}`);
+  const status = document.getElementById(`sub-fetch-status-${id}`);
+  if (!input.value.trim()) { status.textContent = 'Paste a URL first.'; status.style.color = 'var(--red)'; return; }
+  btn.disabled = true; btn.textContent = 'Fetching…'; status.textContent = '';
+  const { res, data } = await apiFetch(`/admin/submissions/${id}/scrape-listing`, { method: 'POST', body: JSON.stringify({ url: input.value.trim() }) })
+    .catch(() => ({ res: { ok: false }, data: {} }));
+  btn.disabled = false; btn.textContent = 'Fetch Listing';
+  if (data.error) { status.textContent = data.error; status.style.color = 'var(--red)'; return; }
+  if (res.ok && data.success) {
+    status.textContent = '✓ Fetched — review the fields below, then Save Changes.';
+    status.style.color = 'var(--green)';
+    loadAdminSubmissions();
+  } else {
+    status.textContent = 'Could not fetch that page. Fill in the fields below manually.';
+    status.style.color = 'var(--red)';
+  }
+}
+
+async function uploadSubmissionPhoto(id, btn) {
+  const wrap = btn.closest('.photo-upload-wrap');
+  const input = wrap.querySelector('.photo-file-input');
+  if (!input.files.length) { alert('Choose a photo file first.'); return; }
+
+  const formData = new FormData();
+  formData.append('photo', input.files[0]);
+
+  btn.disabled = true; btn.textContent = 'Uploading…';
+  try {
+    const res = await fetch(`${API}/admin/submissions/${id}/photo`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}` },
+      body: formData,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      wrap.innerHTML = `<img src="${data.photo_url}" style="width:130px;height:90px;object-fit:cover;border-radius:3px"/>`;
+      loadAdminSubmissions();
+    } else {
+      btn.disabled = false; btn.textContent = 'Upload Photo';
+      alert('Upload failed.');
+    }
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Upload Photo';
+    alert('Upload failed.');
+  }
 }
 
 async function adminDeleteSubmission(id) {
@@ -952,7 +1152,7 @@ async function adminUpdateSub(id, status) {
   const { res } = await apiFetch(`/admin/submissions/${id}`, {
     method: 'PATCH', body: JSON.stringify({ status })
   }).catch(() => ({res:{ok:false}}));
-  if (res.ok) loadAdminSubmissions();
+  if (res.ok) { markItemSeen('newsletter', id); loadAdminSubmissions(); }
   else alert('Update failed.');
 }
 
@@ -972,7 +1172,7 @@ async function loadAdminLeads() {
 
   document.getElementById('admin-leads-list').innerHTML = leads.map(l => `
     <div class="item-card" style="flex-direction:column;display:flex;gap:0">
-      <div style="display:grid;grid-template-columns:auto 1fr auto;gap:1rem;align-items:start;width:100%">
+      <div style="display:grid;grid-template-columns:var(--card-grid-3);gap:1rem;align-items:start;width:100%">
         ${leadAvatarHtml(l, true)}
         <div>
           <div class="item-card-title">${l.year||''} ${l.make||''} ${l.model||''}${l.trim ? ' '+l.trim : ''}</div>
@@ -985,6 +1185,9 @@ async function loadAdminLeads() {
             ${l.city ? `<span class="meta-pill">${l.city}${l.state?', '+l.state:''}</span>` : ''}
             ${l.timeline ? `<span class="meta-pill">${l.timeline}</span>` : ''}
             ${l.valuation_status ? `<span class="status-badge ${valuationStatusMeta(l.valuation_status).cls}">${valuationStatusMeta(l.valuation_status).label}</span>` : ''}
+            ${l.low_confidence ? `<span class="status-badge status-rejected">⚠ Low Confidence — Review</span>` : ''}
+            ${l.manually_adjusted ? `<span class="meta-pill" style="color:var(--gold);font-weight:600">✎ Manually Adjusted</span>` : ''}
+            ${l.final_cash_value ? `<span class="meta-pill">Cash ${formatPrice(l.final_cash_value)}</span>` : ''}
             ${l.final_retail_value ? `<span class="meta-pill">Retail ${formatPrice(l.final_retail_value)}</span>` : ''}
             <span class="meta-pill" style="opacity:.6">${formatDate(l.created_at)}</span>
           </div>
@@ -1009,6 +1212,16 @@ async function adminDeleteLead(id) {
   else alert('Delete failed.');
 }
 
+async function loadAdminLeadValuationDetail(leadId) {
+  const detail = document.getElementById(`admin-lead-valuation-${leadId}`);
+  if (!detail) return;
+  detail.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--gray);font-size:.85rem">Loading...</div>';
+  const { res, data } = await apiFetch(`/admin/leads/${leadId}/valuation`).catch(() => ({res:{ok:false},data:{}}));
+  if (!res.ok) { detail.innerHTML = `<div style="font-size:.82rem;color:var(--gray)">${data.error || 'No valuation yet.'}</div>`; return; }
+  detail.innerHTML = renderValuationDetailHtml({ ...data.valuation, photos: data.photos }, { canUpload: true, leadId });
+  detail.dataset.loaded = 'true';
+}
+
 async function toggleAdminLeadValuation(leadId) {
   const detail = document.getElementById(`admin-lead-valuation-${leadId}`);
   const btn    = document.getElementById(`admin-valuation-btn-${leadId}`);
@@ -1017,13 +1230,9 @@ async function toggleAdminLeadValuation(leadId) {
 
   btn.textContent = 'Hide';
   detail.style.display = 'block';
+  markItemSeen('sell_car', leadId);
   if (detail.dataset.loaded === 'true') return;
-
-  detail.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--gray);font-size:.85rem">Loading...</div>';
-  const { res, data } = await apiFetch(`/admin/leads/${leadId}/valuation`).catch(() => ({res:{ok:false},data:{}}));
-  if (!res.ok) { detail.innerHTML = `<div style="font-size:.82rem;color:var(--gray)">${data.error || 'No valuation yet.'}</div>`; return; }
-  detail.innerHTML = renderValuationDetailHtml({ ...data.valuation, photos: data.photos }, { canUpload: true, leadId });
-  detail.dataset.loaded = 'true';
+  await loadAdminLeadValuationDetail(leadId);
 }
 
 async function loadAdminFindLeads() {
@@ -1088,7 +1297,7 @@ async function loadAdminReports() {
 
   document.getElementById('admin-reports-list').innerHTML = reports.map(r => `
     <div class="item-card" style="flex-direction:column;display:flex;gap:0">
-      <div style="display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:start;width:100%">
+      <div style="display:grid;grid-template-columns:var(--card-grid-2);gap:1rem;align-items:start;width:100%">
         <div>
           <div class="item-card-title">${r.first_name} ${r.last_name} — ${r.report_code}</div>
           <div class="item-card-sub">${r.email}</div>
@@ -1099,7 +1308,7 @@ async function loadAdminReports() {
           </div>
         </div>
         <div class="item-card-actions">
-          <button class="btn-primary btn-sm" onclick="toggleReportDetail('${r.report_code}')" id="review-btn-${r.report_code}">Review</button>
+          <button class="btn-primary btn-sm" onclick="toggleReportDetail('${r.report_code}', ${r.id})" id="review-btn-${r.report_code}">Review</button>
           ${r.status === 'approved' ? `<a href="https://theexactmatch.com/reports/${r.report_code}" target="_blank" style="font-size:.7rem;color:var(--gold);text-decoration:none;font-weight:600;text-transform:uppercase;letter-spacing:.05em">View Live →</a>` : ''}
         </div>
       </div>
@@ -1108,7 +1317,7 @@ async function loadAdminReports() {
   `).join('');
 }
 
-async function toggleReportDetail(code) {
+async function toggleReportDetail(code, id) {
   const detail = document.getElementById(`report-detail-${code}`);
   const isOpen = detail.style.display === 'block';
   if (isOpen) {
@@ -1119,6 +1328,7 @@ async function toggleReportDetail(code) {
 
   document.getElementById(`review-btn-${code}`).textContent = 'Hide';
   detail.style.display = 'block';
+  if (id != null) markItemSeen('find_car', id);
   if (detail.dataset.loaded === 'true') return;
 
   detail.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--gray);font-size:.85rem">Loading...</div>';
@@ -1203,6 +1413,12 @@ async function toggleReportDetail(code) {
           <div style="font-size:.7rem;color:var(--gray);margin-top:.5rem">
             Source: ${v.source || '—'} · Listing: ${v.verified || '—'}${v.interested ? ' · <strong style="color:var(--green)">✓ Client interested</strong>' : ''}
           </div>
+          ${v.source !== 'sourcing_in_progress' ? `
+          <div style="margin-top:.4rem">
+            ${v.vdp_url
+              ? `<a href="${v.vdp_url}" target="_blank" rel="noopener" style="font-size:.78rem;color:var(--gold);font-weight:600;text-decoration:none">View original listing →</a>`
+              : `<span style="font-size:.78rem;color:#9B2335">⚠ No listing URL on file — verify manually before approving.</span>`}
+          </div>` : ''}
           <details style="margin-top:.75rem">
             <summary style="cursor:pointer;font-size:.7rem;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">View Search Log</summary>
             <pre style="font-size:.68rem;background:var(--navy);color:#a8c4e0;padding:.75rem;border-radius:2px;overflow-x:auto;margin-top:.5rem;white-space:pre-wrap">${(() => { try { return JSON.stringify(JSON.parse(v.search_log || '[]'), null, 2); } catch { return 'No log available.'; } })()}</pre>
@@ -1337,8 +1553,18 @@ async function loadAdminMessages() {
         <div style="font-size:.82rem;color:var(--gray);margin-top:.6rem;line-height:1.6">${m.message}</div>
         <div class="item-card-meta"><span class="meta-pill" style="opacity:.6">${formatDate(m.created_at)}</span></div>
       </div>
+      <div class="item-card-actions">
+        ${m.seen
+          ? `<span style="font-size:.75rem;color:var(--green)">✓ Read</span>`
+          : `<button class="btn-primary btn-sm" onclick="markMessageRead(${m.id}, this)">Mark as Read</button>`}
+      </div>
     </div>
   `).join('');
+}
+
+function markMessageRead(id, btn) {
+  markItemSeen('messages', id);
+  btn.outerHTML = `<span style="font-size:.75rem;color:var(--green)">✓ Read</span>`;
 }
 
 async function loadAdminDealers() {
@@ -1362,6 +1588,9 @@ async function loadAdminDealers() {
       <td>${d.email}</td>
       <td><span class="status-badge ${d.status === 'active' ? 'status-approved' : 'status-rejected'}">${d.status}</span></td>
       <td>${formatDate(d.created_at)}</td>
+      <td>${d.seen
+        ? `<span style="font-size:.72rem;color:var(--green)">✓ Reviewed</span>`
+        : `<button class="btn-primary btn-sm" onclick="markDealerSeen(${d.id}, this)">Acknowledge</button>`}</td>
       <td>
         <button class="btn-primary btn-sm ${d.status==='active'?'btn-danger':'btn-success'}"
           onclick="adminUpdateDealer(${d.id}, '${d.status==='active'?'suspended':'active'}')">
@@ -1373,11 +1602,16 @@ async function loadAdminDealers() {
   document.getElementById('admin-dealers-table').style.display = 'table';
 }
 
+function markDealerSeen(id, btn) {
+  markItemSeen('dealers', id);
+  btn.outerHTML = `<span style="font-size:.72rem;color:var(--green)">✓ Reviewed</span>`;
+}
+
 async function adminUpdateDealer(id, status) {
   const { res } = await apiFetch(`/admin/dealers/${id}`, {
     method: 'PATCH', body: JSON.stringify({ status })
   }).catch(() => ({res:{ok:false}}));
-  if (res.ok) loadAdminDealers();
+  if (res.ok) { markItemSeen('dealers', id); loadAdminDealers(); }
   else alert('Update failed.');
 }
 
@@ -1651,25 +1885,70 @@ async function adminUploadValuationPhoto(leadId, slot, input) {
   input.value = '';
 }
 
+// Shared by Save Changes and Send to Customer. If any price was actually
+// edited, we omit `reasoning` entirely so the backend regenerates it fresh
+// against the new numbers — the textareas below are presumed stale in that
+// case. If no price changed, we send whatever's currently in the textareas
+// as the final wording (a hand-edit-only save, no regeneration needed).
+function collectValuationEditPayload(leadId) {
+  const fields = ['cash', 'trade_in', 'private_sale', 'retail'];
+  const values = {};
+  let anyValueChanged = false;
+  for (const field of fields) {
+    const el = document.getElementById(`value-${field}-${leadId}`);
+    if (!el) continue;
+    values[field] = el.value;
+    if (el.value !== el.dataset.original) anyValueChanged = true;
+  }
+
+  const payload = {
+    cash_value: values.cash, trade_in_value: values.trade_in,
+    private_sale_value: values.private_sale, retail_value: values.retail,
+  };
+
+  if (!anyValueChanged) {
+    const reasoning = {};
+    for (const field of fields) {
+      const el = document.getElementById(`reason-${field}-${leadId}`);
+      if (el) reasoning[field] = el.value;
+    }
+    payload.reasoning = reasoning;
+  }
+
+  return payload;
+}
+
+async function saveValuationChanges(leadId) {
+  const btn = document.getElementById(`save-valuation-btn-${leadId}`);
+  const msg = document.getElementById(`valuation-save-msg-${leadId}`);
+  if (!btn || btn.disabled) return;
+  btn.disabled = true; btn.textContent = 'Saving…'; if (msg) { msg.textContent = ''; }
+
+  const { res, data } = await apiFetch(`/admin/leads/${leadId}/save-valuation`, { method: 'POST', body: JSON.stringify(collectValuationEditPayload(leadId)) })
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  btn.disabled = false; btn.textContent = 'Save Changes';
+  if (res.ok) {
+    if (msg) { msg.textContent = '✓ Saved.'; msg.style.color = 'var(--green)'; }
+    await loadAdminLeadValuationDetail(leadId);
+  } else {
+    if (msg) { msg.textContent = data.error || 'Save failed.'; msg.style.color = 'var(--red)'; }
+  }
+}
+
 async function sendValuationToCustomer(leadId) {
   const btn = document.getElementById(`send-valuation-btn-${leadId}`);
   if (!btn || btn.disabled) return;
   btn.disabled = true; btn.textContent = 'Sending…';
 
-  const retailEl  = document.getElementById(`value-retail-${leadId}`);
-  const tradeEl   = document.getElementById(`value-trade_in-${leadId}`);
-  const privateEl = document.getElementById(`value-private_sale-${leadId}`);
-  const body = JSON.stringify({
-    retail_value: retailEl ? retailEl.value : undefined,
-    trade_in_value: tradeEl ? tradeEl.value : undefined,
-    private_sale_value: privateEl ? privateEl.value : undefined,
-  });
+  const body = JSON.stringify(collectValuationEditPayload(leadId));
 
   const { res, data } = await apiFetch(`/admin/leads/${leadId}/send-valuation`, { method: 'POST', body })
     .catch(() => ({res:{ok:false},data:{}}));
 
   if (res.ok) {
     btn.textContent = '✓ Sent to customer';
+    await loadAdminLeadValuationDetail(leadId);
   } else {
     btn.disabled = false; btn.textContent = 'Send Value to Customer';
     alert(data.error || 'Could not send. Please try again.');
@@ -1682,24 +1961,39 @@ function renderValuationDetailHtml(v, opts) {
 
   let comps = [];     try { comps = JSON.parse(v.marketcheck_comps || '[]'); } catch { comps = []; }
   let reasoning = {};  try { reasoning = JSON.parse(v.valuation_reasoning || '{}'); } catch { reasoning = {}; }
+  let breakdown = null; try { breakdown = v.valuation_breakdown ? JSON.parse(v.valuation_breakdown) : null; } catch { breakdown = null; }
   let condition = null; try { condition = v.ai_condition_score ? JSON.parse(v.ai_condition_score) : null; } catch { condition = null; }
 
   const valueBlock = (label, field, value, reason) => `
     <div style="background:var(--beige);border:1px solid var(--border);border-radius:3px;padding:1rem">
       <div style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem">${label}</div>
       ${opts.canUpload
-        ? `<input type="number" id="value-${field}-${opts.leadId}" value="${value ?? ''}" style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--navy);border:1px solid var(--border);border-radius:2px;padding:.3rem .5rem;width:100%;margin-bottom:.5rem;background:var(--white)"/>`
+        ? `<input type="number" id="value-${field}-${opts.leadId}" data-original="${value ?? ''}" value="${value ?? ''}" style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--navy);border:1px solid var(--border);border-radius:2px;padding:.3rem .5rem;width:100%;margin-bottom:.5rem;background:var(--white)"/>`
         : `<div style="font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--navy);margin-bottom:.5rem">${value != null ? formatPrice(value) : '—'}</div>`
       }
-      <div style="font-size:.78rem;color:var(--gray);line-height:1.6">${reason || ''}</div>
+      ${opts.canUpload
+        ? `<textarea id="reason-${field}-${opts.leadId}" style="font-size:.78rem;color:var(--navy);line-height:1.6;width:100%;min-height:70px;border:1px solid var(--border);border-radius:2px;padding:.4rem;background:var(--white);font-family:'Jost',sans-serif">${reason || ''}</textarea>`
+        : `<div style="font-size:.78rem;color:var(--gray);line-height:1.6">${reason || ''}</div>`
+      }
     </div>
   `;
 
   return `
     <div style="display:flex;flex-direction:column;gap:1.25rem">
+      ${v.low_confidence ? `
+        <div style="background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.3);border-radius:3px;padding:.75rem 1rem;font-size:.82rem;color:#9B2335">
+          <strong>⚠ Low confidence — eyeball this one before approving.</strong> Title status and/or accident severity puts this outside our best-understood range; the discount percentages are still being calibrated against real instant-offer comparisons.
+        </div>
+      ` : ''}
+      ${v.manually_adjusted ? `
+        <div style="background:rgba(192,154,91,.1);border:1px solid rgba(192,154,91,.3);border-radius:3px;padding:.6rem 1rem;font-size:.78rem;color:var(--navy)">
+          ✎ <strong>Manually adjusted</strong>${v.manually_adjusted_by ? ` by ${v.manually_adjusted_by}` : ''}${v.manually_adjusted_at ? ` on ${formatDate(v.manually_adjusted_at)}` : ''} — these numbers were corrected from the original AI-computed values.
+        </div>
+      ` : ''}
       <div class="item-card-meta">
         ${v.vin ? `<span class="meta-pill">VIN ${v.vin}</span>` : ''}
         ${(v.decoded_year || v.decoded_make) ? `<span class="meta-pill">Decoded: ${v.decoded_year||''} ${v.decoded_make||''} ${v.decoded_model||''} ${v.decoded_trim||''}</span>` : ''}
+        <span class="meta-pill">Title: ${v.title_status || 'Clean'}</span>
         <span class="meta-pill">Accident: ${v.accident_history}${v.accident_notes ? ' — ' + v.accident_notes : ''}</span>
         ${v.mechanical_status ? `<span class="meta-pill">Mechanical: ${v.mechanical_status}${v.mechanical_notes ? ' — ' + v.mechanical_notes : ''}</span>` : ''}
         ${v.general_condition ? `<span class="meta-pill">Condition: ${v.general_condition}</span>` : ''}
@@ -1708,18 +2002,29 @@ function renderValuationDetailHtml(v, opts) {
         Based on self-reported information, subject to revision${v.photo_confirmed ? ' — photo-confirmed.' : ' — pending photo confirmation.'}
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.85rem">
-        ${valueBlock('Retail Comp Value', 'retail', v.final_retail_value, reasoning.retail)}
+        ${valueBlock('Cash / Quick Sell', 'cash', v.final_cash_value, reasoning.cash)}
         ${valueBlock('Trade-In Value', 'trade_in', v.final_trade_in_value, reasoning.trade_in)}
-        ${valueBlock('Private-Sale Value', 'private_sale', v.final_private_sale_value, reasoning.private_sale)}
+        ${valueBlock('Private Sale (Est.)', 'private_sale', v.final_private_sale_value, reasoning.private_sale)}
+        ${valueBlock('Retail Comp Value (internal only)', 'retail', v.final_retail_value, reasoning.retail)}
       </div>
       ${photosSectionHtml(v.photos, opts)}
       ${opts.canUpload ? `
-        <div>
+        <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+          <button class="btn-primary btn-sm" id="save-valuation-btn-${opts.leadId}" onclick="saveValuationChanges(${opts.leadId})">Save Changes</button>
           <button class="btn-primary btn-sm btn-gold" id="send-valuation-btn-${opts.leadId}" onclick="sendValuationToCustomer(${opts.leadId})" ${v.customer_notified_at ? 'disabled' : ''}>
             ${v.customer_notified_at ? '✓ Sent to customer' : 'Send Value to Customer'}
           </button>
-          <div style="font-size:.7rem;color:var(--gray);margin-top:.4rem">Adjust the values above if needed, then send — emails the customer their value range and lets them know we're lining up offers from our dealer/buyer partners.</div>
+          <span id="valuation-save-msg-${opts.leadId}" style="font-size:.78rem"></span>
         </div>
+        <div style="font-size:.7rem;color:var(--gray)">
+          "Save Changes" edits the numbers/wording in place (safe even after the customer's already been notified — it won't re-send anything). "Send Value to Customer" saves and emails the customer their value range. Editing a number and leaving the reasoning as-is auto-regenerates the written explanation to match; edit the reasoning text directly instead if you just want to tweak wording.
+        </div>
+      ` : ''}
+      ${breakdown ? `
+        <details>
+          <summary style="cursor:pointer;font-size:.7rem;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">View Discount Breakdown</summary>
+          <pre style="font-size:.68rem;background:var(--navy);color:#a8c4e0;padding:.75rem;border-radius:2px;overflow-x:auto;margin-top:.5rem;white-space:pre-wrap">${JSON.stringify(breakdown, null, 2)}</pre>
+        </details>
       ` : ''}
       ${condition ? `
         <details>

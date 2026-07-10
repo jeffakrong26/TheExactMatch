@@ -15,7 +15,8 @@
 	],
 	"routes": [
 		{ "pattern": "theexactmatch.com/reports/*", "zone_name": "theexactmatch.com" },
-		{ "pattern": "theexactmatch.com/sell/*", "zone_name": "theexactmatch.com" }
+		{ "pattern": "theexactmatch.com/sell/*", "zone_name": "theexactmatch.com" },
+		{ "pattern": "theexactmatch.com/submissions/*", "zone_name": "theexactmatch.com" }
 	],
 	"workers_dev": true,
 	"r2_buckets": [

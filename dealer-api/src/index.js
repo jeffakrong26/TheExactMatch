@@ -143,20 +143,72 @@ async function dealerMe(request, env, params, dealer) {
 }
 
 // ── Dealer actions ────────────────────────────────────────────────
+// Newsletter submissions reuse the exact schema.org → Claude-fallback
+// extraction pipeline built for Find My Car's manual listing entry
+// (adminScrapeListingUrl) instead of trusting dealer-typed spec fields —
+// same reasoning as the report-accuracy fix: a listing URL is the source
+// of truth, free-text is descriptive color only.
 async function submitVehicle(request, env, params, dealer) {
   const body = await request.json().catch(() => ({}));
-  const { year, make, model, price, mileage, category, description, image_urls } = body;
+  const listingUrl = (body.listing_url || '').trim();
+  const category = body.category;
+  const notes = (body.description || '').trim();
 
-  if (!year || !make || !model || !price || !mileage || !category) {
-    return json({ error: 'Year, Make, Model, Price, Mileage, and Category are required.' }, 400);
+  if (!/^https?:\/\//i.test(listingUrl)) return json({ error: 'Please paste a full listing URL.' }, 400);
+  if (!category) return json({ error: 'Category is required.' }, 400);
+
+  let html;
+  try {
+    const res = await fetch(listingUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchBot/1.0)' } });
+    if (!res.ok) return json({ error: `Could not fetch that page (HTTP ${res.status}). Double-check the URL.` }, 400);
+    html = await res.text();
+  } catch {
+    return json({ error: 'Could not fetch that page. Double-check the URL.' }, 400);
   }
 
-  const result = await env.DB.prepare(
-    `INSERT INTO inventory_submissions (dealer_id, year, make, model, mileage, asking_price, category, description, image_urls, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`
-  ).bind(dealer.id, +year, make.trim(), model.trim(), +mileage, +price, category, (description || '').trim(), JSON.stringify(image_urls || [])).run();
+  const structuredData = extractJsonLdVehicle(html);
+  const ogData = extractOgTags(html);
+  let photos = extractPhotosFromPage(structuredData, ogData);
+  if (!photos.length) photos = extractGenericImageGallery(html, listingUrl);
+  const structuredFields = extractStructuredVehicleFields(structuredData);
+  const extracted = await extractListingWithClaude(env, html, structuredFields, ogData);
+  const genericSpecs = extractGenericSpecLabelValues(cleanHtmlText(html));
 
-  return json({ success: true, id: result.meta.last_row_id });
+  const hasAnyData = extracted.found_confidence !== 'none' || Object.values(structuredFields).some(v => v != null);
+  if (!hasAnyData) return json({ error: "That page doesn't look like a vehicle listing. Double-check the URL." }, 400);
+
+  const year = structuredFields.year ?? extracted.year ?? null;
+  const make = structuredFields.make || extracted.make || null;
+  const model = structuredFields.model || extracted.model || null;
+  if (!year || !make || !model) {
+    console.error('submitVehicle: failed to extract year/make/model', listingUrl, JSON.stringify({ structuredFields, extracted, ogTitle: ogData?.title }));
+    return json({ error: "Couldn't determine year/make/model from that listing. Try a different URL or contact us directly." }, 400);
+  }
+
+  const trim = extracted.trim || null;
+  const mileage = structuredFields.mileage ?? extracted.mileage ?? null;
+  const price = structuredFields.price ?? extracted.price ?? null;
+  const exteriorColor = structuredFields.color || genericSpecs.exterior_color || extracted.color || null;
+  const engine = structuredFields.engine || genericSpecs.engine || extracted.engine || null;
+  const transmission = structuredFields.transmission || genericSpecs.transmission || extracted.transmission || null;
+
+  const writeUp = await generateSubmissionWriteUp(env, {
+    year, make, model, trim, price, mileage, exterior_color: exteriorColor, engine, transmission, category,
+  });
+
+  const result = await env.DB.prepare(`
+    INSERT INTO inventory_submissions (
+      dealer_id, year, make, model, trim, mileage, asking_price, vin, exterior_color, engine, transmission,
+      category, description, write_up, listing_url, photo_url, image_urls, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+  `).bind(
+    dealer.id, year, make, model, trim, mileage, price,
+    structuredFields.vin || genericSpecs.vin || extracted.vin || null,
+    exteriorColor, engine, transmission,
+    category, notes, writeUp, listingUrl, photos[0] || null, JSON.stringify(photos)
+  ).run();
+
+  return json({ success: true, id: result.meta.last_row_id, confidence: extracted.found_confidence });
 }
 
 async function dealerLeads(request, env, params, dealer) {
@@ -165,8 +217,8 @@ async function dealerLeads(request, env, params, dealer) {
        sell_my_car_leads.mileage, sell_my_car_leads.condition, sell_my_car_leads.title_status,
        sell_my_car_leads.city, sell_my_car_leads.state, sell_my_car_leads.notes, sell_my_car_leads.created_at,
        vehicle_valuations.status as valuation_status, vehicle_valuations.vin as valuation_vin,
-       vehicle_valuations.final_retail_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
-       vehicle_valuations.photo_confirmed,
+       vehicle_valuations.final_retail_value, vehicle_valuations.final_cash_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
+       vehicle_valuations.photo_confirmed, vehicle_valuations.low_confidence,
        (SELECT url FROM valuation_photos WHERE valuation_id = vehicle_valuations.id AND slot = 'front_34' LIMIT 1) as front_photo_url,
        EXISTS(SELECT 1 FROM lead_interest WHERE lead_id = sell_my_car_leads.id AND dealer_id = ?) as i_expressed_interest
      FROM sell_my_car_leads
@@ -192,14 +244,14 @@ async function dealerGetLeadValuation(request, env, params) {
     SELECT vehicle_valuations.*,
       sell_my_car_leads.zip, sell_my_car_leads.year AS lead_year, sell_my_car_leads.make AS lead_make,
       sell_my_car_leads.model AS lead_model, sell_my_car_leads.trim AS lead_trim,
-      sell_my_car_leads.exterior_color, sell_my_car_leads.title_status
+      sell_my_car_leads.exterior_color, sell_my_car_leads.title_status AS lead_title_status
     FROM vehicle_valuations
     JOIN sell_my_car_leads ON sell_my_car_leads.id = vehicle_valuations.lead_id
     WHERE vehicle_valuations.lead_id = ?
   `).bind(+params.id).first();
   if (!valuation) return json({ error: 'No valuation found for this lead yet.' }, 404);
   const photos = await fetchPhotosBySlot(env, valuation.id);
-  return json({ valuation: { ...valuation, photo_confirmed: !!valuation.photo_confirmed }, photos });
+  return json({ valuation: { ...valuation, photo_confirmed: !!valuation.photo_confirmed, low_confidence: !!valuation.low_confidence }, photos });
 }
 
 async function expressInterest(request, env, params, dealer) {
@@ -213,7 +265,8 @@ async function expressInterest(request, env, params, dealer) {
 
 async function mySubmissions(request, env, params, dealer) {
   const { results } = await env.DB.prepare(
-    `SELECT id, year, make, model, mileage, asking_price AS price, category, description, status, created_at
+    `SELECT id, year, make, model, trim, mileage, asking_price AS price, vin, exterior_color, engine, transmission,
+            category, description, write_up, listing_url, photo_url, image_urls, status, created_at
      FROM inventory_submissions WHERE dealer_id = ? ORDER BY created_at DESC`
   ).bind(dealer.id).all();
   return json({ submissions: results });
@@ -223,8 +276,11 @@ async function mySubmissions(request, env, params, dealer) {
 async function adminSubmissions(request, env) {
   const { results } = await env.DB.prepare(
     `SELECT inventory_submissions.id, inventory_submissions.year, inventory_submissions.make, inventory_submissions.model,
-            inventory_submissions.mileage, inventory_submissions.asking_price AS price, inventory_submissions.category,
-            inventory_submissions.description, inventory_submissions.status, inventory_submissions.created_at,
+            inventory_submissions.trim, inventory_submissions.mileage, inventory_submissions.asking_price AS price,
+            inventory_submissions.vin, inventory_submissions.exterior_color, inventory_submissions.engine,
+            inventory_submissions.transmission, inventory_submissions.category, inventory_submissions.description,
+            inventory_submissions.write_up, inventory_submissions.listing_url, inventory_submissions.photo_url,
+            inventory_submissions.image_urls, inventory_submissions.status, inventory_submissions.created_at,
             dealers.name as dealer_name, dealers.dealership_name
      FROM inventory_submissions JOIN dealers ON dealers.id = inventory_submissions.dealer_id
      ORDER BY inventory_submissions.created_at DESC`
@@ -232,16 +288,125 @@ async function adminSubmissions(request, env) {
   return json({ submissions: results });
 }
 
+const SUBMISSION_EDITABLE_FIELDS = [
+  'year', 'make', 'model', 'trim', 'mileage', 'asking_price', 'vin', 'exterior_color',
+  'engine', 'transmission', 'category', 'description', 'write_up', 'listing_url',
+];
+
 async function adminUpdateSubmission(request, env, params) {
   const body = await request.json().catch(() => ({}));
-  if (!VALID_SUB_STATUSES.includes(body.status)) return json({ error: 'Invalid status.' }, 400);
-  await env.DB.prepare('UPDATE inventory_submissions SET status = ? WHERE id = ?').bind(body.status, +params.id).run();
+
+  const sets = [];
+  const values = [];
+  for (const field of SUBMISSION_EDITABLE_FIELDS) {
+    if (field in body) { sets.push(`${field} = ?`); values.push(body[field]); }
+  }
+  if ('status' in body) {
+    if (!VALID_SUB_STATUSES.includes(body.status)) return json({ error: 'Invalid status.' }, 400);
+    sets.push('status = ?'); values.push(body.status);
+  }
+  if (!sets.length) return json({ error: 'No editable fields provided.' }, 400);
+
+  values.push(+params.id);
+  await env.DB.prepare(`UPDATE inventory_submissions SET ${sets.join(', ')} WHERE id = ?`).bind(...values).run();
   return json({ success: true });
 }
 
 async function adminDeleteSubmission(request, env, params) {
   await env.DB.prepare('DELETE FROM inventory_submissions WHERE id = ?').bind(+params.id).run();
   return json({ success: true });
+}
+
+// Same fetch + schema.org/OG/Claude-fallback pipeline as adminScrapeListingUrl
+// (Find My Car), applied to a newsletter submission that's missing (or has
+// a wrong) listing URL — lets admin backfill one on an existing submission
+// instead of only being able to set it at dealer-submit time.
+async function adminScrapeSubmissionListing(request, env, params) {
+  const submission = await env.DB.prepare('SELECT * FROM inventory_submissions WHERE id = ?').bind(+params.id).first();
+  if (!submission) return json({ error: 'Submission not found.' }, 404);
+
+  const body = await request.json().catch(() => ({}));
+  const url = (body.url || '').trim();
+  if (!/^https?:\/\//i.test(url)) return json({ error: 'Please paste a full listing URL.' }, 400);
+
+  let html;
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchBot/1.0)' } });
+    if (!res.ok) return json({ error: `Could not fetch that page (HTTP ${res.status}). Fill in the fields below manually.` });
+    html = await res.text();
+  } catch {
+    return json({ error: 'Could not fetch that page. Fill in the fields below manually.' });
+  }
+
+  const structuredData = extractJsonLdVehicle(html);
+  const ogData = extractOgTags(html);
+  let photos = extractPhotosFromPage(structuredData, ogData);
+  if (!photos.length) photos = extractGenericImageGallery(html, url);
+  const structuredFields = extractStructuredVehicleFields(structuredData);
+  const extracted = await extractListingWithClaude(env, html, structuredFields, ogData);
+  const genericSpecs = extractGenericSpecLabelValues(cleanHtmlText(html));
+
+  const hasAnyData = extracted.found_confidence !== 'none' || Object.values(structuredFields).some(v => v != null);
+  if (!hasAnyData) return json({ error: "That page doesn't look like a vehicle listing. Fill in the fields below manually." });
+
+  const merged = {
+    year: structuredFields.year ?? extracted.year ?? submission.year,
+    make: structuredFields.make || extracted.make || submission.make,
+    model: structuredFields.model || extracted.model || submission.model,
+    trim: extracted.trim || submission.trim,
+    price: structuredFields.price ?? extracted.price ?? submission.asking_price,
+    mileage: structuredFields.mileage ?? extracted.mileage ?? submission.mileage,
+    vin: structuredFields.vin || genericSpecs.vin || extracted.vin || submission.vin,
+    exterior_color: structuredFields.color || genericSpecs.exterior_color || extracted.color || submission.exterior_color,
+    engine: structuredFields.engine || genericSpecs.engine || extracted.engine || submission.engine,
+    transmission: structuredFields.transmission || genericSpecs.transmission || extracted.transmission || submission.transmission,
+    photo_url: photos[0] || submission.photo_url,
+    image_urls: JSON.stringify(photos.length ? photos : JSON.parse(submission.image_urls || '[]')),
+  };
+
+  const writeUp = await generateSubmissionWriteUp(env, { ...merged, category: submission.category }) || submission.write_up;
+
+  await env.DB.prepare(`
+    UPDATE inventory_submissions SET year=?, make=?, model=?, trim=?, asking_price=?, mileage=?, vin=?, exterior_color=?,
+      engine=?, transmission=?, photo_url=?, image_urls=?, listing_url=?, write_up=? WHERE id=?
+  `).bind(merged.year, merged.make, merged.model, merged.trim, merged.price, merged.mileage, merged.vin, merged.exterior_color,
+    merged.engine, merged.transmission, merged.photo_url, merged.image_urls, url, writeUp, submission.id).run();
+
+  return json({ success: true, confidence: extracted.found_confidence });
+}
+
+// Manual fallback for when extraction can't find any photo on the listing
+// page (no schema.org image, no og:image) — same R2-backed pattern as
+// adminUploadReportVehiclePhoto for Find My Car.
+async function adminUploadSubmissionPhoto(request, env, params) {
+  const submission = await env.DB.prepare('SELECT * FROM inventory_submissions WHERE id = ?').bind(+params.id).first();
+  if (!submission) return json({ error: 'Submission not found.' }, 404);
+
+  const formData = await request.formData().catch(() => null);
+  const file = formData?.get('photo');
+  if (!file || typeof file === 'string') return json({ error: 'No photo file provided.' }, 400);
+
+  const key = `submissions/${params.id}`;
+  await env.PHOTOS.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'image/jpeg' } });
+
+  const photoUrl = `https://theexactmatch.com/submissions/photos/${params.id}`;
+  let photos = [];
+  try { photos = JSON.parse(submission.image_urls || '[]'); } catch { photos = []; }
+  if (!photos.includes(photoUrl)) photos.unshift(photoUrl);
+
+  await env.DB.prepare('UPDATE inventory_submissions SET photo_url = ?, image_urls = ? WHERE id = ?')
+    .bind(photoUrl, JSON.stringify(photos), +params.id).run();
+
+  return json({ success: true, photo_url: photoUrl });
+}
+
+async function serveSubmissionPhoto(env, params, method) {
+  const key = `submissions/${params.id}`;
+  const object = method === 'HEAD' ? await env.PHOTOS.head(key) : await env.PHOTOS.get(key);
+  if (!object) return new Response(method === 'HEAD' ? null : 'Not found', { status: 404 });
+  return new Response(method === 'HEAD' ? null : object.body, {
+    headers: { 'Content-Type': object.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'public, max-age=86400' },
+  });
 }
 
 async function adminLeads(request, env) {
@@ -251,8 +416,8 @@ async function adminLeads(request, env) {
       GROUP_CONCAT(dealers.dealership_name) as interested_dealers,
       vehicle_valuations.status as valuation_status,
       vehicle_valuations.vin as valuation_vin,
-      vehicle_valuations.final_retail_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
-      vehicle_valuations.photo_confirmed,
+      vehicle_valuations.final_retail_value, vehicle_valuations.final_cash_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
+      vehicle_valuations.photo_confirmed, vehicle_valuations.low_confidence, vehicle_valuations.manually_adjusted,
       (SELECT url FROM valuation_photos WHERE valuation_id = vehicle_valuations.id AND slot = 'front_34' LIMIT 1) as front_photo_url
     FROM sell_my_car_leads
     LEFT JOIN lead_interest ON lead_interest.lead_id = sell_my_car_leads.id
@@ -261,7 +426,7 @@ async function adminLeads(request, env) {
     GROUP BY sell_my_car_leads.id
     ORDER BY sell_my_car_leads.created_at DESC
   `).all();
-  return json({ leads: results.map(l => ({ ...l, photo_confirmed: !!l.photo_confirmed })) });
+  return json({ leads: results.map(l => ({ ...l, photo_confirmed: !!l.photo_confirmed, low_confidence: !!l.low_confidence, manually_adjusted: !!l.manually_adjusted })) });
 }
 
 async function deleteSellCarLead(env, leadId) {
@@ -290,14 +455,17 @@ async function adminGetLeadValuation(request, env, params) {
       sell_my_car_leads.first_name, sell_my_car_leads.last_name, sell_my_car_leads.email, sell_my_car_leads.phone,
       sell_my_car_leads.zip, sell_my_car_leads.year AS lead_year, sell_my_car_leads.make AS lead_make,
       sell_my_car_leads.model AS lead_model, sell_my_car_leads.trim AS lead_trim,
-      sell_my_car_leads.exterior_color, sell_my_car_leads.title_status
+      sell_my_car_leads.exterior_color, sell_my_car_leads.title_status AS lead_title_status
     FROM vehicle_valuations
     JOIN sell_my_car_leads ON sell_my_car_leads.id = vehicle_valuations.lead_id
     WHERE vehicle_valuations.lead_id = ?
   `).bind(+params.id).first();
   if (!valuation) return json({ error: 'No valuation found for this lead yet.' }, 404);
   const photos = await fetchPhotosBySlot(env, valuation.id);
-  return json({ valuation: { ...valuation, photo_confirmed: !!valuation.photo_confirmed }, photos });
+  return json({
+    valuation: { ...valuation, photo_confirmed: !!valuation.photo_confirmed, low_confidence: !!valuation.low_confidence, manually_adjusted: !!valuation.manually_adjusted },
+    photos,
+  });
 }
 
 async function adminFindLeads(request, env) {
@@ -308,10 +476,12 @@ async function adminFindLeads(request, env) {
 }
 
 async function adminContactMessages(request, env) {
-  const { results } = await env.DB.prepare(
-    `SELECT * FROM contact_messages ORDER BY created_at DESC`
-  ).all();
-  return json({ messages: results });
+  const { results } = await env.DB.prepare(`
+    SELECT contact_messages.*,
+      EXISTS(SELECT 1 FROM admin_seen_items WHERE section = 'messages' AND item_id = contact_messages.id) as seen
+    FROM contact_messages ORDER BY created_at DESC
+  `).all();
+  return json({ messages: results.map(m => ({ ...m, seen: !!m.seen })) });
 }
 
 // ── Public marketing-site form submissions ───────────────────────
@@ -748,13 +918,105 @@ function extractStructuredVehicleFields(structuredData) {
     engine: typeof engine === 'string' ? engine : (engine?.name || null),
     transmission: structuredData.vehicleTransmission || null,
     drivetrain: structuredData.driveWheelConfiguration || null,
+    vin: structuredData.vehicleIdentificationNumber || null,
   };
 }
 
-async function extractListingWithClaude(env, html, structuredFields, ogData) {
-  const cleaned = html
+function cleanHtmlText(html) {
+  return html
     .replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 12000);
+    .replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// Fallback for dealer sites with no og:image/schema.org photos at all (common
+// on small WordPress/Bricks-builder dealer sites) — scans every <img> tag's
+// srcset for its widest variant, dedupes same photo at different resolutions
+// (WordPress suffixes each size as "-300x200.jpg" etc.), and filters out
+// branding assets (logos/icons/favicons) by filename keyword.
+const GENERIC_IMAGE_EXCLUDE_RE = /logo|icon|favicon|sprite|avatar|badge|placeholder|watermark|spinner|loading|banner-ad/i;
+
+function extractGenericImageGallery(html, baseUrl) {
+  const imgTags = [...html.matchAll(/<img\b[^>]*>/gi)].map(m => m[0]);
+  const candidates = new Map();
+
+  for (const tag of imgTags) {
+    const srcsetMatch = tag.match(/\bsrcset=["']([^"']+)["']/i);
+    const srcMatch = tag.match(/\bsrc=["']([^"']+)["']/i);
+    let bestUrl = null, bestWidth = 0;
+
+    if (srcsetMatch) {
+      for (const part of srcsetMatch[1].split(',')) {
+        const [url, descriptor] = part.trim().split(/\s+/);
+        const w = parseInt((descriptor || '').replace('w', ''), 10) || 0;
+        if (url && w >= bestWidth) { bestWidth = w; bestUrl = url; }
+      }
+    }
+    if (!bestUrl && srcMatch) bestUrl = srcMatch[1];
+    if (!bestUrl) continue;
+
+    let absolute;
+    try { absolute = new URL(bestUrl, baseUrl).toString(); } catch { continue; }
+    if (GENERIC_IMAGE_EXCLUDE_RE.test(absolute)) continue;
+    if (!/\.(jpe?g|png|webp)(\?|$)/i.test(absolute)) continue;
+
+    const key = absolute.replace(/-\d+x\d+(?=\.\w+(\?|$))/, '').split('?')[0];
+    const existing = candidates.get(key);
+    if (!existing || bestWidth > existing.width) candidates.set(key, { url: absolute, width: bestWidth });
+  }
+
+  return [...candidates.values()].sort((a, b) => b.width - a.width).map(c => c.url).slice(0, 12);
+}
+
+// Fallback for fields Claude sometimes skips despite them being present in
+// the page text (seen on a real dealer's site: "Transmission DCT ... Engine
+// Size 3.5L ... Exterior Color Rhapsody Blue ... VIN ..." went unfilled).
+// Dealer spec tables collapse to flattened "Label Value Label Value ..."
+// text once tags are stripped, so bounding each label's value at wherever
+// the next known label starts is a deterministic way to pull it out.
+const GENERIC_SPEC_LABELS = [
+  { field: 'transmission', pattern: /Transmission/i },
+  { field: 'drivetrain', pattern: /Drive\s*Type|Drivetrain/i },
+  { field: 'engine', pattern: /Engine(?:\s*Size)?/i },
+  { field: 'exterior_color', pattern: /Exterior\s*Color/i },
+  { field: 'interior_color', pattern: /Interior\s*Color/i },
+  { field: 'vin', pattern: /\bVIN\b/i },
+  { field: 'mileage', pattern: /Mileage/i },
+  { field: 'fuel_type', pattern: /Fuel\s*Type/i },
+  { field: 'cylinders', pattern: /Cylinders/i },
+  { field: 'doors', pattern: /\bDoors\b/i },
+  { field: 'stock_number', pattern: /Stock\s*#?/i },
+];
+
+function extractGenericSpecLabelValues(cleanedText) {
+  const matches = [];
+  for (const { field, pattern } of GENERIC_SPEC_LABELS) {
+    const m = cleanedText.match(pattern);
+    if (m && m.index != null) matches.push({ field, start: m.index, end: m.index + m[0].length });
+  }
+  matches.sort((a, b) => a.start - b.start);
+
+  const result = {};
+  for (let i = 0; i < matches.length; i++) {
+    const cur = matches[i];
+    const nextStart = i + 1 < matches.length ? matches[i + 1].start : Math.min(cur.end + 80, cleanedText.length);
+    const value = cleanedText.slice(cur.end, nextStart).trim().replace(/^[:\-]\s*/, '');
+    if (value) result[cur.field] = value;
+  }
+
+  // VIN has no reliable "next label" to bound it when it's the last spec
+  // field on the page (bleeds into the listing description otherwise) — a
+  // VIN has a fixed, checkable shape, so match that directly instead.
+  if (result.vin) {
+    const vinMatch = result.vin.match(/[A-HJ-NPR-Z0-9]{17}/i);
+    result.vin = vinMatch ? vinMatch[0] : null;
+    if (!result.vin) delete result.vin;
+  }
+
+  return result;
+}
+
+async function extractListingWithClaude(env, html, structuredFields, ogData) {
+  const cleaned = cleanHtmlText(html).slice(0, 12000);
 
   const tool = {
     name: 'record_listing_data',
@@ -767,9 +1029,16 @@ async function extractListingWithClaude(env, html, structuredFields, ogData) {
         trim: { type: 'string', description: 'The trim/edition name only, e.g. "Premium", "S", "Limited" — usually the last word(s) of the page title after year/make/model. Empty string if truly not stated anywhere.' },
         price: { type: 'integer' }, mileage: { type: 'integer' }, color: { type: 'string' },
         engine: { type: 'string' }, transmission: { type: 'string' }, drivetrain: { type: 'string' },
+        vin: { type: 'string', description: '17-character VIN if shown anywhere on the page. Empty string if not stated.' },
         found_confidence: { type: 'string', enum: ['high', 'low', 'none'], description: 'none if this page does not look like a vehicle listing at all' },
       },
-      required: ['found_confidence', 'trim'],
+      // year/make/model are required (not just optional-but-hoped-for):
+      // observed in production against a real listing whose page title
+      // plainly read "2020 Ford GT Carbon Series" — Claude intermittently
+      // returned only {trim, found_confidence: "high"} and silently
+      // dropped year/make/model, apparently reasoning they were already
+      // "covered" by the title context. Forcing them required stops that.
+      required: ['year', 'make', 'model', 'found_confidence', 'trim'],
       additionalProperties: false,
     },
   };
@@ -798,6 +1067,51 @@ ${cleaned}`;
   return toolUse ? toolUse.input : { found_confidence: 'none' };
 }
 
+// Auto-generated marketing copy for a newsletter submission — same role as
+// Find My Car's per-vehicle rationale: descriptive copy generated FROM the
+// extracted spec data, never a source of spec values itself. Stored
+// separately from the dealer's own optional typed notes.
+async function generateSubmissionWriteUp(env, vehicle) {
+  const details = [
+    `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''} ${vehicle.trim || ''}`.replace(/\s+/g, ' ').trim(),
+    vehicle.price ? `Price: $${Number(vehicle.price).toLocaleString()}` : null,
+    vehicle.mileage != null ? `Mileage: ${Number(vehicle.mileage).toLocaleString()} miles` : null,
+    vehicle.exterior_color ? `Color: ${vehicle.exterior_color}` : null,
+    vehicle.engine ? `Engine: ${vehicle.engine}` : null,
+    vehicle.transmission ? `Transmission: ${vehicle.transmission}` : null,
+    vehicle.category ? `Category: ${vehicle.category}` : null,
+  ].filter(Boolean).join('\n');
+
+  const tool = {
+    name: 'record_write_up',
+    description: 'Record a short marketing write-up for a newsletter vehicle listing.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        write_up: { type: 'string', description: '2-3 sentence engaging write-up for a car-buyer newsletter audience, using only the facts given. No preamble — just the write-up text.' },
+      },
+      required: ['write_up'],
+      additionalProperties: false,
+    },
+  };
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5', max_tokens: 300,
+      tools: [tool], tool_choice: { type: 'tool', name: 'record_write_up' },
+      messages: [{ role: 'user', content: `Write a short, engaging marketing write-up for this vehicle for a "Weekly Finds" car-buyer newsletter. Only use the facts given below — do not invent details.\n\n${details}` }],
+    }),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (data.stop_reason === 'refusal') return null;
+  const toolUse = (data.content || []).find(b => b.type === 'tool_use');
+  return toolUse?.input?.write_up || null;
+}
+
 async function adminScrapeListingUrl(request, env, params) {
   const report = await env.DB.prepare('SELECT id FROM find_car_reports WHERE report_code = ?').bind(params.code).first();
   if (!report) return json({ error: 'Report not found.' }, 404);
@@ -819,9 +1133,11 @@ async function adminScrapeListingUrl(request, env, params) {
 
   const structuredData = extractJsonLdVehicle(html);
   const ogData = extractOgTags(html);
-  const photos = extractPhotosFromPage(structuredData, ogData);
+  let photos = extractPhotosFromPage(structuredData, ogData);
+  if (!photos.length) photos = extractGenericImageGallery(html, url);
   const structuredFields = extractStructuredVehicleFields(structuredData);
   const extracted = await extractListingWithClaude(env, html, structuredFields, ogData);
+  const genericSpecs = extractGenericSpecLabelValues(cleanHtmlText(html));
 
   const hasAnyData = extracted.found_confidence !== 'none' || Object.values(structuredFields).some(v => v != null);
   if (!hasAnyData) {
@@ -835,10 +1151,10 @@ async function adminScrapeListingUrl(request, env, params) {
     trim: extracted.trim || existing.trim,
     price: structuredFields.price ?? extracted.price ?? existing.price,
     mileage: structuredFields.mileage ?? extracted.mileage ?? existing.mileage,
-    exterior_color: structuredFields.color || extracted.color || existing.exterior_color,
-    engine: structuredFields.engine || extracted.engine || existing.engine,
-    transmission: structuredFields.transmission || extracted.transmission || existing.transmission,
-    drivetrain: structuredFields.drivetrain || extracted.drivetrain || existing.drivetrain,
+    exterior_color: structuredFields.color || genericSpecs.exterior_color || extracted.color || existing.exterior_color,
+    engine: structuredFields.engine || genericSpecs.engine || extracted.engine || existing.engine,
+    transmission: structuredFields.transmission || genericSpecs.transmission || extracted.transmission || existing.transmission,
+    drivetrain: structuredFields.drivetrain || genericSpecs.drivetrain || extracted.drivetrain || existing.drivetrain,
     photo_url: photos[0] || existing.photo_url,
     photo_urls: JSON.stringify(photos.length ? photos : JSON.parse(existing.photo_urls || '[]')),
   };
@@ -922,12 +1238,24 @@ function listingVin(l) {
 async function buildVehicleEntry(env, pick, winner, poolInfo, lead, throttledFetch, partnerDealers, tag) {
   const { searchMake, searchResult } = poolInfo;
 
-  if (winner) {
+  // A winner without a source URL can't be shown to the client or verified
+  // by admin against the original listing — route it to manual review
+  // instead of silently presenting it as a confirmed match.
+  if (winner && winner.vdp_url) {
     const tVerify = Date.now();
     const verified = await verifyListingLive(winner.vdp_url);
     console.log(`[timing] ${tag} verify: ${Date.now() - tVerify}ms`);
     return {
       ...pick,
+      // Claude's pick only ever picks the search target — once a specific
+      // listing is matched, every spec value must come from that listing's
+      // own record, never from Claude's original guess. (A matched listing
+      // can legitimately be a different model year than the pick, since
+      // searchMarketcheck queries year ± 2.)
+      year: winner.build?.year ?? pick.year,
+      make: winner.build?.make || pick.make,
+      model: winner.build?.model || pick.model,
+      trim: winner.build?.trim || pick.trim,
       price: winner.price ?? null,
       mileage: winner.miles ?? null,
       dealer_name: winner.dealer?.name || null,
@@ -1015,17 +1343,8 @@ async function generateReportForLead(env, leadId) {
   const tVehicles = Date.now();
   const tags = picks.map(pick => `${pick.year} ${pick.make} ${pick.model}`);
 
-  // Phase A (parallel I/O): fetch each position's candidate pool and its
-  // generic spec enrichment independently — these don't depend on each other.
-  const [pools, specsList] = await Promise.all([
-    Promise.all(picks.map((pick, i) => fetchListingPool(env, pick, lead, throttledFetch, partnerDealers, tags[i]))),
-    Promise.all(picks.map((pick, i) => (async () => {
-      const tSpecs = Date.now();
-      const result = await enrichVehicleSpecs(env, pick, {});
-      console.log(`[timing] ${tags[i]} enrichSpecs: ${Date.now() - tSpecs}ms`);
-      return result;
-    })())),
-  ]);
+  // Phase A (parallel I/O): fetch each position's candidate pool.
+  const pools = await Promise.all(picks.map((pick, i) => fetchListingPool(env, pick, lead, throttledFetch, partnerDealers, tags[i])));
 
   // Phase B (sync, no I/O): claim distinct listings across positions so the
   // same live listing isn't recommended 3 times in one report. Pools are
@@ -1042,11 +1361,16 @@ async function generateReportForLead(env, leadId) {
     return candidate || null;
   });
 
-  // Phase C (parallel I/O): verify the winning listing is still live and
-  // build each position's final entry, merging in the spec enrichment.
+  // Phase C (parallel I/O): verify the winning listing is still live, build
+  // each position's final entry (year/make/model/trim bound to the matched
+  // listing, not the pick), then run spec enrichment against that same
+  // corrected vehicle so trim-level specs (safety rating, cargo space, etc.)
+  // describe the actual matched car rather than Claude's original guess.
   const vehicles = await Promise.all(picks.map(async (pick, i) => {
     const entry = await buildVehicleEntry(env, pick, winners[i], pools[i], lead, throttledFetch, partnerDealers, tags[i]);
-    const specs = specsList[i];
+    const tSpecs = Date.now();
+    const specs = await enrichVehicleSpecs(env, entry, {});
+    console.log(`[timing] ${tags[i]} enrichSpecs: ${Date.now() - tSpecs}ms`);
     entry.engine = entry.engine || specs.engine || null;
     entry.transmission = entry.transmission || specs.transmission || null;
     entry.drivetrain = entry.drivetrain || specs.drivetrain || null;
@@ -1188,14 +1512,178 @@ async function searchMarketcheckComps(env, { make, model, trim, zip, year, milea
   return { comps: [], log };
 }
 
-function buildValuationPrompt({ vehicle, mileage, comps, selfReported, photoAssessment }) {
+// ── Valuation discount pipeline ──────────────────────────────────
+// Numbers are computed here in code, not left to an LLM to "blend" — a
+// clean-title comp baseline run through hard, sequential percentage
+// discounts. Claude's only remaining job (generateValuationNarrative,
+// below) is to explain the already-computed numbers, never to invent them.
+//
+// STARTING ESTIMATES, not a final formula — calibrate these against real
+// instant-offer comparisons (Carvana/CarMax) over the next several cases.
+// Source: salvage-title valuation research (SCA Auction, RevRoom, Edmunds)
+// puts unrepaired salvage at 40-60% off clean comp, rebuilt/retitled at
+// 20-40% off, flood typically the steepest. These starting points sit
+// within (usually the lower-middle of) those ranges — recalibrate as real
+// cases come in, and prefer nudging them AFTER seeing a few more
+// comparisons over trusting them as precise today.
+const TITLE_STATUS_DISCOUNTS = {
+  clean: 0,
+  salvage: 0.42,
+  rebuilt: 0.25,
+  flood: 0.48,
+  lemon_law_buyback: 0.30,
+  not_sure: 0.42, // treated at salvage-tier until admin confirms actual status
+};
+
+// Title statuses where the computed number should always be eyeballed,
+// regardless of severity — not just flagged for LOW_CONFIDENCE.
+const TITLE_STATUS_ALWAYS_REVIEW = new Set(['flood', 'lemon_law_buyback']);
+
+const ACCIDENT_SEVERITY_DISCOUNTS = {
+  none: 0,
+  minor: 0.05,
+  moderate: 0.14,
+  major: 0.28,
+};
+
+const CONDITION_DISCOUNTS = {
+  excellent: 0,
+  good: 0.04,
+  fair: 0.12,
+  poor: 0.22,
+};
+
+const MECHANICAL_DISCOUNTS = {
+  'running well': 0,
+  'needs work': 0.08,
+  'not running': 0.20,
+};
+
+// Dealer-facing margin steps, applied on top of the title/accident/condition/
+// mechanical-adjusted number (NOT on the raw clean-title baseline) — this is
+// what makes cash/trade-in "reflect the discount most aggressively," since
+// they compound the full chain before this margin is even taken.
+const DEALER_TRADE_IN_MARGIN = 0.12;   // retail-adjusted → trade-in
+const DEALER_CASH_EXTRA_DISCOUNT = 0.04; // trade-in → cash/quick-sell
+
+// Private-sale buyers for damaged/salvage cars are a different, smaller
+// pool (rebuilders, exporters, budget buyers) rather than "normal"
+// private-party demand discounted the same way — so title/accident
+// discounts apply at reduced strength here, while condition/mechanical
+// (which matter to any buyer) still apply in full.
+const PRIVATE_SALE_TITLE_ACCIDENT_DAMPENING = 0.55; // fraction of the dealer-facing rate that still applies
+const PRIVATE_SALE_FRICTION_DISCOUNT = 0.05; // typical self-listing haggle-down
+
+// Blank input is handled by the caller (defaults to 'clean' only when
+// title_status was never provided at all — see generateValuationForLead).
+// Everything this function actually sees should map to a real status;
+// anything unrecognized falls to 'not_sure', NEVER 'clean' — an unclear
+// title status must stay a distinct, flagged state, not silently become
+// the best-case assumption.
+function normalizeTitleStatus(raw) {
+  const key = (raw || '').toString().trim().toLowerCase().replace(/[\s/-]+/g, '_');
+  if (TITLE_STATUS_DISCOUNTS[key] != null) return key;
+  if (key.includes('salvage')) return 'salvage';
+  if (key.includes('rebuilt') || key.includes('reconstructed')) return 'rebuilt';
+  if (key.includes('flood')) return 'flood';
+  if (key.includes('lemon')) return 'lemon_law_buyback';
+  if (key.includes('clean')) return 'clean';
+  return 'not_sure';
+}
+
+// Baseline retail comp value derived directly from the comps Marketcheck
+// already returned (median price of matched listings) — no LLM guess
+// involved. Falls back to null if there's nothing to compute from; caller
+// is responsible for the no-comps fallback estimate.
+function computeCompBaseline(comps) {
+  const prices = (comps || []).map(c => c.price).filter(p => typeof p === 'number' && p > 0);
+  if (!prices.length) return null;
+  prices.sort((a, b) => a - b);
+  const mid = Math.floor(prices.length / 2);
+  return prices.length % 2 ? prices[mid] : Math.round((prices[mid - 1] + prices[mid]) / 2);
+}
+
+// Only used when there are no usable comps at all — a narrow fallback
+// estimate of the clean-title baseline itself, never the discounted
+// numbers. Keeps the pipeline working when Marketcheck has nothing for
+// this spec/region, without letting an LLM anywhere near the discount math.
+async function estimateBaselineFromKnowledge(env, vehicle, mileage) {
+  const tool = {
+    name: 'record_baseline',
+    description: 'Record an estimated clean-title retail market value for this exact vehicle spec and mileage, with no comps available.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        baseline_value: { type: 'integer', description: 'Estimated clean-title retail market value in USD, for this exact year/make/model/trim at this mileage — no comps were available to ground this, so use general market knowledge.' },
+      },
+      required: ['baseline_value'],
+      additionalProperties: false,
+    },
+  };
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6', max_tokens: 256,
+      tools: [tool], tool_choice: { type: 'tool', name: 'record_baseline' },
+      messages: [{ role: 'user', content: `No comparable active listings were found for this vehicle. Estimate a clean-title retail market value.\n\nVehicle: ${vehicle.year || '?'} ${vehicle.make || '?'} ${vehicle.model || '?'} ${vehicle.trim || ''}\nMileage: ${mileage != null ? Number(mileage).toLocaleString() + ' mi' : 'not provided'}` }],
+    }),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (data.stop_reason === 'refusal') return null;
+  const toolUse = (data.content || []).find(b => b.type === 'tool_use');
+  return toolUse?.input?.baseline_value ?? null;
+}
+
+// The hard-discount pipeline itself — pure function, no I/O, fully
+// deterministic given the same inputs. This is what replaced the old
+// "ask Claude to blend everything" approach.
+function computeValuationNumbers({ baseline, titleStatusKey, accidentSeverity, condition, mechanicalStatus }) {
+  const titleDiscount = TITLE_STATUS_DISCOUNTS[titleStatusKey] ?? TITLE_STATUS_DISCOUNTS.not_sure;
+  const accidentDiscount = ACCIDENT_SEVERITY_DISCOUNTS[(accidentSeverity || 'none').toLowerCase()] ?? 0;
+  const conditionDiscount = CONDITION_DISCOUNTS[(condition || '').toLowerCase()] ?? 0;
+  const mechanicalDiscount = MECHANICAL_DISCOUNTS[(mechanicalStatus || '').toLowerCase()] ?? 0;
+
+  // Dealer-facing chain: title -> accident -> condition -> mechanical,
+  // each compounding on the already-discounted number, per Fix C.
+  const dealerAdjusted = baseline * (1 - titleDiscount) * (1 - accidentDiscount) * (1 - conditionDiscount) * (1 - mechanicalDiscount);
+  const retailValue = Math.round(dealerAdjusted);
+  const tradeInValue = Math.round(dealerAdjusted * (1 - DEALER_TRADE_IN_MARGIN));
+  const cashValue = Math.round(tradeInValue * (1 - DEALER_CASH_EXTRA_DISCOUNT));
+
+  // Private-sale chain: title/accident discounts dampened (different,
+  // smaller buyer pool for damaged/salvage cars), condition/mechanical
+  // apply in full since those matter to any buyer.
+  const dampenedTitleDiscount = titleDiscount * PRIVATE_SALE_TITLE_ACCIDENT_DAMPENING;
+  const dampenedAccidentDiscount = accidentDiscount * PRIVATE_SALE_TITLE_ACCIDENT_DAMPENING;
+  const privateAdjusted = baseline * (1 - dampenedTitleDiscount) * (1 - dampenedAccidentDiscount) * (1 - conditionDiscount) * (1 - mechanicalDiscount);
+  const privateSaleValue = Math.round(privateAdjusted * (1 - PRIVATE_SALE_FRICTION_DISCOUNT));
+
+  const lowConfidence = titleStatusKey !== 'clean' || (accidentSeverity || '').toLowerCase() === 'major';
+  const alwaysReview = TITLE_STATUS_ALWAYS_REVIEW.has(titleStatusKey);
+
+  return {
+    retailValue, cashValue, tradeInValue, privateSaleValue,
+    lowConfidence: lowConfidence || alwaysReview,
+    breakdown: {
+      baseline, titleStatusKey, titleDiscount, accidentSeverity: accidentSeverity || 'none', accidentDiscount,
+      condition: condition || null, conditionDiscount, mechanicalStatus: mechanicalStatus || null, mechanicalDiscount,
+      dealerTradeInMargin: DEALER_TRADE_IN_MARGIN, dealerCashExtraDiscount: DEALER_CASH_EXTRA_DISCOUNT,
+      privateSaleTitleAccidentDampening: PRIVATE_SALE_TITLE_ACCIDENT_DAMPENING, privateSaleFrictionDiscount: PRIVATE_SALE_FRICTION_DISCOUNT,
+    },
+  };
+}
+
+// Claude's only remaining job: explain numbers that are already final,
+// never determine them. The prompt is deliberately explicit that the
+// figures are fixed so a capable model doesn't "helpfully" adjust them.
+function buildValuationNarrativePrompt({ vehicle, mileage, comps, selfReported, photoAssessment, values }) {
   const compsText = comps.length
     ? comps.map(c => `- ${c.build?.year || '?'} ${c.build?.make || ''} ${c.build?.model || ''} ${c.build?.trim || ''}, ${c.miles != null ? Number(c.miles).toLocaleString() + ' mi' : 'mileage unknown'}, listed at $${c.price != null ? Number(c.price).toLocaleString() : '?'} — ${c.dealer?.city || ''}${c.dealer?.state ? ', ' + c.dealer.state : ''}`).join('\n')
-    : 'No comparable active retail listings were found for this spec/mileage/region.';
-
-  const photoCaveat = photoAssessment
-    ? 'You have now reviewed photos of this vehicle (see the photo-confirmed condition assessment below) — weight that over the self-report where they differ.'
-    : 'You have NOT seen photos yet, so weight the self-reported details accordingly and be conservative if the self-report suggests anything below excellent condition.';
+    : 'No comparable active retail listings were found for this spec/mileage/region — the baseline was estimated from general market knowledge instead.';
 
   const photoSection = photoAssessment ? `
 
@@ -1207,12 +1695,13 @@ Photo-confirmed condition assessment:
 ${photoAssessment.mismatches?.length ? `- Mismatches vs. self-report: ${photoAssessment.mismatches.join('; ')}` : '- No mismatches vs. self-report noted.'}
 ` : '';
 
-  return `A client is selling their vehicle through our "Sell My Car" service. Estimate three values for this vehicle: retail comp value (what a dealer would likely list it for at retail), trade-in value (what a dealer would offer to acquire it outright), and private-sale value (what a private-party buyer would likely pay). Base your estimate on the comparable listings below and the client's self-reported condition/accident/mechanical information. ${photoCaveat}
+  return `A client is selling their vehicle through our "Sell My Car" service. The four values below are ALREADY FINAL — they were computed by our own pricing logic, not by you. Your only job is to write a short (2-3 sentence), plain-English reasoning for each one, grounded in the details below. Do not suggest different numbers or imply these figures might be wrong.
 
 Vehicle: ${vehicle.year || '?'} ${vehicle.make || '?'} ${vehicle.model || '?'} ${vehicle.trim || ''}
 Mileage: ${mileage != null ? Number(mileage).toLocaleString() + ' mi' : 'not provided'}
 
 Self-reported condition:
+- Title status: ${selfReported.title_status || 'not specified'}
 - General condition: ${selfReported.general_condition || 'not specified'}
 - Accident history: ${selfReported.accident_history}${selfReported.accident_notes ? ` — ${selfReported.accident_notes}` : ''}
 - Mechanical status: ${selfReported.mechanical_status || 'not specified'}${selfReported.mechanical_notes ? ` — ${selfReported.mechanical_notes}` : ''}
@@ -1220,25 +1709,29 @@ ${photoSection}
 Comparable active retail listings:
 ${compsText}
 
-For each of the three values, give a short reasoning (2-3 sentences) grounded in the comps${photoAssessment ? ', the photo-confirmed condition,' : ' and the self-reported condition'}.`;
+Final values to explain:
+- Cash/Quick Sell (dealer buys outright, no obligation): $${values.cashValue.toLocaleString()}
+- Trade-In (applied toward another vehicle purchase): $${values.tradeInValue.toLocaleString()}
+- Private Sale estimate (self-listing, e.g. Facebook Marketplace): $${values.privateSaleValue.toLocaleString()}
+- Retail Comp Value (internal reference only, not shown to the client): $${values.retailValue.toLocaleString()}
+
+Write reasoning for each of the four values above.`;
 }
 
-async function synthesizeValuation(env, args) {
+async function generateValuationNarrative(env, args) {
   const tool = {
-    name: 'record_valuation',
-    description: 'Record the three valuation figures for this vehicle, each with reasoning.',
+    name: 'record_valuation_narrative',
+    description: 'Record a short reasoning explanation for each already-computed valuation figure.',
     strict: true,
     input_schema: {
       type: 'object',
       properties: {
-        retail_value: { type: 'integer', description: 'Estimated retail comp value in USD' },
-        retail_reasoning: { type: 'string' },
-        trade_in_value: { type: 'integer', description: 'Estimated dealer trade-in value in USD' },
+        cash_reasoning: { type: 'string' },
         trade_in_reasoning: { type: 'string' },
-        private_sale_value: { type: 'integer', description: 'Estimated private-party sale value in USD' },
         private_sale_reasoning: { type: 'string' },
+        retail_reasoning: { type: 'string' },
       },
-      required: ['retail_value', 'retail_reasoning', 'trade_in_value', 'trade_in_reasoning', 'private_sale_value', 'private_sale_reasoning'],
+      required: ['cash_reasoning', 'trade_in_reasoning', 'private_sale_reasoning', 'retail_reasoning'],
       additionalProperties: false,
     },
   };
@@ -1248,16 +1741,16 @@ async function synthesizeValuation(env, args) {
     headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1536,
+      max_tokens: 1024,
       tools: [tool],
-      tool_choice: { type: 'tool', name: 'record_valuation' },
-      messages: [{ role: 'user', content: buildValuationPrompt(args) }],
+      tool_choice: { type: 'tool', name: 'record_valuation_narrative' },
+      messages: [{ role: 'user', content: buildValuationNarrativePrompt(args) }],
     }),
   });
 
-  if (!res.ok) throw new Error(`Claude API error (valuation): HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`Claude API error (valuation narrative): HTTP ${res.status}`);
   const data = await res.json();
-  if (data.stop_reason === 'refusal') throw new Error('Claude declined the valuation request');
+  if (data.stop_reason === 'refusal') throw new Error('Claude declined the valuation narrative request');
   const toolUse = (data.content || []).find(b => b.type === 'tool_use');
   if (!toolUse) throw new Error('Claude did not return a tool_use block: ' + JSON.stringify(data));
   return toolUse.input;
@@ -1302,7 +1795,12 @@ async function generateValuationForLead(env, leadId, input) {
   });
   console.log(`[timing] valuation lead ${leadId} comps: ${Date.now() - tComps}ms, count=${comps.length}`);
 
+  // 'not_sure' only if truly selected — a genuinely blank field defaults to
+  // clean, per Fix A, but must not be confused with an explicit "not sure."
+  const titleStatusKey = input.title_status ? normalizeTitleStatus(input.title_status) : 'clean';
+
   const selfReported = {
+    title_status: input.title_status || 'Clean',
     general_condition: input.general_condition || null,
     accident_history: input.accident_history || 'none',
     accident_notes: input.accident_notes || null,
@@ -1311,27 +1809,40 @@ async function generateValuationForLead(env, leadId, input) {
   };
 
   const tSynth = Date.now();
-  const valuation = await synthesizeValuation(env, { vehicle, mileage: input.mileage, comps, selfReported });
+  let baseline = computeCompBaseline(comps);
+  if (baseline == null) baseline = await estimateBaselineFromKnowledge(env, vehicle, input.mileage);
+  if (baseline == null) throw new Error(`No comp baseline and no fallback estimate available for lead ${leadId}`);
+
+  const values = computeValuationNumbers({
+    baseline, titleStatusKey,
+    accidentSeverity: selfReported.accident_history,
+    condition: selfReported.general_condition,
+    mechanicalStatus: selfReported.mechanical_status,
+  });
+
+  const narrative = await generateValuationNarrative(env, { vehicle, mileage: input.mileage, comps, selfReported, values });
   console.log(`[timing] valuation lead ${leadId} synthesis: ${Date.now() - tSynth}ms`);
 
   const token = randomHex(20);
   await env.DB.prepare(`
     INSERT INTO vehicle_valuations (
       lead_id, token, vin, decoded_year, decoded_make, decoded_model, decoded_trim, decoded_engine, decoded_drivetrain, decoded_body_type, decode_raw,
-      mileage, accident_history, accident_notes, general_condition, mechanical_status, mechanical_notes,
+      mileage, title_status, accident_history, accident_notes, general_condition, mechanical_status, mechanical_notes,
       marketcheck_comps, marketcheck_log,
-      final_retail_value, final_trade_in_value, final_private_sale_value, valuation_reasoning,
+      final_retail_value, final_cash_value, final_trade_in_value, final_private_sale_value,
+      valuation_reasoning, valuation_breakdown, low_confidence,
       status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_photos')
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_photos')
   `).bind(
     leadId, token, input.vin || null,
     decoded?.year ?? null, decoded?.make || null, decoded?.model || null, decoded?.trim || null,
     decoded?.engine || null, decoded?.drivetrain || null, decoded?.body_type || null, decoded ? JSON.stringify(decoded) : null,
-    input.mileage ?? null, selfReported.accident_history, selfReported.accident_notes,
+    input.mileage ?? null, selfReported.title_status, selfReported.accident_history, selfReported.accident_notes,
     selfReported.general_condition, selfReported.mechanical_status, selfReported.mechanical_notes,
     JSON.stringify(comps), JSON.stringify(log),
-    valuation.retail_value, valuation.trade_in_value, valuation.private_sale_value,
-    JSON.stringify({ retail: valuation.retail_reasoning, trade_in: valuation.trade_in_reasoning, private_sale: valuation.private_sale_reasoning })
+    values.retailValue, values.cashValue, values.tradeInValue, values.privateSaleValue,
+    JSON.stringify({ retail: narrative.retail_reasoning, cash: narrative.cash_reasoning, trade_in: narrative.trade_in_reasoning, private_sale: narrative.private_sale_reasoning }),
+    JSON.stringify(values.breakdown), values.lowConfidence ? 1 : 0
   ).run();
 
   await sendSellCarReceivedEmail(env, { first_name: lead.first_name, email: lead.email, token });
@@ -1454,6 +1965,7 @@ async function processPhotoConfirmedValuation(env, token) {
   const photosBySlot = await fetchPhotosBySlot(env, valuation.id);
 
   const selfReported = {
+    title_status: valuation.title_status || 'Clean',
     general_condition: valuation.general_condition,
     accident_history: valuation.accident_history,
     accident_notes: valuation.accident_notes,
@@ -1475,28 +1987,49 @@ async function processPhotoConfirmedValuation(env, token) {
   };
 
   const tSynth = Date.now();
-  const revaluation = await synthesizeValuation(env, {
-    vehicle, mileage: valuation.mileage, comps, selfReported, photoAssessment: assessment,
+  // Re-derive from the same stored comps rather than trusting the original
+  // final_* numbers — keeps this path on the same code-computed pipeline
+  // as the initial valuation instead of asking Claude to re-blend.
+  // NOTE: photo-confirmed condition scores aren't folded into the discount
+  // math yet (this path is currently dormant — see processPhotoConfirmedValuation
+  // caller — while Anthropic's URL-based image fetch is down account-wide).
+  // Worth revisiting once it's back in use: a photo-confirmed condition
+  // meaningfully worse than self-reported should probably steepen the
+  // condition discount, not just get a note in the narrative.
+  let baseline = computeCompBaseline(comps);
+  if (baseline == null) baseline = await estimateBaselineFromKnowledge(env, vehicle, valuation.mileage);
+  if (baseline == null) throw new Error(`No comp baseline and no fallback estimate available for valuation ${valuation.id}`);
+
+  const titleStatusKey = normalizeTitleStatus(selfReported.title_status);
+  const values = computeValuationNumbers({
+    baseline, titleStatusKey,
+    accidentSeverity: selfReported.accident_history,
+    condition: selfReported.general_condition,
+    mechanicalStatus: selfReported.mechanical_status,
   });
+
+  const narrative = await generateValuationNarrative(env, { vehicle, mileage: valuation.mileage, comps, selfReported, photoAssessment: assessment, values });
   console.log(`[timing] photo valuation ${token} synthesis: ${Date.now() - tSynth}ms`);
 
   await env.DB.prepare(`
     UPDATE vehicle_valuations SET
       ai_condition_score = ?, photo_confirmed = 1,
-      final_retail_value = ?, final_trade_in_value = ?, final_private_sale_value = ?,
-      valuation_reasoning = ?, status = 'valued', customer_notified_at = datetime('now')
+      final_retail_value = ?, final_cash_value = ?, final_trade_in_value = ?, final_private_sale_value = ?,
+      valuation_reasoning = ?, valuation_breakdown = ?, low_confidence = ?,
+      status = 'valued', customer_notified_at = datetime('now')
     WHERE id = ?
   `).bind(
     JSON.stringify(assessment),
-    revaluation.retail_value, revaluation.trade_in_value, revaluation.private_sale_value,
-    JSON.stringify({ retail: revaluation.retail_reasoning, trade_in: revaluation.trade_in_reasoning, private_sale: revaluation.private_sale_reasoning }),
+    values.retailValue, values.cashValue, values.tradeInValue, values.privateSaleValue,
+    JSON.stringify({ retail: narrative.retail_reasoning, cash: narrative.cash_reasoning, trade_in: narrative.trade_in_reasoning, private_sale: narrative.private_sale_reasoning }),
+    JSON.stringify(values.breakdown), values.lowConfidence ? 1 : 0,
     valuation.id
   ).run();
 
   await sendSellCarValueRangeEmail(env, {
     first_name: valuation.first_name, email: valuation.email, token,
-    low: Math.min(revaluation.retail_value, revaluation.trade_in_value, revaluation.private_sale_value),
-    high: Math.max(revaluation.retail_value, revaluation.trade_in_value, revaluation.private_sale_value),
+    low: Math.min(values.cashValue, values.tradeInValue, values.privateSaleValue),
+    high: Math.max(values.cashValue, values.tradeInValue, values.privateSaleValue),
   });
 
   console.log(`[timing] photo valuation ${token} TOTAL: ${Date.now() - t0}ms`);
@@ -1743,35 +2276,107 @@ function parseEditedPrice(val, fallback) {
   return Number.isNaN(n) ? fallback : n;
 }
 
-async function adminSendValuationEmail(request, env, params) {
-  const body = await request.json().catch(() => ({}));
-
+// Shared by "Save Changes" (adminSaveValuationEdits) and "Send Value to
+// Customer" (adminSendValuationEmail) — editing values persists and
+// regenerates the narrative either way; only whether the customer gets
+// (re-)notified differs. Editing a record that's already been sent just
+// updates it in place — re-notification is a deliberate separate action,
+// not something this triggers automatically (Fix E, point 4).
+async function saveValuationEdits(env, params, body, dealer) {
   const valuation = await env.DB.prepare(`
-    SELECT vehicle_valuations.id, vehicle_valuations.token,
-      vehicle_valuations.final_retail_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
-      sell_my_car_leads.first_name, sell_my_car_leads.email
+    SELECT vehicle_valuations.*,
+      sell_my_car_leads.first_name, sell_my_car_leads.email,
+      sell_my_car_leads.year AS lead_year, sell_my_car_leads.make AS lead_make,
+      sell_my_car_leads.model AS lead_model, sell_my_car_leads.trim AS lead_trim
     FROM vehicle_valuations
     JOIN sell_my_car_leads ON sell_my_car_leads.id = vehicle_valuations.lead_id
     WHERE vehicle_valuations.lead_id = ?
   `).bind(+params.id).first();
-  if (!valuation) return json({ error: 'No valuation found for this lead yet.' }, 404);
+  if (!valuation) return { error: json({ error: 'No valuation found for this lead yet.' }, 404) };
 
-  const retail    = parseEditedPrice(body.retail_value, valuation.final_retail_value);
-  const tradeIn   = parseEditedPrice(body.trade_in_value, valuation.final_trade_in_value);
-  const private_  = parseEditedPrice(body.private_sale_value, valuation.final_private_sale_value);
-  if (retail == null || tradeIn == null || private_ == null) {
-    return json({ error: 'Please enter values for all three prices before sending.' }, 400);
+  const cash     = parseEditedPrice(body.cash_value, valuation.final_cash_value);
+  const tradeIn  = parseEditedPrice(body.trade_in_value, valuation.final_trade_in_value);
+  const private_ = parseEditedPrice(body.private_sale_value, valuation.final_private_sale_value);
+  const retail   = parseEditedPrice(body.retail_value, valuation.final_retail_value);
+  if (cash == null || tradeIn == null || private_ == null || retail == null) {
+    return { error: json({ error: 'Please enter values for all four prices.' }, 400) };
   }
 
+  const valuesChanged = cash !== valuation.final_cash_value || tradeIn !== valuation.final_trade_in_value
+    || private_ !== valuation.final_private_sale_value || retail !== valuation.final_retail_value;
+
+  let existingReasoning = {};
+  try { existingReasoning = JSON.parse(valuation.valuation_reasoning || '{}'); } catch { existingReasoning = {}; }
+
+  // body.reasoning is the manual-wording fallback (Fix E, point 2) — if the
+  // admin hand-edited the narrative text, use that verbatim and skip the
+  // Claude call entirely. Otherwise, if the numbers changed, regenerate so
+  // the written explanation stays consistent with what's actually shown.
+  let reasoning = existingReasoning;
+  if (body.reasoning && typeof body.reasoning === 'object') {
+    reasoning = { ...existingReasoning, ...body.reasoning };
+  } else if (valuesChanged) {
+    const vehicle = {
+      year: valuation.decoded_year || valuation.lead_year || null,
+      make: valuation.decoded_make || valuation.lead_make || null,
+      model: valuation.decoded_model || valuation.lead_model || null,
+      trim: valuation.decoded_trim || valuation.lead_trim || null,
+    };
+    let comps = []; try { comps = JSON.parse(valuation.marketcheck_comps || '[]'); } catch { comps = []; }
+    let photoAssessment = null; try { photoAssessment = valuation.ai_condition_score ? JSON.parse(valuation.ai_condition_score) : null; } catch { photoAssessment = null; }
+    const selfReported = {
+      title_status: valuation.title_status || 'Clean',
+      general_condition: valuation.general_condition,
+      accident_history: valuation.accident_history,
+      accident_notes: valuation.accident_notes,
+      mechanical_status: valuation.mechanical_status,
+      mechanical_notes: valuation.mechanical_notes,
+    };
+    const narrative = await generateValuationNarrative(env, {
+      vehicle, mileage: valuation.mileage, comps, selfReported, photoAssessment,
+      values: { cashValue: cash, tradeInValue: tradeIn, privateSaleValue: private_, retailValue: retail },
+    });
+    reasoning = { retail: narrative.retail_reasoning, cash: narrative.cash_reasoning, trade_in: narrative.trade_in_reasoning, private_sale: narrative.private_sale_reasoning };
+  }
+
+  const manuallyAdjusted = valuesChanged || (body.reasoning && typeof body.reasoning === 'object');
+
   await env.DB.prepare(`
-    UPDATE vehicle_valuations SET final_retail_value = ?, final_trade_in_value = ?, final_private_sale_value = ?,
-      status = 'valued', customer_notified_at = datetime('now') WHERE id = ?
-  `).bind(retail, tradeIn, private_, valuation.id).run();
+    UPDATE vehicle_valuations SET
+      final_retail_value = ?, final_cash_value = ?, final_trade_in_value = ?, final_private_sale_value = ?,
+      valuation_reasoning = ?
+      ${manuallyAdjusted ? ', manually_adjusted = 1, manually_adjusted_at = datetime(\'now\'), manually_adjusted_by = ?' : ''}
+    WHERE id = ?
+  `).bind(
+    ...(manuallyAdjusted
+      ? [retail, cash, tradeIn, private_, JSON.stringify(reasoning), dealer?.name || dealer?.email || 'admin', valuation.id]
+      : [retail, cash, tradeIn, private_, JSON.stringify(reasoning), valuation.id])
+  ).run();
+
+  return { valuation, cash, tradeIn, private_, retail, reasoning };
+}
+
+async function adminSaveValuationEdits(request, env, params, dealer) {
+  const body = await request.json().catch(() => ({}));
+  const result = await saveValuationEdits(env, params, body, dealer);
+  if (result.error) return result.error;
+  return json({ success: true, cash_value: result.cash, trade_in_value: result.tradeIn, private_sale_value: result.private_, retail_value: result.retail, reasoning: result.reasoning });
+}
+
+async function adminSendValuationEmail(request, env, params, dealer) {
+  const body = await request.json().catch(() => ({}));
+  const result = await saveValuationEdits(env, params, body, dealer);
+  if (result.error) return result.error;
+  const { valuation, cash, tradeIn, private_ } = result;
+
+  await env.DB.prepare(`
+    UPDATE vehicle_valuations SET status = 'valued', customer_notified_at = datetime('now') WHERE id = ?
+  `).bind(valuation.id).run();
 
   await sendSellCarValueRangeEmail(env, {
     first_name: valuation.first_name, email: valuation.email, token: valuation.token,
-    low: Math.min(retail, tradeIn, private_),
-    high: Math.max(retail, tradeIn, private_),
+    low: Math.min(cash, tradeIn, private_),
+    high: Math.max(cash, tradeIn, private_),
   });
 
   return json({ success: true });
@@ -1847,6 +2452,7 @@ function sellReportPageHtml(valuation, photosBySlot) {
     (valuation.decoded_engine) && ['Engine', valuation.decoded_engine],
     (valuation.decoded_drivetrain) && ['Drivetrain', valuation.decoded_drivetrain],
     (valuation.decoded_body_type) && ['Body Type', valuation.decoded_body_type],
+    valuation.title_status && ['Title Status', valuation.title_status],
     valuation.general_condition && ['Self-Reported Condition', valuation.general_condition],
     valuation.accident_history && ['Accident History', `${valuation.accident_history}${valuation.accident_notes ? ' — ' + valuation.accident_notes : ''}`],
     valuation.mechanical_status && ['Mechanical Status', `${valuation.mechanical_status}${valuation.mechanical_notes ? ' — ' + valuation.mechanical_notes : ''}`],
@@ -1934,11 +2540,11 @@ function sellReportPageHtml(valuation, photosBySlot) {
 
   <div>
     <div class="value-grid">
-      ${valueCard('Retail Comp Value', valuation.final_retail_value, reasoning.retail)}
+      ${valueCard('Cash / Quick Sell', valuation.final_cash_value, reasoning.cash)}
       ${valueCard('Trade-In Value', valuation.final_trade_in_value, reasoning.trade_in)}
-      ${valueCard('Private-Sale Value', valuation.final_private_sale_value, reasoning.private_sale)}
+      ${valueCard('Private Sale (Est.)', valuation.final_private_sale_value, reasoning.private_sale)}
     </div>
-    <p class="footnote" style="margin-top:1rem">Based on self-reported and photo-confirmed information, subject to revision.</p>
+    <p class="footnote" style="margin-top:1rem">Cash/Quick Sell and Trade-In reflect real dealer-partner offers. Private Sale is an estimate for listing it yourself (e.g. Facebook Marketplace) — not a guarantee, and it takes your own time and effort to realize. All figures are based on self-reported and photo-confirmed information, subject to revision.</p>
   </div>
 
   <div class="card">
@@ -1996,7 +2602,8 @@ async function renderSellReportPage(request, env, params) {
 async function publicMarkReadyToSell(request, env, params) {
   const valuation = await env.DB.prepare(`
     SELECT vehicle_valuations.id, vehicle_valuations.ready_to_sell,
-      vehicle_valuations.final_retail_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
+      vehicle_valuations.final_retail_value, vehicle_valuations.final_cash_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
+      vehicle_valuations.low_confidence,
       sell_my_car_leads.first_name, sell_my_car_leads.last_name, sell_my_car_leads.email, sell_my_car_leads.phone,
       sell_my_car_leads.year AS lead_year, sell_my_car_leads.make AS lead_make, sell_my_car_leads.model AS lead_model,
       vehicle_valuations.decoded_year, vehicle_valuations.decoded_make, vehicle_valuations.decoded_model
@@ -2016,7 +2623,9 @@ async function publicMarkReadyToSell(request, env, params) {
       subject: '🚗 Seller ready to move forward',
       html: brandedEmailHtml(`
         <p><strong>${escapeHtml(valuation.first_name)} ${escapeHtml(valuation.last_name)}</strong> is ready to sell their ${escapeHtml(vehicleLabel)}.</p>
+        ${valuation.low_confidence ? `<p style="color:#9B2335"><strong>⚠ Low confidence — eyeball this one before proceeding.</strong></p>` : ''}
         <p><strong>Values:</strong> Retail ${valuation.final_retail_value ? '$' + Number(valuation.final_retail_value).toLocaleString() : '—'} ·
+          Cash ${valuation.final_cash_value ? '$' + Number(valuation.final_cash_value).toLocaleString() : '—'} ·
           Trade-In ${valuation.final_trade_in_value ? '$' + Number(valuation.final_trade_in_value).toLocaleString() : '—'} ·
           Private-Sale ${valuation.final_private_sale_value ? '$' + Number(valuation.final_private_sale_value).toLocaleString() : '—'}</p>
         <p><strong>Contact:</strong><br/>
@@ -2039,6 +2648,12 @@ async function submitSellCarLead(request, env, params, dealer, token, ctx) {
 
   if (!first_name || !last_name || !email) return json({ error: 'Name and email are required.' }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: 'Invalid email address.' }, 400);
+
+  // Required — a value this significant to the valuation can't be left to
+  // whatever gets parsed out of the free-text accident description. A
+  // truly blank submission defaults to Clean; "Not Sure" is a distinct,
+  // deliberately-selected value and must NOT be coerced to Clean.
+  const title_status = (body.title_status || '').trim() || 'Clean';
 
   const year    = parseInt(String(body.year || '').replace(/[^0-9]/g, ''), 10) || null;
   const mileage = parseInt(String(body.mileage || '').replace(/[^0-9]/g, ''), 10) || null;
@@ -2063,7 +2678,7 @@ async function submitSellCarLead(request, env, params, dealer, token, ctx) {
     first_name, last_name, email, phone, zip,
     year, make, model, trim,
     mileage, (body.exterior_color || '').trim(),
-    body.title_status || '', body.remaining_balance || '', (body.payoff_amount || '').trim(), body.condition || '',
+    title_status, body.remaining_balance || '', (body.payoff_amount || '').trim(), body.condition || '',
     body.accidents || '', (body.accidents_count || '').trim(), (body.accidents_damage || '').trim(),
     body.mechanical_issues || '', (body.mechanical_desc || '').trim(), body.warning_lights || '',
     body.windshield || '', body.tires || '', body.modifications || '', (body.modifications_desc || '').trim(),
@@ -2078,6 +2693,7 @@ async function submitSellCarLead(request, env, params, dealer, token, ctx) {
     // valuation chain inline.
     const input = {
       vin, mileage, year, make, model, trim, zip,
+      title_status,
       general_condition: body.condition || '',
       accident_history, accident_notes, mechanical_status, mechanical_notes,
     };
@@ -2107,10 +2723,51 @@ async function submitContactMessage(request, env) {
 }
 
 async function adminDealers(request, env) {
-  const { results } = await env.DB.prepare(
-    `SELECT id, name, dealership_name, email, role, status, created_at FROM dealers WHERE role != 'admin' ORDER BY created_at DESC`
-  ).all();
-  return json({ dealers: results });
+  const { results } = await env.DB.prepare(`
+    SELECT dealers.id, dealers.name, dealers.dealership_name, dealers.email, dealers.role, dealers.status, dealers.created_at,
+      EXISTS(SELECT 1 FROM admin_seen_items WHERE section = 'dealers' AND item_id = dealers.id) as seen
+    FROM dealers WHERE role != 'admin' ORDER BY created_at DESC
+  `).all();
+  return json({ dealers: results.map(d => ({ ...d, seen: !!d.seen })) });
+}
+
+// ── Notification badges ──────────────────────────────────────────
+// iOS-style unread counts per dashboard section — but "read" is per ITEM,
+// marked only when admin actually reviews/approves/expands that specific
+// item, never just from opening the tab (opening a tab must not be able to
+// hide a submission that was never actually looked at).
+const NOTIFICATION_SECTION_TABLES = {
+  newsletter: 'inventory_submissions',
+  find_car:   'find_car_reports',
+  sell_car:   'sell_my_car_leads',
+  messages:   'contact_messages',
+  dealers:    'dealers',
+};
+const NOTIFICATION_SECTIONS = Object.keys(NOTIFICATION_SECTION_TABLES);
+
+async function adminNotificationCounts(request, env) {
+  const counts = {};
+  for (const section of NOTIFICATION_SECTIONS) {
+    const table = NOTIFICATION_SECTION_TABLES[section];
+    const dealerFilter = section === 'dealers' ? `role != 'admin' AND ` : '';
+    const row = await env.DB.prepare(`
+      SELECT COUNT(*) as c FROM ${table} t
+      WHERE ${dealerFilter}NOT EXISTS (SELECT 1 FROM admin_seen_items WHERE section = ? AND item_id = t.id)
+    `).bind(section).first();
+    counts[section] = row.c;
+  }
+  return json({ counts });
+}
+
+async function adminMarkItemSeen(request, env, params) {
+  if (!NOTIFICATION_SECTIONS.includes(params.section)) return json({ error: 'Unknown section.' }, 400);
+  const itemId = +params.itemId;
+  if (!itemId) return json({ error: 'Invalid item id.' }, 400);
+  await env.DB.prepare(`
+    INSERT INTO admin_seen_items (section, item_id) VALUES (?, ?)
+    ON CONFLICT(section, item_id) DO NOTHING
+  `).bind(params.section, itemId).run();
+  return json({ success: true });
 }
 
 // ── Dealer invites ────────────────────────────────────────────────
@@ -2638,6 +3295,11 @@ function vehicleDeepDiveHtml(report, vehicle) {
         <ul>${features.map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
       </div>
     ` : ''}
+    ${v.vdp_url && v.source !== 'sourcing_in_progress' ? `
+      <div style="text-align:center">
+        <a href="${escapeHtml(v.vdp_url)}" target="_blank" rel="noopener" style="font-size:.72rem;color:var(--gray);text-decoration:underline;letter-spacing:.02em">View original listing →</a>
+      </div>
+    ` : ''}
     <div class="cta-wrap">
       <button class="cta-btn" id="ready-btn" data-position="${v.position}" ${v.ready ? 'disabled' : ''}>
         ${v.ready ? "✓ Jeff's on it — expect to hear from him soon" : 'Ready to move forward? Jeff will take it from here.'}
@@ -2708,11 +3370,14 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/admin/submissions',           handler: adminSubmissions, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/submissions/:id',       handler: adminUpdateSubmission, auth: true, admin: true },
   { method: 'DELETE', pattern: '/api/admin/submissions/:id',      handler: adminDeleteSubmission, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/submissions/:id/scrape-listing', handler: adminScrapeSubmissionListing, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/submissions/:id/photo',        handler: adminUploadSubmissionPhoto, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/leads',                 handler: adminLeads, auth: true, admin: true },
   { method: 'DELETE', pattern: '/api/admin/leads/:id',            handler: adminDeleteLead, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/leads/:id/valuation',    handler: adminGetLeadValuation, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/leads/:id/valuation/photo/:slot', handler: adminUploadValuationPhoto, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/leads/:id/send-valuation',   handler: adminSendValuationEmail, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/leads/:id/save-valuation',   handler: adminSaveValuationEdits, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/find-leads',             handler: adminFindLeads, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/contact-messages',       handler: adminContactMessages, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/public/find-car-lead',         handler: submitFindCarLead },
@@ -2722,6 +3387,8 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/public/sell/:token/ready',       handler: publicMarkReadyToSell },
   { method: 'POST',  pattern: '/api/public/contact-message',       handler: submitContactMessage },
   { method: 'GET',   pattern: '/api/admin/dealers',               handler: adminDealers, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/notification-counts',                              handler: adminNotificationCounts, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/notification-counts/:section/items/:itemId/seen',  handler: adminMarkItemSeen, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/dealers/:id',           handler: adminUpdateDealer, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/invites',                handler: adminGenerateInvite, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/invites',                handler: adminListInvites, auth: true, admin: true },
@@ -2767,6 +3434,9 @@ export default {
     if (request.method === 'GET' || request.method === 'HEAD') {
       const photoParams = matchPath('/reports/photos/:code/:position', url.pathname);
       if (photoParams) return servePhoto(env, photoParams, request.method);
+
+      const submissionPhotoParams = matchPath('/submissions/photos/:id', url.pathname);
+      if (submissionPhotoParams) return serveSubmissionPhoto(env, submissionPhotoParams, request.method);
 
       const sellPhotoParams = matchPath('/sell/photos/:token/:slot/:filename', url.pathname);
       if (sellPhotoParams) return serveSellPhoto(env, sellPhotoParams, request.method);

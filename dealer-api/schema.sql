@@ -33,10 +33,17 @@ CREATE TABLE inventory_submissions (
   trim TEXT,
   mileage INTEGER,
   asking_price INTEGER,
+  vin TEXT,
+  exterior_color TEXT,
+  engine TEXT,
+  transmission TEXT,
   category TEXT,
   description TEXT,
+  write_up TEXT,
+  listing_url TEXT,
   image_url TEXT,
   image_urls TEXT,
+  photo_url TEXT,
   status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -128,6 +135,13 @@ CREATE TABLE lead_interest (
   UNIQUE(lead_id, dealer_id)
 );
 
+CREATE TABLE admin_seen_items (
+  section TEXT NOT NULL,
+  item_id INTEGER NOT NULL,
+  seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (section, item_id)
+);
+
 CREATE TABLE dealer_invites (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   token TEXT NOT NULL UNIQUE,
@@ -167,6 +181,7 @@ CREATE TABLE vehicle_valuations (
 
   mileage INTEGER,
 
+  title_status TEXT,
   accident_history TEXT NOT NULL DEFAULT 'none',
   accident_notes TEXT,
   general_condition TEXT,
@@ -177,9 +192,16 @@ CREATE TABLE vehicle_valuations (
   marketcheck_log TEXT,
 
   final_retail_value INTEGER,
+  final_cash_value INTEGER,
   final_trade_in_value INTEGER,
   final_private_sale_value INTEGER,
   valuation_reasoning TEXT,
+  valuation_breakdown TEXT,
+  low_confidence INTEGER NOT NULL DEFAULT 0,
+
+  manually_adjusted INTEGER NOT NULL DEFAULT 0,
+  manually_adjusted_at TEXT,
+  manually_adjusted_by TEXT,
 
   ai_condition_score TEXT,
   photo_confirmed INTEGER NOT NULL DEFAULT 0,

@@ -15,6 +15,13 @@
       --beige:#F5F0E8;--beige2:#EDE7D9;
       --gold:#C09A5B;--gold2:#D4B47A;
       --white:#fff;--gray:#4A5568;--border:#DDD8CC;
+      /* Referenced by inline styles on one-off sections/grids throughout
+         the page so a single mobile override can reach them — inline
+         style values otherwise can't be touched by a class-based media
+         query without !important. */
+      --side-pad:5rem;
+      --grid-3:repeat(3,1fr);
+      --grid-2:repeat(2,1fr);
     }
     html{scroll-behavior:smooth}
     body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy);overflow-x:hidden}
@@ -154,7 +161,7 @@
 
     /* ── SELL PAGE HERO ── */
     .hero-sell{min-height:calc(100vh - 64px);display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
-    .sell-left{background:url('https://images.unsplash.com/photo-1542362567-b07e54358753?w=1200&q=80') center/cover no-repeat;position:relative;display:flex;align-items:flex-end;padding:3rem}
+    .sell-left{background:url('Blue-urus.jpg') center/cover no-repeat;position:relative;display:flex;align-items:flex-end;padding:3rem}
     .sell-left::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(12,28,51,.85) 0%,rgba(12,28,51,.3) 60%,transparent 100%)}
     .sell-left-content{position:relative;z-index:1}
     .sell-left-title{font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,3rem);font-weight:500;color:var(--white);line-height:1.15;margin-bottom:.75rem}
@@ -255,6 +262,7 @@
 
     /* ── RESPONSIVE ── */
     @media(max-width:900px){
+      :root{--side-pad:1.75rem;--grid-3:1fr;--grid-2:1fr}
       .nav-links{display:none}
       .hamburger{display:flex}
       .hero-find,.hero-sell,.about-hero,.contact-grid,.split{grid-template-columns:1fr}
@@ -262,13 +270,21 @@
       .hero-right,.sell-right,.sell-left,.about-img,.about-content-block,.split-content,.contact-left-panel,.contact-right-panel{padding:2.5rem 1.75rem;min-height:auto}
       .sell-left{min-height:300px}
       .how-section,.brands-section,.testi-section,.gallery-section,.faq-section,.trust-bar{padding:3.5rem 1.75rem}
-      .how-grid{grid-template-columns:1fr 1fr}
+      .how-grid{grid-template-columns:1fr}
       .testi-grid{grid-template-columns:1fr}
       .gallery-grid{grid-template-columns:1fr 1fr;grid-template-rows:auto}
       .gitem:first-child{grid-row:span 1;height:200px}
       .gitem{height:180px}
       .about-features{grid-template-columns:1fr;padding:2.5rem 1.75rem}
+      .form-row,.priority-grid{grid-template-columns:1fr}
       footer{flex-direction:column;gap:1.25rem;text-align:center;padding:1.75rem}
+    }
+    @media(max-width:480px){
+      .gallery-grid{grid-template-columns:1fr}
+      .gitem:first-child{height:220px}
+      .gitem{height:200px}
+      .hero-title{font-size:2rem}
+      .nav-inner{padding:0 1.25rem}
     }
   </style>
 
@@ -535,10 +551,10 @@
   <!-- Gallery -->
   <section class="gallery-section">
     <div class="gallery-grid">
-      <div class="gitem"><img src="https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=900&q=80" alt="Luxury car"/></div>
-      <div class="gitem"><img src="https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=600&q=80" alt="Exotic car"/></div>
-      <div class="gitem"><img src="https://images.unsplash.com/photo-1580274455191-1c62238fa333?w=600&q=80" alt="Sports car"/></div>
-      <div class="gitem"><img src="https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=600&q=80" alt="Performance car"/></div>
+      <div class="gitem"><img src="Green-G63.jpg" alt="Luxury car"/></div>
+      <div class="gitem"><img src="C8-Z06.jpeg" alt="Exotic car"/></div>
+      <div class="gitem"><img src="RS3.jpg" alt="Sports car"/></div>
+      <div class="gitem"><img src="A6.jpg" alt="Performance car"/></div>
     </div>
   </section>
 
@@ -655,10 +671,15 @@
               <div class="form-group"><label>Exterior Color</label><input type="text" placeholder="Jet Black" id="sf-color"/></div>
             </div>
             <div class="form-group">
-              <label>Title Status</label>
+              <label>Title Status <span style="color:var(--gold)">*</span></label>
               <select id="sf-title">
                 <option value="">Select...</option>
-                <option>Clean Title</option><option>Salvage Title</option><option>Rebuilt/Reconstructed</option><option>Not Sure</option>
+                <option value="Clean">Clean Title</option>
+                <option value="Salvage">Salvage Title</option>
+                <option value="Rebuilt">Rebuilt/Reconstructed</option>
+                <option value="Flood">Flood Damage</option>
+                <option value="Lemon Law Buyback">Lemon Law Buyback</option>
+                <option value="Not Sure">Not Sure</option>
               </select>
             </div>
             <div class="form-group">
@@ -786,13 +807,13 @@
   </section>
 
   <!-- Why sell with us -->
-  <section style="padding:5rem;background:var(--beige)">
+  <section style="padding:5rem var(--side-pad);background:var(--beige)">
     <div style="max-width:1000px;margin:0 auto">
       <div style="text-align:center;margin-bottom:3rem">
         <div class="eyebrow center">Why TheExactMatch</div>
         <h2 class="display">A better way to <em>sell your car.</em></h2>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem">
+      <div style="display:grid;grid-template-columns:var(--grid-3);gap:1.5rem">
         <div class="feat-box reveal">
           <div class="feat-icon">⚡</div>
           <div class="feat-title">Offers in 24 Hours</div>
@@ -873,14 +894,14 @@
 <div class="page" id="page-how">
 
   <!-- Header -->
-  <section style="background:var(--navy);padding:5rem;text-align:center">
+  <section style="background:var(--navy);padding:5rem var(--side-pad);text-align:center">
     <div class="eyebrow light center">The Process</div>
     <h2 class="display light" style="margin-bottom:1rem">Simple. Free. <em>Effective.</em></h2>
     <p style="font-size:.9rem;font-weight:300;color:rgba(255,255,255,.5);max-width:520px;margin:0 auto;line-height:1.8">Two services. One goal — making your car transaction effortless. Here's exactly how each one works.</p>
   </section>
 
   <!-- Find My Car Steps -->
-  <section style="padding:5rem;background:var(--beige)">
+  <section style="padding:5rem var(--side-pad);background:var(--beige)">
     <div style="max-width:1100px;margin:0 auto">
       <div style="margin-bottom:3rem">
         <div class="eyebrow left">Find My Car</div>
@@ -915,7 +936,7 @@
   </section>
 
   <!-- Sell My Car Steps -->
-  <section style="padding:5rem;background:var(--beige2)">
+  <section style="padding:5rem var(--side-pad);background:var(--beige2)">
     <div style="max-width:1100px;margin:0 auto">
       <div style="margin-bottom:3rem">
         <div class="eyebrow left">Sell My Car</div>
@@ -950,12 +971,12 @@
   </section>
 
   <!-- White Glove -->
-  <section style="padding:5rem;background:var(--navy)">
+  <section style="padding:5rem var(--side-pad);background:var(--navy)">
     <div style="max-width:900px;margin:0 auto;text-align:center">
       <div class="eyebrow light center">Premium Option</div>
       <h2 class="display light" style="margin-bottom:1rem">Want us to handle <em>everything?</em></h2>
       <p style="font-size:.9rem;font-weight:300;color:rgba(255,255,255,.5);line-height:1.8;max-width:560px;margin:0 auto 2.5rem">After you receive your 3 options, you can choose to have Jeff personally negotiate, review paperwork, and coordinate the entire closing on your behalf. White Glove service — a flat fee based on the vehicle value.</p>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);border-radius:3px;overflow:hidden;max-width:700px;margin:0 auto 2.5rem">
+      <div style="display:grid;grid-template-columns:var(--grid-3);gap:1px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);border-radius:3px;overflow:hidden;max-width:700px;margin:0 auto 2.5rem">
         <div style="padding:1.75rem;background:rgba(255,255,255,.04)">
           <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.5rem">Under $50K</div>
           <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:500;color:var(--gold2)">$500</div>
@@ -1016,13 +1037,13 @@
     </div>
   </section>
 
-  <section style="padding:5rem;background:var(--beige)">
+  <section style="padding:5rem var(--side-pad);background:var(--beige)">
     <div style="max-width:1100px;margin:0 auto">
       <div style="text-align:center;margin-bottom:3rem">
         <div class="eyebrow center">Why It Works</div>
         <h2 class="display">Insider access. <em>On your side.</em></h2>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1.5rem">
+      <div style="display:grid;grid-template-columns:var(--grid-2);gap:1.5rem">
         <div class="feat-box reveal">
           <div class="feat-icon">🧠</div>
           <div class="feat-title">We Know How Dealers Think</div>
@@ -1047,7 +1068,7 @@
     </div>
   </section>
 
-  <section style="padding:4rem 5rem;background:var(--navy);text-align:center">
+  <section style="padding:4rem var(--side-pad);background:var(--navy);text-align:center">
     <div class="eyebrow light center">Ready?</div>
     <h2 class="display light" style="margin-bottom:1.5rem">Let's find your <em>exact match.</em></h2>
     <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
@@ -1155,7 +1176,7 @@
 <div class="page" id="page-weekly">
 
   <!-- Hero -->
-  <section style="background:var(--navy);padding:5rem 5rem 4rem;text-align:center">
+  <section style="background:var(--navy);padding:5rem var(--side-pad) 4rem;text-align:center">
     <div class="eyebrow light center">Free Newsletter</div>
     <h2 class="display light" style="margin-bottom:1rem">Jeff's <em>Weekly Deals</em></h2>
     <p style="font-size:.95rem;font-weight:300;color:rgba(255,255,255,.55);max-width:520px;margin:0 auto 0;line-height:1.8">
@@ -1164,7 +1185,7 @@
   </section>
 
   <!-- Category badges -->
-  <section style="background:var(--navy);padding:0 5rem 4rem;text-align:center">
+  <section style="background:var(--navy);padding:0 var(--side-pad) 4rem;text-align:center">
     <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:.6rem;max-width:560px;margin:0 auto 2.5rem">
       <span style="font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;border:1px solid rgba(192,154,91,.35);border-radius:20px;padding:.4rem 1.1rem;color:var(--gold2);background:rgba(192,154,91,.07)">Luxury</span>
       <span style="font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;border:1px solid rgba(192,154,91,.35);border-radius:20px;padding:.4rem 1.1rem;color:var(--gold2);background:rgba(192,154,91,.07)">Exotic</span>
@@ -1214,13 +1235,13 @@
   </section>
 
   <!-- What to expect -->
-  <section style="padding:5rem;background:var(--beige)">
+  <section style="padding:5rem var(--side-pad);background:var(--beige)">
     <div style="max-width:1000px;margin:0 auto">
       <div style="text-align:center;margin-bottom:3rem">
         <div class="eyebrow center">What to Expect</div>
         <h2 class="display">Real deals. <em>Every week.</em></h2>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem">
+      <div style="display:grid;grid-template-columns:var(--grid-3);gap:1.5rem">
         <div style="padding:2rem;background:var(--white);border:1px solid var(--border);border-radius:3px" class="reveal">
           <div style="font-size:1.5rem;margin-bottom:1rem">🔍</div>
           <div style="font-size:.88rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">Hand-Picked by Jeff</div>
@@ -1241,7 +1262,7 @@
   </section>
 
   <!-- Social proof mini -->
-  <section style="background:var(--beige2);padding:3.5rem 5rem;text-align:center">
+  <section style="background:var(--beige2);padding:3.5rem var(--side-pad);text-align:center">
     <div style="max-width:600px;margin:0 auto">
       <div style="font-family:'Playfair Display',serif;font-size:1.25rem;font-style:italic;color:var(--navy);line-height:1.65;margin-bottom:1.5rem">
         &#8220;Got the email on a Wednesday, called Jeff Thursday, picked up my RS7 Friday. Never would've found it on my own.&#8221;
@@ -1483,6 +1504,10 @@ function sfValidateStep(step){
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if(!fname || !lname || !email || !phone){ alert('Please fill out your name, email, and phone to continue.'); return false; }
     if(!re.test(email)){ alert('Please enter a valid email address.'); return false; }
+  }
+  if(step === 2){
+    const titleStatus = document.getElementById('sf-title').value;
+    if(!titleStatus){ alert('Please select the title status — it makes a real difference in your offer.'); return false; }
   }
   return true;
 }
