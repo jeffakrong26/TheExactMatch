@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEM Marketing</title>
+<meta name="apple-mobile-web-app-title" content="TEM Marketing">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&family=Jost:wght@400;500;600&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Jost', sans-serif;
+    background: #EAE3D4;
+    color: #182642;
+    padding: 16px;
+    padding-bottom: 90px;
+  }
+
+  .app { max-width: 1160px; margin: 0 auto; }
+
+  .tabs {
+    display: flex; max-width: 480px; margin: 0 auto 16px;
+    background: #fff; border-radius: 8px; padding: 4px;
+  }
+  .tabs button {
+    flex: 1; padding: 10px 0; border: none; background: transparent;
+    font-family: 'Jost', sans-serif; font-size: 14px; font-weight: 500;
+    color: #7a7362; border-radius: 6px; cursor: pointer;
+  }
+  .tabs button.active { background: #182642; color: #fff; }
+
+  .layout { display: block; max-width: 480px; margin: 0 auto; }
+
+  .panel { background: #fff; border-radius: 10px; padding: 20px; }
+  .panel.hidden { display: none; }
+  .hidden { display: none !important; }
+  .panel h2 { font-family: 'Playfair Display', serif; font-size: 19px; margin-bottom: 3px; }
+  .panel .sub { font-size: 12px; color: #7a7362; margin-bottom: 16px; }
+
+  label {
+    display: block; font-size: 11px; letter-spacing: 0.05em; color: #6b6555;
+    margin: 14px 0 6px; text-transform: uppercase;
+  }
+  input[type=text] {
+    width: 100%; padding: 12px; border: 1px solid #d9d2c1; border-radius: 6px;
+    font-family: 'Jost', sans-serif; font-size: 16px; background: #FAF7F0;
+  }
+  textarea {
+    width: 100%; padding: 12px; border: 1px solid #d9d2c1; border-radius: 6px;
+    font-family: 'Jost', sans-serif; font-size: 15px; background: #FAF7F0;
+    resize: vertical; min-height: 70px;
+  }
+
+  .type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .type-grid button {
+    padding: 12px 6px; font-size: 12px; border: 1px solid #d9d2c1; background: #FAF7F0;
+    border-radius: 6px; cursor: pointer; color: #6b6555; font-family: 'Jost', sans-serif;
+  }
+  .type-grid button.active { border-color: #A87F4A; background: #182642; color: #C9A464; }
+
+  .style-row { display: flex; gap: 8px; }
+  .style-row button {
+    flex: 1; padding: 10px 4px; font-size: 12px; border: 1px solid #d9d2c1; background: #FAF7F0;
+    border-radius: 6px; cursor: pointer; color: #6b6555; font-family: 'Jost', sans-serif;
+  }
+  .style-row button.active { border-color: #A87F4A; background: #182642; color: #C9A464; }
+
+  .upload {
+    border: 1.5px dashed #c9bfa6; border-radius: 8px; padding: 28px 16px; text-align: center;
+    font-size: 13px; color: #8a7f66; cursor: pointer; background: #FAF7F0;
+  }
+  .upload input { display: none; }
+  .upload strong { display: block; font-size: 14px; color: #182642; margin-bottom: 4px; }
+
+  .stage { display: flex; justify-content: center; }
+
+  /* ---- card: photo is the full background, everything else overlays it ---- */
+  .card {
+    position: relative;
+    width: 100%; max-width: 480px;
+    aspect-ratio: var(--ar, 4 / 5);
+    background-color: #ddd0b3;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(20,30,50,0.15);
+  }
+  .photo-bg {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .photo-bg span {
+    font-size: 12px; color: #6b5f47; background: rgba(243,237,225,0.9);
+    padding: 8px 14px; text-align: center; max-width: 70%;
+  }
+
+  .content { position: relative; z-index: 2; display: flex; flex-direction: column; height: 100%; }
+
+  .top-block {
+    padding: 22px 22px 44px;
+    background: linear-gradient(to bottom, rgba(24,38,66,0.65) 0%, rgba(24,38,66,0.25) 55%, rgba(24,38,66,0) 100%);
+  }
+  .type-badge {
+    display: inline-block; font-size: 10px; letter-spacing: 0.1em; padding: 6px 12px;
+    border-radius: 20px; font-weight: 600; background: rgba(255,255,255,0.92); color: #182642;
+  }
+  h1.card-h {
+    font-family: 'Playfair Display', serif; font-weight: 400; font-size: 26px; line-height: 1.22;
+    color: #fff; margin-top: 12px; text-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  }
+  h1.card-h em { font-style: italic; color: #E3C68F; font-weight: 600; }
+
+  .spacer { flex: 1; }
+
+  .bottom-block {
+    padding: 50px 22px 20px;
+    background: linear-gradient(to top, rgba(24,38,66,0.95) 0%, rgba(24,38,66,0.88) 55%, rgba(24,38,66,0) 100%);
+  }
+
+  .facts { display: flex; flex-wrap: wrap; gap: 12px 18px; }
+  .fact-label { font-size: 9px; letter-spacing: 0.08em; color: #C9D0DD; margin-bottom: 3px; }
+  .fact-value { font-size: 14px; color: #fff; font-weight: 600; }
+
+  .note { margin-top: 12px; font-size: 12px; line-height: 1.55; color: #dfe3ea; }
+
+  .card-footer {
+    margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .wordmark { font-family: 'Playfair Display', serif; font-size: 15px; color: #fff; }
+  .wordmark .accent { color: #E3C68F; }
+  .tagline { font-size: 8px; letter-spacing: 0.12em; color: #E3C68F; margin-top: 3px; }
+  .url { font-size: 9px; letter-spacing: 0.05em; color: #C9D0DD; }
+
+  /* Style B: bold lower band, guaranteed legibility, photo confined to top */
+  .card.styleB .top-block { background: linear-gradient(to bottom, rgba(24,38,66,0.35), rgba(24,38,66,0) 100%); padding-bottom: 20px; }
+  .card.styleB .bottom-block {
+    background: #182642; padding-top: 22px;
+    box-shadow: 0 -8px 20px rgba(0,0,0,0.15);
+  }
+  .card.styleB .spacer { flex: 0.55; }
+
+  /* Style C: centered minimal, uniform light scrim, everything centered at bottom */
+  .card.styleC .top-block { background: linear-gradient(to bottom, rgba(24,38,66,0.3), rgba(24,38,66,0) 100%); }
+  .card.styleC h1.card-h { text-align: center; }
+  .card.styleC .type-badge { display: block; width: fit-content; margin: 0 auto; }
+  .card.styleC .bottom-block { text-align: center; background: linear-gradient(to top, rgba(24,38,66,0.95) 0%, rgba(24,38,66,0.7) 60%, rgba(24,38,66,0) 100%); }
+  .card.styleC .facts { justify-content: center; }
+  .card.styleC .card-footer { justify-content: center; gap: 14px; }
+  .card.styleC .card-footer .url { display: none; }
+
+  .sticky-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; background: #F3EDE1;
+    border-top: 1px solid #d9d2c1; padding: 12px 16px; display: flex; justify-content: center;
+  }
+  .download-btn {
+    width: 100%; max-width: 480px; padding: 14px; background: #182642; color: #fff;
+    border: none; border-radius: 8px; font-family: 'Jost', sans-serif; font-size: 15px;
+    font-weight: 500; letter-spacing: 0.02em; cursor: pointer;
+  }
+
+  @media (min-width: 860px) {
+    .tabs { display: none; }
+    .layout { max-width: none; display: grid; grid-template-columns: 340px 1fr; gap: 28px; }
+    .panel.hidden { display: block; }
+    .panel { height: fit-content; }
+    .sticky-bar { position: static; background: transparent; border: none; padding: 20px 0 0; max-width: 340px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="tabs">
+    <button id="tabEdit" class="active" onclick="setTab('edit')">Edit</button>
+    <button id="tabPreview" onclick="setTab('preview')">Preview</button>
+  </div>
+
+  <div class="layout">
+    <div class="panel" id="panelEdit">
+      <h2>Spotlight generator</h2>
+      <p class="sub">Fill in the car, upload a real photo, download the graphic.</p>
+
+      <label>Content mode</label>
+      <div class="style-row">
+        <button id="modeCar" class="active" onclick="setMode('car')">Car spotlight</button>
+        <button id="modeMarketing" onclick="setMode('marketing')">Marketing message</button>
+      </div>
+
+      <label>Post type</label>
+      <div class="type-grid" id="typeGridCar">
+        <button id="typeArrival" class="active" onclick="setType('arrival')">New arrival</button>
+        <button id="typeBought" onclick="setType('bought')">We found this</button>
+        <button id="typeSold" onclick="setType('sold')">Helped sell</button>
+        <button id="typeMatch" onclick="setType('match')">Client match</button>
+      </div>
+      <div class="type-grid hidden" id="typeGridMarketing">
+        <button id="typeTip" onclick="setType('tip')">Tip</button>
+        <button id="typeHow" onclick="setType('how')">How it works</button>
+        <button id="typeLove" onclick="setType('love')">Client love</button>
+        <button id="typeKnow" onclick="setType('know')">Did you know</button>
+      </div>
+
+      <label>Layout style</label>
+      <div class="style-row">
+        <button id="styleA" class="active" onclick="setStyle('')">Classic</button>
+        <button id="styleB" onclick="setStyle('styleB')">Bold band</button>
+        <button id="styleC" onclick="setStyle('styleC')">Centered</button>
+      </div>
+
+      <label>Format (Instagram-safe sizing)</label>
+      <div class="style-row">
+        <button id="fmtSquare" onclick="setFormat('1 / 1')">Square</button>
+        <button id="fmtPortrait" class="active" onclick="setFormat('4 / 5')">Feed (4:5)</button>
+        <button id="fmtStory" onclick="setFormat('9 / 16')">Story</button>
+      </div>
+
+      <label>Headline</label>
+      <input type="text" id="inHeadline" value="Just landed" oninput="render()">
+      <input type="text" id="inHeadlineAccent" value="in Houston." style="margin-top:6px;" oninput="render()">
+
+      <div id="vehicleFields">
+        <label>Year, make & model</label>
+        <input type="text" id="inVehicle" value="2026 Mazda CX-5 2.5 S" oninput="render()">
+
+        <label>Trim / color</label>
+        <input type="text" id="inTrim" value="Jet Black Mica" oninput="render()">
+
+        <label>Price</label>
+        <input type="text" id="inPrice" value="$33,945" oninput="render()">
+
+        <label>Mileage (leave blank if new)</label>
+        <input type="text" id="inMiles" value="" placeholder="e.g. 18,400 mi" oninput="render()">
+      </div>
+
+      <label id="noteLabel">Caption</label>
+      <textarea id="inNote" oninput="render()">Found the right fit again. If this looks like your exact match, tell us what you're looking for — it's free, and we do the rest.</textarea>
+
+      <label>Vehicle photo</label>
+      <div class="upload" onclick="document.getElementById('photoInput').click()">
+        <strong>Tap to upload photo</strong>
+        Use a real photo of this vehicle
+        <input type="file" id="photoInput" accept="image/*" onchange="handlePhoto(event)">
+      </div>
+    </div>
+
+    <div class="panel hidden" id="panelPreview">
+      <div class="stage">
+        <div class="card" id="card">
+          <div class="photo-bg" id="photoBg">
+            <span>Upload a real photo — it becomes the full background</span>
+          </div>
+          <div class="content">
+            <div class="top-block">
+              <span class="type-badge" id="typeBadge">NEW ARRIVAL</span>
+              <h1 class="card-h" id="headline">Just landed<br><em id="headlineAccent">in Houston.</em></h1>
+            </div>
+            <div class="spacer"></div>
+            <div class="bottom-block">
+              <div class="facts" id="factsRow">
+                <div>
+                  <p class="fact-label">VEHICLE</p>
+                  <p class="fact-value" id="factVehicle">2026 Mazda CX-5 2.5 S</p>
+                </div>
+                <div>
+                  <p class="fact-label">TRIM</p>
+                  <p class="fact-value" id="factTrim">Jet Black Mica</p>
+                </div>
+                <div id="milesBlock" style="display:none;">
+                  <p class="fact-label">MILES</p>
+                  <p class="fact-value" id="factMiles"></p>
+                </div>
+                <div>
+                  <p class="fact-label">PRICE</p>
+                  <p class="fact-value" id="factPrice">$33,945</p>
+                </div>
+              </div>
+              <p class="note" id="noteText">Found the right fit again. If this looks like your exact match, tell us what you're looking for — it's free, and we do the rest.</p>
+              <div class="card-footer">
+                <div>
+                  <p class="wordmark">The<span class="accent">Exact</span>Match</p>
+                  <p class="tagline">WE FIND. YOU DRIVE.</p>
+                </div>
+                <p class="url">THEEXACTMATCH.COM</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sticky-bar">
+        <button class="download-btn" onclick="downloadImage()">Download as image</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const typeLabels = {
+    arrival: 'NEW ARRIVAL',
+    bought: 'WE FOUND THIS ONE',
+    sold: 'JUST SOLD',
+    match: 'EXACT MATCH FOUND',
+    tip: 'TIP',
+    how: 'HOW IT WORKS',
+    love: 'CLIENT LOVE',
+    know: 'DID YOU KNOW'
+  };
+  let currentType = 'arrival';
+  let currentMode = 'car';
+
+  function setMode(mode) {
+    currentMode = mode;
+    document.getElementById('modeCar').classList.toggle('active', mode === 'car');
+    document.getElementById('modeMarketing').classList.toggle('active', mode === 'marketing');
+    document.getElementById('typeGridCar').classList.toggle('hidden', mode !== 'car');
+    document.getElementById('typeGridMarketing').classList.toggle('hidden', mode !== 'marketing');
+    document.getElementById('vehicleFields').classList.toggle('hidden', mode !== 'car');
+    document.getElementById('noteLabel').textContent = mode === 'car' ? 'Caption' : 'Message';
+    setType(mode === 'car' ? 'arrival' : 'tip');
+  }
+
+  function setTab(tab) {
+    document.getElementById('tabEdit').classList.toggle('active', tab === 'edit');
+    document.getElementById('tabPreview').classList.toggle('active', tab === 'preview');
+    document.getElementById('panelEdit').classList.toggle('hidden', tab !== 'edit');
+    document.getElementById('panelPreview').classList.toggle('hidden', tab !== 'preview');
+  }
+
+  function setType(type) {
+    currentType = type;
+    ['typeArrival','typeBought','typeSold','typeMatch','typeTip','typeHow','typeLove','typeKnow']
+      .forEach(id => document.getElementById(id).classList.remove('active'));
+    document.getElementById('type' + type.charAt(0).toUpperCase() + type.slice(1)).classList.add('active');
+    render();
+  }
+
+  function setStyle(cls) {
+    const card = document.getElementById('card');
+    const currentAr = card.style.getPropertyValue('--ar');
+    card.className = 'card' + (cls ? ' ' + cls : '');
+    if (currentAr) card.style.setProperty('--ar', currentAr);
+    ['styleA','styleB','styleC'].forEach(id => document.getElementById(id).classList.remove('active'));
+    document.getElementById(cls === '' ? 'styleA' : cls).classList.add('active');
+  }
+
+  function setFormat(ar) {
+    document.getElementById('card').style.setProperty('--ar', ar);
+    ['fmtSquare','fmtPortrait','fmtStory'].forEach(id => document.getElementById(id).classList.remove('active'));
+    const map = {'1 / 1':'fmtSquare','4 / 5':'fmtPortrait','9 / 16':'fmtStory'};
+    document.getElementById(map[ar]).classList.add('active');
+  }
+
+  function handlePhoto(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      const bg = document.getElementById('photoBg');
+      bg.style.backgroundImage = `url(${evt.target.result})`;
+      bg.querySelector('span').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+    setTab('preview');
+  }
+
+  function render() {
+    document.getElementById('headline').innerHTML =
+      document.getElementById('inHeadline').value + '<br><em>' + document.getElementById('inHeadlineAccent').value + '</em>';
+    document.getElementById('noteText').textContent = document.getElementById('inNote').value;
+    document.getElementById('typeBadge').textContent = typeLabels[currentType];
+
+    const factsEl = document.getElementById('factsRow');
+    if (currentMode === 'car') {
+      factsEl.style.display = 'flex';
+      document.getElementById('factVehicle').textContent = document.getElementById('inVehicle').value;
+      document.getElementById('factTrim').textContent = document.getElementById('inTrim').value;
+      document.getElementById('factPrice').textContent = document.getElementById('inPrice').value;
+      const miles = document.getElementById('inMiles').value;
+      const milesBlock = document.getElementById('milesBlock');
+      if (miles.trim()) {
+        milesBlock.style.display = 'block';
+        document.getElementById('factMiles').textContent = miles;
+      } else {
+        milesBlock.style.display = 'none';
+      }
+    } else {
+      factsEl.style.display = 'none';
+    }
+  }
+
+  function downloadImage() {
+    const card = document.getElementById('card');
+    const targetWidth = 1080;
+    const scale = targetWidth / card.offsetWidth;
+    html2canvas(card, {scale: scale, backgroundColor: null}).then(canvas => {
+      const link = document.createElement('a');
+      link.download = 'tem-spotlight.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+  }
+
+  render();
+</script>
+
+</body>
+</html>
