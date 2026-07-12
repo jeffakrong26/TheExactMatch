@@ -98,6 +98,7 @@ CREATE TABLE find_car_leads (
   condition TEXT,
   budget_min TEXT,
   budget_max TEXT,
+  max_mileage INTEGER,
   timeline TEXT,
   payment_method TEXT,
   credit_range TEXT,
@@ -158,6 +159,7 @@ CREATE TABLE find_car_reports (
   report_code TEXT NOT NULL UNIQUE,
   find_lead_id INTEGER NOT NULL REFERENCES find_car_leads(id),
   status TEXT NOT NULL DEFAULT 'pending_approval',
+  flagged_for_review INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   approved_at TEXT
 );

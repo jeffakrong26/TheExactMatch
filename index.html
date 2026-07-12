@@ -445,6 +445,7 @@
             <div class="form-group"><label>Budget — Min</label><input type="number" placeholder="30000" id="ff-budget-min" min="0"/></div>
             <div class="form-group"><label>Budget — Max</label><input type="number" placeholder="60000" id="ff-budget-max" min="0"/></div>
           </div>
+          <div class="form-group"><label>Maximum Mileage You're Comfortable With</label><input type="number" placeholder="60000" id="ff-max-mileage" min="0"/></div>
           <div class="form-group">
             <label>Timeline</label>
             <select id="ff-timeline">
@@ -1396,6 +1397,10 @@ function ffValidateStep(step){
     if(!fname || !lname || !email || !phone){ alert('Please fill out your name, email, and phone to continue.'); return false; }
     if(!re.test(email)){ alert('Please enter a valid email address.'); return false; }
   }
+  if(step === 2){
+    const maxMileage = document.getElementById('ff-max-mileage').value.trim();
+    if(!maxMileage){ alert('Please enter the maximum mileage you\'re comfortable with.'); return false; }
+  }
   return true;
 }
 
@@ -1469,6 +1474,7 @@ function submitFindForm() {
     condition:  document.getElementById('ff-condition').value,
     budget_min: document.getElementById('ff-budget-min').value.trim(),
     budget_max: document.getElementById('ff-budget-max').value.trim(),
+    max_mileage: document.getElementById('ff-max-mileage').value.trim(),
     timeline:   document.getElementById('ff-timeline').value,
     payment_method: document.getElementById('ff-payment-method').value,
     credit_range: document.getElementById('ff-credit-range').value,

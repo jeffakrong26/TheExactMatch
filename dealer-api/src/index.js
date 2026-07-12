@@ -515,17 +515,20 @@ async function submitFindCarLead(request, env, params, dealer, token, ctx) {
   if (!first_name || !last_name || !email) return json({ error: 'Name and email are required.' }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: 'Invalid email address.' }, 400);
 
+  const maxMileage = parseInt(body.max_mileage, 10);
+  if (!Number.isFinite(maxMileage) || maxMileage <= 0) return json({ error: 'Maximum mileage is required.' }, 400);
+
   const result = await env.DB.prepare(`
     INSERT INTO find_car_leads (
       first_name, last_name, email, phone, zip, vehicle_type, size_preference, condition,
-      budget_min, budget_max, timeline, payment_method, credit_range, desired_monthly_min, desired_monthly_max, down_payment,
+      budget_min, budget_max, max_mileage, timeline, payment_method, credit_range, desired_monthly_min, desired_monthly_max, down_payment,
       priorities, current_vehicle, current_like, current_change,
       trade_in, specific_needs, considering, anything_else
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     first_name, last_name, email, phone,
     (body.zip || '').trim(), body.vehicle_type || '', body.size_preference || '', body.condition || '',
-    (body.budget_min || '').toString().trim(), (body.budget_max || '').toString().trim(), body.timeline || '',
+    (body.budget_min || '').toString().trim(), (body.budget_max || '').toString().trim(), maxMileage, body.timeline || '',
     body.payment_method || '', body.credit_range || '',
     (body.desired_monthly_min || '').toString().trim(), (body.desired_monthly_max || '').toString().trim(), (body.down_payment || '').toString().trim(),
     body.priorities || '',
@@ -672,6 +675,7 @@ function clientDetailsBlock(lead) {
 - Size preference: ${lead.size_preference || 'not specified'}
 - Condition: ${lead.condition || 'not specified'}
 - Budget: $${lead.budget_min || '?'} to $${lead.budget_max || '?'}
+- Maximum mileage: ${lead.max_mileage != null ? Number(lead.max_mileage).toLocaleString() + ' miles' : 'not specified'}
 - Timeline: ${lead.timeline || 'not specified'}
 - Payment method: ${lead.payment_method || 'not specified'}
 ${(lead.payment_method === 'Financing' || lead.payment_method === 'Leasing') ? `- Credit range: ${lead.credit_range || 'not specified'}
@@ -699,7 +703,9 @@ ${consideringSpecificModel
 Client details:
 ${clientDetailsBlock(lead)}
 
-Recommend real vehicles (roughly ${year - 3}–${year} model years) that a dealer network would realistically have in stock, fitting their stated budget range. Overall vehicle price/value is still the primary constraint, but when paying via financing or leasing, use their credit range, desired monthly payment, and down payment to judge which specific trims and model years are realistic for them.`;
+Recommend real vehicles (roughly ${year - 3}–${year} model years) that a dealer network would realistically have in stock, fitting their stated budget range. Overall vehicle price/value is still the primary constraint, but when paying via financing or leasing, use their credit range, desired monthly payment, and down payment to judge which specific trims and model years are realistic for them.
+
+The client's maximum mileage is a hard constraint, not a preference: ${lead.max_mileage != null ? Number(lead.max_mileage).toLocaleString() + ' miles' : 'not specified'}. Do not recommend a year/trim/configuration where realistic, currently-available examples typically run higher mileage than this cap — for example, don't recommend an older model year or a rare/low-production trim if the used market for that specific vehicle tends to only turn up higher-mileage examples. Favor model years and trims where finding an example under this mileage cap, within their budget, is realistic.`;
 }
 
 // pickVehicles' rationale describes an imagined vehicle written before any
@@ -913,13 +919,14 @@ const MAX_PARTNER_INVENTORY_SEARCHES = 3;
 // searches by name, then discards anything whose returned dealerId doesn't
 // match the one captured for this partner via the admin lookup route,
 // rather than trusting the name match alone.
-async function searchAutodevPartnerInventory(env, dealer, { make, model, yearMin, yearMax, priceMax, used, zip, leadId, clientCentroid }) {
+async function searchAutodevPartnerInventory(env, dealer, { make, model, yearMin, yearMax, priceMax, maxMileage, used, zip, leadId, clientCentroid }) {
   const params = {
     'retailListing.dealer': dealer.dealership_name,
     'vehicle.make': make || undefined,
     'vehicle.model': model || undefined,
     'vehicle.year': (yearMin && yearMax) ? `${yearMin}-${yearMax}` : undefined,
     'retailListing.price': priceMax ? `0-${Math.round(Number(priceMax))}` : undefined,
+    'retailListing.miles': maxMileage ? `0-${Math.round(Number(maxMileage))}` : undefined,
     'retailListing.used': used === true ? 'true' : (used === false ? 'false' : undefined),
     zip: zip || undefined,
     limit: 20,
@@ -935,7 +942,7 @@ async function searchAutodevPartnerInventory(env, dealer, { make, model, yearMin
 // radius ladder, no pool-size threshold. Sorted by distance from the
 // client's zip in-Worker, since Auto.dev doesn't support distance sort
 // server-side (confirmed in docs).
-async function searchAutodevListings(env, { make, model, trim, zip, yearMin, yearMax, priceMax, used, leadId, partnerDealers }) {
+async function searchAutodevListings(env, { make, model, trim, zip, yearMin, yearMax, priceMax, maxMileage, used, leadId, partnerDealers }) {
   const clientCentroid = zipCentroid(zip);
 
   const baseParams = {
@@ -943,6 +950,10 @@ async function searchAutodevListings(env, { make, model, trim, zip, yearMin, yea
     'vehicle.model': model || undefined,
     'vehicle.year': (yearMin && yearMax) ? `${yearMin}-${yearMax}` : undefined,
     'retailListing.price': priceMax ? `0-${Math.round(Number(priceMax))}` : undefined,
+    // max_mileage is a hard constraint the customer set explicitly (unlike
+    // radius, which the fallback ladder below is allowed to widen) — filtered
+    // server-side so we never spend an API call pulling listings we'd throw away.
+    'retailListing.miles': maxMileage ? `0-${Math.round(Number(maxMileage))}` : undefined,
     'retailListing.used': used === true ? 'true' : (used === false ? 'false' : undefined),
     zip: zip || undefined,
     limit: 50,
@@ -984,7 +995,7 @@ async function searchAutodevListings(env, { make, model, trim, zip, yearMin, yea
     const existingVins = new Set(mapped.map(l => l.vin).filter(Boolean));
     const partnerBatches = await Promise.all(
       partnerDealers.slice(0, MAX_PARTNER_INVENTORY_SEARCHES).map(d =>
-        searchAutodevPartnerInventory(env, d, { make, model, yearMin, yearMax, priceMax, used, zip, leadId, clientCentroid })
+        searchAutodevPartnerInventory(env, d, { make, model, yearMin, yearMax, priceMax, maxMileage, used, zip, leadId, clientCentroid })
       )
     );
     for (const batch of partnerBatches) {
@@ -1045,16 +1056,17 @@ async function debugAutodevTest(request, env) {
   const yearMin = url.searchParams.get('yearMin') ? +url.searchParams.get('yearMin') : undefined;
   const yearMax = url.searchParams.get('yearMax') ? +url.searchParams.get('yearMax') : undefined;
   const priceMax = url.searchParams.get('priceMax') ? +url.searchParams.get('priceMax') : undefined;
+  const maxMileage = url.searchParams.get('maxMileage') ? +url.searchParams.get('maxMileage') : undefined;
   const used = url.searchParams.get('used') === 'false' ? false : true;
   const finalistCount = Math.min(3, +(url.searchParams.get('finalists') || 3));
 
-  const search = await searchAutodevListings(env, { make, model, zip, yearMin, yearMax, priceMax, used, leadId: null });
+  const search = await searchAutodevListings(env, { make, model, zip, yearMin, yearMax, priceMax, maxMileage, used, leadId: null });
 
   const finalists = search.listings.filter(l => l.vin).slice(0, finalistCount);
   const photos = await fetchFinalistPhotos(env, finalists, null);
 
   return json({
-    query: { make, model, zip, yearMin, yearMax, priceMax, used },
+    query: { make, model, zip, yearMin, yearMax, priceMax, maxMileage, used },
     client_zip_centroid: zipCentroid(zip),
     radius_used: search.radius,
     used_300mi_fallback: search.usedFallback,
@@ -1538,7 +1550,7 @@ async function fetchListingPool(env, pick, lead, partnerDealers, tag) {
     make: pick.make, model: pick.model, trim: pick.trim, zip: lead.zip,
     yearMin: pick.year ? pick.year - 2 : undefined,
     yearMax: pick.year ? pick.year + 2 : undefined,
-    priceMax: lead.budget_max, used: leadUsedFilter(lead.condition),
+    priceMax: lead.budget_max, maxMileage: lead.max_mileage, used: leadUsedFilter(lead.condition),
     leadId: lead.id, partnerDealers,
   });
   console.log(`[timing] ${tag} primary search: ${Date.now() - t0}ms, pool_size=${searchResult.listings?.length || 0}`);
@@ -1592,6 +1604,38 @@ async function buildVehicleEntry(env, pick, winner, poolInfo, photos, lead, part
     };
   }
 
+  // Pool truly empty (not just "every candidate already claimed by another
+  // position") with the customer's mileage cap active is exactly the case
+  // Jeff needs to know about: the cap is a hard constraint he set explicitly,
+  // so instead of silently dropping it we run one extra diagnostic search —
+  // same make/model/trim/year/price/radius, mileage cap removed — purely to
+  // tell him whether lifting the cap would actually surface something,
+  // before flagging the report for his manual review.
+  const poolWasEmpty = (searchResult.listings || []).length === 0;
+  const mileageCapActive = poolWasEmpty && lead.max_mileage != null && lead.max_mileage !== '';
+
+  let mileageRelief = null;
+  if (mileageCapActive) {
+    const tRelief = Date.now();
+    const reliefResult = await searchAutodevListings(env, {
+      make: pick.make, model: pick.model, trim: pick.trim, zip: lead.zip,
+      yearMin: pick.year ? pick.year - 2 : undefined,
+      yearMax: pick.year ? pick.year + 2 : undefined,
+      priceMax: lead.budget_max, used: leadUsedFilter(lead.condition),
+      leadId: lead.id, partnerDealers,
+      // maxMileage intentionally omitted here — this call only exists to
+      // learn whether the mileage cap itself is what's blocking a match.
+    });
+    console.log(`[timing] ${tag} mileage-relief check: ${Date.now() - tRelief}ms`);
+    const best = reliefResult.listings?.[0] || null;
+    mileageRelief = {
+      would_match_without_cap: reliefResult.listings.length > 0,
+      candidate_count: reliefResult.listings.length,
+      nearest_mileage: best?.mileage ?? null,
+      nearest_price: best?.price ?? null,
+    };
+  }
+
   // No unclaimed candidate for this position (pool empty, or every candidate
   // was already claimed by another position in this report) — franchise
   // fallback, same as before: a make-only search just to find the nearest
@@ -1615,6 +1659,17 @@ async function buildVehicleEntry(env, pick, winner, poolInfo, photos, lead, part
     search_log: JSON.stringify({
       radius: searchResult.radius, used_300mi_fallback: searchResult.usedFallback,
       franchise_radius: franchiseResult.radius, franchise_used_300mi_fallback: franchiseResult.usedFallback,
+      ...(mileageCapActive ? {
+        mileage_cap_empty: true,
+        max_mileage: lead.max_mileage,
+        constraints_tried: {
+          make: pick.make, model: pick.model, trim: pick.trim,
+          year_range: pick.year ? `${pick.year - 2}-${pick.year + 2}` : null,
+          price_max: lead.budget_max,
+          radii_tried: searchResult.usedFallback ? [100, 300] : [100],
+        },
+        mileage_relief: mileageRelief,
+      } : {}),
     }),
   };
 }
@@ -1723,9 +1778,16 @@ async function generateReportForLead(env, leadId) {
   }));
   console.log(`[timing] all vehicles processed: ${Date.now() - tVehicles}ms, cumulative: ${Date.now() - t0}ms`);
 
+  // Any position where the mileage cap (combined with the rest of the
+  // customer's criteria) came up empty even after the radius widening above —
+  // never silently dropped, always surfaced for Jeff to decide on.
+  const flaggedForReview = vehicles.some(v => {
+    try { return !!JSON.parse(v.search_log || '{}').mileage_cap_empty; } catch { return false; }
+  });
+
   const reportResult = await env.DB.prepare(
-    `INSERT INTO find_car_reports (report_code, find_lead_id, status) VALUES ('', ?, 'pending_approval')`
-  ).bind(leadId).run();
+    `INSERT INTO find_car_reports (report_code, find_lead_id, status, flagged_for_review) VALUES ('', ?, 'pending_approval', ?)`
+  ).bind(leadId, flaggedForReview ? 1 : 0).run();
   const reportId = reportResult.meta.last_row_id;
   const reportCode = `TEM-${new Date().getFullYear()}-${String(reportId).padStart(4, '0')}`;
   await env.DB.prepare('UPDATE find_car_reports SET report_code = ? WHERE id = ?').bind(reportCode, reportId).run();
@@ -1749,12 +1811,29 @@ async function generateReportForLead(env, leadId) {
 
   await sendBrevoEmail(env, {
     to: 'theexactmatch@gmail.com',
-    subject: 'New report ready for review',
+    subject: flaggedForReview
+      ? `⚠ Manual review needed — mileage cap (${lead.first_name} ${lead.last_name})`
+      : 'New report ready for review',
     html: brandedEmailHtml(`
+      ${flaggedForReview ? `
+        <p style="color:#9B2335;border:1px solid rgba(155,35,53,.35);background:rgba(155,35,53,.06);border-radius:2px;padding:.75rem 1rem">
+          <strong>⚠ At least one option couldn't be matched within this client's ${lead.max_mileage != null ? Number(lead.max_mileage).toLocaleString() : ''}-mile cap</strong>,
+          even after widening the search radius. The mileage cap was NOT dropped or ignored — see details below and decide whether to reach out to the client about it.
+        </p>
+      ` : ''}
       <p>New Find My Car report ready for ${escapeHtml(lead.first_name)} ${escapeHtml(lead.last_name)}.</p>
       <p><strong>Verify these are still live before approving:</strong></p>
       <ul>
-        ${vehicles.map(v => `
+        ${vehicles.map(v => {
+          let log = {};
+          try { log = JSON.parse(v.search_log || '{}'); } catch {}
+          const mileageNote = log.mileage_cap_empty ? `
+            <br/><strong style="color:#9B2335">⚠ Mileage cap (${Number(log.max_mileage).toLocaleString()} mi) came up empty at ${(log.constraints_tried?.radii_tried || []).join('/')}mi.</strong>
+            ${log.mileage_relief?.would_match_without_cap
+              ? ` Without the cap, ${log.mileage_relief.candidate_count} listing(s) exist nearby (nearest: ${log.mileage_relief.nearest_mileage != null ? Number(log.mileage_relief.nearest_mileage).toLocaleString() + ' mi' : '?'} / $${log.mileage_relief.nearest_price != null ? Number(log.mileage_relief.nearest_price).toLocaleString() : '?'}) — worth asking the client if they'd flex on mileage.`
+              : ` Even without the mileage cap, nothing matched this make/model/trim/budget nearby — not specifically a mileage issue.`}
+          ` : '';
+          return `
           <li style="margin-bottom:.5rem">
             ${escapeHtml(v.year)} ${escapeHtml(v.make)} ${escapeHtml(v.model)} ${escapeHtml(v.trim)} —
             ${v.source === 'sourcing_in_progress'
@@ -1763,8 +1842,9 @@ async function generateReportForLead(env, leadId) {
                   ? `<a href="${escapeHtml(v.vdp_url)}">View listing →</a> (${escapeHtml(v.verified)})`
                   : `no direct link — ${escapeHtml(v.source)}, dealer: ${escapeHtml(v.dealer_name || 'unknown')}`)}
             ${v.photos_missing && v.source !== 'sourcing_in_progress' ? `<br/><strong style="color:#9B2335">⚠ No photos found — please source manually</strong>` : ''}
+            ${mileageNote}
           </li>
-        `).join('')}
+        `; }).join('')}
       </ul>
       <p><a href="https://theexactmatch.com/Dealerportal.html">Review &amp; approve in dashboard →</a></p>
     `),

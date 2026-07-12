@@ -1263,6 +1263,7 @@ async function loadAdminFindLeads() {
           ${l.size_preference ? `<span class="meta-pill">${l.size_preference}</span>` : ''}
           ${l.condition ? `<span class="meta-pill">${l.condition}</span>` : ''}
           ${(l.budget_min || l.budget_max) ? `<span class="meta-pill">$${l.budget_min||'0'} – $${l.budget_max||'?'}</span>` : ''}
+          ${l.max_mileage ? `<span class="meta-pill">Max ${Number(l.max_mileage).toLocaleString()} mi</span>` : ''}
           ${l.timeline ? `<span class="meta-pill">${l.timeline}</span>` : ''}
           <span class="meta-pill" style="opacity:.6">${formatDate(l.created_at)}</span>
         </div>
@@ -1303,6 +1304,7 @@ async function loadAdminReports() {
           <div class="item-card-sub">${r.email}</div>
           <div class="item-card-meta">
             <span class="status-badge ${r.status === 'approved' ? 'status-approved' : 'status-pending'}">${r.status === 'approved' ? 'approved' : 'pending approval'}</span>
+            ${r.flagged_for_review ? `<span class="status-badge" style="background:rgba(155,35,53,.12);color:#9B2335">⚠ mileage cap — needs review</span>` : ''}
             ${r.interested_count > 0 ? `<span class="status-badge status-approved" style="background:rgba(26,71,49,.12)">★ ${r.interested_count} interested</span>` : ''}
             <span class="meta-pill" style="opacity:.6">${formatDate(r.created_at)}</span>
           </div>
@@ -1346,6 +1348,18 @@ async function toggleReportDetail(code, id) {
             <div style="background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.25);border-radius:2px;padding:.6rem .85rem;margin-bottom:.85rem;font-size:.78rem;color:#9B2335">
               <strong>⚠ Needs manual sourcing</strong> — no listing matched year/model/budget criteria.
               ${v.dealer_name ? ` Nearest ${v.make} dealer: ${v.dealer_name}${v.dealer_city ? ` (${v.dealer_city}${v.dealer_state ? ', '+v.dealer_state : ''})` : ''}.` : ''}
+              ${(() => {
+                let log = {};
+                try { log = JSON.parse(v.search_log || '{}'); } catch {}
+                if (!log.mileage_cap_empty) return '';
+                const relief = log.mileage_relief;
+                return `<div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid rgba(155,35,53,.25)">
+                  <strong>Mileage cap (${Number(log.max_mileage).toLocaleString()} mi) came up empty</strong> at ${(log.constraints_tried?.radii_tried||[]).join('/')}mi.
+                  ${relief?.would_match_without_cap
+                    ? ` Without the cap, ${relief.candidate_count} listing(s) exist nearby (nearest: ${relief.nearest_mileage != null ? Number(relief.nearest_mileage).toLocaleString()+' mi' : '?'} / $${relief.nearest_price != null ? Number(relief.nearest_price).toLocaleString() : '?'}) — the mileage cap is likely why this position is empty. Worth asking the client if they'd flex on it.`
+                    : ` Even without the mileage cap, nothing matched nearby — not specifically a mileage issue.`}
+                </div>`;
+              })()}
               <div style="margin-top:.75rem;display:flex;gap:.5rem">
                 <input type="text" class="listing-url-input" placeholder="Paste listing URL…" style="flex:1;font-size:.8rem;padding:.5rem;border:1px solid var(--border);border-radius:2px"/>
                 <button type="button" class="btn-primary btn-sm" onclick="fetchListingForVehicle('${code}', ${v.position}, this)">Fetch Listing</button>
