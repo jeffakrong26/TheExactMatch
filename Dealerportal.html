@@ -187,6 +187,16 @@
     .deal-clickable:hover{text-decoration-color:var(--gold)}
     .deal-car{font-size:.95rem;font-weight:600;color:var(--navy)}
     .deal-customer{font-size:.85rem;font-weight:500;color:var(--gray)}
+    /* Contact card: opens from the car/customer click, avatar + labeled
+       rows rather than a meta-pill, so it reads like an actual business card. */
+    .contact-card{display:flex;gap:1rem;align-items:flex-start;background:var(--beige);border:1px solid var(--border);border-radius:4px;padding:1.1rem 1.25rem;margin-bottom:1.25rem}
+    .contact-card-avatar{flex-shrink:0;width:42px;height:42px;border-radius:50%;background:var(--navy);color:var(--gold2);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:.95rem;font-weight:600;letter-spacing:.02em}
+    .contact-card-info{flex:1;min-width:0}
+    .contact-card-name{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:600;color:var(--navy);margin-bottom:.55rem}
+    .contact-card-rows{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem 1.5rem}
+    .contact-card-row{display:flex;flex-direction:column;gap:.15rem}
+    .contact-card-label{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+    .contact-card-value{font-size:.85rem;color:var(--navy);font-weight:500}
     .deal-checklist{display:flex;flex-wrap:wrap;gap:.35rem 1.1rem;margin:.7rem 0 .1rem}
     .checklist-item{display:inline-flex;align-items:center;gap:.4rem;font-size:.7rem;font-weight:600;color:var(--gray)}
     .checklist-item.done{color:var(--green)}
@@ -2628,8 +2638,9 @@ function partnerLeadCarInfoHtml(lead) {
 }
 
 // Car name + customer name double as the expand toggle for Active/Closed
-// Deals (Verify Availability has no customer to show yet, so it keeps the
-// plain, non-clickable header from partnerLeadCarInfoHtml above).
+// Deals — clicking either opens the contact card + search profile below
+// (Verify Availability has no customer to show yet, so it keeps the plain,
+// non-clickable header from partnerLeadCarInfoHtml above).
 function dealCardHeaderHtml(lead) {
   const listing = safeParseJson(lead.listing_snapshot);
   const carLine = `${listing.year || ''} ${listing.make || ''} ${listing.model || ''} ${listing.trim || ''}`.trim() || 'Vehicle';
@@ -2650,6 +2661,32 @@ function dealCardHeaderHtml(lead) {
       ${listing.price ? `<span class="meta-pill">${formatPrice(listing.price)}</span>` : ''}
       ${listing.mileage ? `<span class="meta-pill">${Number(listing.mileage).toLocaleString()} miles</span>` : ''}
       ${listing.vdp_url ? `<a href="${listing.vdp_url}" target="_blank" rel="noopener" style="font-size:.72rem;color:var(--gold);font-weight:600;text-decoration:none">View Live Listing →</a>` : ''}
+    </div>`;
+}
+
+// A proper contact card, not a pill — initials avatar, name in the site's
+// display serif, phone/email/zip as clean labeled rows. Lives at the top of
+// the click-to-expand panel, opened from the car or customer name above.
+function contactCardHtml(lead) {
+  const name = lead.buyer_name || 'Buyer';
+  const initials = name.trim().split(/\s+/).map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
+  const rows = [
+    ['Phone', lead.buyer_phone],
+    ['Email', lead.buyer_email],
+    ['Zip', lead.buyer_zip],
+  ].filter(([, v]) => v);
+
+  return `
+    <div class="contact-card">
+      <div class="contact-card-avatar">${escapeHtmlJs(initials)}</div>
+      <div class="contact-card-info">
+        <div class="contact-card-name">${escapeHtmlJs(name)}</div>
+        ${rows.length
+          ? `<div class="contact-card-rows">${rows.map(([label, val]) => `
+              <div class="contact-card-row"><span class="contact-card-label">${label}</span><span class="contact-card-value">${escapeHtmlJs(val)}</span></div>
+            `).join('')}</div>`
+          : `<div style="font-size:.8rem;color:var(--gray);font-style:italic">No contact info on file</div>`}
+      </div>
     </div>`;
 }
 
@@ -2676,16 +2713,21 @@ function dealChecklistHtml(lead) {
   return `<div class="deal-checklist">${items.join('')}</div>`;
 }
 
-// The buyer's original Find My Car intake — budget, financing, trade-in,
-// credit picture, etc. — shown in the click-to-expand panel. Only the
-// fields that are actually present render, since older leads may predate
-// some of these questions.
+// The Find My Car form (index.html #ff-credit-range) only ever stores the
+// bucket name itself — "Excellent"/"Good"/"Fair"/"Poor" — with no score
+// range attached, so the range shown here is translated client-side.
+const CREDIT_RANGE_LABELS = {
+  Excellent: 'Excellent (750+)',
+  Good: 'Good (700–749)',
+  Fair: 'Fair (640–699)',
+  Poor: 'Poor (below 640)',
+};
+
 function buyerIntakeHtml(lead) {
-  const PAYMENT_LABELS = { cash: 'Cash', finance: 'Financing', lease: 'Lease' };
   const rows = [];
   if (lead.budget_min || lead.budget_max) rows.push(['Budget', `$${lead.budget_min || '?'} – $${lead.budget_max || '?'}`]);
-  if (lead.payment_method) rows.push(['Financing', PAYMENT_LABELS[lead.payment_method] || lead.payment_method]);
-  if (lead.credit_range) rows.push(['Credit Picture', lead.credit_range]);
+  if (lead.payment_method) rows.push(['Financing', lead.payment_method]);
+  if (lead.credit_range) rows.push(['Credit Picture', CREDIT_RANGE_LABELS[lead.credit_range] || lead.credit_range]);
   if (lead.desired_monthly_min || lead.desired_monthly_max) rows.push(['Target Payment', `$${lead.desired_monthly_min || '?'} – $${lead.desired_monthly_max || '?'}/mo`]);
   if (lead.down_payment) rows.push(['Down Payment', `$${lead.down_payment}`]);
   if (lead.trade_in) rows.push(['Trade-In', lead.trade_in]);
@@ -2753,6 +2795,7 @@ function renderActiveDealCard(lead) {
       ${dealCardHeaderHtml(lead)}
       ${dealChecklistHtml(lead)}
       <div id="deal-expand-${lead.id}" style="display:none;margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)">
+        ${contactCardHtml(lead)}
         <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.75rem">Buyer's Search Profile</div>
         ${buyerIntakeHtml(lead)}
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:1.1rem">${actions}</div>
@@ -2767,6 +2810,7 @@ function renderClosedDealCard(lead) {
       ${dealCardHeaderHtml(lead)}
       ${dealChecklistHtml(lead)}
       <div id="deal-expand-${lead.id}" style="display:none;margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)">
+        ${contactCardHtml(lead)}
         <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.75rem">Buyer's Search Profile</div>
         ${buyerIntakeHtml(lead)}
         ${lead.status === 'lost' && lead.lost_reason_notes ? `<div style="font-size:.8rem;color:var(--gray);margin-top:.9rem"><strong style="color:var(--navy)">Lost notes:</strong> ${escapeHtmlJs(lead.lost_reason_notes)}</div>` : ''}
