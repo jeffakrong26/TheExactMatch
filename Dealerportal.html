@@ -52,6 +52,12 @@
     .portal-wrap{padding-top:64px;min-height:100vh}
     .view{display:none}.view.active{display:block}
 
+    /* ── VIEW AS DEALER BANNER (admin) ── */
+    .view-as-banner{display:none;align-items:center;justify-content:center;gap:.85rem;background:var(--amber);color:#fff;padding:.65rem 2rem;font-size:.8rem;font-weight:600;letter-spacing:.01em;text-align:center}
+    .view-as-banner.show{display:flex}
+    .view-as-banner button{font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.45);color:#fff;padding:.35rem .85rem;border-radius:2px;cursor:pointer;transition:background .2s}
+    .view-as-banner button:hover{background:rgba(255,255,255,.3)}
+
     /* ── LOGIN VIEW ── */
     .login-hero{min-height:calc(100vh - 64px);display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
     .login-left{background:var(--navy);display:flex;flex-direction:column;justify-content:center;padding:5rem;position:relative;overflow:hidden}
@@ -89,6 +95,13 @@
     .btn-danger:hover{background:#7a1b2a}
     .btn-success{background:var(--green);color:var(--white)}
     .btn-success:hover{background:#143d26}
+
+    /* ── ICON BUTTONS (View As eye, delete trash — no emoji) ── */
+    .icon-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex-shrink:0;border-radius:2px;border:1px solid var(--border);background:var(--white);color:var(--gray);cursor:pointer;transition:all .2s;padding:0}
+    .icon-btn svg{width:14px;height:14px}
+    .icon-btn-view:hover{border-color:var(--gold);color:var(--gold);background:rgba(192,154,91,.08)}
+    .icon-btn-danger:hover{border-color:var(--red);color:var(--red);background:rgba(155,35,53,.06)}
+    .icon-btn:not(.icon-btn-view):not(.icon-btn-danger):hover{border-color:var(--green);color:var(--green);background:rgba(26,71,49,.06)}
 
     /* ── DASHBOARD VIEW ── */
     .dash-header{background:var(--navy);padding:3.5rem 5rem 3rem}
@@ -277,6 +290,11 @@
 </nav>
 
 <div class="portal-wrap">
+
+<div class="view-as-banner" id="view-as-banner">
+  Viewing as <strong id="view-as-name"></strong>
+  <button onclick="doExitViewAs()">Exit View As</button>
+</div>
 
 <!-- ════════════════════════════════════════════════════════
      VIEW: LOGIN
@@ -571,16 +589,76 @@
   <div class="content-area">
 
     <div class="tab-bar" style="overflow-x:auto;flex-wrap:nowrap">
-      <button class="tab-btn active" onclick="switchTab('tab-submissions')">Submissions<span class="tab-badge" data-section="newsletter"></span></button>
-      <button class="tab-btn" onclick="switchTab('tab-find-leads')">Find Leads</button>
+      <button class="tab-btn active" onclick="switchTab('tab-find-leads')">Find My Car</button>
+      <button class="tab-btn" onclick="switchTab('tab-leads')">Sell My Car<span class="tab-badge" data-section="sell_car"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-reports')">Reports<span class="tab-badge" data-section="find_car"></span></button>
-      <button class="tab-btn" onclick="switchTab('tab-leads')">Sell Leads<span class="tab-badge" data-section="sell_car"></span></button>
+      <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers<span class="tab-badge" data-section="dealers"></span><span class="tab-badge" data-section="partner_applications"></span></button>
+      <button class="tab-btn" onclick="switchTab('tab-submissions')">Weekly Finds Submissions<span class="tab-badge" data-section="newsletter"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-messages')">Messages<span class="tab-badge" data-section="messages"></span></button>
-      <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers & Partners<span class="tab-badge" data-section="dealers"></span><span class="tab-badge" data-section="partner_applications"></span></button>
     </div>
 
     <!-- Tab: Submissions -->
-    <div class="tab-panel active" id="tab-submissions">
+    <!-- Tab: Find My Car -->
+    <div class="tab-panel active" id="tab-find-leads">
+      <div class="section-label">Find My Car Leads</div>
+      <div id="admin-find-leads-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+      <div id="admin-find-leads-list"></div>
+    </div>
+
+    <!-- Tab: Sell My Car -->
+    <div class="tab-panel" id="tab-leads">
+      <div class="section-label">Sell My Car Leads</div>
+      <div id="admin-leads-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+      <div id="admin-leads-list"></div>
+    </div>
+
+    <!-- Tab: Reports -->
+    <div class="tab-panel" id="tab-reports">
+      <div class="section-label">Vehicle Match Reports</div>
+      <div id="admin-reports-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+      <div id="admin-reports-list"></div>
+    </div>
+
+    <!-- Tab: Dealers (merged — trade-in dealer network above,
+         buyer-lead-referral partner network below. Partner lead oversight,
+         fee accounting, and lifecycle email approval live in the CRM app
+         instead, alongside the rest of the deal pipeline.) -->
+    <div class="tab-panel" id="tab-dealers">
+      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;border-bottom:none;padding-bottom:0;margin-bottom:1.5rem">
+        <span>Dealer Accounts</span>
+        <button class="btn-primary btn-sm btn-gold" style="width:auto" id="generate-invite-btn" onclick="doGenerateInvite()">+ Generate Invite Link</button>
+      </div>
+
+      <div style="margin-bottom:2.5rem">
+        <div class="section-label">Pending Invites</div>
+        <div id="admin-invites-loading" style="text-align:center;padding:1.5rem;color:var(--gray);font-size:.85rem">Loading...</div>
+        <div id="admin-invites-list"></div>
+      </div>
+
+      <div style="margin-bottom:2.5rem">
+        <div class="section-label">Partner Applications</div>
+        <div id="admin-partner-apps-loading" style="text-align:center;padding:1.5rem;color:var(--gray);font-size:.85rem">Loading...</div>
+        <div id="admin-partner-apps-list"></div>
+      </div>
+
+      <div>
+        <div class="section-label">Dealers</div>
+        <div id="admin-dealers-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+        <div style="overflow-x:auto">
+          <table class="dp-table" id="admin-dealers-table" style="display:none">
+            <thead>
+              <tr>
+                <th>Dealer</th><th>Dealership</th><th>Email</th><th>Zip</th><th>Market / Zone</th><th>Rating</th><th>Auto.dev ID</th><th>Status</th><th>Joined</th><th></th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-dealers-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Weekly Finds Submissions -->
+    <div class="tab-panel" id="tab-submissions">
       <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;border-bottom:none;padding-bottom:0;margin-bottom:1.5rem">
         <span>Vehicle Submissions</span>
         <button class="btn-primary btn-sm btn-gold" style="width:auto" id="admin-submit-toggle-btn" onclick="toggleAdminSubmitForm()">+ Submit a Vehicle</button>
@@ -614,75 +692,11 @@
       <div id="admin-subs-list"></div>
     </div>
 
-    <!-- Tab: Find Leads -->
-    <div class="tab-panel" id="tab-find-leads">
-      <div class="section-label">Find My Car Leads</div>
-      <div id="admin-find-leads-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
-      <div id="admin-find-leads-list"></div>
-    </div>
-
-    <!-- Tab: Reports -->
-    <div class="tab-panel" id="tab-reports">
-      <div class="section-label">Vehicle Match Reports</div>
-      <div id="admin-reports-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
-      <div id="admin-reports-list"></div>
-    </div>
-
-    <!-- Tab: Sell Leads -->
-    <div class="tab-panel" id="tab-leads">
-      <div class="section-label">Sell My Car Leads</div>
-      <div id="admin-leads-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
-      <div id="admin-leads-list"></div>
-    </div>
-
     <!-- Tab: Messages -->
     <div class="tab-panel" id="tab-messages">
       <div class="section-label">Contact Messages</div>
       <div id="admin-messages-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
       <div id="admin-messages-list"></div>
-    </div>
-
-    <!-- Tab: Dealers & Partners (merged — trade-in dealer network above,
-         buyer-lead-referral partner network below. Partner lead oversight,
-         fee accounting, and lifecycle email approval live in the CRM app
-         instead, alongside the rest of the deal pipeline.) -->
-    <div class="tab-panel" id="tab-dealers">
-      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;border-bottom:none;padding-bottom:0;margin-bottom:1.5rem">
-        <span>Dealer Accounts</span>
-        <button class="btn-primary btn-sm btn-gold" style="width:auto" id="generate-invite-btn" onclick="doGenerateInvite()">+ Generate Invite Link</button>
-      </div>
-
-      <div style="margin-bottom:2.5rem">
-        <div class="section-label">Pending Invites</div>
-        <div id="admin-invites-loading" style="text-align:center;padding:1.5rem;color:var(--gray);font-size:.85rem">Loading...</div>
-        <div id="admin-invites-list"></div>
-      </div>
-
-      <div style="margin-bottom:2.5rem">
-        <div class="section-label">Active Dealers</div>
-        <div id="admin-dealers-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
-        <div style="overflow-x:auto">
-          <table class="dp-table" id="admin-dealers-table" style="display:none">
-            <thead>
-              <tr>
-                <th>Name</th><th>Dealership</th><th>Email</th><th>Status</th><th>Joined</th><th></th><th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="admin-dealers-body"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div style="margin-bottom:2.5rem">
-        <div class="section-label">Partner Applications</div>
-        <div id="admin-partner-apps-loading" style="text-align:center;padding:1.5rem;color:var(--gray);font-size:.85rem">Loading...</div>
-        <div id="admin-partner-apps-list"></div>
-      </div>
-
-      <div>
-        <div class="section-label">Active Partners</div>
-        <div id="admin-partners-active-list"></div>
-      </div>
     </div>
 
   </div>
@@ -805,6 +819,16 @@
   </div>
 </div>
 
+<!-- Sell Lead detail "page" — a full-page overlay, not an inline expand, so
+     the vehicle's full intake plus valuation reads like its own screen. -->
+<div id="sell-lead-page" style="display:none;position:fixed;inset:0;background:var(--beige);z-index:1000;overflow-y:auto" onclick="if(event.target===this)closeSellLeadDetail()">
+  <div style="max-width:900px;margin:0 auto;padding:2.5rem 2rem 4rem">
+    <button onclick="closeSellLeadDetail()" class="subview-back" style="margin-bottom:1.5rem;color:var(--gray)">← Back to Sell Leads</button>
+    <div id="sell-lead-page-title" class="subview-title" style="color:var(--navy);margin-bottom:1.75rem"></div>
+    <div id="sell-lead-page-body"></div>
+  </div>
+</div>
+
 <script>
 // ── Config ────────────────────────────────────────────────────
 const API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';  // proxied via Cloudflare Pages to the Worker
@@ -813,6 +837,12 @@ const API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';  //
 let authToken    = localStorage.getItem('tem_dealer_token') || null;
 let currentDealer = null;
 let isAdmin      = false;
+let viewAsDealer = null;  // { id, name, dealership_name } while admin is browsing the dealer UI as this dealer
+
+// ── Icon buttons (View As eye, delete trash) — inline SVG, no emoji ────
+const ICON_EYE   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const ICON_TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><path d="M10 11v6M14 11v6"/></svg>`;
+const ICON_CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"/></svg>`;
 
 // ── Utility ───────────────────────────────────────────────────
 function showView(id) {
@@ -833,7 +863,6 @@ function showView(id) {
     loadAdminDealers();
     loadAdminInvites();
     loadAdminPartnerApplications();
-    loadAdminActivePartners();
     startNotificationPolling();
   } else if (notificationPollHandle) {
     clearInterval(notificationPollHandle);
@@ -875,6 +904,7 @@ function setLoading(btnId, loading, loadingText = 'Loading…', originalText = n
 async function apiFetch(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  if (viewAsDealer) headers['X-View-As-Dealer'] = String(viewAsDealer.id);
   const res  = await fetch(`${API}${path}`, { ...opts, headers });
   const data = await res.json().catch(() => ({}));
   return { res, data };
@@ -923,17 +953,39 @@ async function doLogout() {
   authToken     = null;
   currentDealer = null;
   isAdmin       = false;
+  viewAsDealer  = null;
   localStorage.removeItem('tem_dealer_token');
   updateNavAuth(false);
   showView('view-login');
 }
 
 function enterDealerDash() {
-  if (!currentDealer) return;
-  document.getElementById('dash-dealer-name').textContent    = currentDealer.name;
-  document.getElementById('dash-dealership-name').textContent = currentDealer.dealership_name;
+  const display = viewAsDealer || currentDealer;
+  if (!display) return;
+  document.getElementById('dash-dealer-name').textContent     = display.name;
+  document.getElementById('dash-dealership-name').textContent = display.dealership_name;
   updateNavAuth(true);
   showView('view-dashboard');
+}
+
+// ── Admin: "View as Dealer" — browse the dealer-facing screens with a real
+// dealer's data (via X-View-As-Dealer, see apiFetch) without their password.
+// Looks the dealer up from ADMIN_DEALERS_CACHE (populated by loadAdminDealers)
+// rather than taking name/dealership as inline-onclick args, since dealer
+// names can contain characters that would break a quoted JS string literal.
+function doViewAsDealer(id) {
+  const target = ADMIN_DEALERS_CACHE.find(d => d.id === id);
+  if (!target) return;
+  viewAsDealer = { id: target.id, name: target.name, dealership_name: target.dealership_name };
+  document.getElementById('view-as-name').textContent = `${target.name} — ${target.dealership_name}`;
+  document.getElementById('view-as-banner').classList.add('show');
+  enterDealerDash();
+}
+
+function doExitViewAs() {
+  viewAsDealer = null;
+  document.getElementById('view-as-banner').classList.remove('show');
+  showView('view-admin');
 }
 
 function routeAfterAuth() {
@@ -1107,7 +1159,9 @@ async function doSubmitVehicleManual() {
     const formData = new FormData();
     formData.append('photo', file);
     await fetch(`${API}/dealer/submissions/${data.id}/photo`, {
-      method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` }, body: formData,
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, ...(viewAsDealer ? { 'X-View-As-Dealer': String(viewAsDealer.id) } : {}) },
+      body: formData,
     }).catch(() => {});
   }
 
@@ -1432,7 +1486,7 @@ function switchTab(tabId) {
     b.classList.remove('active');
     if (panels[i]) panels[i].classList.remove('active');
   });
-  const tabIndex = ['tab-submissions','tab-find-leads','tab-reports','tab-leads','tab-messages','tab-dealers'].indexOf(tabId);
+  const tabIndex = ['tab-find-leads','tab-leads','tab-reports','tab-dealers','tab-submissions','tab-messages'].indexOf(tabId);
   document.querySelectorAll('.tab-btn')[tabIndex]?.classList.add('active');
   document.getElementById(tabId)?.classList.add('active');
   // Note: switching tabs never clears a badge — only reviewing/approving/
@@ -1686,6 +1740,8 @@ async function adminUpdateSub(id, status) {
   else alert('Update failed.');
 }
 
+let ADMIN_LEADS_CACHE = [];
+
 async function loadAdminLeads() {
   document.getElementById('admin-leads-loading').style.display = 'block';
   document.getElementById('admin-leads-list').innerHTML        = '';
@@ -1698,6 +1754,7 @@ async function loadAdminLeads() {
   if (!res.ok) return;
 
   const leads = data.leads || [];
+  ADMIN_LEADS_CACHE = leads;
   if (!leads.length) { document.getElementById('admin-leads-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">No sell leads yet.</div></div>'; return; }
 
   document.getElementById('admin-leads-list').innerHTML = leads.map(l => `
@@ -1705,8 +1762,8 @@ async function loadAdminLeads() {
       <div style="display:grid;grid-template-columns:var(--card-grid-3);gap:1rem;align-items:start;width:100%">
         ${leadAvatarHtml(l, true)}
         <div>
-          <div class="item-card-title">${l.year||''} ${l.make||''} ${l.model||''}${l.trim ? ' '+l.trim : ''}</div>
-          <div class="item-card-sub">${l.first_name} ${l.last_name} · ${l.email}${l.phone ? ' · '+l.phone : ''}</div>
+          <div class="item-card-title deal-clickable" onclick="openSellLeadDetail(${l.id})">${l.year||''} ${l.make||''} ${l.model||''}${l.trim ? ' '+l.trim : ''}</div>
+          <div class="item-card-sub"><span class="deal-clickable" onclick="openSellLeadDetail(${l.id})">${escapeHtmlJs(l.first_name)} ${escapeHtmlJs(l.last_name)}</span> · ${escapeHtmlJs(l.email)}${l.phone ? ' · '+escapeHtmlJs(l.phone) : ''}</div>
           <div class="item-card-meta">
             ${l.mileage ? `<span class="meta-pill">${l.mileage.toLocaleString()} miles</span>` : ''}
             ${l.condition ? `<span class="meta-pill">${l.condition}</span>` : ''}
@@ -1721,16 +1778,14 @@ async function loadAdminLeads() {
             ${l.final_retail_value ? `<span class="meta-pill">Retail ${formatPrice(l.final_retail_value)}</span>` : ''}
             <span class="meta-pill" style="opacity:.6">${formatDate(l.created_at)}</span>
           </div>
-          ${l.notes ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.5rem">${l.notes}</div>` : ''}
           ${l.interest_count > 0 ? `<div style="font-size:.75rem;color:var(--green);margin-top:.5rem;font-weight:600">✓ ${l.interest_count} dealer${l.interest_count>1?'s':''} interested${l.interested_dealers ? ': ' + l.interested_dealers : ''}</div>` : ''}
         </div>
         <div class="item-card-actions">
           <span class="meta-pill">${l.interest_count || 0} interested</span>
-          ${l.valuation_status ? `<button class="btn-primary btn-sm" onclick="toggleAdminLeadValuation(${l.id})" id="admin-valuation-btn-${l.id}">View Valuation</button>` : ''}
+          <button class="btn-primary btn-sm" onclick="openSellLeadDetail(${l.id})">View Details</button>
           <button class="btn-primary btn-sm btn-danger" onclick="adminDeleteLead(${l.id})">Delete</button>
         </div>
       </div>
-      ${l.valuation_status ? `<div id="admin-lead-valuation-${l.id}" style="display:none;width:100%;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)"></div>` : ''}
     </div>
   `).join('');
 }
@@ -1738,31 +1793,129 @@ async function loadAdminLeads() {
 async function adminDeleteLead(id) {
   if (!confirm('Delete this lead and all its valuation data/photos? This cannot be undone.')) return;
   const { res } = await apiFetch(`/admin/leads/${id}`, { method: 'DELETE' }).catch(() => ({res:{ok:false}}));
-  if (res.ok) loadAdminLeads();
+  if (res.ok) { closeSellLeadDetail(); loadAdminLeads(); }
   else alert('Delete failed.');
 }
 
+// Every field the seller filled in, laid out the same way as the buyer's
+// intake profile (Buyer Leads) — zip/phone/email live in the contact card
+// above this instead, not repeated here.
+function sellLeadFieldsHtml(lead) {
+  const rows = [];
+  if (lead.vin) rows.push(['VIN', lead.vin]);
+  if (lead.mileage) rows.push(['Mileage', Number(lead.mileage).toLocaleString()]);
+  if (lead.exterior_color) rows.push(['Exterior Color', lead.exterior_color]);
+  if (lead.condition) rows.push(['Condition', lead.condition]);
+  if (lead.title_status) rows.push(['Title Status', lead.title_status]);
+  if (lead.remaining_balance) rows.push(['Remaining Balance', lead.remaining_balance]);
+  if (lead.payoff_amount) rows.push(['Payoff Amount', lead.payoff_amount]);
+  if (lead.accidents) rows.push(['Accidents', `${lead.accidents}${lead.accidents_count ? ' (' + lead.accidents_count + ')' : ''}${lead.accidents_damage ? ' — ' + lead.accidents_damage : ''}`]);
+  if (lead.mechanical_issues) rows.push(['Mechanical Issues', `${lead.mechanical_issues}${lead.mechanical_desc ? ' — ' + lead.mechanical_desc : ''}`]);
+  if (lead.warning_lights) rows.push(['Warning Lights', lead.warning_lights]);
+  if (lead.windshield) rows.push(['Windshield', lead.windshield]);
+  if (lead.tires) rows.push(['Tires', lead.tires]);
+  if (lead.modifications) rows.push(['Modifications', `${lead.modifications}${lead.modifications_desc ? ' — ' + lead.modifications_desc : ''}`]);
+  if (lead.keys) rows.push(['Keys', lead.keys]);
+  if (lead.timeline) rows.push(['Timeline', lead.timeline]);
+  if (lead.city || lead.state) rows.push(['Location', [lead.city, lead.state].filter(Boolean).join(', ')]);
+  if (lead.notes) rows.push(['Notes', lead.notes]);
+
+  if (!rows.length) return '<div style="font-size:.8rem;color:var(--gray)">No additional details on file.</div>';
+  return `<div class="intake-grid">${rows.map(([label, val]) => `
+    <div class="intake-row"><span class="intake-label">${label}</span><span class="intake-value">${escapeHtmlJs(String(val))}</span></div>
+  `).join('')}</div>`;
+}
+
+// Click-to-open "page" (full overlay, see #sell-lead-page) rather than an
+// inline expand — leads with a lot of intake fields plus a full valuation
+// breakdown read better as their own screen than another accordion.
+function openSellLeadDetail(id) {
+  const lead = ADMIN_LEADS_CACHE.find(l => l.id === id);
+  if (!lead) return;
+  markItemSeen('sell_car', id);
+
+  const title = `${lead.year || ''} ${lead.make || ''} ${lead.model || ''}${lead.trim ? ' ' + lead.trim : ''}`.trim() || 'Vehicle';
+  document.getElementById('sell-lead-page-title').textContent = title;
+  document.getElementById('sell-lead-page-body').innerHTML = `
+    ${contactCardHtml({ name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim(), phone: lead.phone, email: lead.email, zip: lead.zip })}
+    <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.75rem">Vehicle Details</div>
+    ${sellLeadFieldsHtml(lead)}
+    ${lead.valuation_status ? `
+      <div class="section-label" style="border-bottom:none;padding-bottom:0;margin:1.75rem 0 .75rem">Valuation</div>
+      <div id="sell-lead-page-valuation"></div>
+    ` : ''}
+  `;
+  document.getElementById('sell-lead-page').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  window.scrollTo(0, 0);
+
+  if (lead.valuation_status) loadAdminLeadValuationDetail(id);
+}
+
+function closeSellLeadDetail() {
+  document.getElementById('sell-lead-page').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
 async function loadAdminLeadValuationDetail(leadId) {
-  const detail = document.getElementById(`admin-lead-valuation-${leadId}`);
+  const detail = document.getElementById('sell-lead-page-valuation');
   if (!detail) return;
   detail.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--gray);font-size:.85rem">Loading...</div>';
   const { res, data } = await apiFetch(`/admin/leads/${leadId}/valuation`).catch(() => ({res:{ok:false},data:{}}));
   if (!res.ok) { detail.innerHTML = `<div style="font-size:.82rem;color:var(--gray)">${data.error || 'No valuation yet.'}</div>`; return; }
   detail.innerHTML = renderValuationDetailHtml({ ...data.valuation, photos: data.photos }, { canUpload: true, leadId });
-  detail.dataset.loaded = 'true';
 }
 
-async function toggleAdminLeadValuation(leadId) {
-  const detail = document.getElementById(`admin-lead-valuation-${leadId}`);
-  const btn    = document.getElementById(`admin-valuation-btn-${leadId}`);
-  const isOpen = detail.style.display === 'block';
-  if (isOpen) { detail.style.display = 'none'; btn.textContent = 'View Valuation'; return; }
+// Furthest-along stage across report generation + the deal pipeline, same
+// vocabulary the dealer side uses (PARTNER_LEAD_STATUS_LABELS) once a
+// vehicle from this buyer's report has been routed to a partner.
+function findLeadStageInfo(lead) {
+  if (lead.deal_status === 'lost') return { label: 'Lost', cls: 'status-rejected' };
+  if (lead.deal_status === 'won_delivered' || lead.deal_status === 'won_delivery_pending')
+    return { label: PARTNER_LEAD_STATUS_LABELS[lead.deal_status], cls: 'status-approved' };
+  if (lead.deal_status) return { label: PARTNER_LEAD_STATUS_LABELS[lead.deal_status] || lead.deal_status, cls: 'status-pending' };
+  if (lead.interested_count > 0) return { label: 'Interested — Not Yet Routed', cls: 'status-pending' };
+  if (lead.report_status === 'approved') return { label: 'Report Sent', cls: 'status-published' };
+  if (lead.report_status === 'pending_approval') return { label: 'Report Pending Review', cls: 'status-pending' };
+  return { label: 'Submitted', cls: 'status-pending' };
+}
 
-  btn.textContent = 'Hide';
-  detail.style.display = 'block';
-  markItemSeen('sell_car', leadId);
-  if (detail.dataset.loaded === 'true') return;
-  await loadAdminLeadValuationDetail(leadId);
+// Same card-list shape as the dealer's Active Deals: clickable name opens
+// the contact card + search-profile intake, status badge up top.
+function renderAdminFindLeadCard(lead) {
+  const title = [lead.vehicle_type, lead.size_preference].filter(Boolean).join(' · ') || 'Find My Car Request';
+  const stage = findLeadStageInfo(lead);
+  const fullName = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Buyer';
+
+  return `
+    <div class="dp-card" style="margin-bottom:1rem;padding:1.1rem 1.25rem;border:1px solid var(--border);border-radius:3px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem;align-items:baseline">
+        <div>
+          <span class="deal-clickable deal-car" onclick="toggleFindLeadExpand(${lead.id})">${escapeHtmlJs(title)}</span>
+          <span style="color:var(--border)"> · </span>
+          <span class="deal-clickable deal-customer" onclick="toggleFindLeadExpand(${lead.id})">${escapeHtmlJs(fullName)}</span>
+        </div>
+        <span class="status-badge ${stage.cls}">${stage.label}</span>
+      </div>
+      <div class="item-card-meta" style="margin:.4rem 0 0">
+        ${(lead.budget_min || lead.budget_max) ? `<span class="meta-pill">$${lead.budget_min || '0'} – $${lead.budget_max || '?'}</span>` : ''}
+        ${lead.timeline ? `<span class="meta-pill">${escapeHtmlJs(lead.timeline)}</span>` : ''}
+        ${lead.max_mileage ? `<span class="meta-pill">Max ${Number(lead.max_mileage).toLocaleString()} mi</span>` : ''}
+        <span class="meta-pill" style="opacity:.6">${formatDate(lead.created_at)}</span>
+        ${lead.report_code ? `<a href="https://theexactmatch.com/reports/${lead.report_code}" target="_blank" rel="noopener" style="font-size:.72rem;color:var(--gold);font-weight:600;text-decoration:none">View Report →</a>` : ''}
+      </div>
+      <div id="find-lead-expand-${lead.id}" style="display:none;margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)">
+        ${contactCardHtml({ name: fullName, phone: lead.phone, email: lead.email, zip: lead.zip })}
+        <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.75rem">Search Profile</div>
+        ${buyerIntakeHtml(lead)}
+      </div>
+    </div>`;
+}
+
+function toggleFindLeadExpand(id) {
+  const el = document.getElementById(`find-lead-expand-${id}`);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
 async function loadAdminFindLeads() {
@@ -1783,28 +1936,7 @@ async function loadAdminFindLeads() {
     return;
   }
 
-  document.getElementById('admin-find-leads-list').innerHTML = leads.map(l => `
-    <div class="item-card">
-      <div>
-        <div class="item-card-title">${l.first_name} ${l.last_name}</div>
-        <div class="item-card-sub">${l.email}${l.phone ? ' · '+l.phone : ''}${l.zip ? ' · '+l.zip : ''}</div>
-        <div class="item-card-meta">
-          ${l.vehicle_type ? `<span class="meta-pill">${l.vehicle_type}</span>` : ''}
-          ${l.size_preference ? `<span class="meta-pill">${l.size_preference}</span>` : ''}
-          ${l.condition ? `<span class="meta-pill">${l.condition}</span>` : ''}
-          ${(l.budget_min || l.budget_max) ? `<span class="meta-pill">$${l.budget_min||'0'} – $${l.budget_max||'?'}</span>` : ''}
-          ${l.max_mileage ? `<span class="meta-pill">Max ${Number(l.max_mileage).toLocaleString()} mi</span>` : ''}
-          ${l.timeline ? `<span class="meta-pill">${l.timeline}</span>` : ''}
-          <span class="meta-pill" style="opacity:.6">${formatDate(l.created_at)}</span>
-        </div>
-        ${l.priorities ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.5rem"><strong style="color:var(--navy)">Priorities:</strong> ${l.priorities}</div>` : ''}
-        ${l.current_vehicle ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.35rem"><strong style="color:var(--navy)">Current vehicle:</strong> ${l.current_vehicle}</div>` : ''}
-        ${l.specific_needs ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.35rem"><strong style="color:var(--navy)">Needs:</strong> ${l.specific_needs}</div>` : ''}
-        ${l.considering ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.35rem"><strong style="color:var(--navy)">Considering:</strong> ${l.considering}</div>` : ''}
-        ${l.anything_else ? `<div style="font-size:.78rem;color:var(--gray);margin-top:.35rem">${l.anything_else}</div>` : ''}
-      </div>
-    </div>
-  `).join('');
+  document.getElementById('admin-find-leads-list').innerHTML = leads.map(renderAdminFindLeadCard).join('');
 }
 
 // ── Vehicle match reports ──────────────────────────────────────
@@ -1830,7 +1962,7 @@ async function loadAdminReports() {
     <div class="item-card" style="flex-direction:column;display:flex;gap:0">
       <div style="display:grid;grid-template-columns:var(--card-grid-2);gap:1rem;align-items:start;width:100%">
         <div>
-          <div class="item-card-title">${r.first_name} ${r.last_name} — ${r.report_code}</div>
+          <div class="item-card-title deal-clickable" onclick="toggleReportDetail('${r.report_code}', ${r.id})">${escapeHtmlJs(r.first_name)} ${escapeHtmlJs(r.last_name)} — ${escapeHtmlJs(r.report_code)}</div>
           <div class="item-card-sub">${r.email}</div>
           <div class="item-card-meta">
             <span class="status-badge ${r.status === 'approved' ? 'status-approved' : 'status-pending'}">${r.status === 'approved' ? 'approved' : 'pending approval'}</span>
@@ -1840,13 +1972,23 @@ async function loadAdminReports() {
           </div>
         </div>
         <div class="item-card-actions">
-          <button class="btn-primary btn-sm" onclick="toggleReportDetail('${r.report_code}', ${r.id})" id="review-btn-${r.report_code}">Review</button>
+          <div style="display:flex;gap:.5rem">
+            <button class="btn-primary btn-sm" onclick="toggleReportDetail('${r.report_code}', ${r.id})" id="review-btn-${r.report_code}">Review</button>
+            <button class="icon-btn icon-btn-danger" onclick="adminDeleteReport('${r.report_code}')" title="Delete report">${ICON_TRASH}</button>
+          </div>
           ${r.status === 'approved' ? `<a href="https://theexactmatch.com/reports/${r.report_code}" target="_blank" style="font-size:.7rem;color:var(--gold);text-decoration:none;font-weight:600;text-transform:uppercase;letter-spacing:.05em">View Live →</a>` : ''}
         </div>
       </div>
       <div id="report-detail-${r.report_code}" style="display:none;width:100%;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)"></div>
     </div>
   `).join('');
+}
+
+async function adminDeleteReport(code) {
+  if (!confirm('Delete this report? If any of its vehicles are tied to an active buyer lead or deal, that goes with it. This cannot be undone.')) return;
+  const { res } = await apiFetch(`/admin/reports/${code}`, { method: 'DELETE' }).catch(() => ({res:{ok:false}}));
+  if (res.ok) loadAdminReports();
+  else alert('Delete failed.');
 }
 
 async function toggleReportDetail(code, id) {
@@ -1924,36 +2066,40 @@ async function toggleReportDetail(code, id) {
             <div class="dp-form-group"><label>Dealer City</label><input type="text" value="${v.dealer_city ?? ''}" data-field="dealer_city"/></div>
           </div>
           <div class="dp-form-group" style="max-width:160px"><label>Dealer State</label><input type="text" value="${v.dealer_state ?? ''}" data-field="dealer_state"/></div>
-          <div style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gray);margin:1rem 0 .6rem;border-top:1px solid var(--border);padding-top:.85rem">Specs</div>
-          <div class="dp-form-row">
-            <div class="dp-form-group"><label>Engine</label><input type="text" value="${v.engine ?? ''}" data-field="engine"/></div>
-            <div class="dp-form-group"><label>Transmission</label><input type="text" value="${v.transmission ?? ''}" data-field="transmission"/></div>
-          </div>
-          <div class="dp-form-row">
-            <div class="dp-form-group"><label>Drivetrain</label><input type="text" value="${v.drivetrain ?? ''}" data-field="drivetrain"/></div>
-            <div class="dp-form-group"><label>Fuel Economy (City / Hwy MPG)</label>
-              <div style="display:flex;gap:.5rem">
-                <input type="number" placeholder="City" value="${v.city_mpg ?? ''}" data-field="city_mpg"/>
-                <input type="number" placeholder="Hwy" value="${v.highway_mpg ?? ''}" data-field="highway_mpg"/>
+          <details style="margin-top:.85rem;border-top:1px solid var(--border);padding-top:.85rem">
+            <summary style="cursor:pointer;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gray)">Full Specs</summary>
+            <div style="margin-top:.85rem">
+              <div class="dp-form-row">
+                <div class="dp-form-group"><label>Engine</label><input type="text" value="${v.engine ?? ''}" data-field="engine"/></div>
+                <div class="dp-form-group"><label>Transmission</label><input type="text" value="${v.transmission ?? ''}" data-field="transmission"/></div>
+              </div>
+              <div class="dp-form-row">
+                <div class="dp-form-group"><label>Drivetrain</label><input type="text" value="${v.drivetrain ?? ''}" data-field="drivetrain"/></div>
+                <div class="dp-form-group"><label>Fuel Economy (City / Hwy MPG)</label>
+                  <div style="display:flex;gap:.5rem">
+                    <input type="number" placeholder="City" value="${v.city_mpg ?? ''}" data-field="city_mpg"/>
+                    <input type="number" placeholder="Hwy" value="${v.highway_mpg ?? ''}" data-field="highway_mpg"/>
+                  </div>
+                </div>
+              </div>
+              <div class="dp-form-row">
+                <div class="dp-form-group"><label>This Unit's Color</label><input type="text" value="${v.exterior_color ?? ''}" data-field="exterior_color"/></div>
+                <div class="dp-form-group"><label>Color Options</label><input type="text" value="${v.exterior_color_options ?? ''}" data-field="exterior_color_options"/></div>
+              </div>
+              <div class="dp-form-row">
+                <div class="dp-form-group"><label>Cargo Space</label><input type="text" value="${v.cargo_space ?? ''}" data-field="cargo_space"/></div>
+                <div class="dp-form-group"><label>Seating Capacity</label><input type="number" value="${v.seating_capacity ?? ''}" data-field="seating_capacity"/></div>
+              </div>
+              <div class="dp-form-row">
+                <div class="dp-form-group"><label>Safety Rating</label><input type="text" value="${v.safety_rating ?? ''}" data-field="safety_rating"/></div>
+                <div class="dp-form-group"><label>Warranty</label><input type="text" value="${v.warranty ?? ''}" data-field="warranty"/></div>
+              </div>
+              <div class="dp-form-group">
+                <label>Notable Features (one per line)</label>
+                <textarea data-field="notable_features" style="min-height:90px">${(() => { try { return JSON.parse(v.notable_features || '[]').join('\n'); } catch { return ''; } })()}</textarea>
               </div>
             </div>
-          </div>
-          <div class="dp-form-row">
-            <div class="dp-form-group"><label>This Unit's Color</label><input type="text" value="${v.exterior_color ?? ''}" data-field="exterior_color"/></div>
-            <div class="dp-form-group"><label>Color Options</label><input type="text" value="${v.exterior_color_options ?? ''}" data-field="exterior_color_options"/></div>
-          </div>
-          <div class="dp-form-row">
-            <div class="dp-form-group"><label>Cargo Space</label><input type="text" value="${v.cargo_space ?? ''}" data-field="cargo_space"/></div>
-            <div class="dp-form-group"><label>Seating Capacity</label><input type="number" value="${v.seating_capacity ?? ''}" data-field="seating_capacity"/></div>
-          </div>
-          <div class="dp-form-row">
-            <div class="dp-form-group"><label>Safety Rating</label><input type="text" value="${v.safety_rating ?? ''}" data-field="safety_rating"/></div>
-            <div class="dp-form-group"><label>Warranty</label><input type="text" value="${v.warranty ?? ''}" data-field="warranty"/></div>
-          </div>
-          <div class="dp-form-group">
-            <label>Notable Features (one per line)</label>
-            <textarea data-field="notable_features" style="min-height:90px">${(() => { try { return JSON.parse(v.notable_features || '[]').join('\n'); } catch { return ''; } })()}</textarea>
-          </div>
+          </details>
           <div style="font-size:.7rem;color:var(--gray);margin-top:.5rem">
             Source: ${v.source || '—'} · Listing: ${v.verified || '—'}${v.interested ? ' · <strong style="color:var(--green)">✓ Client interested</strong>' : ''}
           </div>
@@ -2111,6 +2257,8 @@ function markMessageRead(id, btn) {
   btn.outerHTML = `<span style="font-size:.75rem;color:var(--green)">✓ Read</span>`;
 }
 
+let ADMIN_DEALERS_CACHE = [];
+
 async function loadAdminDealers() {
   document.getElementById('admin-dealers-loading').style.display = 'block';
   document.getElementById('admin-dealers-table').style.display   = 'none';
@@ -2123,13 +2271,33 @@ async function loadAdminDealers() {
   if (!res.ok) return;
 
   const dealers = data.dealers || [];
+  ADMIN_DEALERS_CACHE = dealers;
   if (!dealers.length) { document.getElementById('admin-dealers-loading').textContent = 'No dealers yet.'; document.getElementById('admin-dealers-loading').style.display='block'; return; }
 
   document.getElementById('admin-dealers-body').innerHTML = dealers.map(d => `
     <tr>
-      <td><strong>${d.name}</strong></td>
-      <td>${d.dealership_name}</td>
-      <td>${d.email}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <strong>${escapeHtmlJs(d.name)}</strong>
+          ${d.status === 'active' ? `<button class="icon-btn icon-btn-view" onclick="doViewAsDealer(${d.id})" title="View as ${escapeHtmlJs(d.name)}">${ICON_EYE}</button>` : ''}
+        </div>
+      </td>
+      <td>${escapeHtmlJs(d.dealership_name)}</td>
+      <td>${escapeHtmlJs(d.email)}</td>
+      <td>${d.zip ? escapeHtmlJs(d.zip) : '<span style="color:var(--gray)">—</span>'}</td>
+      <td>${(d.market || d.zone) ? `${escapeHtmlJs(d.market || '')}${d.zone ? ' / ' + escapeHtmlJs(d.zone) : ''}` : '<span style="color:var(--gray)">—</span>'}</td>
+      <td>
+        <div style="display:flex;gap:.35rem;align-items:center">
+          <input type="number" step="0.1" min="0" max="10" value="${d.rating ?? 10}" id="dealer-rating-${d.id}" style="width:52px;padding:.4rem .5rem;font-size:.78rem"/>
+          <button class="icon-btn" onclick="doSaveDealerRating(${d.id})" title="Save rating">${ICON_CHECK}</button>
+        </div>
+        <span id="dealer-save-msg-${d.id}" style="font-size:.65rem"></span>
+      </td>
+      <td>
+        ${d.autodev_dealer_id
+          ? `<div style="font-size:.68rem;color:var(--gray);margin-bottom:.35rem;word-break:break-all;max-width:110px">${escapeHtmlJs(d.autodev_dealer_id)}</div><button class="btn-primary btn-sm btn-outline" onclick="doLookupDealerAutodevId(${d.id})">Re-find</button>`
+          : `<button class="btn-primary btn-sm" onclick="doLookupDealerAutodevId(${d.id})">Find ID</button>`}
+      </td>
       <td><span class="status-badge ${d.status === 'active' ? 'status-approved' : 'status-rejected'}">${d.status}</span></td>
       <td>${formatDate(d.created_at)}</td>
       <td>${d.seen
@@ -2138,7 +2306,7 @@ async function loadAdminDealers() {
       <td>
         <button class="btn-primary btn-sm ${d.status==='active'?'btn-danger':'btn-success'}"
           onclick="adminUpdateDealer(${d.id}, '${d.status==='active'?'suspended':'active'}')">
-          ${d.status === 'active' ? 'Suspend' : 'Activate'}
+          ${d.status === 'active' ? 'Suspend' : 'Reactivate'}
         </button>
       </td>
     </tr>
@@ -2149,6 +2317,37 @@ async function loadAdminDealers() {
 function markDealerSeen(id, btn) {
   markItemSeen('dealers', id);
   btn.outerHTML = `<span style="font-size:.72rem;color:var(--green)">✓ Reviewed</span>`;
+}
+
+// Zip/market/zone come from the dealer's own partner application at
+// signup (resolveZoneForZip, server-side) — read-only here on purpose, not
+// admin-typed. Rating is the one field that's legitimately admin-adjustable
+// (it's a performance score, not signup data).
+async function doSaveDealerRating(id) {
+  const msg = document.getElementById(`dealer-save-msg-${id}`);
+  msg.textContent = 'Saving…'; msg.style.color = 'var(--gray)';
+
+  const payload = { rating: document.getElementById(`dealer-rating-${id}`).value };
+  const { res, data } = await apiFetch(`/admin/dealers/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+    .catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) { msg.textContent = data.error || 'Failed to save.'; msg.style.color = 'var(--red)'; return; }
+  msg.textContent = '✓ Saved.'; msg.style.color = 'var(--green)';
+}
+
+// Same interactive lookup-and-confirm flow the old Active Partners table
+// used (Auto.dev has no exact dealerId filter, only a non-unique name
+// match, so a human has to confirm the right one from the candidate list).
+async function doLookupDealerAutodevId(id) {
+  const zip = prompt('Dealership ZIP (for a tighter search, optional)') || '';
+  const { res, data } = await apiFetch(`/admin/dealers/${id}/autodev-lookup?zip=${encodeURIComponent(zip)}`).catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) { alert(data.error || 'Lookup failed.'); return; }
+  if (!data.candidates?.length) { alert('No Auto.dev listings found under that dealer name.'); return; }
+  const lines = data.candidates.map((c, i) => `${i}: ${c.dealer_name} — ${c.city}, ${c.state} (${c.listing_count} listings, e.g. ${c.sample_makes.join('/')}) — id ${c.autodev_dealer_id}`);
+  const choice = prompt(`Confirm the right dealer by index:\n${lines.join('\n')}`, '0');
+  const picked = data.candidates[+choice];
+  if (!picked) return;
+  await apiFetch(`/admin/dealers/${id}`, { method: 'PATCH', body: JSON.stringify({ autodev_dealer_id: picked.autodev_dealer_id }) });
+  loadAdminDealers();
 }
 
 async function adminUpdateDealer(id, status) {
@@ -2179,6 +2378,13 @@ async function doGenerateInvite() {
 async function doCopyInviteLink(token) {
   const url = `${window.location.origin}${window.location.pathname}?invite=${token}`;
   await copyToClipboard(url);
+}
+
+async function doDeleteInvite(id) {
+  if (!confirm('Delete this invite link? It will stop working immediately.')) return;
+  const { res } = await apiFetch(`/admin/invites/${id}`, { method: 'DELETE' }).catch(() => ({res:{ok:false}}));
+  if (res.ok) loadAdminInvites();
+  else alert('Delete failed.');
 }
 
 async function copyToClipboard(text) {
@@ -2216,8 +2422,9 @@ async function loadAdminInvites() {
           ${inv.expired ? ' <span class="status-badge status-rejected">Expired</span>' : ''}
         </div>
       </div>
-      <div class="item-card-actions">
+      <div class="item-card-actions" style="flex-direction:row;align-items:center">
         <button class="btn-primary btn-sm" onclick="doCopyInviteLink('${inv.token}')">Copy Link</button>
+        <button class="icon-btn icon-btn-danger" onclick="doDeleteInvite(${inv.id})" title="Delete invite">${ICON_TRASH}</button>
       </div>
     </div>
   `).join('');
@@ -2667,13 +2874,16 @@ function dealCardHeaderHtml(lead) {
 // A proper contact card, not a pill — initials avatar, name in the site's
 // display serif, phone/email/zip as clean labeled rows. Lives at the top of
 // the click-to-expand panel, opened from the car or customer name above.
-function contactCardHtml(lead) {
-  const name = lead.buyer_name || 'Buyer';
+// Shared between the dealer's Buyer Leads (buyer_name/email/phone/zip) and
+// the admin's Find Leads (first_name+last_name/email/phone/zip) — callers
+// normalize to { name, phone, email, zip } so this stays a single component.
+function contactCardHtml({ name, phone, email, zip }) {
+  name = name || 'Contact';
   const initials = name.trim().split(/\s+/).map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
   const rows = [
-    ['Phone', lead.buyer_phone],
-    ['Email', lead.buyer_email],
-    ['Zip', lead.buyer_zip],
+    ['Phone', phone],
+    ['Email', email],
+    ['Zip', zip],
   ].filter(([, v]) => v);
 
   return `
@@ -2725,6 +2935,9 @@ const CREDIT_RANGE_LABELS = {
 
 function buyerIntakeHtml(lead) {
   const rows = [];
+  if (lead.vehicle_type) rows.push(['Vehicle Type', lead.vehicle_type]);
+  if (lead.size_preference) rows.push(['Size Preference', lead.size_preference]);
+  if (lead.condition) rows.push(['Condition Preference', lead.condition]);
   if (lead.budget_min || lead.budget_max) rows.push(['Budget', `$${lead.budget_min || '?'} – $${lead.budget_max || '?'}`]);
   if (lead.payment_method) rows.push(['Financing', lead.payment_method]);
   if (lead.credit_range) rows.push(['Credit Picture', CREDIT_RANGE_LABELS[lead.credit_range] || lead.credit_range]);
@@ -2795,7 +3008,7 @@ function renderActiveDealCard(lead) {
       ${dealCardHeaderHtml(lead)}
       ${dealChecklistHtml(lead)}
       <div id="deal-expand-${lead.id}" style="display:none;margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)">
-        ${contactCardHtml(lead)}
+        ${contactCardHtml({ name: lead.buyer_name, phone: lead.buyer_phone, email: lead.buyer_email, zip: lead.buyer_zip })}
         <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.75rem">Buyer's Search Profile</div>
         ${buyerIntakeHtml(lead)}
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:1.1rem">${actions}</div>
@@ -2810,7 +3023,7 @@ function renderClosedDealCard(lead) {
       ${dealCardHeaderHtml(lead)}
       ${dealChecklistHtml(lead)}
       <div id="deal-expand-${lead.id}" style="display:none;margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)">
-        ${contactCardHtml(lead)}
+        ${contactCardHtml({ name: lead.buyer_name, phone: lead.buyer_phone, email: lead.buyer_email, zip: lead.buyer_zip })}
         <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.75rem">Buyer's Search Profile</div>
         ${buyerIntakeHtml(lead)}
         ${lead.status === 'lost' && lead.lost_reason_notes ? `<div style="font-size:.8rem;color:var(--gray);margin-top:.9rem"><strong style="color:var(--navy)">Lost notes:</strong> ${escapeHtmlJs(lead.lost_reason_notes)}</div>` : ''}
@@ -3039,7 +3252,7 @@ async function doApprovePartner(id) {
   if (!confirm('Approve and activate this partner? They will get a welcome email with login instructions.')) return;
   const { res, data } = await apiFetch(`/admin/partners/${id}/approve`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
   if (!res.ok) { alert(data.error || 'Could not approve.'); return; }
-  loadAdminPartnerApplications(); loadAdminActivePartners();
+  loadAdminPartnerApplications(); loadAdminDealers();
 }
 
 async function doRejectPartner(id) {
@@ -3053,49 +3266,10 @@ async function doRejectPartner(id) {
   loadAdminPartnerApplications();
 }
 
-async function loadAdminActivePartners() {
-  const { res, data } = await apiFetch('/admin/partners').catch(() => ({ res: { ok: false }, data: {} }));
-  if (!res.ok) return;
-  // Only dealers who actually completed the partner application
-  // (dealership_type set) are referral partners — a legacy invite-signed-up
-  // dealer who never applied stays out of this list, same gating the
-  // matching engine uses.
-  const active = (data.partners || []).filter(p => p.status !== 'pending' && p.dealership_type);
-  const el = document.getElementById('admin-partners-active-list');
-  el.innerHTML = active.length ? `
-    <div style="overflow-x:auto"><table class="dp-table">
-      <thead><tr><th>Dealership</th><th>Rep</th><th>Market/Zone</th><th>Rating</th><th>Auto.dev ID</th><th>Status</th><th>Action</th></tr></thead>
-      <tbody>${active.map(p => `
-        <tr>
-          <td>${escapeHtmlJs(p.dealership_name)}</td>
-          <td>${escapeHtmlJs(p.name)}</td>
-          <td>${escapeHtmlJs(p.market || '')}${p.zone ? '/' + escapeHtmlJs(p.zone) : ''}</td>
-          <td>${Number(p.rating).toFixed(1)}</td>
-          <td>${p.autodev_dealer_id ? escapeHtmlJs(p.autodev_dealer_id) : `<button class="btn-primary btn-sm" style="width:auto" onclick="doLookupPartnerAutodevId(${p.id})">Find ID</button>`}</td>
-          <td>${escapeHtmlJs(p.status)}</td>
-          <td>${p.status === 'active' ? `<button class="btn-primary btn-sm btn-danger" style="width:auto" onclick="doDeactivatePartner(${p.id})">Deactivate</button>` : ''}</td>
-        </tr>`).join('')}</tbody>
-    </table></div>` : '<div style="font-size:.85rem;color:var(--gray)">No active or past partners yet.</div>';
-}
-
-async function doLookupPartnerAutodevId(id) {
-  const zip = prompt('Dealership ZIP (for a tighter search, optional)') || '';
-  const { res, data } = await apiFetch(`/admin/partners/${id}/autodev-lookup?zip=${encodeURIComponent(zip)}`).catch(() => ({ res: { ok: false }, data: {} }));
-  if (!res.ok) { alert(data.error || 'Lookup failed.'); return; }
-  if (!data.candidates?.length) { alert('No Auto.dev listings found under that dealer name.'); return; }
-  const lines = data.candidates.map((c, i) => `${i}: ${c.dealer_name} — ${c.city}, ${c.state} (${c.listing_count} listings, e.g. ${c.sample_makes.join('/')}) — id ${c.autodev_dealer_id}`);
-  const choice = prompt(`Confirm the right dealer by index:\n${lines.join('\n')}`, '0');
-  const picked = data.candidates[+choice];
-  if (!picked) return;
-  await apiFetch(`/admin/partners/${id}`, { method: 'PATCH', body: JSON.stringify({ autodev_dealer_id: picked.autodev_dealer_id }) });
-  loadAdminActivePartners();
-}
-
-async function doDeactivatePartner(id) {
-  if (!confirm('Deactivate this partner? They will no longer receive routed leads.')) return;
-  await apiFetch(`/admin/partners/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'deactivated' }) });
-  loadAdminActivePartners();
-}
+// Active partners used to get their own separate table here (dealership,
+// rep, market/zone, rating, Auto.dev ID) — that's now merged directly into
+// the Dealers table above (loadAdminDealers), which lists every dealer
+// account (not just completed partner applications) using the same columns.
 
 // Partner lead oversight, fee accounting, and lifecycle email approval now
 // live in the CRM app (theexactmatch-crm) alongside the rest of the deal

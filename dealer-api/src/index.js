@@ -46,7 +46,7 @@ const VALID_DEALER_STATUSES = ['active', 'suspended', 'pending', 'rejected', 'de
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-View-As-Dealer',
 };
 
 function json(data, status = 200) {
@@ -754,10 +754,28 @@ async function adminGetLeadValuation(request, env, params) {
   });
 }
 
+// Priority order (lowest number = furthest along) used to pick which deal
+// status to surface when a buyer has interest routed to more than one
+// partner-sourced vehicle — shows the most active one, not just the first.
+const DEAL_STATUS_PRIORITY_SQL = `CASE partner_leads.status
+  WHEN 'won_delivered' THEN 1 WHEN 'won_delivery_pending' THEN 2 WHEN 'negotiations' THEN 3
+  WHEN 'test_drive_scheduled' THEN 4 WHEN 'video_sent' THEN 5 WHEN 'still_shopping' THEN 6
+  WHEN 'verified' THEN 7 WHEN 'pending_verification' THEN 8 WHEN 'interested' THEN 9
+  WHEN 'lost' THEN 10 ELSE 11 END`;
+
 async function adminFindLeads(request, env) {
-  const { results } = await env.DB.prepare(
-    `SELECT * FROM find_car_leads ORDER BY created_at DESC`
-  ).all();
+  const { results } = await env.DB.prepare(`
+    SELECT find_car_leads.*,
+      find_car_reports.report_code, find_car_reports.status AS report_status,
+      (SELECT COUNT(*) FROM report_vehicles WHERE report_vehicles.report_id = find_car_reports.id AND report_vehicles.interested = 1) AS interested_count,
+      (SELECT partner_leads.status FROM report_vehicles JOIN partner_leads ON partner_leads.report_vehicle_id = report_vehicles.id
+         WHERE report_vehicles.report_id = find_car_reports.id ORDER BY ${DEAL_STATUS_PRIORITY_SQL} LIMIT 1) AS deal_status,
+      (SELECT partner_leads.id FROM report_vehicles JOIN partner_leads ON partner_leads.report_vehicle_id = report_vehicles.id
+         WHERE report_vehicles.report_id = find_car_reports.id ORDER BY ${DEAL_STATUS_PRIORITY_SQL} LIMIT 1) AS deal_partner_lead_id
+    FROM find_car_leads
+    LEFT JOIN find_car_reports ON find_car_reports.find_lead_id = find_car_leads.id
+    ORDER BY find_car_leads.created_at DESC
+  `).all();
   return json({ leads: results });
 }
 
@@ -1283,7 +1301,7 @@ async function searchAutodevListings(env, { make, model, trim, zip, yearMin, yea
   // Partner dealers rank first (exact dealerId match), distance-sorted
   // within each group since the partition preserves whatever order it
   // received.
-  if (partnerDealers?.length) mapped = partitionByPartnerDealer(mapped, partnerDealers);
+  if (partnerDealers?.length) mapped = await partitionByPartnerDealer(env, mapped, partnerDealers);
 
   return { listings: mapped, radius, usedFallback, ok: result.ok, status: result.status };
 }
@@ -1469,10 +1487,34 @@ function partnersEligibleForPick(activeDealers, pick, lead, cfg) {
 // by this. Rating must never surface a worse-fitting car over a clearly
 // better one (spec Section 7) — that's exactly what the tiering guarantees,
 // since tier membership is decided before rating ever applies.
-function partitionByPartnerDealer(listings, dealers) {
+// Pedro Romero (id 5) and Christien Ross (id 6) are two reps at the same
+// dealership (Audi North Austin) — same autodev_dealer_id — so without this
+// they'd silently collide in the byId Map below (last one in wins) and one
+// of them would never get a lead. Alternates between just these two ids by
+// whichever has fewer matched listings so far, starting with Pedro. This is
+// a one-off exception for these two specific dealers, not a general
+// multi-rep-per-dealership feature.
+const SHARED_DEALER_EXCEPTION_IDS = [5, 6];
+
+async function resolveSharedDealerTurn(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT matched_partner_id, COUNT(*) as n FROM report_vehicles WHERE matched_partner_id IN (?, ?) GROUP BY matched_partner_id`
+  ).bind(...SHARED_DEALER_EXCEPTION_IDS).all();
+  const counts = { [SHARED_DEALER_EXCEPTION_IDS[0]]: 0, [SHARED_DEALER_EXCEPTION_IDS[1]]: 0 };
+  for (const r of results) counts[r.matched_partner_id] = r.n;
+  return counts[SHARED_DEALER_EXCEPTION_IDS[0]] <= counts[SHARED_DEALER_EXCEPTION_IDS[1]]
+    ? SHARED_DEALER_EXCEPTION_IDS[0] : SHARED_DEALER_EXCEPTION_IDS[1];
+}
+
+async function partitionByPartnerDealer(env, listings, dealers) {
+  const sharedDealers = dealers.filter(d => SHARED_DEALER_EXCEPTION_IDS.includes(d.id));
+  const sharedWinnerId = sharedDealers.length === 2 ? await resolveSharedDealerTurn(env) : null;
+
   const byId = new Map();
   for (const d of dealers) {
-    if (d.autodev_dealer_id) byId.set(d.autodev_dealer_id, d);
+    if (!d.autodev_dealer_id) continue;
+    if (sharedWinnerId != null && SHARED_DEALER_EXCEPTION_IDS.includes(d.id) && d.id !== sharedWinnerId) continue;
+    byId.set(d.autodev_dealer_id, d);
   }
 
   const partner = [];
@@ -3520,6 +3562,7 @@ async function submitContactMessage(request, env) {
 async function adminDealers(request, env) {
   const { results } = await env.DB.prepare(`
     SELECT dealers.id, dealers.name, dealers.dealership_name, dealers.email, dealers.role, dealers.status, dealers.created_at,
+      dealers.zip, dealers.market, dealers.zone, dealers.rating, dealers.autodev_dealer_id, dealers.dealership_type,
       EXISTS(SELECT 1 FROM admin_seen_items WHERE section = 'dealers' AND item_id = dealers.id) as seen
     FROM dealers WHERE role != 'admin' ORDER BY created_at DESC
   `).all();
@@ -3580,6 +3623,11 @@ async function adminListInvites(request, env) {
      FROM dealer_invites WHERE status = 'pending' ORDER BY created_at DESC`
   ).all();
   return json({ invites: results });
+}
+
+async function adminDeleteInvite(request, env, params) {
+  await env.DB.prepare('DELETE FROM dealer_invites WHERE id = ?').bind(+params.id).run();
+  return json({ success: true });
 }
 
 async function validateInvite(request, env, params) {
@@ -3667,6 +3715,14 @@ async function adminUpdateDealer(request, env, params) {
   }
   if ('autodev_dealer_id' in body) {
     sets.push('autodev_dealer_id = ?'); values.push(body.autodev_dealer_id || null);
+  }
+  if ('zip' in body) { sets.push('zip = ?'); values.push((body.zip || '').trim() || null); }
+  if ('market' in body) { sets.push('market = ?'); values.push((body.market || '').trim() || null); }
+  if ('zone' in body) { sets.push('zone = ?'); values.push((body.zone || '').trim() || null); }
+  if ('rating' in body) {
+    const rating = +body.rating;
+    if (!Number.isFinite(rating)) return json({ error: 'Invalid rating.' }, 400);
+    sets.push('rating = ?'); values.push(rating);
   }
   // Partner-network fields (departure handling, Section 13) — same table,
   // same edit endpoint, since dealers ARE partners.
@@ -3810,6 +3866,17 @@ async function adminUpdateReportVehicle(request, env, params) {
 
   values.push(report.id, +params.position);
   await env.DB.prepare(`UPDATE report_vehicles SET ${sets.join(', ')} WHERE report_id = ? AND position = ?`).bind(...values).run();
+  return json({ success: true });
+}
+
+// report_vehicles cascades off find_car_reports, and partner_leads/partner_fees
+// cascade off report_vehicles in turn (same cascade adminRegenerateReport
+// already relies on) — deleting a report can take an in-flight partner deal
+// with it, so this is a real delete, not a soft one.
+async function adminDeleteReport(request, env, params) {
+  const report = await env.DB.prepare('SELECT id FROM find_car_reports WHERE report_code = ?').bind(params.code).first();
+  if (!report) return json({ error: 'Report not found.' }, 404);
+  await env.DB.prepare('DELETE FROM find_car_reports WHERE id = ?').bind(report.id).run();
   return json({ success: true });
 }
 
@@ -4958,7 +5025,7 @@ async function partnerLeadsList(request, env, params, partner) {
       find_car_leads.current_like, find_car_leads.current_change, find_car_leads.priorities,
       find_car_leads.specific_needs, find_car_leads.considering, find_car_leads.anything_else,
       find_car_leads.timeline, find_car_leads.max_mileage, find_car_leads.vehicle_type,
-      find_car_leads.size_preference, find_car_leads.condition AS buyer_condition_pref
+      find_car_leads.size_preference, find_car_leads.condition
     FROM partner_leads
     LEFT JOIN report_vehicles ON report_vehicles.id = partner_leads.report_vehicle_id
     LEFT JOIN find_car_reports ON find_car_reports.id = report_vehicles.report_id
@@ -5413,11 +5480,13 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/admin/dealers/:id/send-welcome-email', handler: adminSendDealerWelcomeEmail, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/invites',                handler: adminGenerateInvite, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/invites',                handler: adminListInvites, auth: true, admin: true },
+  { method: 'DELETE', pattern: '/api/admin/invites/:id',           handler: adminDeleteInvite, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/dealer/invites/:token',        handler: validateInvite },
   { method: 'POST',  pattern: '/api/dealer/signup',                handler: dealerSignup },
   { method: 'GET',   pattern: '/api/admin/debug/autodev-test',         handler: debugAutodevTest, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/reports',                     handler: adminListReports, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/reports/:code',                handler: adminGetReport, auth: true, admin: true },
+  { method: 'DELETE', pattern: '/api/admin/reports/:code',               handler: adminDeleteReport, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/reports/:code/vehicles/:position', handler: adminUpdateReportVehicle, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/reports/:code/approve',        handler: adminApproveReport, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/reports/:code/regenerate',     handler: adminRegenerateReport, auth: true, admin: true },
@@ -5466,7 +5535,11 @@ async function cleanupStaleRecords(env) {
     await deleteSellCarLead(env, lead.id).catch(err => console.error('cleanup failed for lead', lead.id, err));
   }
 
-  console.log(`[cleanup] removed ${subsDeleted.meta.changes} stale submissions, ${staleLeads.length} stale sell-car leads`);
+  const invitesDeleted = await env.DB.prepare(`
+    DELETE FROM dealer_invites WHERE status = 'pending' AND expires_at < datetime('now')
+  `).run();
+
+  console.log(`[cleanup] removed ${subsDeleted.meta.changes} stale submissions, ${staleLeads.length} stale sell-car leads, ${invitesDeleted.meta.changes} expired invites`);
 }
 
 export default {
@@ -5517,6 +5590,20 @@ export default {
         dealer = await authenticate(token, env);
         if (!dealer) return json({ error: 'Session expired. Please log in again.' }, 401);
         if (route.admin && dealer.role !== 'admin') return json({ error: 'Admin access required.' }, 403);
+
+        // "View as Dealer": lets an admin browse the dealer-facing screens
+        // with a specific dealer's real data, without their password. Only
+        // honored on non-admin routes, and only once the caller is already
+        // confirmed admin above — this is a UI convenience, not a privilege
+        // grant, since admin already has equal-or-greater access via /admin/*.
+        if (!route.admin && dealer.role === 'admin') {
+          const viewAsId = request.headers.get('X-View-As-Dealer');
+          if (viewAsId) {
+            const target = await env.DB.prepare('SELECT * FROM dealers WHERE id = ?').bind(+viewAsId).first();
+            if (!target) return json({ error: 'Dealer not found.' }, 404);
+            dealer = target;
+          }
+        }
       }
 
       try {
