@@ -1,27 +1,40 @@
 # Dealer Partner Network
 
-Buyer-lead-referral reps ("partners") layered on top of the existing Find My Car
-pipeline. Naming note: everything here is prefixed `partner_` to stay clear of the
-pre-existing, unrelated `dealers` table (the Sell-My-Car trade-in/inventory dealer
-network — invite-based signup, its own Dealers tab). A "partner" is an individual
-rep; a "dealer" (old sense) is a dealership account in the other pipeline.
+Buyer-lead-referral capability layered onto the existing `dealers` table —
+**dealers ARE partners, one account, one login.** (An earlier pass split this
+into a separate `partners`/`partner_sessions` account type; that was a
+semantic mistake, corrected in `migrate-merge-dealers-partners.sql` — dealers
+extended in place, the duplicate tables dropped, no data lost.) A dealer who
+signed up the old invite-only way (Sell-My-Car trade-in network) and a dealer
+who applied through `/partners-apply` are the exact same kind of row; the only
+thing that distinguishes "just a dealer" from "a vetted referral partner" is
+whether `dealership_type` is set — that's what gates brand-restricted
+matching, rating eligibility, and the buyer-lead pipeline (see Integration
+decisions below).
 
 ## Approval → activation flow
 
-1. A rep applies at `/partners-apply.html` (public, no invite needed). This creates
-   a `partners` row with `status = 'pending'` — the application *is* the account
-   signup (password already hashed, login just blocked until active).
-2. It shows up in the admin dashboard (`Dealerportal.html` → **Partners** tab →
-   *Partner Applications*), alongside an overlap flag if another active partner
-   already covers the same market + zone (+ brand, for franchise reps).
+1. Someone applies at `/partners-apply.html` (public, no invite needed). This
+   creates a `dealers` row with `status = 'pending'` (or, today, is rejected
+   with "account already exists" if that email already has a dealer account —
+   there's no self-service "add partner fields to my existing account" flow
+   yet, an admin would do that by hand via the dealer edit endpoint). The
+   application *is* the account signup — password already hashed, login just
+   blocked until active.
+2. It shows up in the admin dashboard (`Dealerportal.html` → **Dealers &
+   Partners** tab → *Partner Applications*), alongside an overlap flag if
+   another active partner already covers the same market + zone (+ brand, for
+   franchise reps).
 3. Approve & Activate → `status = 'active'`, welcome email fires with login
-   instructions. No separate invite link. Reject requires a structured reason and
-   sends a reason-appropriate email; rejected rows stay queryable.
+   instructions — the same Dealer Portal login every dealer already uses, no
+   separate portal. Reject requires a structured reason and sends a
+   reason-appropriate email; rejected rows stay queryable.
 4. Once active, an admin still needs to capture the partner's Auto.dev dealer ID
    (**Find ID** button in the Active Partners table) before their inventory can
    actually surface in matching — Auto.dev has no exact-dealer-ID filter, only a
-   non-unique name filter, so this is a manual confirm-by-eyeball step (same
-   pattern as the existing `dealers.autodev_dealer_id` capture flow).
+   non-unique name filter, so this is a manual confirm-by-eyeball step (the same
+   endpoint — `adminAutodevDealerLookup` — the old Sell-My-Car dealer flow
+   already used).
 
 ## Where to edit zone maps
 
@@ -66,13 +79,18 @@ confirmed against current docs.auto.dev.
 
 ## Integration decisions worth knowing about
 
-- **Matching**: partner-first ranking is layered into the *existing* Find My Car
-  report-generation pipeline (`generateReportForLead` → `searchAutodevListings` →
-  `partitionByPartnerDealer`), not a parallel system. New-car requests only pull in
-  franchise partners carrying that brand; used-car requests pull in any active
-  partner. Rating only breaks near-ties within the same ~10-mile distance tier
-  (`matching_rating_tiebreak_threshold`, in miles) — it never outranks a
-  meaningfully better-fitting car.
+- **Matching**: one loader (`loadActivePartnerDealers`), not two. Every active
+  dealer with an Auto.dev dealer ID captured gets the original unconditional
+  inventory boost in Find My Car (`generateReportForLead` →
+  `searchAutodevListings` → `partitionByPartnerDealer`) exactly like before this
+  build existed. Only dealers who've *also* completed the partner application
+  (`dealership_type` set) get the extra rules: new-car requests restricted to
+  franchise partners carrying that brand, and rating as a tiebreaker within the
+  same ~10-mile distance tier (`matching_rating_tiebreak_threshold`, in miles) —
+  never enough to outrank a meaningfully better-fitting car. A dealer with no
+  `dealership_type` can never trigger the buyer-lead/verification/fee pipeline
+  even if their inventory gets boosted — that pipeline assumes real fee terms
+  were agreed to, which only happens through the partner application.
 - **Trigger point**: a buyer's "interested" click on a Find My Car report vehicle
   (`report_vehicles.matched_partner_id` set at report-generation time) is what
   starts the whole partner-lead pipeline. There's no separate buyer-facing partner
@@ -101,3 +119,11 @@ confirmed against current docs.auto.dev.
 - **Rate limiting / anti-spam** on `/partners/apply`: a lightweight D1-backed
   attempts table + honeypot field, since no CAPTCHA/Turnstile or rate-limiting
   pattern existed anywhere in this repo before now.
+- **Column naming collisions from the merge**: `dealers.role` already meant
+  permission level (`'dealer' | 'admin'`) before this build, so the
+  application's "your role at the dealership" question (salesperson/sales
+  manager/internet-BDC/GM) lives in a separate `contact_role` column, not
+  `role`. Likewise the applicant's name goes in the pre-existing `name` column,
+  not a new `full_name` one — the public `/api/public/partners/apply` JSON body
+  still uses `full_name`/`role` as field names (unchanged contract for the
+  apply page), they're just mapped to `name`/`contact_role` at the DB layer.
