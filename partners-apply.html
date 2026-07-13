@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Become a Partner — TheExactMatch</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0C1C33;--navy2:#152a4a;
+  --beige:#F5F0E8;--beige2:#EDE7D9;
+  --gold:#C09A5B;--gold2:#D4B47A;
+  --bronze:#8a6a12;
+  --white:#fff;--gray:#4A5568;--border:#DDD8CC;
+  --green:#1A4731;--red:#9B2335;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy);min-height:100vh}
+.wrap{max-width:640px;margin:0 auto;padding:3rem 1.5rem 5rem}
+.eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--bronze);display:flex;align-items:center;gap:.65rem;margin-bottom:.9rem}
+.eyebrow::before,.eyebrow::after{content:'';display:block;height:1px;width:22px;background:var(--bronze)}
+h1{font-family:'Playfair Display',serif;font-size:clamp(1.9rem,5vw,2.6rem);font-weight:500;line-height:1.15;color:var(--navy);margin-bottom:.75rem}
+h1 em{font-style:italic;color:var(--gold)}
+.intro{font-size:.92rem;line-height:1.7;color:var(--gray);margin-bottom:2.5rem}
+.card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:2rem 1.75rem}
+.section-title{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--navy);border-bottom:1px solid var(--border);padding-bottom:.6rem;margin:2rem 0 1.25rem}
+.section-title:first-child{margin-top:0}
+.group{margin-bottom:1.1rem}
+.group label{display:block;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gray);margin-bottom:.4rem}
+.group .hint{font-weight:400;text-transform:none;letter-spacing:0;font-size:.75rem;color:var(--gray);display:block;margin-top:.3rem}
+.group input,.group select,.group textarea{width:100%;padding:.8rem 1rem;background:var(--beige);border:1px solid var(--border);border-radius:2px;font-family:'Jost',sans-serif;font-size:.88rem;color:var(--navy);outline:none;transition:border-color .2s}
+.group input:focus,.group select:focus,.group textarea:focus{border-color:var(--gold)}
+.group textarea{resize:vertical;min-height:80px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media (max-width:520px){.row2{grid-template-columns:1fr}}
+.radio-row{display:flex;flex-direction:column;gap:.5rem}
+.radio-opt{display:flex;align-items:flex-start;gap:.6rem;padding:.7rem .9rem;border:1px solid var(--border);border-radius:2px;cursor:pointer;font-size:.85rem}
+.radio-opt input{width:auto;margin-top:.2rem}
+.radio-opt.checked{border-color:var(--gold);background:rgba(192,154,91,.08)}
+.conditional{display:none;margin-top:.75rem;padding:.9rem;background:var(--beige);border-radius:2px}
+.conditional.show{display:block}
+.checkbox-row{display:flex;align-items:flex-start;gap:.6rem;font-size:.82rem;color:var(--gray);line-height:1.5}
+.checkbox-row input{width:auto;margin-top:.25rem}
+.honeypot{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.submit-btn{width:100%;padding:1rem;background:var(--navy);color:var(--beige);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:1.5rem;transition:background .2s}
+.submit-btn:hover{background:var(--navy2)}
+.submit-btn:disabled{opacity:.55;cursor:not-allowed}
+.alert{padding:.8rem 1rem;border-radius:2px;font-size:.85rem;margin-bottom:1.25rem;display:none}
+.alert.show{display:block}
+.alert-err{background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.2);color:var(--red)}
+.success-screen{text-align:center;padding:3rem 1rem}
+.success-screen h2{font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--navy);margin-bottom:1rem}
+.success-screen p{color:var(--gray);font-size:.9rem;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">Dealer Partner Network</div>
+  <h1>Become a <em>Partner</em></h1>
+  <p class="intro">Apply once — your application doubles as your account signup. We review every application personally; if approved, your Partner Portal is live immediately, no separate invite step. Matched buyer leads in your market and zone route to you first.</p>
+
+  <div class="card" id="form-card">
+    <div class="alert alert-err" id="form-error"></div>
+    <form id="apply-form" onsubmit="return false">
+
+      <!-- Honeypot — hidden from real applicants, bots fill every field -->
+      <div class="honeypot" aria-hidden="true">
+        <label for="company_website">Company Website</label>
+        <input type="text" id="company_website" name="company_website" tabindex="-1" autocomplete="off"/>
+      </div>
+
+      <div class="section-title">Your Info</div>
+      <div class="group"><label>Full Name *</label><input type="text" id="full_name" required/></div>
+      <div class="row2">
+        <div class="group"><label>Work Email *</label><input type="email" id="email" required placeholder="you@dealership.com"/><span class="hint">This becomes your Partner Portal login.</span></div>
+        <div class="group"><label>Cell Phone *</label><input type="tel" id="phone" required/></div>
+      </div>
+      <div class="row2">
+        <div class="group"><label>Create Password *</label><input type="password" id="password" required minlength="8"/></div>
+        <div class="group"><label>Confirm Password *</label><input type="password" id="password_confirm" required minlength="8"/></div>
+      </div>
+      <div class="group">
+        <label>Your Role *</label>
+        <select id="role" required>
+          <option value="">Select…</option>
+          <option value="salesperson">Salesperson</option>
+          <option value="sales_manager">Sales Manager</option>
+          <option value="internet_bdc">Internet/BDC</option>
+          <option value="gm">General Manager</option>
+        </select>
+      </div>
+      <div class="group"><label>Approx. Units You Personally Move Per Month *</label><input type="number" id="monthly_units" required min="0"/></div>
+
+      <div class="section-title">Dealership</div>
+      <div class="group"><label>Dealership Name *</label><input type="text" id="dealership_name" required/></div>
+      <div class="row2">
+        <div class="group"><label>Dealership ZIP *</label><input type="text" id="zip" required placeholder="77002"/><span class="hint">Drives your market/zone — any ZIP is accepted.</span></div>
+        <div class="group"><label>City / State</label><input type="text" id="city_state" placeholder="Houston, TX"/></div>
+      </div>
+      <div class="group">
+        <label>Dealership Type *</label>
+        <select id="dealership_type" required onchange="onDealershipTypeChange()">
+          <option value="">Select…</option>
+          <option value="franchise_new_used">Franchise (new + used)</option>
+          <option value="independent_used">Independent used</option>
+          <option value="used_superstore">Used superstore</option>
+        </select>
+      </div>
+      <div class="conditional" id="brands-conditional">
+        <div class="group" style="margin-bottom:0"><label>Brand(s) Sold New * (comma-separated)</label><input type="text" id="brands_new" placeholder="Toyota, Honda"/></div>
+      </div>
+      <div class="group">
+        <label>Used Inventory Scope *</label>
+        <select id="used_scope" required>
+          <option value="">Select…</option>
+          <option value="all_makes">All makes</option>
+          <option value="mostly_own_brand">Mostly our own brand</option>
+        </select>
+        <span class="hint">Do you stock used cars of all makes, or mainly your own brand?</span>
+      </div>
+
+      <div class="section-title">Referral Fee Setup</div>
+      <div class="group">
+        <label>Does your dealership have an established referral/bird-dog fee policy? *</label>
+        <div class="radio-row" id="referral-policy-radios">
+          <label class="radio-opt"><input type="radio" name="referral_policy_status" value="has_policy" onchange="onReferralPolicyChange()"/> Yes, we have a policy</label>
+          <label class="radio-opt"><input type="radio" name="referral_policy_status" value="no_but_open" onchange="onReferralPolicyChange()"/> No, but management would likely set one up</label>
+          <label class="radio-opt"><input type="radio" name="referral_policy_status" value="not_sure" onchange="onReferralPolicyChange()"/> Not sure / need to check</label>
+        </div>
+      </div>
+      <div class="conditional" id="has-policy-conditional">
+        <div class="group">
+          <label>Fee Type</label>
+          <select id="fee_type" onchange="onFeeTypeChange()"><option value="flat">Flat dollar amount</option><option value="percent">Percent</option></select>
+        </div>
+        <div class="group"><label>Fee Amount</label><input type="number" id="fee_amount" step="0.01"/></div>
+        <div class="group" id="fee-basis-conditional" style="display:none">
+          <label>Percent Basis</label>
+          <select id="fee_percent_basis"><option value="sale_price">% of sale price</option><option value="front_gross">% of front gross</option></select>
+        </div>
+      </div>
+      <div class="conditional" id="no-but-open-conditional">
+        <div class="group"><label>Who would set this up, and would they be open to it?</label><textarea id="referral_contact_open"></textarea></div>
+      </div>
+      <div class="conditional" id="not-sure-conditional">
+        <div class="group"><label>Who would know, or can you connect us?</label><textarea id="referral_contact_notsure"></textarea></div>
+      </div>
+
+      <div class="section-title">Preferences</div>
+      <div class="group">
+        <label>Best Contact Method for Buyer Leads *</label>
+        <select id="lead_contact_method" required>
+          <option value="">Select…</option>
+          <option value="email">Email</option>
+          <option value="text">Text</option>
+          <option value="both">Both</option>
+        </select>
+      </div>
+      <div class="group"><label>Anything Else? (optional)</label><textarea id="anything_else"></textarea></div>
+
+      <label class="checkbox-row" style="margin-top:1.5rem">
+        <input type="checkbox" id="agreed_terms" required/>
+        <span>I agree to the <a href="/partner-terms.html" target="_blank" style="color:var(--bronze)">Partner Network Terms</a>, including referral fee reporting obligations.</span>
+      </label>
+
+      <button class="submit-btn" id="submit-btn" onclick="submitApplication()">Submit Application</button>
+    </form>
+  </div>
+
+  <div class="card success-screen" id="success-card" style="display:none">
+    <h2>Application Received</h2>
+    <p>We review every dealer personally and follow up soon. If approved, you'll get an email with everything you need to log in — no separate invite step.</p>
+  </div>
+
+</div>
+
+<script>
+const API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';
+
+function onDealershipTypeChange() {
+  const isFranchise = document.getElementById('dealership_type').value === 'franchise_new_used';
+  document.getElementById('brands-conditional').classList.toggle('show', isFranchise);
+}
+
+function onReferralPolicyChange() {
+  const val = document.querySelector('input[name="referral_policy_status"]:checked')?.value;
+  document.querySelectorAll('#referral-policy-radios .radio-opt').forEach(el => el.classList.remove('checked'));
+  event.target.closest('.radio-opt').classList.add('checked');
+  document.getElementById('has-policy-conditional').classList.toggle('show', val === 'has_policy');
+  document.getElementById('no-but-open-conditional').classList.toggle('show', val === 'no_but_open');
+  document.getElementById('not-sure-conditional').classList.toggle('show', val === 'not_sure');
+}
+
+function onFeeTypeChange() {
+  document.getElementById('fee-basis-conditional').style.display = document.getElementById('fee_type').value === 'percent' ? 'block' : 'none';
+}
+
+function showFormError(msg) {
+  const el = document.getElementById('form-error');
+  el.textContent = msg;
+  el.classList.add('show');
+  window.scrollTo(0, 0);
+}
+
+async function submitApplication() {
+  document.getElementById('form-error').classList.remove('show');
+
+  const password = document.getElementById('password').value;
+  if (password !== document.getElementById('password_confirm').value) {
+    showFormError('Passwords do not match.'); return;
+  }
+  if (!document.getElementById('agreed_terms').checked) {
+    showFormError('Please agree to the Partner Network Terms.'); return;
+  }
+  const referral_policy_status = document.querySelector('input[name="referral_policy_status"]:checked')?.value;
+  if (!referral_policy_status) { showFormError('Please answer the referral fee policy question.'); return; }
+
+  const [city, state] = (document.getElementById('city_state').value || '').split(',').map(s => (s || '').trim());
+
+  const body = {
+    company_website: document.getElementById('company_website').value, // honeypot
+    full_name: document.getElementById('full_name').value.trim(),
+    email: document.getElementById('email').value.trim(),
+    password,
+    phone: document.getElementById('phone').value.trim(),
+    role: document.getElementById('role').value,
+    monthly_units: document.getElementById('monthly_units').value,
+    dealership_name: document.getElementById('dealership_name').value.trim(),
+    zip: document.getElementById('zip').value.trim(),
+    city, state,
+    dealership_type: document.getElementById('dealership_type').value,
+    brands_new: (document.getElementById('brands_new').value || '').split(',').map(s => s.trim()).filter(Boolean),
+    used_scope: document.getElementById('used_scope').value,
+    referral_policy_status,
+    referral_policy_notes: referral_policy_status === 'no_but_open' ? document.getElementById('referral_contact_open').value
+      : referral_policy_status === 'not_sure' ? document.getElementById('referral_contact_notsure').value : '',
+    referral_contact: referral_policy_status === 'no_but_open' ? document.getElementById('referral_contact_open').value
+      : referral_policy_status === 'not_sure' ? document.getElementById('referral_contact_notsure').value : '',
+    fee_type: document.getElementById('fee_type').value,
+    fee_amount: document.getElementById('fee_amount').value,
+    fee_percent_basis: document.getElementById('fee_percent_basis').value,
+    lead_contact_method: document.getElementById('lead_contact_method').value,
+    anything_else: document.getElementById('anything_else').value,
+    agreed_terms: true,
+  };
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+
+  let res, data;
+  try {
+    res = await fetch(`${API}/public/partners/apply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    data = await res.json().catch(() => ({}));
+  } catch {
+    btn.disabled = false; btn.textContent = 'Submit Application';
+    showFormError('Connection error. Please try again.');
+    return;
+  }
+
+  btn.disabled = false; btn.textContent = 'Submit Application';
+
+  if (!res.ok) { showFormError(data.error || 'Something went wrong. Please try again.'); return; }
+
+  document.getElementById('form-card').style.display = 'none';
+  document.getElementById('success-card').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>

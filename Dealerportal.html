@@ -13,6 +13,9 @@
       --gold:#C09A5B;--gold2:#D4B47A;
       --white:#fff;--gray:#4A5568;--border:#DDD8CC;
       --green:#1A4731;--red:#9B2335;--amber:#92600A;
+      /* AA-compliant small text on light backgrounds where --gold reads too
+         light (WCAG contrast) — small rating/badge text uses this instead. */
+      --bronze:#8a6a12;
       /* Referenced by inline card sub-grids so the mobile media query can
          collapse them without !important. */
       --card-grid-3:auto 1fr auto;
@@ -202,6 +205,7 @@
       <span class="nav-badge">Dealer Portal</span>
       <span class="nav-dealer-name" id="nav-dealer-name"></span>
       <button class="btn-logout" id="nav-logout-btn" onclick="doLogout()">Sign Out</button>
+      <a class="back-link" href="#" id="nav-partner-link" onclick="showView('view-partner-login');return false">Partner Login</a>
       <a class="back-link" href="/">← Main Site</a>
     </div>
   </div>
@@ -415,6 +419,7 @@
       <button class="tab-btn" onclick="switchTab('tab-leads')">Sell Leads<span class="tab-badge" data-section="sell_car"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-messages')">Messages<span class="tab-badge" data-section="messages"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers<span class="tab-badge" data-section="dealers"></span></button>
+      <button class="tab-btn" onclick="switchTab('tab-partners')">Partners<span class="tab-badge" data-section="partner_applications"></span></button>
     </div>
 
     <!-- Tab: Submissions -->
@@ -509,6 +514,26 @@
       </div>
     </div>
 
+    <!-- Tab: Partners (buyer-lead-referral network — distinct from the
+         trade-in Dealers tab above) -->
+    <div class="tab-panel" id="tab-partners">
+      <div class="section-label">Partner Applications</div>
+      <div id="admin-partner-apps-loading" style="text-align:center;padding:1.5rem;color:var(--gray);font-size:.85rem">Loading...</div>
+      <div id="admin-partner-apps-list" style="margin-bottom:2.5rem"></div>
+
+      <div class="section-label">Active Partners</div>
+      <div id="admin-partners-active-list" style="margin-bottom:2.5rem"></div>
+
+      <div class="section-label">Partner Leads (oversight)</div>
+      <div id="admin-partner-leads-list" style="margin-bottom:2.5rem;overflow-x:auto"></div>
+
+      <div class="section-label">Fees — Pending / Owed / Paid</div>
+      <div id="admin-partner-fees-list" style="margin-bottom:2.5rem;overflow-x:auto"></div>
+
+      <div class="section-label">Lifecycle Emails Awaiting Approval</div>
+      <div id="admin-partner-emails-list"></div>
+    </div>
+
   </div>
 
 </div><!-- /view-admin -->
@@ -566,6 +591,92 @@
   </div>
 </div><!-- /view-signup -->
 
+<!-- ════════════════════════════════════════════════════════
+     VIEW: PARTNER LOGIN (separate account type from dealers above —
+     buyer-lead-referral reps, not the trade-in/inventory dealer network)
+═════════════════════════════════════════════════════════ -->
+<div class="view" id="view-partner-login">
+  <div class="login-hero">
+    <div class="login-left">
+      <div class="login-left-content">
+        <div class="invite-badge"><span class="invite-dot"></span>Partner Network</div>
+        <br/>
+        <h1>Partner <em>Portal</em></h1>
+        <p>Verify matched buyer leads, track your deal pipeline, and manage your referral fees.</p>
+      </div>
+    </div>
+    <div class="login-right">
+      <div class="login-card">
+        <h2 class="display" style="margin-bottom:1.5rem">Partner Sign In</h2>
+        <div class="dp-alert dp-alert-err" id="partner-login-error"></div>
+        <div class="dp-form-group">
+          <label>Email</label>
+          <input type="email" id="partner-login-email" placeholder="you@dealership.com"/>
+        </div>
+        <div class="dp-form-group" style="margin-bottom:.75rem">
+          <label>Password</label>
+          <input type="password" id="partner-login-password"/>
+        </div>
+        <div style="text-align:right;margin-bottom:1.5rem">
+          <a href="#" onclick="showView('view-partner-forgot');return false" style="font-size:.75rem;color:var(--gray)">Forgot password?</a>
+        </div>
+        <button class="btn-primary" id="partner-login-btn" onclick="doPartnerLogin()">Sign In</button>
+        <p style="margin-top:1.5rem;font-size:.8rem;color:var(--gray);text-align:center">
+          Not a partner yet? <a href="/partners-apply.html" style="color:var(--gold)">Apply here</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div><!-- /view-partner-login -->
+
+<!-- ════════════════════════════════════════════════════════
+     VIEW: PARTNER PASSWORD RESET REQUEST
+═════════════════════════════════════════════════════════ -->
+<div class="view" id="view-partner-forgot">
+  <div class="login-hero">
+    <div class="login-left">
+      <div class="login-left-content">
+        <h1>Reset your <em>password</em></h1>
+        <p>We'll email you a link that's valid for 2 hours.</p>
+      </div>
+    </div>
+    <div class="login-right">
+      <div class="login-card">
+        <div class="dp-alert dp-alert-err" id="partner-forgot-error"></div>
+        <div class="dp-alert dp-alert-ok" id="partner-forgot-success"></div>
+        <div class="dp-form-group">
+          <label>Email</label>
+          <input type="email" id="partner-forgot-email"/>
+        </div>
+        <button class="btn-primary" id="partner-forgot-btn" onclick="doPartnerForgotPassword()">Send reset link</button>
+        <p style="margin-top:1.5rem;font-size:.8rem;color:var(--gray);text-align:center">
+          <a href="#" onclick="showView('view-partner-login');return false" style="color:var(--gray)">← Back to sign in</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div><!-- /view-partner-forgot -->
+
+<!-- ════════════════════════════════════════════════════════
+     VIEW: PARTNER PORTAL (dashboard — verification tasks, deal
+     pipeline checkboxes, unlocked buyer info post-verify)
+═════════════════════════════════════════════════════════ -->
+<div class="view" id="view-partner-portal">
+  <div class="subview-header" style="background:var(--navy)">
+    <div class="subview-header-inner">
+      <div>
+        <div class="subview-title">Partner <em>Dashboard</em></div>
+        <div class="subview-sub" id="partner-portal-sub"></div>
+      </div>
+      <button class="btn-primary btn-sm btn-danger" onclick="doPartnerLogout()">Sign Out</button>
+    </div>
+  </div>
+  <div class="content-area">
+    <div id="partner-leads-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+    <div id="partner-leads-list"></div>
+  </div>
+</div><!-- /view-partner-portal -->
+
 </div><!-- /portal-wrap -->
 
 <footer>
@@ -607,6 +718,11 @@ function showView(id) {
     loadAdminMessages();
     loadAdminDealers();
     loadAdminInvites();
+    loadAdminPartnerApplications();
+    loadAdminActivePartners();
+    loadAdminPartnerLeads();
+    loadAdminPartnerFees();
+    loadAdminPartnerLifecycleEmails();
     startNotificationPolling();
   } else if (notificationPollHandle) {
     clearInterval(notificationPollHandle);
@@ -2063,10 +2179,328 @@ function renderValuationDetailHtml(v, opts) {
   `;
 }
 
+// ══════════════════════════════════════════════════════════════
+// Dealer Partner Network (buyer-lead-referral reps) — a separate
+// account/session type from the dealers above. Own token, own apiFetch.
+// ══════════════════════════════════════════════════════════════
+let partnerToken   = localStorage.getItem('tem_partner_token') || null;
+let currentPartner = null;
+
+async function partnerApiFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (partnerToken) headers['Authorization'] = `Bearer ${partnerToken}`;
+  const res  = await fetch(`${API}${path}`, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  return { res, data };
+}
+
+async function doPartnerLogin() {
+  const email    = document.getElementById('partner-login-email').value.trim();
+  const password = document.getElementById('partner-login-password').value;
+  if (!email || !password) { showAlert('partner-login-error', 'Please enter your email and password.'); return; }
+
+  setLoading('partner-login-btn', true, 'Signing in…');
+  const { res, data } = await partnerApiFetch('/partner/login', { method: 'POST', body: JSON.stringify({ email, password }) })
+    .catch(() => ({ res: { ok: false }, data: { error: 'Connection error. Please try again.' } }));
+  setLoading('partner-login-btn', false, null, 'Sign In');
+
+  if (!res.ok) { showAlert('partner-login-error', data.error || 'Invalid credentials.'); return; }
+
+  partnerToken = data.token;
+  localStorage.setItem('tem_partner_token', partnerToken);
+  currentPartner = data.partner;
+  enterPartnerPortal();
+}
+
+async function doPartnerLogout() {
+  if (partnerToken) await partnerApiFetch('/partner/logout', { method: 'POST' }).catch(() => {});
+  partnerToken = null;
+  currentPartner = null;
+  localStorage.removeItem('tem_partner_token');
+  showView('view-partner-login');
+}
+
+async function doPartnerForgotPassword() {
+  const email = document.getElementById('partner-forgot-email').value.trim();
+  if (!email) { showAlert('partner-forgot-error', 'Please enter your email.'); return; }
+  setLoading('partner-forgot-btn', true, 'Sending…');
+  await partnerApiFetch('/partner/password-reset/request', { method: 'POST', body: JSON.stringify({ email }) }).catch(() => {});
+  setLoading('partner-forgot-btn', false, null, 'Send reset link');
+  showAlert('partner-forgot-success', 'If that email is registered, a reset link is on its way.', 'ok');
+}
+
+async function restorePartnerSession() {
+  if (!partnerToken) return;
+  const { res, data } = await partnerApiFetch('/partner/me').catch(() => ({ res: { ok: false }, data: {} }));
+  if (res.ok) { currentPartner = data; enterPartnerPortal(); }
+  else { partnerToken = null; localStorage.removeItem('tem_partner_token'); }
+}
+
+function enterPartnerPortal() {
+  document.getElementById('partner-portal-sub').textContent =
+    `${currentPartner.dealership_name} · Rating ${Number(currentPartner.rating).toFixed(1)}`;
+  showView('view-partner-portal');
+  loadPartnerLeads();
+}
+
+const PARTNER_LEAD_STATUS_LABELS = {
+  interested: 'Interested', pending_verification: 'Awaiting your verification', verified: 'Verified',
+  video_sent: 'Video sent', test_drive_scheduled: 'Test drive scheduled', negotiations: 'Negotiations',
+  still_shopping: 'Still shopping', won_delivered: 'Won — delivered', won_delivery_pending: 'Won — delivery pending', lost: 'Lost',
+};
+
+function renderPartnerLeadCard(lead) {
+  const locked = ['interested', 'pending_verification'].includes(lead.status);
+  const terminal = ['won_delivered', 'won_delivery_pending', 'lost'].includes(lead.status);
+  const listing = (() => { try { return JSON.parse(lead.listing_snapshot || '{}'); } catch { return {}; } })();
+  const carLine = `${listing.year || ''} ${listing.make || ''} ${listing.model || ''} ${listing.trim || ''}`.trim();
+
+  let actions = '';
+  if (locked) {
+    actions = `
+      <button class="btn-primary btn-sm" style="width:auto" onclick="doPartnerVerify(${lead.id})">Verify Available</button>
+      <button class="btn-primary btn-sm btn-danger" style="width:auto" onclick="doPartnerNotAvailable(${lead.id})">No Longer Available</button>`;
+  } else if (!terminal) {
+    const opts = ['video_sent', 'test_drive_scheduled', 'negotiations', 'still_shopping', 'won_delivered', 'won_delivery_pending', 'lost'];
+    actions = `
+      <select id="status-select-${lead.id}" class="dp-form-group" style="display:inline-block;width:auto;padding:.5rem .75rem;margin:0">
+        <option value="">Update status…</option>
+        ${opts.map(o => `<option value="${o}">${PARTNER_LEAD_STATUS_LABELS[o]}</option>`).join('')}
+      </select>
+      <button class="btn-primary btn-sm" style="width:auto" onclick="doPartnerUpdateStatus(${lead.id})">Save</button>`;
+  }
+
+  return `
+    <div class="dp-card" style="margin-bottom:1rem;padding:1.1rem 1.25rem;border:1px solid var(--border);border-radius:3px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem">
+        <strong style="color:var(--navy)">${escapeHtmlJs(carLine || 'Vehicle')}</strong>
+        <span style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--bronze)">${PARTNER_LEAD_STATUS_LABELS[lead.status] || lead.status}</span>
+      </div>
+      <div style="font-size:.82rem;color:var(--gray);margin-bottom:.75rem">
+        ${locked ? 'Buyer contact unlocks once you verify availability.' :
+          `${escapeHtmlJs(lead.buyer_name || '')} · ${escapeHtmlJs(lead.buyer_email || '')} · ${escapeHtmlJs(lead.buyer_phone || '')}`}
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">${actions}</div>
+    </div>`;
+}
+
+function escapeHtmlJs(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+
+async function loadPartnerLeads() {
+  document.getElementById('partner-leads-loading').style.display = 'block';
+  const { res, data } = await partnerApiFetch('/partner/leads').catch(() => ({ res: { ok: false }, data: {} }));
+  document.getElementById('partner-leads-loading').style.display = 'none';
+  if (!res.ok) return;
+  const list = document.getElementById('partner-leads-list');
+  list.innerHTML = (data.leads || []).length
+    ? data.leads.map(renderPartnerLeadCard).join('')
+    : '<div style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">No leads yet — matched buyer interest will show up here.</div>';
+}
+
+async function doPartnerVerify(id) {
+  const { res, data } = await partnerApiFetch(`/partner/leads/${id}/verify`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) { alert(data.error || 'Could not verify this lead.'); return; }
+  loadPartnerLeads();
+}
+
+async function doPartnerNotAvailable(id) {
+  if (!confirm('Report this vehicle as no longer available? This will close the lead.')) return;
+  const { res, data } = await partnerApiFetch(`/partner/leads/${id}/not-available`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) { alert(data.error || 'Could not update this lead.'); return; }
+  loadPartnerLeads();
+}
+
+async function doPartnerUpdateStatus(id) {
+  const select = document.getElementById(`status-select-${id}`);
+  const status = select.value;
+  if (!status) return;
+
+  const body = { status };
+  if (status === 'test_drive_scheduled') {
+    body.test_drive_location = prompt('Test drive location: type "home" or "dealership"', 'dealership');
+    if (!['home', 'dealership'].includes(body.test_drive_location)) { alert('Please enter "home" or "dealership".'); return; }
+  }
+  if (status === 'lost') {
+    body.lost_reason = prompt('Lost reason: type "wrong_car", "price", or "other"', 'other');
+    if (!['wrong_car', 'price', 'other'].includes(body.lost_reason)) { alert('Please enter wrong_car, price, or other.'); return; }
+    body.lost_reason_notes = prompt('Any notes on why? (optional)') || '';
+  }
+
+  const { res, data } = await partnerApiFetch(`/partner/leads/${id}/status`, { method: 'PATCH', body: JSON.stringify(body) })
+    .catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) { alert(data.error || 'Could not update status.'); return; }
+  loadPartnerLeads();
+}
+
+// ── Admin: Partner Applications / Active Partners / oversight ──────
+async function loadAdminPartnerApplications() {
+  document.getElementById('admin-partner-apps-loading').style.display = 'block';
+  const { res, data } = await apiFetch('/admin/partners').catch(() => ({ res: { ok: false }, data: {} }));
+  document.getElementById('admin-partner-apps-loading').style.display = 'none';
+  if (!res.ok) return;
+
+  const pending = (data.partners || []).filter(p => p.status === 'pending');
+  const el = document.getElementById('admin-partner-apps-list');
+  el.innerHTML = pending.length ? pending.map(renderPartnerApplicationCard).join('')
+    : '<div style="font-size:.85rem;color:var(--gray)">No pending applications.</div>';
+}
+
+function renderPartnerApplicationCard(p) {
+  const brands = (p.brands_new || []).join(', ');
+  return `
+    <div class="dp-card" style="margin-bottom:1rem;padding:1.1rem 1.25rem;border:1px solid var(--border);border-radius:3px${p.overlap_flag ? ';border-color:var(--red)' : ''}">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+        <strong style="color:var(--navy)">${escapeHtmlJs(p.dealership_name)}</strong>
+        <span style="font-size:.72rem;color:var(--gray)">${escapeHtmlJs(p.market || '')}${p.zone ? ' / ' + escapeHtmlJs(p.zone) : ' (unmapped)'}</span>
+      </div>
+      <div style="font-size:.82rem;color:var(--gray);margin:.5rem 0">
+        ${escapeHtmlJs(p.full_name)} (${escapeHtmlJs(p.role)}) · ${escapeHtmlJs(p.email)} · ${escapeHtmlJs(p.phone || '')}<br/>
+        Type: ${escapeHtmlJs(p.dealership_type)}${brands ? ' · Brands: ' + escapeHtmlJs(brands) : ''} · Used scope: ${escapeHtmlJs(p.used_scope)}<br/>
+        Units/mo: ${p.monthly_units ?? '?'} · Referral policy: <strong>${escapeHtmlJs(p.referral_policy_status)}</strong>
+        ${p.referral_policy_notes ? ' — ' + escapeHtmlJs(p.referral_policy_notes) : ''}
+        ${p.fee_type ? ` · Fee: ${p.fee_amount}${p.fee_type === 'percent' ? '% of ' + escapeHtmlJs(p.fee_percent_basis || '') : ' flat'}` : ''}
+      </div>
+      ${p.overlap_flag ? `<div style="font-size:.78rem;color:var(--red);margin-bottom:.5rem"><strong>⚠ Overlap:</strong> ${escapeHtmlJs(p.overlap_notes || '')}</div>` : ''}
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn-primary btn-sm btn-gold" style="width:auto" onclick="doApprovePartner(${p.id})">Approve & Activate</button>
+        <button class="btn-primary btn-sm btn-danger" style="width:auto" onclick="doRejectPartner(${p.id})">Reject</button>
+      </div>
+    </div>`;
+}
+
+async function doApprovePartner(id) {
+  if (!confirm('Approve and activate this partner? They will get a welcome email with login instructions.')) return;
+  const { res, data } = await apiFetch(`/admin/partners/${id}/approve`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) { alert(data.error || 'Could not approve.'); return; }
+  loadAdminPartnerApplications(); loadAdminActivePartners();
+}
+
+async function doRejectPartner(id) {
+  const reason = prompt('Reason: zone_already_covered, brand_already_covered, units_too_low, no_referral_policy, incomplete_unverifiable, or other');
+  const valid = ['zone_already_covered', 'brand_already_covered', 'units_too_low', 'no_referral_policy', 'incomplete_unverifiable', 'other'];
+  if (!valid.includes(reason)) { alert('Please enter a valid reason.'); return; }
+  const notes = prompt('Any notes? (optional)') || '';
+  const { res, data } = await apiFetch(`/admin/partners/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason, notes }) })
+    .catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) { alert(data.error || 'Could not reject.'); return; }
+  loadAdminPartnerApplications();
+}
+
+async function loadAdminActivePartners() {
+  const { res, data } = await apiFetch('/admin/partners').catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) return;
+  const active = (data.partners || []).filter(p => p.status !== 'pending');
+  const el = document.getElementById('admin-partners-active-list');
+  el.innerHTML = active.length ? `
+    <div style="overflow-x:auto"><table class="dp-table">
+      <thead><tr><th>Dealership</th><th>Rep</th><th>Market/Zone</th><th>Rating</th><th>Auto.dev ID</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>${active.map(p => `
+        <tr>
+          <td>${escapeHtmlJs(p.dealership_name)}</td>
+          <td>${escapeHtmlJs(p.full_name)}</td>
+          <td>${escapeHtmlJs(p.market || '')}${p.zone ? '/' + escapeHtmlJs(p.zone) : ''}</td>
+          <td>${Number(p.rating).toFixed(1)}</td>
+          <td>${p.autodev_dealer_id ? escapeHtmlJs(p.autodev_dealer_id) : `<button class="btn-primary btn-sm" style="width:auto" onclick="doLookupPartnerAutodevId(${p.id})">Find ID</button>`}</td>
+          <td>${escapeHtmlJs(p.status)}</td>
+          <td>${p.status === 'active' ? `<button class="btn-primary btn-sm btn-danger" style="width:auto" onclick="doDeactivatePartner(${p.id})">Deactivate</button>` : ''}</td>
+        </tr>`).join('')}</tbody>
+    </table></div>` : '<div style="font-size:.85rem;color:var(--gray)">No active or past partners yet.</div>';
+}
+
+async function doLookupPartnerAutodevId(id) {
+  const zip = prompt('Dealership ZIP (for a tighter search, optional)') || '';
+  const { res, data } = await apiFetch(`/admin/partners/${id}/autodev-lookup?zip=${encodeURIComponent(zip)}`).catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) { alert(data.error || 'Lookup failed.'); return; }
+  if (!data.candidates?.length) { alert('No Auto.dev listings found under that dealer name.'); return; }
+  const lines = data.candidates.map((c, i) => `${i}: ${c.dealer_name} — ${c.city}, ${c.state} (${c.listing_count} listings, e.g. ${c.sample_makes.join('/')}) — id ${c.autodev_dealer_id}`);
+  const choice = prompt(`Confirm the right dealer by index:\n${lines.join('\n')}`, '0');
+  const picked = data.candidates[+choice];
+  if (!picked) return;
+  await apiFetch(`/admin/partners/${id}`, { method: 'PATCH', body: JSON.stringify({ autodev_dealer_id: picked.autodev_dealer_id }) });
+  loadAdminActivePartners();
+}
+
+async function doDeactivatePartner(id) {
+  if (!confirm('Deactivate this partner? They will no longer receive routed leads.')) return;
+  await apiFetch(`/admin/partners/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'deactivated' }) });
+  loadAdminActivePartners();
+}
+
+async function loadAdminPartnerLeads() {
+  const { res, data } = await apiFetch('/admin/partner-leads').catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) return;
+  const el = document.getElementById('admin-partner-leads-list');
+  el.innerHTML = data.leads?.length ? `
+    <table class="dp-table">
+      <thead><tr><th>#</th><th>Partner</th><th>Buyer</th><th>Status</th><th>Created</th></tr></thead>
+      <tbody>${data.leads.map(l => `
+        <tr><td>${l.id}</td><td>${escapeHtmlJs(l.dealership_name)}</td><td>${escapeHtmlJs(l.buyer_name || '')}</td>
+        <td>${PARTNER_LEAD_STATUS_LABELS[l.status] || l.status}</td><td>${escapeHtmlJs(l.created_at)}</td></tr>`).join('')}</tbody>
+    </table>` : '<div style="font-size:.85rem;color:var(--gray)">No partner leads yet.</div>';
+}
+
+async function loadAdminPartnerFees() {
+  const { res, data } = await apiFetch('/admin/partner-fees').catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) return;
+  const el = document.getElementById('admin-partner-fees-list');
+  el.innerHTML = data.fees?.length ? `
+    <table class="dp-table">
+      <thead><tr><th>#</th><th>Partner</th><th>Amount</th><th>Status</th><th>Due</th><th>Action</th></tr></thead>
+      <tbody>${data.fees.map(f => `
+        <tr${f.overdue ? ' style="color:var(--red)"' : ''}>
+          <td>${f.id}</td><td>${escapeHtmlJs(f.dealership_name)}</td>
+          <td>${f.dollar_amount != null ? '$' + f.dollar_amount : (f.fee_percent ? f.fee_percent + '% of ' + f.fee_percent_basis : '?')}</td>
+          <td>${escapeHtmlJs(f.status)}${f.overdue ? ' (OVERDUE)' : ''}</td>
+          <td>${escapeHtmlJs(f.due_date || '')}</td>
+          <td>${f.status === 'owed' ? `
+            <button class="btn-primary btn-sm" style="width:auto" onclick="doUpdateFee(${f.id},'paid')">Mark Paid</button>
+            <button class="btn-primary btn-sm btn-danger" style="width:auto" onclick="doUpdateFee(${f.id},'written_off')">Write Off</button>` : ''}</td>
+        </tr>`).join('')}</tbody>
+    </table>` : '<div style="font-size:.85rem;color:var(--gray)">No fees yet.</div>';
+}
+
+async function doUpdateFee(id, status) {
+  let dollar_amount = null;
+  if (status === 'paid') dollar_amount = prompt('Final dollar amount collected (leave blank to keep as-is)') || null;
+  const body = { status };
+  if (dollar_amount) body.dollar_amount = +dollar_amount;
+  await apiFetch(`/admin/partner-fees/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+  loadAdminPartnerFees();
+}
+
+async function loadAdminPartnerLifecycleEmails() {
+  const { res, data } = await apiFetch('/admin/partner-lifecycle-emails').catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) return;
+  const el = document.getElementById('admin-partner-emails-list');
+  el.innerHTML = data.emails?.length ? data.emails.map(e => `
+    <div class="dp-card" style="margin-bottom:1rem;padding:1.1rem 1.25rem;border:1px solid var(--border);border-radius:3px">
+      <div style="font-size:.78rem;color:var(--gray);margin-bottom:.4rem">To: ${escapeHtmlJs(e.to_email)} · Template: ${escapeHtmlJs(e.template_key)}${e.white_glove ? ' · White Glove' : ''}</div>
+      <strong style="color:var(--navy)">${escapeHtmlJs(e.subject)}</strong>
+      <div style="font-size:.82rem;color:var(--ink);margin:.6rem 0;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:2px;padding:.75rem">${e.html}</div>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn-primary btn-sm btn-gold" style="width:auto" onclick="doApproveLifecycleEmail(${e.id})">Approve & Send</button>
+        <button class="btn-primary btn-sm btn-danger" style="width:auto" onclick="doRejectLifecycleEmail(${e.id})">Reject</button>
+      </div>
+    </div>`).join('') : '<div style="font-size:.85rem;color:var(--gray)">Nothing awaiting approval.</div>';
+}
+
+async function doApproveLifecycleEmail(id) {
+  await apiFetch(`/admin/partner-lifecycle-emails/${id}/approve`, { method: 'POST' });
+  loadAdminPartnerLifecycleEmails();
+}
+async function doRejectLifecycleEmail(id) {
+  await apiFetch(`/admin/partner-lifecycle-emails/${id}/reject`, { method: 'POST' });
+  loadAdminPartnerLifecycleEmails();
+}
+
 // ── Init ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   const hasInvite = await checkForInvite();
-  if (!hasInvite) restoreSession();
+  if (!hasInvite) { restoreSession(); restorePartnerSession(); }
 });
 </script>
 </body>
