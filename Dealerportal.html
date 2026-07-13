@@ -205,7 +205,6 @@
       <span class="nav-badge">Dealer Portal</span>
       <span class="nav-dealer-name" id="nav-dealer-name"></span>
       <button class="btn-logout" id="nav-logout-btn" onclick="doLogout()">Sign Out</button>
-      <a class="back-link" href="#" id="nav-partner-link" onclick="showView('view-partner-login');return false">Partner Login</a>
       <a class="back-link" href="/">← Main Site</a>
     </div>
   </div>
@@ -293,6 +292,11 @@
       <div class="dash-card-icon">📋</div>
       <div class="dash-card-title">My Submissions</div>
       <div class="dash-card-desc">Track the status of your vehicle submissions — pending review, approved, or published in the newsletter.</div>
+    </div>
+    <div class="dash-card" onclick="showView('view-partner-leads')">
+      <div class="dash-card-icon">🤝</div>
+      <div class="dash-card-title">Buyer Leads</div>
+      <div class="dash-card-desc">Matched buyer leads routed to you — verify availability, update deal status, and track referral fees.</div>
     </div>
   </div>
 
@@ -585,90 +589,28 @@
 </div><!-- /view-signup -->
 
 <!-- ════════════════════════════════════════════════════════
-     VIEW: PARTNER LOGIN (separate account type from dealers above —
-     buyer-lead-referral reps, not the trade-in/inventory dealer network)
+     VIEW: BUYER LEADS (dealers ARE partners — same login/session as the
+     rest of the Dealer Portal, no separate account. Verification tasks,
+     deal pipeline updates, unlocked buyer info post-verify.)
 ═════════════════════════════════════════════════════════ -->
-<div class="view" id="view-partner-login">
-  <div class="login-hero">
-    <div class="login-left">
-      <div class="login-left-content">
-        <div class="invite-badge"><span class="invite-dot"></span>Partner Network</div>
-        <br/>
-        <h1>Partner <em>Portal</em></h1>
-        <p>Verify matched buyer leads, track your deal pipeline, and manage your referral fees.</p>
-      </div>
-    </div>
-    <div class="login-right">
-      <div class="login-card">
-        <h2 class="display" style="margin-bottom:1.5rem">Partner Sign In</h2>
-        <div class="dp-alert dp-alert-err" id="partner-login-error"></div>
-        <div class="dp-form-group">
-          <label>Email</label>
-          <input type="email" id="partner-login-email" placeholder="you@dealership.com"/>
-        </div>
-        <div class="dp-form-group" style="margin-bottom:.75rem">
-          <label>Password</label>
-          <input type="password" id="partner-login-password"/>
-        </div>
-        <div style="text-align:right;margin-bottom:1.5rem">
-          <a href="#" onclick="showView('view-partner-forgot');return false" style="font-size:.75rem;color:var(--gray)">Forgot password?</a>
-        </div>
-        <button class="btn-primary" id="partner-login-btn" onclick="doPartnerLogin()">Sign In</button>
-        <p style="margin-top:1.5rem;font-size:.8rem;color:var(--gray);text-align:center">
-          Not a partner yet? <a href="/partners-apply.html" style="color:var(--gold)">Apply here</a>
-        </p>
-      </div>
-    </div>
-  </div>
-</div><!-- /view-partner-login -->
+<div class="view" id="view-partner-leads">
 
-<!-- ════════════════════════════════════════════════════════
-     VIEW: PARTNER PASSWORD RESET REQUEST
-═════════════════════════════════════════════════════════ -->
-<div class="view" id="view-partner-forgot">
-  <div class="login-hero">
-    <div class="login-left">
-      <div class="login-left-content">
-        <h1>Reset your <em>password</em></h1>
-        <p>We'll email you a link that's valid for 2 hours.</p>
-      </div>
-    </div>
-    <div class="login-right">
-      <div class="login-card">
-        <div class="dp-alert dp-alert-err" id="partner-forgot-error"></div>
-        <div class="dp-alert dp-alert-ok" id="partner-forgot-success"></div>
-        <div class="dp-form-group">
-          <label>Email</label>
-          <input type="email" id="partner-forgot-email"/>
-        </div>
-        <button class="btn-primary" id="partner-forgot-btn" onclick="doPartnerForgotPassword()">Send reset link</button>
-        <p style="margin-top:1.5rem;font-size:.8rem;color:var(--gray);text-align:center">
-          <a href="#" onclick="showView('view-partner-login');return false" style="color:var(--gray)">← Back to sign in</a>
-        </p>
-      </div>
-    </div>
-  </div>
-</div><!-- /view-partner-forgot -->
-
-<!-- ════════════════════════════════════════════════════════
-     VIEW: PARTNER PORTAL (dashboard — verification tasks, deal
-     pipeline checkboxes, unlocked buyer info post-verify)
-═════════════════════════════════════════════════════════ -->
-<div class="view" id="view-partner-portal">
-  <div class="subview-header" style="background:var(--navy)">
+  <div class="subview-header">
     <div class="subview-header-inner">
       <div>
-        <div class="subview-title">Partner <em>Dashboard</em></div>
-        <div class="subview-sub" id="partner-portal-sub"></div>
+        <button class="subview-back" onclick="showView('view-dashboard')">← Dashboard</button>
+        <div class="subview-title">Buyer <em>Leads</em></div>
+        <div class="subview-sub">Matched buyer leads routed to you — verify availability and update deal status</div>
       </div>
-      <button class="btn-primary btn-sm btn-danger" onclick="doPartnerLogout()">Sign Out</button>
     </div>
   </div>
+
   <div class="content-area">
     <div id="partner-leads-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
     <div id="partner-leads-list"></div>
   </div>
-</div><!-- /view-partner-portal -->
+
+</div><!-- /view-partner-leads -->
 
 </div><!-- /portal-wrap -->
 
@@ -703,6 +645,7 @@ function showView(id) {
   // Trigger data loads on view switch
   if (id === 'view-leads')          loadLeads();
   if (id === 'view-my-submissions') loadMySubmissions();
+  if (id === 'view-partner-leads')  loadPartnerLeads();
   if (id === 'view-admin') {
     loadAdminSubmissions();
     loadAdminFindLeads();
@@ -2170,69 +2113,9 @@ function renderValuationDetailHtml(v, opts) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// Dealer Partner Network (buyer-lead-referral reps) — a separate
-// account/session type from the dealers above. Own token, own apiFetch.
+// Buyer Leads (dealers ARE partners — same login/session as the rest of
+// the Dealer Portal; uses the existing apiFetch/authToken, no separate auth)
 // ══════════════════════════════════════════════════════════════
-let partnerToken   = localStorage.getItem('tem_partner_token') || null;
-let currentPartner = null;
-
-async function partnerApiFetch(path, opts = {}) {
-  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
-  if (partnerToken) headers['Authorization'] = `Bearer ${partnerToken}`;
-  const res  = await fetch(`${API}${path}`, { ...opts, headers });
-  const data = await res.json().catch(() => ({}));
-  return { res, data };
-}
-
-async function doPartnerLogin() {
-  const email    = document.getElementById('partner-login-email').value.trim();
-  const password = document.getElementById('partner-login-password').value;
-  if (!email || !password) { showAlert('partner-login-error', 'Please enter your email and password.'); return; }
-
-  setLoading('partner-login-btn', true, 'Signing in…');
-  const { res, data } = await partnerApiFetch('/partner/login', { method: 'POST', body: JSON.stringify({ email, password }) })
-    .catch(() => ({ res: { ok: false }, data: { error: 'Connection error. Please try again.' } }));
-  setLoading('partner-login-btn', false, null, 'Sign In');
-
-  if (!res.ok) { showAlert('partner-login-error', data.error || 'Invalid credentials.'); return; }
-
-  partnerToken = data.token;
-  localStorage.setItem('tem_partner_token', partnerToken);
-  currentPartner = data.partner;
-  enterPartnerPortal();
-}
-
-async function doPartnerLogout() {
-  if (partnerToken) await partnerApiFetch('/partner/logout', { method: 'POST' }).catch(() => {});
-  partnerToken = null;
-  currentPartner = null;
-  localStorage.removeItem('tem_partner_token');
-  showView('view-partner-login');
-}
-
-async function doPartnerForgotPassword() {
-  const email = document.getElementById('partner-forgot-email').value.trim();
-  if (!email) { showAlert('partner-forgot-error', 'Please enter your email.'); return; }
-  setLoading('partner-forgot-btn', true, 'Sending…');
-  await partnerApiFetch('/partner/password-reset/request', { method: 'POST', body: JSON.stringify({ email }) }).catch(() => {});
-  setLoading('partner-forgot-btn', false, null, 'Send reset link');
-  showAlert('partner-forgot-success', 'If that email is registered, a reset link is on its way.', 'ok');
-}
-
-async function restorePartnerSession() {
-  if (!partnerToken) return;
-  const { res, data } = await partnerApiFetch('/partner/me').catch(() => ({ res: { ok: false }, data: {} }));
-  if (res.ok) { currentPartner = data; enterPartnerPortal(); }
-  else { partnerToken = null; localStorage.removeItem('tem_partner_token'); }
-}
-
-function enterPartnerPortal() {
-  document.getElementById('partner-portal-sub').textContent =
-    `${currentPartner.dealership_name} · Rating ${Number(currentPartner.rating).toFixed(1)}`;
-  showView('view-partner-portal');
-  loadPartnerLeads();
-}
-
 const PARTNER_LEAD_STATUS_LABELS = {
   interested: 'Interested', pending_verification: 'Awaiting your verification', verified: 'Verified',
   video_sent: 'Video sent', test_drive_scheduled: 'Test drive scheduled', negotiations: 'Negotiations',
@@ -2282,7 +2165,7 @@ function escapeHtmlJs(str) {
 
 async function loadPartnerLeads() {
   document.getElementById('partner-leads-loading').style.display = 'block';
-  const { res, data } = await partnerApiFetch('/partner/leads').catch(() => ({ res: { ok: false }, data: {} }));
+  const { res, data } = await apiFetch('/partner/leads').catch(() => ({ res: { ok: false }, data: {} }));
   document.getElementById('partner-leads-loading').style.display = 'none';
   if (!res.ok) return;
   const list = document.getElementById('partner-leads-list');
@@ -2292,14 +2175,14 @@ async function loadPartnerLeads() {
 }
 
 async function doPartnerVerify(id) {
-  const { res, data } = await partnerApiFetch(`/partner/leads/${id}/verify`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
+  const { res, data } = await apiFetch(`/partner/leads/${id}/verify`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
   if (!res.ok) { alert(data.error || 'Could not verify this lead.'); return; }
   loadPartnerLeads();
 }
 
 async function doPartnerNotAvailable(id) {
   if (!confirm('Report this vehicle as no longer available? This will close the lead.')) return;
-  const { res, data } = await partnerApiFetch(`/partner/leads/${id}/not-available`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
+  const { res, data } = await apiFetch(`/partner/leads/${id}/not-available`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
   if (!res.ok) { alert(data.error || 'Could not update this lead.'); return; }
   loadPartnerLeads();
 }
@@ -2320,7 +2203,7 @@ async function doPartnerUpdateStatus(id) {
     body.lost_reason_notes = prompt('Any notes on why? (optional)') || '';
   }
 
-  const { res, data } = await partnerApiFetch(`/partner/leads/${id}/status`, { method: 'PATCH', body: JSON.stringify(body) })
+  const { res, data } = await apiFetch(`/partner/leads/${id}/status`, { method: 'PATCH', body: JSON.stringify(body) })
     .catch(() => ({ res: { ok: false }, data: {} }));
   if (!res.ok) { alert(data.error || 'Could not update status.'); return; }
   loadPartnerLeads();
@@ -2348,7 +2231,7 @@ function renderPartnerApplicationCard(p) {
         <span style="font-size:.72rem;color:var(--gray)">${escapeHtmlJs(p.market || '')}${p.zone ? ' / ' + escapeHtmlJs(p.zone) : ' (unmapped)'}</span>
       </div>
       <div style="font-size:.82rem;color:var(--gray);margin:.5rem 0">
-        ${escapeHtmlJs(p.full_name)} (${escapeHtmlJs(p.role)}) · ${escapeHtmlJs(p.email)} · ${escapeHtmlJs(p.phone || '')}<br/>
+        ${escapeHtmlJs(p.name)} (${escapeHtmlJs(p.contact_role)}) · ${escapeHtmlJs(p.email)} · ${escapeHtmlJs(p.phone || '')}<br/>
         Type: ${escapeHtmlJs(p.dealership_type)}${brands ? ' · Brands: ' + escapeHtmlJs(brands) : ''} · Used scope: ${escapeHtmlJs(p.used_scope)}<br/>
         Units/mo: ${p.monthly_units ?? '?'} · Referral policy: <strong>${escapeHtmlJs(p.referral_policy_status)}</strong>
         ${p.referral_policy_notes ? ' — ' + escapeHtmlJs(p.referral_policy_notes) : ''}
@@ -2383,7 +2266,11 @@ async function doRejectPartner(id) {
 async function loadAdminActivePartners() {
   const { res, data } = await apiFetch('/admin/partners').catch(() => ({ res: { ok: false }, data: {} }));
   if (!res.ok) return;
-  const active = (data.partners || []).filter(p => p.status !== 'pending');
+  // Only dealers who actually completed the partner application
+  // (dealership_type set) are referral partners — a legacy invite-signed-up
+  // dealer who never applied stays out of this list, same gating the
+  // matching engine uses.
+  const active = (data.partners || []).filter(p => p.status !== 'pending' && p.dealership_type);
   const el = document.getElementById('admin-partners-active-list');
   el.innerHTML = active.length ? `
     <div style="overflow-x:auto"><table class="dp-table">
@@ -2391,7 +2278,7 @@ async function loadAdminActivePartners() {
       <tbody>${active.map(p => `
         <tr>
           <td>${escapeHtmlJs(p.dealership_name)}</td>
-          <td>${escapeHtmlJs(p.full_name)}</td>
+          <td>${escapeHtmlJs(p.name)}</td>
           <td>${escapeHtmlJs(p.market || '')}${p.zone ? '/' + escapeHtmlJs(p.zone) : ''}</td>
           <td>${Number(p.rating).toFixed(1)}</td>
           <td>${p.autodev_dealer_id ? escapeHtmlJs(p.autodev_dealer_id) : `<button class="btn-primary btn-sm" style="width:auto" onclick="doLookupPartnerAutodevId(${p.id})">Find ID</button>`}</td>
@@ -2427,7 +2314,7 @@ async function doDeactivatePartner(id) {
 // ── Init ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   const hasInvite = await checkForInvite();
-  if (!hasInvite) { restoreSession(); restorePartnerSession(); }
+  if (!hasInvite) restoreSession();
 });
 </script>
 </body>

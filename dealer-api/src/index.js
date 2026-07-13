@@ -39,7 +39,9 @@ function normalizeWebsiteUrl(input) {
   }
 }
 const VALID_SUB_STATUSES    = ['pending', 'approved', 'rejected', 'published'];
-const VALID_DEALER_STATUSES = ['active', 'suspended'];
+// 'pending'/'rejected'/'deactivated' added for the partner-network application
+// flow — dealers ARE partners, one status vocabulary for the one account type.
+const VALID_DEALER_STATUSES = ['active', 'suspended', 'pending', 'rejected', 'deactivated'];
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  '*',
@@ -137,6 +139,7 @@ async function dealerLogin(request, env) {
 
   const dealer = await env.DB.prepare('SELECT * FROM dealers WHERE email = ?').bind(email).first();
   if (!dealer) return json({ error: 'Invalid email or password.' }, 401);
+  if (dealer.status === 'pending') return json({ error: 'Your application is still under review. We\'ll email you as soon as it\'s approved.' }, 403);
   if (dealer.status !== 'active') return json({ error: 'This account has been suspended. Contact Jeff.' }, 403);
 
   const hash = await hashPassword(password, dealer.password_salt);
@@ -149,7 +152,10 @@ async function dealerLogin(request, env) {
 
   return json({
     token,
-    dealer: { id: dealer.id, name: dealer.name, dealership_name: dealer.dealership_name, email: dealer.email, role: dealer.role },
+    dealer: {
+      id: dealer.id, name: dealer.name, dealership_name: dealer.dealership_name, email: dealer.email, role: dealer.role,
+      market: dealer.market, zone: dealer.zone, rating: dealer.rating,
+    },
   });
 }
 
@@ -159,7 +165,10 @@ async function dealerLogout(request, env, params, dealer, token) {
 }
 
 async function dealerMe(request, env, params, dealer) {
-  return json({ id: dealer.id, name: dealer.name, dealership_name: dealer.dealership_name, email: dealer.email, role: dealer.role });
+  return json({
+    id: dealer.id, name: dealer.name, dealership_name: dealer.dealership_name, email: dealer.email, role: dealer.role,
+    market: dealer.market, zone: dealer.zone, rating: dealer.rating, dealership_type: dealer.dealership_type,
+  });
 }
 
 // ── Partner network: config, zone resolution ─────────────────────
@@ -225,77 +234,31 @@ async function resolveZoneForZip(env, zip, city, state) {
   return { market: `${label} (unmapped)`, zone: null, zoneLabel: null, unmapped: true };
 }
 
-// ── Partner auth ──────────────────────────────────────────────────
-// Mirrors dealer auth exactly (same PBKDF2 hashing, same bearer-session
-// pattern) but against the separate partners/partner_sessions tables —
-// partners are individual reps, not dealership accounts, and are kept
-// fully independent of the existing dealers table.
-async function authenticatePartner(token, env) {
-  return env.DB.prepare(
-    `SELECT partners.* FROM partner_sessions JOIN partners ON partners.id = partner_sessions.partner_id
-     WHERE partner_sessions.id = ? AND partner_sessions.expires_at > datetime('now')`
-  ).bind(token).first();
-}
-
-async function partnerLogin(request, env) {
-  const body     = await request.json().catch(() => ({}));
-  const email    = (body.email || '').trim().toLowerCase();
-  const password = body.password || '';
-  if (!email || !password) return json({ error: 'Email and password are required.' }, 400);
-
-  const partner = await env.DB.prepare('SELECT * FROM partners WHERE email = ?').bind(email).first();
-  if (!partner) return json({ error: 'Invalid email or password.' }, 401);
-  if (partner.status === 'pending') return json({ error: 'Your application is still under review. We\'ll email you as soon as it\'s approved.' }, 403);
-  if (partner.status !== 'active') return json({ error: 'This account is not active. Contact TheExactMatch.' }, 403);
-
-  const hash = await hashPassword(password, partner.password_salt);
-  if (hash !== partner.password_hash) return json({ error: 'Invalid email or password.' }, 401);
-
-  const token = randomHex(32);
-  await env.DB.prepare(
-    `INSERT INTO partner_sessions (id, partner_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))`
-  ).bind(token, partner.id).run();
-
-  return json({
-    token,
-    partner: { id: partner.id, full_name: partner.full_name, dealership_name: partner.dealership_name, email: partner.email },
-  });
-}
-
-async function partnerLogout(request, env, params, partner, token) {
-  await env.DB.prepare('DELETE FROM partner_sessions WHERE id = ?').bind(token).run();
-  return json({ success: true });
-}
-
-async function partnerMe(request, env, params, partner) {
-  return json({
-    id: partner.id, full_name: partner.full_name, email: partner.email,
-    dealership_name: partner.dealership_name, market: partner.market, zone: partner.zone,
-    rating: partner.rating, status: partner.status,
-  });
-}
-
-async function partnerRequestPasswordReset(request, env) {
+// Dealers ARE partners — one account type, one login (dealer_sessions,
+// authenticate() above). No separate partner auth. This is the one new
+// dealer-facing auth capability the partner-network build actually added:
+// password reset (dealers never had one before).
+async function dealerRequestPasswordReset(request, env) {
   const body  = await request.json().catch(() => ({}));
   const email = (body.email || '').trim().toLowerCase();
   if (!email) return json({ error: 'Email is required.' }, 400);
 
-  const partner = await env.DB.prepare('SELECT * FROM partners WHERE email = ?').bind(email).first();
+  const dealer = await env.DB.prepare('SELECT * FROM dealers WHERE email = ?').bind(email).first();
   // Always report success — never confirm/deny whether an email is registered.
-  if (!partner) return json({ success: true });
+  if (!dealer) return json({ success: true });
 
   const token = randomHex(24);
   await env.DB.prepare(
-    `INSERT INTO partner_password_resets (token, partner_id, expires_at) VALUES (?, ?, datetime('now', '+2 hours'))`
-  ).bind(token, partner.id).run();
+    `INSERT INTO dealer_password_resets (token, dealer_id, expires_at) VALUES (?, ?, datetime('now', '+2 hours'))`
+  ).bind(token, dealer.id).run();
 
   await sendBrevoEmail(env, {
-    to: partner.email,
-    subject: 'Reset your TheExactMatch Partner Portal password',
+    to: dealer.email,
+    subject: 'Reset your TheExactMatch Dealer Portal password',
     html: brandedEmailHtml(`
-      <p>Hey ${escapeHtml(partner.full_name)},</p>
-      <p>Click below to reset your Partner Portal password. This link expires in 2 hours.</p>
-      <p><a href="https://theexactmatch.com/partners/reset-password?token=${encodeURIComponent(token)}" style="color:#C09A5B">Reset your password</a></p>
+      <p>Hey ${escapeHtml(dealer.name)},</p>
+      <p>Click below to reset your Dealer Portal password. This link expires in 2 hours.</p>
+      <p><a href="https://theexactmatch.com/Dealerportal.html?reset=${encodeURIComponent(token)}" style="color:#C09A5B">Reset your password</a></p>
       <p>If you didn't request this, you can safely ignore this email.</p>
     `),
   });
@@ -303,7 +266,7 @@ async function partnerRequestPasswordReset(request, env) {
   return json({ success: true });
 }
 
-async function partnerResetPassword(request, env) {
+async function dealerResetPassword(request, env) {
   const body     = await request.json().catch(() => ({}));
   const token    = (body.token || '').trim();
   const password = body.password || '';
@@ -311,15 +274,15 @@ async function partnerResetPassword(request, env) {
   if (password.length < 8) return json({ error: 'Password must be at least 8 characters.' }, 400);
 
   const reset = await env.DB.prepare(
-    `SELECT * FROM partner_password_resets WHERE token = ? AND expires_at > datetime('now') AND used_at IS NULL`
+    `SELECT * FROM dealer_password_resets WHERE token = ? AND expires_at > datetime('now') AND used_at IS NULL`
   ).bind(token).first();
   if (!reset) return json({ error: 'This reset link is invalid or has expired.' }, 400);
 
   const salt = randomHex(16);
   const hash = await hashPassword(password, salt);
-  await env.DB.prepare('UPDATE partners SET password_hash = ?, password_salt = ? WHERE id = ?')
-    .bind(hash, salt, reset.partner_id).run();
-  await env.DB.prepare('UPDATE partner_password_resets SET used_at = datetime(\'now\') WHERE token = ?').bind(token).run();
+  await env.DB.prepare('UPDATE dealers SET password_hash = ?, password_salt = ? WHERE id = ?')
+    .bind(hash, salt, reset.dealer_id).run();
+  await env.DB.prepare('UPDATE dealer_password_resets SET used_at = datetime(\'now\') WHERE token = ?').bind(token).run();
 
   return json({ success: true });
 }
@@ -1304,38 +1267,70 @@ function trimMatches(listingTrim, recommendedTrim, listingModel, recommendedMode
 // is not unique — confirmed live, two unrelated dealers both named "Audi
 // North Austin" — so name/website matching risks crediting the wrong lot's
 // inventory to a partner. Exact dealerId is the only safe signal.
-async function loadPartnerDealers(env) {
+//
+// Dealers ARE partners — one table, one account. `dealership_type` is only
+// populated once a dealer has actually gone through the partner application
+// (Section 4/6 of the spec) — every dealer who signed up the old invite way
+// still has it NULL. That single column is what distinguishes "just an
+// inventory-boosted dealer" (unconditional boost, no brand gate, no referral
+// pipeline — exactly today's behavior, untouched) from "a vetted referral
+// partner" (brand-gated for new cars, rating-eligible, and the one whose
+// match can trigger the whole verification/fee lifecycle below).
+async function loadActivePartnerDealers(env) {
   const { results } = await env.DB.prepare(
-    `SELECT id, dealership_name, autodev_dealer_id FROM dealers
-     WHERE role != 'admin' AND status = 'active' AND autodev_dealer_id IS NOT NULL AND autodev_dealer_id != ''`
+    `SELECT id, dealership_name, autodev_dealer_id, dealership_type, brands_new, used_scope, rating, rating_lead_count
+     FROM dealers WHERE role != 'admin' AND status = 'active' AND autodev_dealer_id IS NOT NULL AND autodev_dealer_id != ''`
   ).all();
-  return results;
+  return results.map(d => ({ ...d, brands_new: safeJsonParse(d.brands_new, []) }));
 }
 
-// Splits listings into ones sold by a registered partner dealer (exact
-// autodev_dealer_id match only) vs. everything else. Partner listings are
+// New-car buyer requests can only be fulfilled/monetized by a same-brand
+// franchise partner; used-car requests are open to any vetted partner
+// regardless of brand (used_scope is informational only, per spec Section 7).
+// A dealer who never completed the partner application (dealership_type
+// NULL) skips the brand gate entirely — same unconditional boost as before
+// the partner network existed. Rating only counts once a partner is past its
+// grace window (Section 11) — before that, and for non-partner dealers, it's
+// left off the merged entry entirely so partitionByPartnerDealer treats it
+// as neutral.
+function partnersEligibleForPick(activeDealers, pick, lead, cfg) {
+  const isUsed = leadUsedFilter(lead.condition); // false = new only, true = used only, undefined = either
+  return activeDealers
+    .filter(d => {
+      if (!d.dealership_type) return true; // legacy dealer — unconditional boost, unchanged
+      if (isUsed === false) {
+        if (d.dealership_type !== 'franchise_new_used') return false;
+        return (d.brands_new || []).some(b => (b || '').trim().toLowerCase() === (pick.make || '').trim().toLowerCase());
+      }
+      return true;
+    })
+    .map(d => ({
+      dealership_name: d.dealership_name,
+      autodev_dealer_id: d.autodev_dealer_id,
+      id: d.id,
+      // Only a completed partner application can trigger the buyer-lead
+      // pipeline (verification emails assume real fee terms were agreed to).
+      _isReferralPartner: !!d.dealership_type,
+      _rating: (d.dealership_type && d.rating_lead_count >= cfg.rating_grace_lead_count) ? d.rating : undefined,
+    }));
+}
+
+// Splits listings into ones sold by a registered dealer (exact
+// autodev_dealer_id match only) vs. everything else. Matched listings are
 // returned first so they're prioritized without a second Auto.dev query.
 //
-// `partnerDealers` can now contain two kinds of entries, both keyed the same
-// way (dealership_name + autodev_dealer_id) so this function needs no
-// awareness of where they came from:
-//  - old-style entries from loadPartnerDealers() (the dealers table's
-//    dealership-level inventory boost — untouched, no rating concept)
-//  - new-style entries from loadActivePartnersForMatch()/partnersEligibleForPick(),
-//    tagged `_source: 'partner'` with a `_rating`.
-//
-// Fit dominates: within the partner bucket, listings stay grouped into
-// distance tiers (width = partnerDealers.ratingTierMiles, set by the caller
-// from partner_config's matching_rating_tiebreak_threshold). Only within a
-// tier — i.e. only among comparably-fitting cars — does a higher rating win.
-// A listing with no rating (old dealers-table boost, or a partner still in
-// its grace window) sorts as if rating were neutral (10), so it's never
-// bumped by this. Rating must never surface a worse-fitting car over a
-// clearly better one (spec Section 7) — that's exactly what the tiering
-// guarantees, since tier membership is decided before rating ever applies.
-function partitionByPartnerDealer(listings, partnerDealers) {
+// Fit dominates: within the matched bucket, listings stay grouped into
+// distance tiers (width = dealers.ratingTierMiles, set by the caller from
+// partner_config's matching_rating_tiebreak_threshold). Only within a tier —
+// i.e. only among comparably-fitting cars — does a higher rating win. A
+// listing with no rating (a non-partner dealer, or a partner still in its
+// grace window) sorts as if rating were neutral (10), so it's never bumped
+// by this. Rating must never surface a worse-fitting car over a clearly
+// better one (spec Section 7) — that's exactly what the tiering guarantees,
+// since tier membership is decided before rating ever applies.
+function partitionByPartnerDealer(listings, dealers) {
   const byId = new Map();
-  for (const d of partnerDealers) {
+  for (const d of dealers) {
     if (d.autodev_dealer_id) byId.set(d.autodev_dealer_id, d);
   }
 
@@ -1347,13 +1342,13 @@ function partitionByPartnerDealer(listings, partnerDealers) {
       partner.push({
         ...l,
         partner_dealer_id: match.id,
-        matched_partner_id: match._source === 'partner' ? match.id : null,
+        matched_partner_id: match._isReferralPartner ? match.id : null,
       });
     } else other.push(l);
   }
   if (!partner.length) return listings;
 
-  const tierMiles = partnerDealers.ratingTierMiles || 10;
+  const tierMiles = dealers.ratingTierMiles || 10;
   partner.sort((a, b) => {
     const da = a.distance_miles ?? Infinity;
     const db = b.distance_miles ?? Infinity;
@@ -1367,44 +1362,6 @@ function partitionByPartnerDealer(listings, partnerDealers) {
   });
 
   return [...partner, ...other];
-}
-
-// New buyer-lead-referral partner network (individual reps, separate from
-// the dealers table above). Same exact-dealerId-only safety reasoning as
-// loadPartnerDealers: Auto.dev's dealer NAME filter isn't unique, so only a
-// partner with an admin-confirmed autodev_dealer_id is usable for matching.
-async function loadActivePartnersForMatch(env) {
-  const { results } = await env.DB.prepare(
-    `SELECT id, dealership_name, autodev_dealer_id, dealership_type, brands_new, used_scope, rating, rating_lead_count
-     FROM partners WHERE status = 'active' AND autodev_dealer_id IS NOT NULL AND autodev_dealer_id != ''`
-  ).all();
-  return results.map(p => ({ ...p, brands_new: safeJsonParse(p.brands_new, []) }));
-}
-
-// New-car buyer requests can only be fulfilled/monetized by a same-brand
-// franchise partner; used-car requests are open to any active partner
-// regardless of brand (used_scope is informational only, per spec Section 7).
-// Rating only counts once a partner is past its grace window (Section 11) —
-// before that it's cosmetic and must not influence ranking, so it's left off
-// the merged entry entirely (partitionByPartnerDealer treats a missing
-// rating as neutral).
-function partnersEligibleForPick(activePartners, pick, lead, cfg) {
-  const isUsed = leadUsedFilter(lead.condition); // false = new only, true = used only, undefined = either
-  return activePartners
-    .filter(p => {
-      if (isUsed === false) {
-        if (p.dealership_type !== 'franchise_new_used') return false;
-        return (p.brands_new || []).some(b => (b || '').trim().toLowerCase() === (pick.make || '').trim().toLowerCase());
-      }
-      return true;
-    })
-    .map(p => ({
-      dealership_name: p.dealership_name,
-      autodev_dealer_id: p.autodev_dealer_id,
-      id: p.id,
-      _source: 'partner',
-      _rating: p.rating_lead_count >= cfg.rating_grace_lead_count ? p.rating : undefined,
-    }));
 }
 
 async function verifyListingLive(vdpUrl) {
@@ -1967,22 +1924,19 @@ async function generateReportForLead(env, leadId) {
 
   const picks = await pickVehicles(env, lead);
   console.log(`[timing] pickVehicles: ${Date.now() - t0}ms`);
-  const partnerDealers = await loadPartnerDealers(env);
-  const activePartners = await loadActivePartnersForMatch(env);
+  const activeDealers = await loadActivePartnerDealers(env);
   const partnerCfg = await getPartnerConfig(env);
   const tVehicles = Date.now();
   const tags = picks.map(pick => `${pick.year} ${pick.make} ${pick.model}`);
 
-  // Per-position merge of the old dealers-table boost with the new partner
-  // network (brand-restricted for new cars, open for used — see
-  // partnersEligibleForPick). Threading a plain extra param through every
-  // call site down to partitionByPartnerDealer would touch a lot of
-  // signatures for one number, so the distance-tier width just rides along
-  // as a property on the array itself.
+  // Per-position brand-gate (new-car requests only; see partnersEligibleForPick).
+  // Threading a plain extra param through every call site down to
+  // partitionByPartnerDealer would touch a lot of signatures for one number,
+  // so the distance-tier width just rides along as a property on the array.
   const partnerDealersByPosition = picks.map(pick => {
-    const merged = [...partnerDealers, ...partnersEligibleForPick(activePartners, pick, lead, partnerCfg)];
-    merged.ratingTierMiles = partnerCfg.matching_rating_tiebreak_threshold;
-    return merged;
+    const eligible = partnersEligibleForPick(activeDealers, pick, lead, partnerCfg);
+    eligible.ratingTierMiles = partnerCfg.matching_rating_tiebreak_threshold;
+    return eligible;
   });
 
   // Phase A (parallel I/O): fetch each position's candidate pool.
@@ -3440,7 +3394,6 @@ const NOTIFICATION_SECTION_TABLES = {
   sell_car:   'sell_my_car_leads',
   messages:   'contact_messages',
   dealers:    'dealers',
-  partner_applications: 'partners',
 };
 const NOTIFICATION_SECTIONS = Object.keys(NOTIFICATION_SECTION_TABLES);
 
@@ -3571,6 +3524,14 @@ async function adminUpdateDealer(request, env, params) {
   }
   if ('autodev_dealer_id' in body) {
     sets.push('autodev_dealer_id = ?'); values.push(body.autodev_dealer_id || null);
+  }
+  // Partner-network fields (departure handling, Section 13) — same table,
+  // same edit endpoint, since dealers ARE partners.
+  if ('departure_flag' in body) {
+    sets.push('departure_flag = ?'); values.push(body.departure_flag ? 1 : 0);
+  }
+  if ('replacement_referral' in body) {
+    sets.push('replacement_referral = ?'); values.push(body.replacement_referral || null);
   }
   if (!sets.length) return json({ error: 'Nothing to update.' }, 400);
 
@@ -3805,7 +3766,7 @@ function sendInterestConfirmationEmail(env, details, deepDiveUrl) {
 // "search partners" surface exists or is needed — Find My Car already is the
 // buyer's search.
 async function createPartnerLeadOnInterest(env, ctx, vehicle, details) {
-  const partner = await env.DB.prepare('SELECT * FROM partners WHERE id = ?').bind(vehicle.matched_partner_id).first();
+  const partner = await env.DB.prepare('SELECT * FROM dealers WHERE id = ?').bind(vehicle.matched_partner_id).first();
   if (!partner) return;
 
   const cfg = await getPartnerConfig(env);
@@ -3829,7 +3790,7 @@ async function createPartnerLeadOnInterest(env, ctx, vehicle, details) {
     to: partner.email,
     subject: `A buyer wants your ${vehicle.year} ${vehicle.make} ${vehicle.model} — please verify availability`,
     html: brandedEmailHtml(`
-      <p>Hey ${escapeHtml(partner.full_name)},</p>
+      <p>Hey ${escapeHtml(partner.name)},</p>
       <p>A TheExactMatch client is interested in this ${escapeHtml(String(vehicle.year))} ${escapeHtml(vehicle.make)} ${escapeHtml(vehicle.model)} ${escapeHtml(vehicle.trim || '')} from your inventory.</p>
       <p>Please confirm it's still available in your Partner Portal dashboard as soon as you can — the target is within 1 hour, and buyer contact info unlocks the moment you verify.</p>
       <p><a href="https://theexactmatch.com/Dealerportal.html#partner-portal" style="color:#C09A5B">Verify availability →</a></p>
@@ -4548,12 +4509,12 @@ async function mirrorPartnerLeadToCrm(env, partnerLead, summary, advanceStage, s
 // Grace window and floor/cap are enforced here, not at the matching layer,
 // so partners.rating always reflects "what it would show right now."
 async function applyPartnerRatingDelta(env, partnerId, partnerLeadId, type, delta, cfg) {
-  const partner = await env.DB.prepare('SELECT rating FROM partners WHERE id = ?').bind(partnerId).first();
+  const partner = await env.DB.prepare('SELECT rating FROM dealers WHERE id = ?').bind(partnerId).first();
   if (!partner) return;
   const newRating = Math.min(cfg.rating_cap, Math.max(cfg.rating_floor, partner.rating + delta));
   const countsTowardGrace = type.startsWith('verify_') ? 1 : 0;
   await env.DB.prepare(
-    `UPDATE partners SET rating = ?, rating_lead_count = rating_lead_count + ? WHERE id = ?`
+    `UPDATE dealers SET rating = ?, rating_lead_count = rating_lead_count + ? WHERE id = ?`
   ).bind(newRating, countsTowardGrace, partnerId).run();
   await env.DB.prepare(
     `INSERT INTO partner_rating_events (partner_id, partner_lead_id, type, delta, rating_after) VALUES (?, ?, ?, ?, ?)`
@@ -4686,14 +4647,14 @@ async function sendLifecycleEmailForStatus(env, partnerLead, cfg) {
 
 // ── Partner network: verification + buyer comms emails ─────────────
 async function sendPartnerVerifyReminder(env, lead, escalated) {
-  const partner = await env.DB.prepare('SELECT * FROM partners WHERE id = ?').bind(lead.partner_id).first();
+  const partner = await env.DB.prepare('SELECT * FROM dealers WHERE id = ?').bind(lead.partner_id).first();
   if (!partner) return;
   const listing = safeJsonParse(lead.listing_snapshot, {});
   await sendBrevoEmail(env, {
     to: partner.email,
     subject: `Reminder: please verify the ${listing.year || ''} ${listing.make || ''} ${listing.model || ''}`,
     html: brandedEmailHtml(`
-      <p>Hey ${escapeHtml(partner.full_name)},</p>
+      <p>Hey ${escapeHtml(partner.name)},</p>
       <p>Just a reminder — a buyer is waiting to hear whether this vehicle is still available. Please verify in your Partner Portal dashboard.</p>
       <p><a href="https://theexactmatch.com/Dealerportal.html#partner-portal" style="color:#C09A5B">Verify now →</a></p>
     `),
@@ -4702,8 +4663,8 @@ async function sendPartnerVerifyReminder(env, lead, escalated) {
   if (escalated) {
     await sendBrevoEmail(env, {
       to: 'theexactmatch@gmail.com',
-      subject: `⚠ Partner hasn't verified in 8h — please call/text ${partner.full_name}`,
-      html: brandedEmailHtml(`<p><strong>${escapeHtml(partner.full_name)}</strong> (${escapeHtml(partner.dealership_name)}, ${escapeHtml(partner.phone || 'no phone on file')}) hasn't verified partner_leads.id=${lead.id} in 8 hours. Please reach out directly.</p>`),
+      subject: `⚠ Partner hasn't verified in 8h — please call/text ${partner.name}`,
+      html: brandedEmailHtml(`<p><strong>${escapeHtml(partner.name)}</strong> (${escapeHtml(partner.dealership_name)}, ${escapeHtml(partner.phone || 'no phone on file')}) hasn't verified partner_leads.id=${lead.id} in 8 hours. Please reach out directly.</p>`),
     }).catch(err => console.error('verify escalation email failed', lead.id, err));
   }
 }
@@ -4737,13 +4698,13 @@ async function sendBuyerRerouteEmail(env, lead) {
 }
 
 async function sendPartnerStatusNudge(env, lead, isStillShopping) {
-  const partner = await env.DB.prepare('SELECT * FROM partners WHERE id = ?').bind(lead.partner_id).first();
+  const partner = await env.DB.prepare('SELECT * FROM dealers WHERE id = ?').bind(lead.partner_id).first();
   if (!partner) return;
   await sendBrevoEmail(env, {
     to: partner.email,
     subject: isStillShopping ? 'Any update on this still-shopping buyer?' : 'Please update this deal\'s status',
     html: brandedEmailHtml(`
-      <p>Hey ${escapeHtml(partner.full_name)},</p>
+      <p>Hey ${escapeHtml(partner.name)},</p>
       <p>Could you update the status on partner lead #${lead.id} in your dashboard? Keeping it current helps us keep buyers in the loop.</p>
       <p><a href="https://theexactmatch.com/Dealerportal.html#partner-portal" style="color:#C09A5B">Update status →</a></p>
     `),
@@ -4973,7 +4934,7 @@ async function computeOverlapFlag(env, { market, zone, dealershipType, brandsNew
 
   if (dealershipType === 'franchise_new_used' && brandsNew?.length) {
     const { results } = await env.DB.prepare(
-      `SELECT id, dealership_name, brands_new FROM partners WHERE status = 'active' AND market = ? AND zone = ? AND dealership_type = 'franchise_new_used'`
+      `SELECT id, dealership_name, brands_new FROM dealers WHERE status = 'active' AND market = ? AND zone = ? AND dealership_type = 'franchise_new_used'`
     ).bind(market, zone).all();
     for (const p of results) {
       const existingBrands = safeJsonParse(p.brands_new, []).map(b => (b || '').toLowerCase());
@@ -4984,7 +4945,7 @@ async function computeOverlapFlag(env, { market, zone, dealershipType, brandsNew
   }
 
   const { results } = await env.DB.prepare(
-    `SELECT id, dealership_name FROM partners WHERE status = 'active' AND market = ? AND zone = ? AND dealership_type = ?`
+    `SELECT id, dealership_name FROM dealers WHERE status = 'active' AND market = ? AND zone = ? AND dealership_type = ?`
   ).bind(market, zone, dealershipType).all();
   if (results.length) return { flag: true, notes: `Overlaps with ${results.map(p => `${p.dealership_name} (#${p.id})`).join(', ')} — same zone, same dealership type.` };
   return { flag: false, notes: null };
@@ -5011,7 +4972,7 @@ async function submitPartnerApplication(request, env) {
   }
   await env.DB.prepare('INSERT INTO partner_apply_attempts (ip) VALUES (?)').bind(ip).run();
 
-  const full_name  = (body.full_name || '').trim();
+  const name       = (body.full_name || '').trim();
   const email      = (body.email || '').trim().toLowerCase();
   const password   = body.password || '';
   const phone      = (body.phone || '').trim();
@@ -5021,19 +4982,22 @@ async function submitPartnerApplication(request, env) {
   const state      = (body.state || '').trim();
   const dealership_type = body.dealership_type;
   const used_scope = body.used_scope;
-  const role       = body.role;
+  // Job title at the dealership (salesperson/sales_manager/internet_bdc/gm) —
+  // stored as contact_role, distinct from dealers.role which is the account's
+  // permission level ('dealer' | 'admin').
+  const contact_role = body.role;
   const monthly_units = body.monthly_units != null ? +body.monthly_units : null;
   const referral_policy_status = body.referral_policy_status;
   const lead_contact_method = body.lead_contact_method;
 
-  if (!full_name || !email || !password || !phone || !dealership_name || !zip) {
+  if (!name || !email || !password || !phone || !dealership_name || !zip) {
     return json({ error: 'All required fields must be filled in.' }, 400);
   }
   if (!EMAIL_RE.test(email)) return json({ error: 'Invalid email address.' }, 400);
   if (password.length < 8) return json({ error: 'Password must be at least 8 characters.' }, 400);
   if (!PARTNER_DEALERSHIP_TYPES.includes(dealership_type)) return json({ error: 'Invalid dealership type.' }, 400);
   if (!PARTNER_USED_SCOPES.includes(used_scope)) return json({ error: 'Invalid used-inventory scope.' }, 400);
-  if (!PARTNER_ROLES.includes(role)) return json({ error: 'Invalid role.' }, 400);
+  if (!PARTNER_ROLES.includes(contact_role)) return json({ error: 'Invalid role.' }, 400);
   if (!PARTNER_REFERRAL_STATUSES.includes(referral_policy_status)) return json({ error: 'Please answer the referral fee question.' }, 400);
   if (!PARTNER_CONTACT_METHODS.includes(lead_contact_method)) return json({ error: 'Invalid contact method.' }, 400);
   if (!body.agreed_terms) return json({ error: 'You must agree to the terms to apply.' }, 400);
@@ -5058,7 +5022,7 @@ async function submitPartnerApplication(request, env) {
 
   const brands_new = dealership_type === 'franchise_new_used' ? JSON.stringify(body.brands_new || []) : null;
 
-  const existing = await env.DB.prepare('SELECT id FROM partners WHERE email = ?').bind(email).first();
+  const existing = await env.DB.prepare('SELECT id FROM dealers WHERE email = ?').bind(email).first();
   if (existing) return json({ error: 'An account with this email already exists.' }, 409);
 
   const { market, zone, unmapped } = await resolveZoneForZip(env, zip, city, state);
@@ -5070,15 +5034,15 @@ async function submitPartnerApplication(request, env) {
   const hash = await hashPassword(password, salt);
 
   const result = await env.DB.prepare(`
-    INSERT INTO partners (
-      full_name, email, password_hash, password_salt, phone, dealership_name, zip, city, state,
-      market, zone, market_unmapped, dealership_type, brands_new, used_scope, role, monthly_units,
+    INSERT INTO dealers (
+      name, email, password_hash, password_salt, phone, dealership_name, zip, city, state,
+      market, zone, market_unmapped, dealership_type, brands_new, used_scope, contact_role, monthly_units,
       fee_type, fee_amount, fee_percent_basis, referral_policy_status, referral_policy_notes, referral_contact,
       lead_contact_method, anything_else, overlap_flag, overlap_notes, status, agreed_terms_at, signup_ip
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', datetime('now'), ?)
   `).bind(
-    full_name, email, hash, salt, phone, dealership_name, zip, city || null, state || null,
-    market, zone, unmapped ? 1 : 0, dealership_type, brands_new, used_scope, role, monthly_units,
+    name, email, hash, salt, phone, dealership_name, zip, city || null, state || null,
+    market, zone, unmapped ? 1 : 0, dealership_type, brands_new, used_scope, contact_role, monthly_units,
     fee_type, fee_amount, fee_percent_basis, referral_policy_status, (body.referral_policy_notes || '').trim() || null, (body.referral_contact || '').trim() || null,
     lead_contact_method, (body.anything_else || '').trim() || null, overlap_flag ? 1 : 0, overlap_notes,
     ip
@@ -5088,7 +5052,7 @@ async function submitPartnerApplication(request, env) {
     to: 'theexactmatch@gmail.com',
     subject: `New dealer partner application: ${dealership_name}`,
     html: brandedEmailHtml(`
-      <p><strong>${escapeHtml(full_name)}</strong> (${escapeHtml(role)}) at <strong>${escapeHtml(dealership_name)}</strong> applied to the partner network.</p>
+      <p><strong>${escapeHtml(name)}</strong> (${escapeHtml(contact_role)}) at <strong>${escapeHtml(dealership_name)}</strong> applied to the partner network.</p>
       <p>Market: ${escapeHtml(market)}${zone ? ' / ' + escapeHtml(zone) : ' (unmapped)'}<br/>
       Referral policy: ${escapeHtml(referral_policy_status)}${overlap_flag ? '<br/><strong style="color:#9B2335">⚠ Overlap flagged — review before approving.</strong>' : ''}</p>
       <p><a href="https://theexactmatch.com/Dealerportal.html">Review in dashboard →</a></p>
@@ -5098,35 +5062,36 @@ async function submitPartnerApplication(request, env) {
   return json({ success: true, result_id: result.meta.last_row_id });
 }
 
-// ── Partner network: admin review + management ──────────────────────
+// ── Admin review + management (partner applications are just dealers
+// table rows with dealership_type set — same table, same tab) ──────
 async function adminListPartners(request, env) {
   const { results } = await env.DB.prepare(`
-    SELECT *, EXISTS(SELECT 1 FROM admin_seen_items WHERE section = 'partner_applications' AND item_id = partners.id) as seen
-    FROM partners ORDER BY created_at DESC
+    SELECT *, EXISTS(SELECT 1 FROM admin_seen_items WHERE section = 'dealers' AND item_id = dealers.id) as seen
+    FROM dealers WHERE role != 'admin' ORDER BY created_at DESC
   `).all();
   return json({ partners: results.map(p => ({ ...p, seen: !!p.seen, brands_new: safeJsonParse(p.brands_new, []) })) });
 }
 
 async function adminGetPartner(request, env, params) {
-  const partner = await env.DB.prepare('SELECT * FROM partners WHERE id = ?').bind(+params.id).first();
+  const partner = await env.DB.prepare('SELECT * FROM dealers WHERE id = ?').bind(+params.id).first();
   if (!partner) return json({ error: 'Partner not found.' }, 404);
   return json({ partner: { ...partner, brands_new: safeJsonParse(partner.brands_new, []) } });
 }
 
 async function adminApprovePartner(request, env, params) {
-  const partner = await env.DB.prepare('SELECT * FROM partners WHERE id = ?').bind(+params.id).first();
+  const partner = await env.DB.prepare('SELECT * FROM dealers WHERE id = ?').bind(+params.id).first();
   if (!partner) return json({ error: 'Partner not found.' }, 404);
   if (partner.status !== 'pending') return json({ error: 'This application is not pending.' }, 400);
 
-  await env.DB.prepare(`UPDATE partners SET status = 'active', activated_at = datetime('now') WHERE id = ?`).bind(partner.id).run();
+  await env.DB.prepare(`UPDATE dealers SET status = 'active', activated_at = datetime('now') WHERE id = ?`).bind(partner.id).run();
 
   await sendBrevoEmail(env, {
     to: partner.email,
-    subject: "You're in — welcome to the TheExactMatch partner network",
+    subject: "You're in — welcome to the TheExactMatch dealer partner network",
     html: brandedEmailHtml(`
-      <p>Hey ${escapeHtml(partner.full_name)},</p>
-      <p>Good news — you're approved. Your Partner Portal account is live now, no separate signup needed: just log in with the email and password you applied with.</p>
-      <p><a href="https://theexactmatch.com/Dealerportal.html#partner-portal" style="color:#C09A5B">Log in to your Partner Portal →</a></p>
+      <p>Hey ${escapeHtml(partner.name)},</p>
+      <p>Good news — you're approved. Your Dealer Portal account is live now, no separate signup needed: just log in with the email and password you applied with.</p>
+      <p><a href="https://theexactmatch.com/Dealerportal.html" style="color:#C09A5B">Log in to your Dealer Portal →</a></p>
       <p>From here, matched buyer leads in your zone will route to you first. When a buyer expresses interest in one of your vehicles, you'll get an email — please verify availability as fast as you can (we aim for under an hour) since that's what unlocks the buyer's contact info to you.</p>
       <p>Welcome aboard.</p>
     `),
@@ -5138,7 +5103,7 @@ async function adminApprovePartner(request, env, params) {
 const PARTNER_REJECT_REASONS = ['zone_already_covered', 'brand_already_covered', 'units_too_low', 'no_referral_policy', 'incomplete_unverifiable', 'other'];
 
 async function adminRejectPartner(request, env, params) {
-  const partner = await env.DB.prepare('SELECT * FROM partners WHERE id = ?').bind(+params.id).first();
+  const partner = await env.DB.prepare('SELECT * FROM dealers WHERE id = ?').bind(+params.id).first();
   if (!partner) return json({ error: 'Partner not found.' }, 404);
   if (partner.status !== 'pending') return json({ error: 'This application is not pending.' }, 400);
 
@@ -5146,7 +5111,7 @@ async function adminRejectPartner(request, env, params) {
   if (!PARTNER_REJECT_REASONS.includes(body.reason)) return json({ error: 'A rejection reason is required.' }, 400);
 
   await env.DB.prepare(`
-    UPDATE partners SET status = 'rejected', rejected_reason = ?, rejected_notes = ?, rejected_at = datetime('now') WHERE id = ?
+    UPDATE dealers SET status = 'rejected', rejected_reason = ?, rejected_notes = ?, rejected_at = datetime('now') WHERE id = ?
   `).bind(body.reason, (body.notes || '').trim() || null, partner.id).run();
 
   const bodiesByReason = {
@@ -5162,7 +5127,7 @@ async function adminRejectPartner(request, env, params) {
     to: partner.email,
     subject: 'Your TheExactMatch partner application',
     html: brandedEmailHtml(`
-      <p>Hey ${escapeHtml(partner.full_name)},</p>
+      <p>Hey ${escapeHtml(partner.name)},</p>
       ${bodiesByReason[body.reason]}
       <p>If anything above doesn't sound right, just reply to this email.</p>
     `),
@@ -5171,52 +5136,10 @@ async function adminRejectPartner(request, env, params) {
   return json({ success: true });
 }
 
-const PARTNER_ADMIN_EDITABLE_FIELDS = ['autodev_dealer_id', 'departure_flag', 'replacement_referral', 'status'];
-
-async function adminUpdatePartner(request, env, params) {
-  const body = await request.json().catch(() => ({}));
-  const sets = [];
-  const values = [];
-  for (const field of PARTNER_ADMIN_EDITABLE_FIELDS) {
-    if (field in body) { sets.push(`${field} = ?`); values.push(body[field]); }
-  }
-  if (!sets.length) return json({ error: 'No editable fields provided.' }, 400);
-  values.push(+params.id);
-  await env.DB.prepare(`UPDATE partners SET ${sets.join(', ')} WHERE id = ?`).bind(...values).run();
-  return json({ success: true });
-}
-
-// Mirrors adminAutodevDealerLookup exactly (same non-unique-name caveat —
-// Auto.dev has no exact dealerId filter, so admin visually confirms the
-// right candidate by city/state/sample makes before saving it).
-async function adminPartnerAutodevLookup(request, env, params) {
-  const url = new URL(request.url);
-  const partner = await env.DB.prepare('SELECT id, dealership_name FROM partners WHERE id = ?').bind(+params.id).first();
-  if (!partner) return json({ error: 'Partner not found.' }, 404);
-
-  const zip = url.searchParams.get('zip') || '';
-  const distance = url.searchParams.get('distance') || '50';
-  const { ok, status, data } = await autodevFetch(env, '/listings', {
-    'retailListing.dealer': partner.dealership_name,
-    zip: zip || undefined,
-    distance: zip ? distance : undefined,
-    limit: 50,
-  }, {});
-  if (!ok) return json({ error: `Auto.dev search failed (HTTP ${status}).` }, 502);
-
-  const byId = new Map();
-  for (const raw of data?.data || []) {
-    const v = raw.vehicle || {};
-    const r = raw.retailListing || {};
-    const id = r.dealerId;
-    if (!id) continue;
-    if (!byId.has(id)) byId.set(id, { autodev_dealer_id: id, dealer_name: r.dealer || null, city: r.city || null, state: r.state || null, zip: r.zip || null, sample_makes: new Set(), listing_count: 0 });
-    const entry = byId.get(id);
-    entry.listing_count++;
-    if (v.make) entry.sample_makes.add(v.make);
-  }
-  return json({ searched_name: partner.dealership_name, candidates: [...byId.values()].map(e => ({ ...e, sample_makes: [...e.sample_makes] })) });
-}
+// adminUpdateDealer and adminAutodevDealerLookup (both defined earlier,
+// already dealers-table-based) now cover what adminUpdatePartner and
+// adminPartnerAutodevLookup used to do separately — same table, same admin
+// edit/lookup surface, no duplicate functions needed.
 
 // Partner lead oversight, fee accounting (adminUpdateFee, including the
 // referral_fee_collected CRM mirror), and lifecycle email approval used to
@@ -5279,24 +5202,22 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/white-glove', handler: publicRequestWhiteGlove },
   { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/ready', handler: publicReadyToMoveForward },
 
-  // ── Dealer Partner Network ──
+  // ── Dealer Partner Network (dealers ARE partners — same login/session
+  // as the rest of the Dealer Portal above, `auth: true` + authenticate()) ──
   { method: 'POST',  pattern: '/api/public/partners/apply',       handler: submitPartnerApplication },
-  { method: 'POST',  pattern: '/api/partner/login',                handler: partnerLogin },
-  { method: 'POST',  pattern: '/api/partner/logout',               handler: partnerLogout, partnerAuth: true },
-  { method: 'GET',   pattern: '/api/partner/me',                   handler: partnerMe, partnerAuth: true },
-  { method: 'POST',  pattern: '/api/partner/password-reset/request', handler: partnerRequestPasswordReset },
-  { method: 'POST',  pattern: '/api/partner/password-reset/confirm', handler: partnerResetPassword },
-  { method: 'GET',   pattern: '/api/partner/leads',                handler: partnerLeadsList, partnerAuth: true },
-  { method: 'POST',  pattern: '/api/partner/leads/:id/verify',      handler: partnerVerifyLead, partnerAuth: true },
-  { method: 'POST',  pattern: '/api/partner/leads/:id/not-available', handler: partnerReportUnavailable, partnerAuth: true },
-  { method: 'PATCH', pattern: '/api/partner/leads/:id/status',      handler: partnerUpdateLeadStatus, partnerAuth: true },
+  { method: 'POST',  pattern: '/api/dealer/password-reset/request', handler: dealerRequestPasswordReset },
+  { method: 'POST',  pattern: '/api/dealer/password-reset/confirm', handler: dealerResetPassword },
+  { method: 'GET',   pattern: '/api/partner/leads',                handler: partnerLeadsList, auth: true },
+  { method: 'POST',  pattern: '/api/partner/leads/:id/verify',      handler: partnerVerifyLead, auth: true },
+  { method: 'POST',  pattern: '/api/partner/leads/:id/not-available', handler: partnerReportUnavailable, auth: true },
+  { method: 'PATCH', pattern: '/api/partner/leads/:id/status',      handler: partnerUpdateLeadStatus, auth: true },
 
   { method: 'GET',   pattern: '/api/admin/partners',               handler: adminListPartners, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/partners/:id',           handler: adminGetPartner, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/partners/:id/approve',   handler: adminApprovePartner, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/partners/:id/reject',    handler: adminRejectPartner, auth: true, admin: true },
-  { method: 'PATCH', pattern: '/api/admin/partners/:id',           handler: adminUpdatePartner, auth: true, admin: true },
-  { method: 'GET',   pattern: '/api/admin/partners/:id/autodev-lookup', handler: adminPartnerAutodevLookup, auth: true, admin: true },
+  { method: 'PATCH', pattern: '/api/admin/partners/:id',           handler: adminUpdateDealer, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/partners/:id/autodev-lookup', handler: adminAutodevDealerLookup, auth: true, admin: true },
 ];
 
 async function cleanupStaleRecords(env) {
@@ -5365,18 +5286,6 @@ export default {
         dealer = await authenticate(token, env);
         if (!dealer) return json({ error: 'Session expired. Please log in again.' }, 401);
         if (route.admin && dealer.role !== 'admin') return json({ error: 'Admin access required.' }, 403);
-      } else if (route.partnerAuth) {
-        // Separate bearer-session space from dealer/admin auth above —
-        // partners are a wholly independent account type (see partners/
-        // partner_sessions). Passed through the same positional slot as
-        // `dealer` so handlers can just name their parameter `partner`.
-        const authHeader = request.headers.get('Authorization') || '';
-        const m = authHeader.match(/^Bearer (.+)$/);
-        token = m ? m[1] : null;
-        if (!token) return json({ error: 'Not authenticated.' }, 401);
-
-        dealer = await authenticatePartner(token, env);
-        if (!dealer) return json({ error: 'Session expired. Please log in again.' }, 401);
       }
 
       try {
