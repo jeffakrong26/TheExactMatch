@@ -38,7 +38,7 @@ function normalizeWebsiteUrl(input) {
     return { url: null, error: 'Please enter a valid dealership website.' };
   }
 }
-const VALID_SUB_STATUSES    = ['pending', 'approved', 'rejected', 'published'];
+const VALID_SUB_STATUSES    = ['pending', 'approved', 'rejected', 'published', 'sold'];
 // 'pending'/'rejected'/'deactivated' added for the partner-network application
 // flow — dealers ARE partners, one status vocabulary for the one account type.
 const VALID_DEALER_STATUSES = ['active', 'suspended', 'pending', 'rejected', 'deactivated'];
@@ -399,22 +399,163 @@ async function dealerGetLeadValuation(request, env, params) {
   return json({ valuation: { ...valuation, photo_confirmed: !!valuation.photo_confirmed, low_confidence: !!valuation.low_confidence }, photos });
 }
 
+const LEAD_INTEREST_FLAG_REASONS = ['more_pics', 'estimate_too_high', 'need_info', 'other'];
+
+// Also doubles as "adjust my offer" — the dealer can call this again after
+// the initial interest click to change the amount/message/flag from the
+// Interested tab; the unique (lead_id, dealer_id) index makes it an upsert.
 async function expressInterest(request, env, params, dealer) {
   const leadId = +params.id;
   const lead = await env.DB.prepare('SELECT id FROM sell_my_car_leads WHERE id = ?').bind(leadId).first();
   if (!lead) return json({ error: 'Lead not found.' }, 404);
 
-  await env.DB.prepare('INSERT OR IGNORE INTO lead_interest (lead_id, dealer_id) VALUES (?, ?)').bind(leadId, dealer.id).run();
+  const body = await request.json().catch(() => ({}));
+  const offerAmount = body.offer_amount != null && body.offer_amount !== '' ? +body.offer_amount : null;
+  const message     = (body.message || '').trim() || null;
+  const flagReason  = LEAD_INTEREST_FLAG_REASONS.includes(body.flag_reason) ? body.flag_reason : null;
+  const flagNotes   = (body.flag_notes || '').trim() || null;
+
+  await env.DB.prepare(`
+    INSERT INTO lead_interest (lead_id, dealer_id, offer_amount, message, flag_reason, flag_notes, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(lead_id, dealer_id) DO UPDATE SET
+      offer_amount = excluded.offer_amount, message = excluded.message,
+      flag_reason = excluded.flag_reason, flag_notes = excluded.flag_notes,
+      updated_at = datetime('now')
+  `).bind(leadId, dealer.id, offerAmount, message, flagReason, flagNotes).run();
+
   return json({ success: true });
+}
+
+// Seller Leads → "Interested" tab: only the leads this dealer has expressed
+// interest in, with their offer/message/flag alongside the same vehicle +
+// valuation fields dealerLeads returns.
+async function dealerInterestedLeads(request, env, params, dealer) {
+  const { results } = await env.DB.prepare(
+    `SELECT sell_my_car_leads.id, sell_my_car_leads.year, sell_my_car_leads.make, sell_my_car_leads.model,
+       sell_my_car_leads.mileage, sell_my_car_leads.condition, sell_my_car_leads.title_status,
+       sell_my_car_leads.city, sell_my_car_leads.state, sell_my_car_leads.notes, sell_my_car_leads.created_at,
+       vehicle_valuations.status as valuation_status, vehicle_valuations.vin as valuation_vin,
+       vehicle_valuations.final_retail_value, vehicle_valuations.final_cash_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
+       vehicle_valuations.photo_confirmed, vehicle_valuations.low_confidence,
+       (SELECT url FROM valuation_photos WHERE valuation_id = vehicle_valuations.id AND slot = 'front_34' LIMIT 1) as front_photo_url,
+       lead_interest.offer_amount, lead_interest.message, lead_interest.flag_reason, lead_interest.flag_notes, lead_interest.updated_at as interest_updated_at
+     FROM lead_interest
+     JOIN sell_my_car_leads ON sell_my_car_leads.id = lead_interest.lead_id
+     LEFT JOIN vehicle_valuations ON vehicle_valuations.lead_id = sell_my_car_leads.id
+     WHERE lead_interest.dealer_id = ?
+     ORDER BY lead_interest.updated_at DESC`
+  ).bind(dealer.id).all();
+
+  return json({ leads: results.map(l => ({ ...l, i_expressed_interest: true, photo_confirmed: !!l.photo_confirmed })) });
 }
 
 async function mySubmissions(request, env, params, dealer) {
   const { results } = await env.DB.prepare(
     `SELECT id, year, make, model, trim, mileage, asking_price AS price, vin, exterior_color, engine, transmission,
-            category, description, write_up, listing_url, photo_url, image_urls, status, created_at
+            category, description, write_up, listing_url, photo_url, image_urls, status, submission_method, sold_at, created_at
      FROM inventory_submissions WHERE dealer_id = ? ORDER BY created_at DESC`
   ).bind(dealer.id).all();
   return json({ submissions: results });
+}
+
+// Manual entry path: no listing URL to scrape, so every field is dealer-typed.
+// Photos are attached in a follow-up call to dealerUploadSubmissionPhoto —
+// the frontend enforces at least one photo is selected before it ever calls
+// this endpoint, since the row has to exist first to attach photos to it.
+async function submitVehicleManual(request, env, params, dealer) {
+  const body = await request.json().catch(() => ({}));
+  const year  = body.year != null ? +body.year : null;
+  const make  = (body.make || '').trim();
+  const model = (body.model || '').trim();
+  const category = body.category;
+
+  if (!year || !make || !model) return json({ error: 'Year, make, and model are required.' }, 400);
+  if (!category) return json({ error: 'Category is required.' }, 400);
+
+  const result = await env.DB.prepare(`
+    INSERT INTO inventory_submissions (
+      dealer_id, year, make, model, trim, mileage, asking_price, vin, exterior_color, engine, transmission,
+      category, description, listing_url, status, submission_method
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'manual')
+  `).bind(
+    dealer.id, year, make, model, (body.trim || '').trim() || null,
+    body.mileage != null && body.mileage !== '' ? +body.mileage : null,
+    body.price != null && body.price !== '' ? +body.price : null,
+    (body.vin || '').trim() || null, (body.exterior_color || '').trim() || null,
+    (body.engine || '').trim() || null, (body.transmission || '').trim() || null,
+    category, (body.description || '').trim() || null, (body.listing_url || '').trim() || null
+  ).run();
+
+  return json({ success: true, id: result.meta.last_row_id });
+}
+
+// Multi-photo upload for a dealer's own submission — used by the manual
+// entry flow (which requires at least one photo) and available generally
+// for a dealer to add photos to any of their submissions. Each call stores
+// under a unique R2 key so, unlike adminUploadSubmissionPhoto's single fixed
+// key, repeated uploads accumulate instead of overwriting each other.
+async function dealerUploadSubmissionPhoto(request, env, params, dealer) {
+  const submission = await env.DB.prepare('SELECT * FROM inventory_submissions WHERE id = ? AND dealer_id = ?').bind(+params.id, dealer.id).first();
+  if (!submission) return json({ error: 'Submission not found.' }, 404);
+
+  const formData = await request.formData().catch(() => null);
+  const file = formData?.get('photo');
+  if (!file || typeof file === 'string') return json({ error: 'No photo file provided.' }, 400);
+
+  const filename = `${Date.now()}-${randomHex(6)}`;
+  const key = `submissions/${params.id}/${filename}`;
+  await env.PHOTOS.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'image/jpeg' } });
+
+  const photoUrl = `https://theexactmatch.com/submissions/photos/${params.id}/${filename}`;
+  let photos = [];
+  try { photos = JSON.parse(submission.image_urls || '[]'); } catch { photos = []; }
+  photos.push(photoUrl);
+
+  await env.DB.prepare('UPDATE inventory_submissions SET photo_url = COALESCE(photo_url, ?), image_urls = ? WHERE id = ?')
+    .bind(photoUrl, JSON.stringify(photos), +params.id).run();
+
+  return json({ success: true, photo_url: photoUrl });
+}
+
+async function serveSubmissionPhotoMulti(env, params, method) {
+  const key = `submissions/${params.id}/${params.filename}`;
+  const object = method === 'HEAD' ? await env.PHOTOS.head(key) : await env.PHOTOS.get(key);
+  if (!object) return new Response(method === 'HEAD' ? null : 'Not found', { status: 404 });
+  return new Response(method === 'HEAD' ? null : object.body, {
+    headers: { 'Content-Type': object.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'public, max-age=86400' },
+  });
+}
+
+// My Submissions tab: a dealer editing their own listing (price, mileage,
+// condition fields, etc.) or marking it sold. Deliberately excludes
+// year/make/model/write_up/status transitions other than 'sold' — those stay
+// admin-only (adminUpdateSubmission) so a dealer can't self-approve/publish
+// or drift the AI-generated write-up out of sync with the vehicle identity.
+const DEALER_SUBMISSION_EDITABLE_FIELDS = [
+  'trim', 'mileage', 'asking_price', 'vin', 'exterior_color', 'engine', 'transmission', 'description',
+];
+
+async function dealerUpdateSubmission(request, env, params, dealer) {
+  const submission = await env.DB.prepare('SELECT id FROM inventory_submissions WHERE id = ? AND dealer_id = ?').bind(+params.id, dealer.id).first();
+  if (!submission) return json({ error: 'Submission not found.' }, 404);
+
+  const body = await request.json().catch(() => ({}));
+  const sets = [];
+  const values = [];
+  for (const field of DEALER_SUBMISSION_EDITABLE_FIELDS) {
+    if (field in body) { sets.push(`${field} = ?`); values.push(body[field]); }
+  }
+  if ('status' in body) {
+    if (body.status !== 'sold') return json({ error: 'You can mark a submission as sold, but other status changes require admin review.' }, 400);
+    sets.push('status = ?', `sold_at = datetime('now')`);
+    values.push('sold');
+  }
+  if (!sets.length) return json({ error: 'No editable fields provided.' }, 400);
+
+  values.push(submission.id);
+  await env.DB.prepare(`UPDATE inventory_submissions SET ${sets.join(', ')} WHERE id = ?`).bind(...values).run();
+  return json({ success: true });
 }
 
 // ── Admin actions ─────────────────────────────────────────────────
@@ -1810,6 +1951,7 @@ async function buildVehicleEntry(env, pick, winner, poolInfo, photos, lead, part
       photos_missing: photos?.photosMissing ? 1 : 0,
       search_log: JSON.stringify({ radius: searchResult.radius, used_300mi_fallback: searchResult.usedFallback }),
       matched_partner_id: winner.matched_partner_id || null,
+      vin: winner.vin || null,
     };
   }
 
@@ -1866,6 +2008,7 @@ async function buildVehicleEntry(env, pick, winner, poolInfo, photos, lead, part
     source: 'sourcing_in_progress',
     verified: 'sourcing_in_progress',
     matched_partner_id: null,
+    vin: null,
     search_log: JSON.stringify({
       radius: searchResult.radius, used_300mi_fallback: searchResult.usedFallback,
       franchise_radius: franchiseResult.radius, franchise_used_300mi_fallback: franchiseResult.usedFallback,
@@ -2019,15 +2162,15 @@ async function generateReportForLead(env, leadId) {
       INSERT INTO report_vehicles (
         report_id, position, year, make, model, trim, rationale, price, mileage, dealer_name, dealer_city, dealer_state, vdp_url, source, verified,
         engine, transmission, drivetrain, city_mpg, highway_mpg, exterior_color, exterior_color_options,
-        safety_rating, cargo_space, seating_capacity, warranty, notable_features, photo_url, photo_urls, photos_missing, search_log, matched_partner_id
+        safety_rating, cargo_space, seating_capacity, warranty, notable_features, photo_url, photo_urls, photos_missing, search_log, matched_partner_id, vin
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       reportId, i + 1, v.year, v.make, v.model, v.trim, v.rationale,
       v.price, v.mileage, v.dealer_name, v.dealer_city, v.dealer_state, v.vdp_url, v.source, v.verified,
       v.engine, v.transmission, v.drivetrain, v.city_mpg, v.highway_mpg, v.exterior_color, v.exterior_color_options,
       v.safety_rating, v.cargo_space, v.seating_capacity, v.warranty, v.notable_features, v.photo_url, v.photo_urls, v.photos_missing ?? 0, v.search_log,
-      v.matched_partner_id ?? null
+      v.matched_partner_id ?? null, v.vin ?? null
     ).run();
   }
 
@@ -4802,8 +4945,27 @@ function maskBuyerContactIfLocked(lead) {
   return locked ? { ...lead, buyer_name: null, buyer_email: null, buyer_phone: null } : lead;
 }
 
+// Buyer's original Find My Car intake (budget/financing/trade/credit) —
+// joined in read-only for the Active/Closed Deals expand view. Not masked
+// pre-verification like buyer_name/email/phone: it's shopping context, not
+// a contact channel a partner could use to route around us.
 async function partnerLeadsList(request, env, params, partner) {
-  const { results } = await env.DB.prepare('SELECT * FROM partner_leads WHERE partner_id = ? ORDER BY created_at DESC').bind(partner.id).all();
+  const { results } = await env.DB.prepare(`
+    SELECT partner_leads.*,
+      find_car_leads.budget_min, find_car_leads.budget_max, find_car_leads.payment_method,
+      find_car_leads.credit_range, find_car_leads.desired_monthly_min, find_car_leads.desired_monthly_max,
+      find_car_leads.down_payment, find_car_leads.trade_in, find_car_leads.current_vehicle,
+      find_car_leads.current_like, find_car_leads.current_change, find_car_leads.priorities,
+      find_car_leads.specific_needs, find_car_leads.considering, find_car_leads.anything_else,
+      find_car_leads.timeline, find_car_leads.max_mileage, find_car_leads.vehicle_type,
+      find_car_leads.size_preference, find_car_leads.condition AS buyer_condition_pref
+    FROM partner_leads
+    LEFT JOIN report_vehicles ON report_vehicles.id = partner_leads.report_vehicle_id
+    LEFT JOIN find_car_reports ON find_car_reports.id = report_vehicles.report_id
+    LEFT JOIN find_car_leads ON find_car_leads.id = find_car_reports.find_lead_id
+    WHERE partner_leads.partner_id = ?
+    ORDER BY partner_leads.created_at DESC
+  `).bind(partner.id).all();
   return json({ leads: results.map(maskBuyerContactIfLocked) });
 }
 
@@ -4913,6 +5075,65 @@ async function partnerUpdateLeadStatus(request, env, params, partner, token, ctx
 
   if (ctx) ctx.waitUntil(sendLifecycleEmailForStatus(env, updatedLead, cfg).catch(err => console.error('lifecycle email failed', lead.id, err)));
 
+  return json({ success: true });
+}
+
+// Free-text working notes on a lead — independent of status, usable from
+// both the Verify Availability and Active Deals tabs.
+async function partnerUpdateLeadNotes(request, env, params, partner) {
+  const lead = await env.DB.prepare('SELECT id FROM partner_leads WHERE id = ? AND partner_id = ?').bind(+params.id, partner.id).first();
+  if (!lead) return json({ error: 'Lead not found.' }, 404);
+
+  const body = await request.json().catch(() => ({}));
+  await env.DB.prepare(`UPDATE partner_leads SET notes = ?, updated_at = datetime('now') WHERE id = ?`)
+    .bind((body.notes || '').trim() || null, lead.id).run();
+  return json({ success: true });
+}
+
+// Fees & Payouts tab: every fee row this partner has earned, with the
+// originating vehicle for context.
+async function partnerFeesList(request, env, params, partner) {
+  const { results } = await env.DB.prepare(`
+    SELECT partner_fees.*, partner_leads.id AS partner_lead_id, partner_leads.listing_snapshot,
+      partner_leads.status AS lead_status, partner_leads.buyer_name
+    FROM partner_fees
+    JOIN partner_leads ON partner_leads.id = partner_fees.partner_lead_id
+    WHERE partner_fees.partner_id = ?
+    ORDER BY partner_fees.created_at DESC
+  `).bind(partner.id).all();
+
+  const now = Date.now();
+  return json({
+    fees: results.map(f => ({
+      ...f,
+      overdue: f.status === 'owed' && !!f.due_date && new Date(f.due_date + 'Z').getTime() < now,
+    })),
+  });
+}
+
+const FEE_NOT_REQUESTED_REASONS = ['waiting_paperwork', 'waiting_title', 'waiting_on_accounting', 'other'];
+
+// Dealer-facing half of the payout loop: mark "I submitted a payout
+// request" or record why not yet. Actually flipping a fee to 'paid' happens
+// from the CRM once Jeff pays it — that write lands directly on this same
+// partner_fees row from the other app, not through this endpoint.
+async function partnerUpdateFeePayout(request, env, params, partner) {
+  const fee = await env.DB.prepare('SELECT id FROM partner_fees WHERE id = ? AND partner_id = ?').bind(+params.id, partner.id).first();
+  if (!fee) return json({ error: 'Fee not found.' }, 404);
+
+  const body = await request.json().catch(() => ({}));
+  if (body.action === 'mark_requested') {
+    await env.DB.prepare(`
+      UPDATE partner_fees SET payout_requested_at = datetime('now'), payout_not_requested_reason = NULL, payout_not_requested_notes = NULL WHERE id = ?
+    `).bind(fee.id).run();
+  } else if (body.action === 'set_reason') {
+    if (!FEE_NOT_REQUESTED_REASONS.includes(body.reason)) return json({ error: 'Please choose a reason.' }, 400);
+    await env.DB.prepare(`
+      UPDATE partner_fees SET payout_requested_at = NULL, payout_not_requested_reason = ?, payout_not_requested_notes = ? WHERE id = ?
+    `).bind(body.reason, (body.notes || '').trim() || null, fee.id).run();
+  } else {
+    return json({ error: 'Invalid action.' }, 400);
+  }
   return json({ success: true });
 }
 
@@ -5157,10 +5378,14 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/dealer/logout',               handler: dealerLogout, auth: true },
   { method: 'GET',   pattern: '/api/dealer/me',                   handler: dealerMe, auth: true },
   { method: 'POST',  pattern: '/api/dealer/submit-vehicle',       handler: submitVehicle, auth: true },
+  { method: 'POST',  pattern: '/api/dealer/submit-vehicle-manual', handler: submitVehicleManual, auth: true },
   { method: 'GET',   pattern: '/api/dealer/leads',                 handler: dealerLeads, auth: true },
+  { method: 'GET',   pattern: '/api/dealer/leads/interested',      handler: dealerInterestedLeads, auth: true },
   { method: 'GET',   pattern: '/api/dealer/leads/:id/valuation',   handler: dealerGetLeadValuation, auth: true },
   { method: 'POST',  pattern: '/api/dealer/leads/:id/interest',   handler: expressInterest, auth: true },
   { method: 'GET',   pattern: '/api/dealer/my-submissions',       handler: mySubmissions, auth: true },
+  { method: 'PATCH', pattern: '/api/dealer/submissions/:id',       handler: dealerUpdateSubmission, auth: true },
+  { method: 'POST',  pattern: '/api/dealer/submissions/:id/photo', handler: dealerUploadSubmissionPhoto, auth: true },
   { method: 'GET',   pattern: '/api/admin/submissions',           handler: adminSubmissions, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/submissions/:id',       handler: adminUpdateSubmission, auth: true, admin: true },
   { method: 'DELETE', pattern: '/api/admin/submissions/:id',      handler: adminDeleteSubmission, auth: true, admin: true },
@@ -5211,6 +5436,9 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/partner/leads/:id/verify',      handler: partnerVerifyLead, auth: true },
   { method: 'POST',  pattern: '/api/partner/leads/:id/not-available', handler: partnerReportUnavailable, auth: true },
   { method: 'PATCH', pattern: '/api/partner/leads/:id/status',      handler: partnerUpdateLeadStatus, auth: true },
+  { method: 'PATCH', pattern: '/api/partner/leads/:id/notes',       handler: partnerUpdateLeadNotes, auth: true },
+  { method: 'GET',   pattern: '/api/partner/fees',                 handler: partnerFeesList, auth: true },
+  { method: 'PATCH', pattern: '/api/partner/fees/:id',              handler: partnerUpdateFeePayout, auth: true },
 
   { method: 'GET',   pattern: '/api/admin/partners',               handler: adminListPartners, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/partners/:id',           handler: adminGetPartner, auth: true, admin: true },
@@ -5254,6 +5482,9 @@ export default {
       const submissionPhotoParams = matchPath('/submissions/photos/:id', url.pathname);
       if (submissionPhotoParams) return serveSubmissionPhoto(env, submissionPhotoParams, request.method);
 
+      const submissionPhotoMultiParams = matchPath('/submissions/photos/:id/:filename', url.pathname);
+      if (submissionPhotoMultiParams) return serveSubmissionPhotoMulti(env, submissionPhotoMultiParams, request.method);
+
       const sellPhotoParams = matchPath('/sell/photos/:token/:slot/:filename', url.pathname);
       if (sellPhotoParams) return serveSellPhoto(env, sellPhotoParams, request.method);
     }
@@ -5291,6 +5522,7 @@ export default {
       try {
         return await route.handler(request, env, params, dealer, token, ctx);
       } catch (err) {
+        console.error('Route handler error', route.method, route.pattern, err?.stack || err);
         return json({ error: 'Server error. Please try again.' }, 500);
       }
     }

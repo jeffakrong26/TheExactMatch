@@ -100,7 +100,8 @@
     .dash-cards{padding:3rem 5rem;max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem}
     .dash-card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:2.25rem;cursor:pointer;transition:transform .25s,box-shadow .25s,border-color .25s;text-align:left}
     .dash-card:hover{transform:translateY(-3px);box-shadow:0 12px 36px rgba(0,0,0,.08);border-color:rgba(192,154,91,.35)}
-    .dash-card-icon{font-size:1.75rem;margin-bottom:1.1rem}
+    .dash-card-icon{width:30px;height:30px;margin-bottom:1.2rem;color:var(--gold)}
+    .dash-card-icon svg{width:100%;height:100%;display:block}
     .dash-card-title{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:500;color:var(--navy);margin-bottom:.5rem}
     .dash-card-desc{font-size:.8rem;font-weight:300;color:var(--gray);line-height:1.7}
     .dash-card.card-danger .dash-card-title{color:var(--red)}
@@ -162,11 +163,66 @@
     .tab-badge{display:none;position:absolute;top:.1rem;right:.4rem;background:#E0293E;color:#fff;font-size:.62rem;font-weight:700;line-height:1;min-width:1.1rem;height:1.1rem;border-radius:1rem;padding:0 .3rem;align-items:center;justify-content:center;letter-spacing:0}
     .tab-badge.show{display:flex}
     .tab-panel{display:none}.tab-panel.active{display:block}
+    .subtabs .tab-bar{margin-bottom:1.75rem}
+    .status-sold{background:rgba(26,71,49,.12);color:var(--green)}
+    .loading-text{text-align:center;padding:2.5rem;color:var(--gray);font-size:.88rem}
 
     /* ── INTEREST CTA ── */
     .interest-btn{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:.5rem 1.1rem;border-radius:2px;cursor:pointer;border:1px solid var(--gold);color:var(--gold);background:transparent;transition:all .2s}
     .interest-btn:hover{background:var(--gold);color:var(--navy)}
     .interest-btn.interested{background:var(--green);border-color:var(--green);color:var(--white);cursor:default}
+
+    /* ── MODE TOGGLE (Submit: link vs. manual) ── */
+    .mode-toggle{display:inline-flex;border:1px solid var(--border);border-radius:2px;overflow:hidden;margin-bottom:1.75rem}
+    .mode-toggle-btn{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:.6rem 1.25rem;background:var(--white);border:none;color:var(--gray);cursor:pointer;transition:all .2s}
+    .mode-toggle-btn:not(:last-child){border-right:1px solid var(--border)}
+    .mode-toggle-btn.active{background:var(--navy);color:var(--beige)}
+
+    /* ── VERIFY MENU (Buyer Leads) ── */
+    .verify-menu{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+    .verify-menu select{width:auto;padding:.5rem .75rem;margin:0}
+
+    /* ── DEAL CARD: clickable car/customer, checklist, intake profile ── */
+    .deal-clickable{cursor:pointer;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:3px;transition:text-decoration-color .15s}
+    .deal-clickable:hover{text-decoration-color:var(--gold)}
+    .deal-car{font-size:.95rem;font-weight:600;color:var(--navy)}
+    .deal-customer{font-size:.85rem;font-weight:500;color:var(--gray)}
+    .deal-checklist{display:flex;flex-wrap:wrap;gap:.35rem 1.1rem;margin:.7rem 0 .1rem}
+    .checklist-item{display:inline-flex;align-items:center;gap:.4rem;font-size:.7rem;font-weight:600;color:var(--gray)}
+    .checklist-item.done{color:var(--green)}
+    .checklist-item.pending{color:var(--red)}
+    .checklist-item.lost{color:var(--red)}
+    .checklist-item.still-shopping{color:var(--amber)}
+    .checklist-dot{width:14px;height:14px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.6rem;line-height:1;flex-shrink:0;color:#fff}
+    .checklist-item.done .checklist-dot{background:var(--green)}
+    .checklist-item.pending .checklist-dot{background:transparent;border:2px solid var(--red);box-sizing:border-box}
+    .checklist-item.lost .checklist-dot{background:var(--red)}
+    .checklist-item.still-shopping .checklist-dot{background:var(--amber)}
+    .intake-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:.7rem 1.5rem}
+    .intake-row{display:flex;flex-direction:column;gap:.2rem}
+    .intake-label{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+    .intake-value{font-size:.8rem;color:var(--navy);line-height:1.5}
+
+    /* ── NOTES ROW (shared: Buyer Leads / offer box) ── */
+    .notes-row{margin-top:.85rem;padding-top:.85rem;border-top:1px dashed var(--border)}
+    .notes-row textarea{width:100%;min-height:56px;padding:.6rem .75rem;background:var(--beige);border:1px solid var(--border);border-radius:2px;font-family:'Jost',sans-serif;font-size:.8rem;font-weight:300;color:var(--navy);outline:none;resize:vertical}
+    .notes-row textarea:focus{border-color:var(--gold);background:var(--white)}
+
+    /* ── INTEREST / OFFER BOX (Seller Leads) ── */
+    .offer-box{margin-top:1rem;padding:1.1rem 1.25rem;background:var(--beige);border:1px solid var(--border);border-radius:3px}
+    .offer-box-tabs{display:flex;gap:.5rem;margin-bottom:1rem}
+    .offer-box-tab{flex:1;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:.55rem;background:var(--white);border:1px solid var(--border);border-radius:2px;color:var(--gray);cursor:pointer;transition:all .2s}
+    .offer-box-tab.active{border-color:var(--gold);color:var(--navy);background:rgba(192,154,91,.1)}
+    .offer-box-field{display:none}
+    .offer-box-field.active{display:block}
+
+    /* ── PHOTO PICKER (Submit: manual entry) ── */
+    .photo-picker{border:1px dashed var(--border);border-radius:3px;padding:1rem;background:var(--beige)}
+    .photo-picker-grid{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.75rem}
+    .photo-picker-thumb{position:relative;width:88px;height:64px;border-radius:3px;overflow:hidden;border:1px solid var(--border)}
+    .photo-picker-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+    .photo-picker-thumb button{position:absolute;top:2px;right:2px;width:18px;height:18px;line-height:16px;text-align:center;background:rgba(12,28,51,.75);color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:.7rem;padding:0}
+    .required-mark{color:var(--red)}
 
     /* ── FOOTER ── */
     footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:2rem 5rem;display:flex;align-items:center;justify-content:space-between;margin-top:auto}
@@ -226,13 +282,13 @@
         <p>Access your inventory submission dashboard, view active Sell My Car leads, and connect with motivated buyers — all in one place.</p>
         <div style="display:flex;flex-direction:column;gap:.75rem;margin-top:1.5rem">
           <div style="display:flex;align-items:center;gap:.75rem;font-size:.82rem;color:rgba(255,255,255,.6)">
+            <span style="color:var(--gold)">✦</span> Verify and work matched buyer leads
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;font-size:.82rem;color:rgba(255,255,255,.6)">
+            <span style="color:var(--gold)">✦</span> Send offers on active seller leads
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;font-size:.82rem;color:rgba(255,255,255,.6)">
             <span style="color:var(--gold)">✦</span> Submit vehicles for Weekly Finds
-          </div>
-          <div style="display:flex;align-items:center;gap:.75rem;font-size:.82rem;color:rgba(255,255,255,.6)">
-            <span style="color:var(--gold)">✦</span> View active seller leads
-          </div>
-          <div style="display:flex;align-items:center;gap:.75rem;font-size:.82rem;color:rgba(255,255,255,.6)">
-            <span style="color:var(--gold)">✦</span> Express interest in vehicles
           </div>
         </div>
       </div>
@@ -278,25 +334,38 @@
   </div>
 
   <div class="dash-cards">
-    <div class="dash-card" onclick="showView('view-submit')">
-      <div class="dash-card-icon">🚗</div>
-      <div class="dash-card-title">Submit a Vehicle</div>
-      <div class="dash-card-desc">Submit a vehicle for consideration in Jeff's Weekly Finds newsletter. Reach thousands of active luxury buyers.</div>
+    <div class="dash-card" onclick="showView('view-partner-leads')">
+      <div class="dash-card-icon">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="10" r="4.25"/>
+          <circle cx="23" cy="22" r="4.25"/>
+          <path d="M12.6 12.6 18 18"/>
+          <path d="M15.5 15.5 19.5 15.5 19.5 19.5"/>
+        </svg>
+      </div>
+      <div class="dash-card-title">Buyer Leads</div>
+      <div class="dash-card-desc">Matched buyer leads routed to you — verify availability, track active deals, and see your referral fees.</div>
     </div>
     <div class="dash-card" onclick="showView('view-leads')">
-      <div class="dash-card-icon">🔍</div>
-      <div class="dash-card-title">Sell My Car Leads</div>
-      <div class="dash-card-desc">Browse active seller leads. Express interest and we'll connect you with motivated sellers looking for offers.</div>
+      <div class="dash-card-icon">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5.5 5.5h10.6L26.5 16l-10.9 10.9L5.5 16.1Z"/>
+          <circle cx="11" cy="11" r="1.6" fill="currentColor" stroke="none"/>
+        </svg>
+      </div>
+      <div class="dash-card-title">Seller Leads</div>
+      <div class="dash-card-desc">Browse vehicles sellers want appraised. Send an offer or a message, and track everything you're interested in.</div>
     </div>
-    <div class="dash-card" onclick="showView('view-my-submissions')">
-      <div class="dash-card-icon">📋</div>
-      <div class="dash-card-title">My Submissions</div>
-      <div class="dash-card-desc">Track the status of your vehicle submissions — pending review, approved, or published in the newsletter.</div>
-    </div>
-    <div class="dash-card" onclick="showView('view-partner-leads')">
-      <div class="dash-card-icon">🤝</div>
-      <div class="dash-card-title">Buyer Leads</div>
-      <div class="dash-card-desc">Matched buyer leads routed to you — verify availability, update deal status, and track referral fees.</div>
+    <div class="dash-card" onclick="showView('view-submit')">
+      <div class="dash-card-icon">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 21.5V6.5"/>
+          <path d="M10.5 12 16 6.5 21.5 12"/>
+          <path d="M6.5 21.5v3a2 2 0 0 0 2 2h15a2 2 0 0 0 2-2v-3"/>
+        </svg>
+      </div>
+      <div class="dash-card-title">Submit a Vehicle to Highlights</div>
+      <div class="dash-card-desc">Submit inventory for Jeff's Weekly Finds newsletter — by link or manually — and manage your past submissions.</div>
     </div>
   </div>
 
@@ -311,41 +380,124 @@
     <div class="subview-header-inner">
       <div>
         <button class="subview-back" onclick="showView('view-dashboard')">← Dashboard</button>
-        <div class="subview-title">Submit a <em>Vehicle</em></div>
-        <div class="subview-sub">Submit for Weekly Finds newsletter consideration</div>
+        <div class="subview-title">Submit a Vehicle to <em>Highlights</em></div>
+        <div class="subview-sub">Weekly Finds newsletter consideration — by link or manual entry</div>
       </div>
     </div>
   </div>
 
   <div class="content-area">
-    <div style="max-width:680px">
-
-      <div class="dp-alert dp-alert-err" id="submit-error"></div>
-      <div class="dp-alert dp-alert-ok"  id="submit-success"></div>
-
-      <div class="dp-form-group">
-        <label>Listing URL</label>
-        <input type="text" id="sv-listing-url" placeholder="https://yourdealership.com/inventory/..."/>
-        <div style="font-size:.7rem;color:var(--gray);margin-top:.4rem;font-weight:300">We'll pull year, make, model, trim, price, mileage, and photos directly from this page.</div>
-      </div>
-      <div class="dp-form-group">
-        <label>Category</label>
-        <select id="sv-category">
-          <option value="">Select category...</option>
-          <option>Luxury</option>
-          <option>Exotic</option>
-          <option>Under $50k</option>
-          <option>Truck</option>
-        </select>
-      </div>
-      <div class="dp-form-group">
-        <label>Notes (optional)</label>
-        <textarea id="sv-description" placeholder="Anything not on the listing page — condition notes, relevant history, why it's a good fit for the newsletter..."></textarea>
+    <div class="subtabs">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="sub-submit" onclick="switchSubTab(this)">Submit a Vehicle</button>
+        <button class="tab-btn" data-tab="sub-mine" onclick="switchSubTab(this, 'loadMySubmissions')">My Submissions</button>
       </div>
 
-      <button class="btn-primary" id="submit-btn" onclick="doSubmitVehicle()" style="max-width:300px;margin-top:.5rem">
-        Submit Vehicle
-      </button>
+      <div class="tab-panel active" id="sub-submit">
+        <div style="max-width:680px">
+
+          <div class="mode-toggle">
+            <button type="button" class="mode-toggle-btn active" id="sv-mode-link-btn" onclick="setSubmitMode('link')">From Listing URL</button>
+            <button type="button" class="mode-toggle-btn" id="sv-mode-manual-btn" onclick="setSubmitMode('manual')">Manual Entry</button>
+          </div>
+
+          <div class="dp-alert dp-alert-err" id="submit-error"></div>
+          <div class="dp-alert dp-alert-ok"  id="submit-success"></div>
+
+          <!-- Link mode -->
+          <div id="sv-mode-link">
+            <div class="dp-form-group">
+              <label>Listing URL</label>
+              <input type="text" id="sv-listing-url" placeholder="https://yourdealership.com/inventory/..."/>
+              <div style="font-size:.7rem;color:var(--gray);margin-top:.4rem;font-weight:300">We'll pull year, make, model, trim, price, mileage, and photos directly from this page.</div>
+            </div>
+            <div class="dp-form-group">
+              <label>Category</label>
+              <select id="sv-category">
+                <option value="">Select category...</option>
+                <option>Luxury</option>
+                <option>Exotic</option>
+                <option>Under $50k</option>
+                <option>Truck</option>
+              </select>
+            </div>
+            <div class="dp-form-group">
+              <label>Notes (optional)</label>
+              <textarea id="sv-description" placeholder="Anything not on the listing page — condition notes, relevant history, why it's a good fit for the newsletter..."></textarea>
+            </div>
+
+            <button class="btn-primary" id="submit-btn" onclick="doSubmitVehicle()" style="max-width:300px;margin-top:.5rem">
+              Submit Vehicle
+            </button>
+            <div id="sv-link-fail-help" style="display:none;margin-top:1rem;font-size:.8rem;color:var(--gray)">
+              Couldn't pull the details automatically from that link.
+              <button type="button" class="btn-primary btn-sm btn-gold" style="width:auto;display:block;margin-top:.6rem" onclick="switchToManualFromFailedLink()">Complete It Manually Instead</button>
+            </div>
+          </div>
+
+          <!-- Manual mode -->
+          <div id="sv-mode-manual" style="display:none">
+            <div class="dp-alert dp-alert-err" id="manual-submit-error"></div>
+            <div class="dp-form-row">
+              <div class="dp-form-group"><label>Year <span class="required-mark">*</span></label><input type="number" id="mv-year" placeholder="2024"/></div>
+              <div class="dp-form-group"><label>Make <span class="required-mark">*</span></label><input type="text" id="mv-make" placeholder="Porsche"/></div>
+            </div>
+            <div class="dp-form-row">
+              <div class="dp-form-group"><label>Model <span class="required-mark">*</span></label><input type="text" id="mv-model" placeholder="911"/></div>
+              <div class="dp-form-group"><label>Trim</label><input type="text" id="mv-trim" placeholder="Carrera S"/></div>
+            </div>
+            <div class="dp-form-row">
+              <div class="dp-form-group"><label>Price ($)</label><input type="number" id="mv-price" placeholder="129900"/></div>
+              <div class="dp-form-group"><label>Mileage</label><input type="number" id="mv-mileage" placeholder="8200"/></div>
+            </div>
+            <div class="dp-form-row">
+              <div class="dp-form-group"><label>VIN</label><input type="text" id="mv-vin"/></div>
+              <div class="dp-form-group"><label>Exterior Color</label><input type="text" id="mv-color"/></div>
+            </div>
+            <div class="dp-form-row">
+              <div class="dp-form-group"><label>Engine</label><input type="text" id="mv-engine"/></div>
+              <div class="dp-form-group"><label>Transmission</label><input type="text" id="mv-transmission"/></div>
+            </div>
+            <div class="dp-form-group">
+              <label>Category <span class="required-mark">*</span></label>
+              <select id="mv-category">
+                <option value="">Select category...</option>
+                <option>Luxury</option>
+                <option>Exotic</option>
+                <option>Under $50k</option>
+                <option>Truck</option>
+              </select>
+            </div>
+            <div class="dp-form-group">
+              <label>Listing URL (optional)</label>
+              <input type="text" id="mv-listing-url" placeholder="https://yourdealership.com/inventory/..."/>
+            </div>
+            <div class="dp-form-group">
+              <label>Notes (optional)</label>
+              <textarea id="mv-description"></textarea>
+            </div>
+
+            <div class="dp-form-group">
+              <label>Photos <span class="required-mark">*</span></label>
+              <div class="photo-picker">
+                <input type="file" accept="image/*" multiple id="mv-photo-input" onchange="onManualPhotosSelected(event)"/>
+                <div style="font-size:.7rem;color:var(--gray);margin-top:.5rem">At least one photo is required for a manual submission.</div>
+                <div class="photo-picker-grid" id="mv-photo-grid"></div>
+              </div>
+            </div>
+
+            <button class="btn-primary" id="mv-submit-btn" onclick="doSubmitVehicleManual()" style="max-width:300px;margin-top:1.25rem">
+              Submit Vehicle
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="tab-panel" id="sub-mine">
+        <div id="subs-loading" class="loading-text">Loading submissions...</div>
+        <div id="subs-list"></div>
+      </div>
     </div>
   </div>
 
@@ -360,8 +512,8 @@
     <div class="subview-header-inner">
       <div>
         <button class="subview-back" onclick="showView('view-dashboard')">← Dashboard</button>
-        <div class="subview-title">Sell My Car <em>Leads</em></div>
-        <div class="subview-sub">Active seller leads — click Interested to connect</div>
+        <div class="subview-title">Seller <em>Leads</em></div>
+        <div class="subview-sub">Vehicles sellers want appraised — send an offer or a message to connect</div>
       </div>
     </div>
   </div>
@@ -371,33 +523,25 @@
       <strong style="color:var(--navy)">Privacy notice:</strong> Seller contact information is never displayed. When you express interest, Jeff will coordinate the introduction. You see vehicle details only.
     </div>
 
-    <div id="leads-loading" style="text-align:center;padding:3rem;color:var(--gray);font-size:.88rem">Loading leads...</div>
-    <div id="leads-list"></div>
-  </div>
+    <div class="subtabs">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="sl-available" onclick="switchSubTab(this)">Available Vehicles</button>
+        <button class="tab-btn" data-tab="sl-interested" onclick="switchSubTab(this, 'loadInterestedLeads')">Interested</button>
+      </div>
 
-</div><!-- /view-leads -->
+      <div class="tab-panel active" id="sl-available">
+        <div id="leads-loading" class="loading-text">Loading leads...</div>
+        <div id="leads-list"></div>
+      </div>
 
-<!-- ════════════════════════════════════════════════════════
-     VIEW: MY SUBMISSIONS
-═════════════════════════════════════════════════════════ -->
-<div class="view" id="view-my-submissions">
-
-  <div class="subview-header">
-    <div class="subview-header-inner">
-      <div>
-        <button class="subview-back" onclick="showView('view-dashboard')">← Dashboard</button>
-        <div class="subview-title">My <em>Submissions</em></div>
-        <div class="subview-sub">Track the status of your vehicle submissions</div>
+      <div class="tab-panel" id="sl-interested">
+        <div id="interested-loading" class="loading-text">Loading...</div>
+        <div id="interested-list"></div>
       </div>
     </div>
   </div>
 
-  <div class="content-area">
-    <div id="subs-loading" style="text-align:center;padding:3rem;color:var(--gray);font-size:.88rem">Loading submissions...</div>
-    <div id="subs-list"></div>
-  </div>
-
-</div><!-- /view-my-submissions -->
+</div><!-- /view-leads -->
 
 <!-- ════════════════════════════════════════════════════════
      VIEW: ADMIN DASHBOARD
@@ -600,14 +744,38 @@
       <div>
         <button class="subview-back" onclick="showView('view-dashboard')">← Dashboard</button>
         <div class="subview-title">Buyer <em>Leads</em></div>
-        <div class="subview-sub">Matched buyer leads routed to you — verify availability and update deal status</div>
+        <div class="subview-sub">Matched buyer leads routed to you — verify availability and work active deals</div>
       </div>
     </div>
   </div>
 
   <div class="content-area">
-    <div id="partner-leads-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
-    <div id="partner-leads-list"></div>
+    <div class="subtabs">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="bl-verify" onclick="switchSubTab(this)">Verify Availability<span class="tab-badge" id="bl-verify-badge"></span></button>
+        <button class="tab-btn" data-tab="bl-active" onclick="switchSubTab(this)">Active Deals</button>
+        <button class="tab-btn" data-tab="bl-closed" onclick="switchSubTab(this)">Closed Deals</button>
+        <button class="tab-btn" data-tab="bl-fees" onclick="switchSubTab(this, 'loadPartnerFees')">Fees &amp; Payouts</button>
+      </div>
+
+      <div class="tab-panel active" id="bl-verify">
+        <div id="bl-verify-loading" class="loading-text">Loading...</div>
+        <div id="bl-verify-list"></div>
+      </div>
+
+      <div class="tab-panel" id="bl-active">
+        <div id="bl-active-list"></div>
+      </div>
+
+      <div class="tab-panel" id="bl-closed">
+        <div id="bl-closed-list"></div>
+      </div>
+
+      <div class="tab-panel" id="bl-fees">
+        <div id="bl-fees-loading" class="loading-text">Loading...</div>
+        <div id="bl-fees-list"></div>
+      </div>
+    </div>
   </div>
 
 </div><!-- /view-partner-leads -->
@@ -644,7 +812,7 @@ function showView(id) {
 
   // Trigger data loads on view switch
   if (id === 'view-leads')          loadLeads();
-  if (id === 'view-my-submissions') loadMySubmissions();
+  if (id === 'view-submit')         resetSubmitView();
   if (id === 'view-partner-leads')  loadPartnerLeads();
   if (id === 'view-admin') {
     loadAdminSubmissions();
@@ -669,6 +837,21 @@ function showAlert(id, msg, type = 'err') {
   el.textContent = msg;
   el.className   = `dp-alert dp-alert-${type} show`;
   if (type === 'ok') setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+// ── Generic sub-tab bar (Buyer Leads / Seller Leads / Submit views) ────
+// A .tab-bar's sibling .tab-panel elements switch together; pass a global
+// function name as the 2nd arg to lazy-load a tab's data the first time
+// (and every time) it's opened, instead of pre-fetching every tab up front.
+function switchSubTab(btn, onshowFn) {
+  const bar   = btn.closest('.tab-bar');
+  const group = bar.parentElement;
+  bar.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  group.querySelectorAll(':scope > .tab-panel').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById(btn.dataset.tab);
+  if (target) target.classList.add('active');
+  if (onshowFn && typeof window[onshowFn] === 'function') window[onshowFn]();
 }
 
 function setLoading(btnId, loading, loadingText = 'Loading…', originalText = null) {
@@ -778,7 +961,39 @@ async function restoreSession() {
   }
 }
 
-// ── Submit Vehicle ────────────────────────────────────────────
+// ── Submit Vehicle (Submit to Highlights) ──────────────────────
+function setSubmitMode(mode) {
+  const isLink = mode === 'link';
+  document.getElementById('sv-mode-link-btn').classList.toggle('active', isLink);
+  document.getElementById('sv-mode-manual-btn').classList.toggle('active', !isLink);
+  document.getElementById('sv-mode-link').style.display   = isLink ? 'block' : 'none';
+  document.getElementById('sv-mode-manual').style.display = isLink ? 'none' : 'block';
+  document.getElementById('sv-link-fail-help').style.display = 'none';
+}
+
+function resetSubmitView() {
+  const submitTabBtn = document.querySelector('#view-submit .tab-bar .tab-btn[data-tab="sub-submit"]');
+  if (submitTabBtn && !submitTabBtn.classList.contains('active')) switchSubTab(submitTabBtn);
+  setSubmitMode('link');
+  document.getElementById('submit-error').classList.remove('show');
+  document.getElementById('submit-success').classList.remove('show');
+}
+
+function switchToSubmitTab() {
+  const btn = document.querySelector('#view-submit .tab-bar .tab-btn[data-tab="sub-submit"]');
+  if (btn) switchSubTab(btn);
+}
+
+function switchToManualFromFailedLink() {
+  const url         = document.getElementById('sv-listing-url').value.trim();
+  const category    = document.getElementById('sv-category').value;
+  const description = document.getElementById('sv-description').value.trim();
+  setSubmitMode('manual');
+  if (url)         document.getElementById('mv-listing-url').value = url;
+  if (category)    document.getElementById('mv-category').value    = category;
+  if (description) document.getElementById('mv-description').value = description;
+}
+
 async function doSubmitVehicle() {
   const listing_url = document.getElementById('sv-listing-url').value.trim();
   const category    = document.getElementById('sv-category').value;
@@ -786,6 +1001,7 @@ async function doSubmitVehicle() {
 
   document.getElementById('submit-error').classList.remove('show');
   document.getElementById('submit-success').classList.remove('show');
+  document.getElementById('sv-link-fail-help').style.display = 'none';
 
   if (!listing_url || !category) {
     showAlert('submit-error', 'Please provide a Listing URL and Category.');
@@ -802,17 +1018,106 @@ async function doSubmitVehicle() {
   setLoading('submit-btn', false, null, 'Submit Vehicle');
 
   if (!res.ok) {
-    showAlert('submit-error', data.error || 'Submission failed. Please try again.');
+    showAlert('submit-error', data.error || "Couldn't fetch that listing.");
+    document.getElementById('sv-link-fail-help').style.display = 'block';
     return;
   }
 
   showAlert('submit-success', '✓ Vehicle submitted. Jeff will review and be in touch.', 'ok');
-  // Clear form
   ['sv-listing-url','sv-description'].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('sv-category').value = '';
 }
 
-// ── Leads ─────────────────────────────────────────────────────
+// ── Submit Vehicle: manual entry (requires at least one photo) ──
+let manualPhotoFiles = [];
+
+function onManualPhotosSelected(event) {
+  manualPhotoFiles = [...manualPhotoFiles, ...Array.from(event.target.files || [])];
+  event.target.value = '';
+  renderManualPhotoGrid();
+}
+
+function removeManualPhoto(idx) {
+  manualPhotoFiles.splice(idx, 1);
+  renderManualPhotoGrid();
+}
+
+function renderManualPhotoGrid() {
+  document.getElementById('mv-photo-grid').innerHTML = manualPhotoFiles.map((f, i) => `
+    <div class="photo-picker-thumb">
+      <img src="${URL.createObjectURL(f)}"/>
+      <button type="button" onclick="removeManualPhoto(${i})">&times;</button>
+    </div>
+  `).join('');
+}
+
+async function doSubmitVehicleManual() {
+  document.getElementById('manual-submit-error').classList.remove('show');
+
+  const year     = document.getElementById('mv-year').value.trim();
+  const make     = document.getElementById('mv-make').value.trim();
+  const model    = document.getElementById('mv-model').value.trim();
+  const category = document.getElementById('mv-category').value;
+
+  if (!year || !make || !model || !category) {
+    showAlert('manual-submit-error', 'Year, Make, Model, and Category are required.');
+    return;
+  }
+  if (!manualPhotoFiles.length) {
+    showAlert('manual-submit-error', 'Please add at least one photo — manual submissions require at least one.');
+    return;
+  }
+
+  setLoading('mv-submit-btn', true, 'Submitting…');
+
+  const body = {
+    year, make, model,
+    trim: document.getElementById('mv-trim').value.trim(),
+    price: document.getElementById('mv-price').value.trim(),
+    mileage: document.getElementById('mv-mileage').value.trim(),
+    vin: document.getElementById('mv-vin').value.trim(),
+    exterior_color: document.getElementById('mv-color').value.trim(),
+    engine: document.getElementById('mv-engine').value.trim(),
+    transmission: document.getElementById('mv-transmission').value.trim(),
+    category,
+    listing_url: document.getElementById('mv-listing-url').value.trim(),
+    description: document.getElementById('mv-description').value.trim(),
+  };
+
+  const { res, data } = await apiFetch('/dealer/submit-vehicle-manual', { method: 'POST', body: JSON.stringify(body) })
+    .catch(() => ({ res: { ok: false }, data: { error: 'Connection error.' } }));
+
+  if (!res.ok) {
+    setLoading('mv-submit-btn', false, null, 'Submit Vehicle');
+    showAlert('manual-submit-error', data.error || 'Submission failed. Please try again.');
+    return;
+  }
+
+  for (const file of manualPhotoFiles) {
+    const formData = new FormData();
+    formData.append('photo', file);
+    await fetch(`${API}/dealer/submissions/${data.id}/photo`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` }, body: formData,
+    }).catch(() => {});
+  }
+
+  setLoading('mv-submit-btn', false, null, 'Submit Vehicle');
+  manualPhotoFiles = [];
+  renderManualPhotoGrid();
+  ['mv-year','mv-make','mv-model','mv-trim','mv-price','mv-mileage','mv-vin','mv-color','mv-engine','mv-transmission','mv-listing-url','mv-description']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('mv-category').value = '';
+  setSubmitMode('link');
+  showAlert('submit-success', '✓ Vehicle submitted. Jeff will review and be in touch.', 'ok');
+}
+
+// ── Seller Leads ─────────────────────────────────────────────────
+const LEAD_FLAG_LABELS = {
+  more_pics: 'Need more photos', estimate_too_high: 'Estimate seems too high',
+  need_info: 'Need more info from seller', other: 'Other',
+};
+const SELLER_LEADS_CACHE = {};
+
 async function loadLeads() {
   document.getElementById('leads-loading').style.display = 'block';
   document.getElementById('leads-list').innerHTML        = '';
@@ -835,7 +1140,34 @@ async function loadLeads() {
     return;
   }
 
-  document.getElementById('leads-list').innerHTML = leads.map(lead => `
+  leads.forEach(l => SELLER_LEADS_CACHE[l.id] = l);
+  document.getElementById('leads-list').innerHTML = leads.map(lead => renderSellerLeadCard(lead)).join('');
+}
+
+async function loadInterestedLeads() {
+  document.getElementById('interested-loading').style.display = 'block';
+  document.getElementById('interested-list').innerHTML        = '';
+
+  const { res, data } = await apiFetch('/dealer/leads/interested')
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('interested-loading').style.display = 'none';
+
+  if (!res.ok) return;
+
+  const leads = data.leads || [];
+  if (!leads.length) {
+    document.getElementById('interested-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">🤝</div><div class="empty-state-text">Nothing here yet — express interest from Available Vehicles and it\'ll show up here.</div></div>';
+    return;
+  }
+
+  leads.forEach(l => SELLER_LEADS_CACHE[l.id] = l);
+  document.getElementById('interested-list').innerHTML = leads.map(lead => renderSellerLeadCard(lead, { openOffer: true })).join('');
+}
+
+function renderSellerLeadCard(lead, opts = {}) {
+  return `
     <div class="item-card" style="flex-direction:column;display:flex;gap:0">
       <div style="display:grid;grid-template-columns:var(--card-grid-3);gap:1rem;align-items:start;width:100%">
         ${leadAvatarHtml(lead, false)}
@@ -852,20 +1184,27 @@ async function loadLeads() {
             ${lead.final_retail_value ? `<span class="meta-pill">Retail ${formatPrice(lead.final_retail_value)}</span>` : ''}
             <span class="meta-pill" style="color:var(--gray);opacity:.6">${formatDate(lead.created_at)}</span>
           </div>
+          ${lead.i_expressed_interest ? `
+            <div style="font-size:.75rem;color:var(--green);margin-top:.5rem;font-weight:600">
+              ✓ Interested${lead.offer_amount ? ` — Offered ${formatPrice(lead.offer_amount)}` : ''}${lead.message ? ` — "${escapeHtmlJs(lead.message)}"` : ''}
+              ${lead.flag_reason ? ` — Flagged: ${LEAD_FLAG_LABELS[lead.flag_reason] || lead.flag_reason}` : ''}
+            </div>` : ''}
         </div>
         <div class="item-card-actions">
           <button class="interest-btn ${lead.i_expressed_interest ? 'interested' : ''}"
             id="interest-btn-${lead.id}"
-            onclick="doExpressInterest(${lead.id})"
-            ${lead.i_expressed_interest ? 'disabled' : ''}>
-            ${lead.i_expressed_interest ? '✓ Interested' : "I'm Interested"}
+            onclick="toggleOfferBox(${lead.id})">
+            ${lead.i_expressed_interest ? '✎ Edit Offer' : "I'm Interested"}
           </button>
           ${lead.valuation_status ? `<button class="btn-primary btn-sm" onclick="toggleLeadValuation(${lead.id})" id="valuation-btn-${lead.id}">View Valuation</button>` : ''}
         </div>
       </div>
       ${lead.valuation_status ? `<div id="lead-valuation-${lead.id}" style="display:none;width:100%;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)"></div>` : ''}
+      <div id="offer-box-${lead.id}" style="display:${opts.openOffer ? 'block' : 'none'}" ${opts.openOffer ? 'data-rendered="true"' : ''}>
+        ${opts.openOffer ? renderOfferBoxHtml(lead.id, lead) : ''}
+      </div>
     </div>
-  `).join('');
+  `;
 }
 
 async function toggleLeadValuation(leadId) {
@@ -885,19 +1224,96 @@ async function toggleLeadValuation(leadId) {
   detail.dataset.loaded = 'true';
 }
 
-async function doExpressInterest(leadId) {
-  const btn = document.getElementById(`interest-btn-${leadId}`);
-  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+// The "I'm Interested" button toggles this box open/closed. Amount vs.
+// message is an either/or choice (offer-box-tabs); the flag dropdown is
+// always optional and independent of that choice.
+function renderOfferBoxHtml(leadId, lead) {
+  const showingMessage = lead.offer_amount == null && !!lead.message;
+  return `
+    <div class="offer-box">
+      <div class="offer-box-tabs">
+        <button type="button" class="offer-box-tab ${!showingMessage ? 'active' : ''}" id="ob-tab-amount-${leadId}" onclick="setOfferBoxTab(${leadId},'amount')">Offer an Amount</button>
+        <button type="button" class="offer-box-tab ${showingMessage ? 'active' : ''}" id="ob-tab-message-${leadId}" onclick="setOfferBoxTab(${leadId},'message')">Send a Message</button>
+      </div>
+      <div class="offer-box-field ${!showingMessage ? 'active' : ''}" id="ob-field-amount-${leadId}">
+        <div class="dp-form-group" style="margin-bottom:.75rem">
+          <label>Amount You'd Pay ($)</label>
+          <input type="number" id="ob-amount-${leadId}" value="${lead.offer_amount ?? ''}" placeholder="45000"/>
+        </div>
+      </div>
+      <div class="offer-box-field ${showingMessage ? 'active' : ''}" id="ob-field-message-${leadId}">
+        <div class="dp-form-group" style="margin-bottom:.75rem">
+          <label>Message to Jeff</label>
+          <textarea id="ob-message-${leadId}" placeholder="Let Jeff know what you need...">${lead.message ?? ''}</textarea>
+        </div>
+      </div>
+      <div class="dp-form-group" style="margin-bottom:.75rem">
+        <label>Flag for Jeff (optional)</label>
+        <select id="ob-flag-${leadId}" onchange="onOfferFlagChange(${leadId})">
+          <option value="">None</option>
+          <option value="more_pics" ${lead.flag_reason === 'more_pics' ? 'selected' : ''}>Need more photos</option>
+          <option value="estimate_too_high" ${lead.flag_reason === 'estimate_too_high' ? 'selected' : ''}>Estimate seems too high</option>
+          <option value="need_info" ${lead.flag_reason === 'need_info' ? 'selected' : ''}>Need more info from seller</option>
+          <option value="other" ${lead.flag_reason === 'other' ? 'selected' : ''}>Other</option>
+        </select>
+      </div>
+      <div class="dp-form-group" id="ob-flag-notes-wrap-${leadId}" style="display:${lead.flag_reason ? 'block' : 'none'};margin-bottom:.75rem">
+        <label>Flag Notes</label>
+        <textarea id="ob-flag-notes-${leadId}" placeholder="Optional detail...">${lead.flag_notes ?? ''}</textarea>
+      </div>
+      <div class="dp-alert dp-alert-err" id="ob-error-${leadId}"></div>
+      <button class="btn-primary btn-sm btn-gold" style="width:auto" id="ob-send-${leadId}" onclick="doSendInterest(${leadId})">Send to Jeff</button>
+    </div>
+  `;
+}
 
-  const { res, data } = await apiFetch(`/dealer/leads/${leadId}/interest`, { method: 'POST' })
-    .catch(() => ({res:{ok:false},data:{}}));
-
-  if (res.ok) {
-    if (btn) { btn.textContent = '✓ Interested'; btn.classList.add('interested'); }
-  } else {
-    if (btn) { btn.disabled = false; btn.textContent = "I'm Interested"; }
-    alert(data.error || 'Could not record interest. Please try again.');
+function toggleOfferBox(leadId) {
+  const box = document.getElementById(`offer-box-${leadId}`);
+  if (!box) return;
+  const isOpen = box.style.display === 'block';
+  if (isOpen) { box.style.display = 'none'; return; }
+  if (!box.dataset.rendered) {
+    box.innerHTML = renderOfferBoxHtml(leadId, SELLER_LEADS_CACHE[leadId] || {});
+    box.dataset.rendered = 'true';
   }
+  box.style.display = 'block';
+}
+
+function setOfferBoxTab(leadId, which) {
+  document.getElementById(`ob-tab-amount-${leadId}`).classList.toggle('active', which === 'amount');
+  document.getElementById(`ob-tab-message-${leadId}`).classList.toggle('active', which === 'message');
+  document.getElementById(`ob-field-amount-${leadId}`).classList.toggle('active', which === 'amount');
+  document.getElementById(`ob-field-message-${leadId}`).classList.toggle('active', which === 'message');
+}
+
+function onOfferFlagChange(leadId) {
+  const val = document.getElementById(`ob-flag-${leadId}`).value;
+  document.getElementById(`ob-flag-notes-wrap-${leadId}`).style.display = val ? 'block' : 'none';
+}
+
+async function doSendInterest(leadId) {
+  document.getElementById(`ob-error-${leadId}`).classList.remove('show');
+  const usingAmount = document.getElementById(`ob-tab-amount-${leadId}`).classList.contains('active');
+  const offer_amount = usingAmount ? document.getElementById(`ob-amount-${leadId}`).value.trim() : '';
+  const message       = !usingAmount ? document.getElementById(`ob-message-${leadId}`).value.trim() : '';
+  const flag_reason   = document.getElementById(`ob-flag-${leadId}`).value;
+  const flag_notes    = document.getElementById(`ob-flag-notes-${leadId}`).value.trim();
+
+  if (usingAmount && !offer_amount) { showAlert(`ob-error-${leadId}`, 'Enter an amount, or switch to Send a Message.'); return; }
+  if (!usingAmount && !message)     { showAlert(`ob-error-${leadId}`, 'Enter a message, or switch to Offer an Amount.'); return; }
+
+  setLoading(`ob-send-${leadId}`, true, 'Sending…');
+  const { res, data } = await apiFetch(`/dealer/leads/${leadId}/interest`, {
+    method: 'POST',
+    body: JSON.stringify({ offer_amount, message, flag_reason, flag_notes }),
+  }).catch(() => ({ res: { ok: false }, data: {} }));
+  setLoading(`ob-send-${leadId}`, false, null, 'Send to Jeff');
+
+  if (!res.ok) { showAlert(`ob-error-${leadId}`, data.error || 'Could not send. Please try again.'); return; }
+
+  const btn = document.getElementById(`interest-btn-${leadId}`);
+  if (btn) { btn.textContent = '✎ Edit Offer'; btn.classList.add('interested'); }
+  document.getElementById(`offer-box-${leadId}`).style.display = 'none';
 }
 
 // ── My Submissions ────────────────────────────────────────────
@@ -919,29 +1335,84 @@ async function loadMySubmissions() {
   const subs = data.submissions || [];
   if (!subs.length) {
     document.getElementById('subs-list').innerHTML =
-      '<div class="empty-state"><div class="empty-state-icon">🚗</div><div class="empty-state-text">No submissions yet.<br/><button class="btn-primary btn-sm btn-gold" style="margin-top:1rem;width:auto" onclick="showView(\'view-submit\')">Submit Your First Vehicle</button></div></div>';
+      '<div class="empty-state"><div class="empty-state-icon">🚗</div><div class="empty-state-text">No submissions yet.<br/><button class="btn-primary btn-sm btn-gold" style="margin-top:1rem;width:auto" onclick="switchToSubmitTab()">Submit Your First Vehicle</button></div></div>';
     return;
   }
 
   document.getElementById('subs-list').innerHTML = subs.map(s => `
-    <div class="item-card">
-      ${s.photo_url ? `<img src="${s.photo_url}" style="width:90px;height:64px;object-fit:cover;border-radius:3px;margin-right:1rem"/>` : ''}
-      <div>
-        <div class="item-card-title">${s.year} ${s.make} ${s.model}${s.trim ? ' ' + s.trim : ''}</div>
-        <div class="item-card-meta">
-          ${s.price ? `<span class="meta-pill">${formatPrice(s.price)}</span>` : ''}
-          ${s.mileage ? `<span class="meta-pill">${s.mileage.toLocaleString()} miles</span>` : ''}
-          <span class="meta-pill">${s.category}</span>
-          <span class="meta-pill" style="color:var(--gray);opacity:.6">${formatDate(s.created_at)}</span>
+    <div class="item-card" style="flex-direction:column;display:flex;gap:0;align-items:stretch">
+      <div style="display:flex;gap:1rem;flex-wrap:wrap">
+        ${s.photo_url ? `<img src="${s.photo_url}" style="width:90px;height:64px;object-fit:cover;border-radius:3px"/>` : ''}
+        <div style="flex:1">
+          <div class="item-card-title">${s.year} ${s.make} ${s.model}${s.trim ? ' ' + s.trim : ''}</div>
+          <div class="item-card-meta">
+            ${s.price ? `<span class="meta-pill">${formatPrice(s.price)}</span>` : ''}
+            ${s.mileage ? `<span class="meta-pill">${s.mileage.toLocaleString()} miles</span>` : ''}
+            <span class="meta-pill">${s.category}</span>
+            ${s.submission_method === 'manual' ? `<span class="meta-pill">Manual entry</span>` : ''}
+            <span class="meta-pill" style="color:var(--gray);opacity:.6">${formatDate(s.created_at)}</span>
+          </div>
+          ${s.listing_url ? `<a href="${s.listing_url}" target="_blank" rel="noopener" style="font-size:.72rem;color:var(--gold)">View listing →</a>` : ''}
+          ${s.write_up ? `<div style="font-size:.76rem;color:var(--gray);margin-top:.4rem;line-height:1.6">${s.write_up}</div>` : ''}
         </div>
-        ${s.listing_url ? `<a href="${s.listing_url}" target="_blank" rel="noopener" style="font-size:.72rem;color:var(--gold)">View listing →</a>` : ''}
-        ${s.write_up ? `<div style="font-size:.76rem;color:var(--gray);margin-top:.4rem;line-height:1.6">${s.write_up}</div>` : ''}
+        <div class="item-card-actions">
+          <span class="status-badge status-${s.status}">${s.status}</span>
+          <button class="btn-primary btn-sm" onclick="toggleSubEditor(${s.id})" id="my-sub-edit-btn-${s.id}">Edit</button>
+          ${s.status !== 'sold' ? `<button class="btn-primary btn-sm btn-success" onclick="doMarkSubmissionSold(${s.id})">Mark as Sold</button>` : ''}
+        </div>
       </div>
-      <div class="item-card-actions">
-        <span class="status-badge status-${s.status}">${s.status}</span>
+      <div id="my-sub-editor-${s.id}" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Trim</label><input type="text" value="${s.trim ?? ''}" data-field="trim"/></div>
+          <div class="dp-form-group"><label>Price ($)</label><input type="number" value="${s.price ?? ''}" data-field="asking_price"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Mileage</label><input type="number" value="${s.mileage ?? ''}" data-field="mileage"/></div>
+          <div class="dp-form-group"><label>VIN</label><input type="text" value="${s.vin ?? ''}" data-field="vin"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Exterior Color</label><input type="text" value="${s.exterior_color ?? ''}" data-field="exterior_color"/></div>
+          <div class="dp-form-group"><label>Engine</label><input type="text" value="${s.engine ?? ''}" data-field="engine"/></div>
+        </div>
+        <div class="dp-form-group"><label>Transmission</label><input type="text" value="${s.transmission ?? ''}" data-field="transmission"/></div>
+        <div class="dp-form-group"><label>Notes</label><textarea data-field="description">${s.description ?? ''}</textarea></div>
+        <div style="display:flex;gap:.75rem;align-items:center">
+          <button class="btn-primary btn-sm" onclick="saveMySubEdits(${s.id})">Save Changes</button>
+          <span id="my-sub-save-msg-${s.id}" style="font-size:.8rem"></span>
+        </div>
       </div>
     </div>
   `).join('');
+}
+
+function toggleSubEditor(id) {
+  const el = document.getElementById(`my-sub-editor-${id}`);
+  const isHidden = el.style.display === 'none';
+  el.style.display = isHidden ? 'block' : 'none';
+  document.getElementById(`my-sub-edit-btn-${id}`).textContent = isHidden ? 'Hide' : 'Edit';
+}
+
+async function saveMySubEdits(id) {
+  const editor = document.getElementById(`my-sub-editor-${id}`);
+  const msg = document.getElementById(`my-sub-save-msg-${id}`);
+  msg.textContent = 'Saving…'; msg.style.color = 'var(--gray)';
+
+  const payload = {};
+  editor.querySelectorAll('[data-field]').forEach(el => { payload[el.dataset.field] = el.value; });
+
+  const { res } = await apiFetch(`/dealer/submissions/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+    .catch(() => ({res:{ok:false}}));
+  if (!res.ok) { msg.textContent = 'Failed to save.'; msg.style.color = 'var(--red)'; return; }
+  msg.textContent = '✓ Saved.'; msg.style.color = 'var(--green)';
+  loadMySubmissions();
+}
+
+async function doMarkSubmissionSold(id) {
+  if (!confirm('Mark this vehicle as sold? It will stop appearing as available inventory.')) return;
+  const { res, data } = await apiFetch(`/dealer/submissions/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'sold' }) })
+    .catch(() => ({res:{ok:false},data:{}}));
+  if (!res.ok) { alert(data.error || 'Could not update. Please try again.'); return; }
+  loadMySubmissions();
 }
 
 // ── ADMIN ─────────────────────────────────────────────────────
@@ -2121,41 +2592,9 @@ const PARTNER_LEAD_STATUS_LABELS = {
   video_sent: 'Video sent', test_drive_scheduled: 'Test drive scheduled', negotiations: 'Negotiations',
   still_shopping: 'Still shopping', won_delivered: 'Won — delivered', won_delivery_pending: 'Won — delivery pending', lost: 'Lost',
 };
-
-function renderPartnerLeadCard(lead) {
-  const locked = ['interested', 'pending_verification'].includes(lead.status);
-  const terminal = ['won_delivered', 'won_delivery_pending', 'lost'].includes(lead.status);
-  const listing = (() => { try { return JSON.parse(lead.listing_snapshot || '{}'); } catch { return {}; } })();
-  const carLine = `${listing.year || ''} ${listing.make || ''} ${listing.model || ''} ${listing.trim || ''}`.trim();
-
-  let actions = '';
-  if (locked) {
-    actions = `
-      <button class="btn-primary btn-sm" style="width:auto" onclick="doPartnerVerify(${lead.id})">Verify Available</button>
-      <button class="btn-primary btn-sm btn-danger" style="width:auto" onclick="doPartnerNotAvailable(${lead.id})">No Longer Available</button>`;
-  } else if (!terminal) {
-    const opts = ['video_sent', 'test_drive_scheduled', 'negotiations', 'still_shopping', 'won_delivered', 'won_delivery_pending', 'lost'];
-    actions = `
-      <select id="status-select-${lead.id}" class="dp-form-group" style="display:inline-block;width:auto;padding:.5rem .75rem;margin:0">
-        <option value="">Update status…</option>
-        ${opts.map(o => `<option value="${o}">${PARTNER_LEAD_STATUS_LABELS[o]}</option>`).join('')}
-      </select>
-      <button class="btn-primary btn-sm" style="width:auto" onclick="doPartnerUpdateStatus(${lead.id})">Save</button>`;
-  }
-
-  return `
-    <div class="dp-card" style="margin-bottom:1rem;padding:1.1rem 1.25rem;border:1px solid var(--border);border-radius:3px">
-      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem">
-        <strong style="color:var(--navy)">${escapeHtmlJs(carLine || 'Vehicle')}</strong>
-        <span style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--bronze)">${PARTNER_LEAD_STATUS_LABELS[lead.status] || lead.status}</span>
-      </div>
-      <div style="font-size:.82rem;color:var(--gray);margin-bottom:.75rem">
-        ${locked ? 'Buyer contact unlocks once you verify availability.' :
-          `${escapeHtmlJs(lead.buyer_name || '')} · ${escapeHtmlJs(lead.buyer_email || '')} · ${escapeHtmlJs(lead.buyer_phone || '')}`}
-      </div>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">${actions}</div>
-    </div>`;
-}
+const PARTNER_LEAD_LOCKED_STATUSES   = ['interested', 'pending_verification'];
+const PARTNER_LEAD_TERMINAL_STATUSES = ['won_delivered', 'won_delivery_pending', 'lost'];
+const LOST_REASON_LABELS = { wrong_car: 'Wrong car', price: 'Price', other: 'Other' };
 
 function escapeHtmlJs(str) {
   const div = document.createElement('div');
@@ -2163,28 +2602,244 @@ function escapeHtmlJs(str) {
   return div.innerHTML;
 }
 
+function safeParseJson(str) {
+  try { return JSON.parse(str || '{}'); } catch { return {}; }
+}
+
+function emptyStateHtml(icon, text) {
+  return `<div class="empty-state"><div class="empty-state-icon">${icon}</div><div class="empty-state-text">${text}</div></div>`;
+}
+
+function partnerLeadCarInfoHtml(lead) {
+  const listing = safeParseJson(lead.listing_snapshot);
+  const carLine = `${listing.year || ''} ${listing.make || ''} ${listing.model || ''} ${listing.trim || ''}`.trim();
+  return `
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem">
+      <strong style="color:var(--navy)">${escapeHtmlJs(carLine || 'Vehicle')}</strong>
+      <span style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--bronze)">${PARTNER_LEAD_STATUS_LABELS[lead.status] || lead.status}</span>
+    </div>
+    <div class="item-card-meta" style="margin-bottom:.5rem">
+      ${listing.price ? `<span class="meta-pill">${formatPrice(listing.price)}</span>` : ''}
+      ${listing.mileage ? `<span class="meta-pill">${Number(listing.mileage).toLocaleString()} miles</span>` : ''}
+      ${listing.vdp_url
+        ? `<a href="${listing.vdp_url}" target="_blank" rel="noopener" style="font-size:.72rem;color:var(--gold);font-weight:600;text-decoration:none">View Live Listing →</a>`
+        : `<span style="font-size:.72rem;color:var(--gray)">No live listing link on file</span>`}
+    </div>`;
+}
+
+// Car name + customer name double as the expand toggle for Active/Closed
+// Deals (Verify Availability has no customer to show yet, so it keeps the
+// plain, non-clickable header from partnerLeadCarInfoHtml above).
+function dealCardHeaderHtml(lead) {
+  const listing = safeParseJson(lead.listing_snapshot);
+  const carLine = `${listing.year || ''} ${listing.make || ''} ${listing.model || ''} ${listing.trim || ''}`.trim() || 'Vehicle';
+  const buyerLine = lead.buyer_name || 'Buyer';
+  let statusText = PARTNER_LEAD_STATUS_LABELS[lead.status] || lead.status;
+  if (lead.status === 'lost' && lead.lost_reason) statusText += ` — ${LOST_REASON_LABELS[lead.lost_reason] || lead.lost_reason}`;
+
+  return `
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem;align-items:baseline">
+      <div>
+        <span class="deal-clickable deal-car" onclick="toggleDealExpand(${lead.id})">${escapeHtmlJs(carLine)}</span>
+        <span style="color:var(--border)"> · </span>
+        <span class="deal-clickable deal-customer" onclick="toggleDealExpand(${lead.id})">${escapeHtmlJs(buyerLine)}</span>
+      </div>
+      <span style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${lead.status === 'lost' ? 'var(--red)' : 'var(--bronze)'}">${statusText}</span>
+    </div>
+    <div class="item-card-meta" style="margin:.4rem 0 0">
+      ${listing.price ? `<span class="meta-pill">${formatPrice(listing.price)}</span>` : ''}
+      ${listing.mileage ? `<span class="meta-pill">${Number(listing.mileage).toLocaleString()} miles</span>` : ''}
+      ${listing.vdp_url ? `<a href="${listing.vdp_url}" target="_blank" rel="noopener" style="font-size:.72rem;color:var(--gold);font-weight:600;text-decoration:none">View Live Listing →</a>` : ''}
+    </div>`;
+}
+
+// Priority-at-a-glance progress checklist: green + check once a stage's
+// timestamp is actually on the lead, red outline if it hasn't happened yet
+// — an honest record of what was (and wasn't) done along the way, even on
+// a won deal that skipped a step.
+const DEAL_CHECKLIST_STEPS = [
+  { key: 'verified_at', label: 'Verified Available' },
+  { key: 'video_sent_at', label: 'Video Sent' },
+  { key: 'test_drive_scheduled_at', label: 'Test Drive Scheduled' },
+  { key: 'negotiations_at', label: 'Negotiations Started' },
+  { key: 'won_at', label: 'Deal Won' },
+];
+
+function dealChecklistHtml(lead) {
+  const wonAt = lead.won_delivered_at || lead.won_delivery_pending_at;
+  const items = DEAL_CHECKLIST_STEPS.map(step => {
+    const done = step.key === 'won_at' ? !!wonAt : !!lead[step.key];
+    return `<span class="checklist-item ${done ? 'done' : 'pending'}"><span class="checklist-dot">${done ? '✓' : ''}</span>${step.label}</span>`;
+  });
+  if (lead.status === 'lost') items.push(`<span class="checklist-item lost"><span class="checklist-dot">✕</span>Lost</span>`);
+  if (lead.status === 'still_shopping') items.push(`<span class="checklist-item still-shopping"><span class="checklist-dot">•</span>Still Shopping</span>`);
+  return `<div class="deal-checklist">${items.join('')}</div>`;
+}
+
+// The buyer's original Find My Car intake — budget, financing, trade-in,
+// credit picture, etc. — shown in the click-to-expand panel. Only the
+// fields that are actually present render, since older leads may predate
+// some of these questions.
+function buyerIntakeHtml(lead) {
+  const PAYMENT_LABELS = { cash: 'Cash', finance: 'Financing', lease: 'Lease' };
+  const rows = [];
+  if (lead.budget_min || lead.budget_max) rows.push(['Budget', `$${lead.budget_min || '?'} – $${lead.budget_max || '?'}`]);
+  if (lead.payment_method) rows.push(['Financing', PAYMENT_LABELS[lead.payment_method] || lead.payment_method]);
+  if (lead.credit_range) rows.push(['Credit Picture', lead.credit_range]);
+  if (lead.desired_monthly_min || lead.desired_monthly_max) rows.push(['Target Payment', `$${lead.desired_monthly_min || '?'} – $${lead.desired_monthly_max || '?'}/mo`]);
+  if (lead.down_payment) rows.push(['Down Payment', `$${lead.down_payment}`]);
+  if (lead.trade_in) rows.push(['Trade-In', lead.trade_in]);
+  if (lead.current_vehicle) rows.push(['Current Vehicle', lead.current_vehicle]);
+  if (lead.current_like) rows.push(['Likes About Current', lead.current_like]);
+  if (lead.current_change) rows.push(['Wants to Change', lead.current_change]);
+  if (lead.timeline) rows.push(['Timeline', lead.timeline]);
+  if (lead.max_mileage) rows.push(['Max Mileage', Number(lead.max_mileage).toLocaleString()]);
+  if (lead.priorities) rows.push(['Priorities', lead.priorities]);
+  if (lead.specific_needs) rows.push(['Specific Needs', lead.specific_needs]);
+  if (lead.considering) rows.push(['Also Considering', lead.considering]);
+  if (lead.anything_else) rows.push(['Anything Else', lead.anything_else]);
+
+  if (!rows.length) return '<div style="font-size:.8rem;color:var(--gray)">No search-form details on file for this buyer.</div>';
+  return `<div class="intake-grid">${rows.map(([label, val]) => `
+    <div class="intake-row"><span class="intake-label">${label}</span><span class="intake-value">${escapeHtmlJs(String(val))}</span></div>
+  `).join('')}</div>`;
+}
+
+function partnerLeadNotesHtml(lead) {
+  return `
+    <div class="notes-row">
+      <label style="display:block;font-size:.63rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gray);margin-bottom:.45rem">Notes</label>
+      <textarea id="bl-notes-${lead.id}" placeholder="Working notes on this lead...">${lead.notes ?? ''}</textarea>
+      <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem">
+        <button class="btn-primary btn-sm" style="width:auto" onclick="doSavePartnerLeadNotes(${lead.id})">Save Notes</button>
+        <span id="bl-notes-msg-${lead.id}" style="font-size:.78rem"></span>
+      </div>
+    </div>`;
+}
+
+function toggleDealExpand(id) {
+  const el = document.getElementById(`deal-expand-${id}`);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function renderVerifyLeadCard(lead) {
+  return `
+    <div class="dp-card" style="margin-bottom:1rem;padding:1.1rem 1.25rem;border:1px solid var(--border);border-radius:3px">
+      ${partnerLeadCarInfoHtml(lead)}
+      <div class="verify-menu">
+        <select id="verify-menu-${lead.id}">
+          <option value="">Verification…</option>
+          <option value="verify">✓ Confirm Available</option>
+          <option value="unavailable">✗ No Longer Available</option>
+        </select>
+        <button class="btn-primary btn-sm" style="width:auto" onclick="doPartnerVerifyMenu(${lead.id})">Submit</button>
+      </div>
+      ${partnerLeadNotesHtml(lead)}
+    </div>`;
+}
+
+function renderActiveDealCard(lead) {
+  const opts = ['video_sent', 'test_drive_scheduled', 'negotiations', 'still_shopping', 'won_delivered', 'won_delivery_pending', 'lost'];
+  const actions = `
+    <select id="status-select-${lead.id}" style="display:inline-block;width:auto;padding:.5rem .75rem;margin:0">
+      <option value="">Update status…</option>
+      ${opts.map(o => `<option value="${o}">${PARTNER_LEAD_STATUS_LABELS[o]}</option>`).join('')}
+    </select>
+    <button class="btn-primary btn-sm" style="width:auto" onclick="doPartnerUpdateStatus(${lead.id})">Save</button>`;
+
+  return `
+    <div class="dp-card" id="active-deal-${lead.id}" style="margin-bottom:1rem;padding:1.1rem 1.25rem;border:1px solid var(--border);border-radius:3px">
+      ${dealCardHeaderHtml(lead)}
+      ${dealChecklistHtml(lead)}
+      <div id="deal-expand-${lead.id}" style="display:none;margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)">
+        <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.75rem">Buyer's Search Profile</div>
+        ${buyerIntakeHtml(lead)}
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:1.1rem">${actions}</div>
+        ${partnerLeadNotesHtml(lead)}
+      </div>
+    </div>`;
+}
+
+function renderClosedDealCard(lead) {
+  return `
+    <div class="dp-card" id="closed-deal-${lead.id}" style="margin-bottom:1rem;padding:1.1rem 1.25rem;border:1px solid var(--border);border-radius:3px">
+      ${dealCardHeaderHtml(lead)}
+      ${dealChecklistHtml(lead)}
+      <div id="deal-expand-${lead.id}" style="display:none;margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)">
+        <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.75rem">Buyer's Search Profile</div>
+        ${buyerIntakeHtml(lead)}
+        ${lead.status === 'lost' && lead.lost_reason_notes ? `<div style="font-size:.8rem;color:var(--gray);margin-top:.9rem"><strong style="color:var(--navy)">Lost notes:</strong> ${escapeHtmlJs(lead.lost_reason_notes)}</div>` : ''}
+        ${partnerLeadNotesHtml(lead)}
+      </div>
+    </div>`;
+}
+
+let PARTNER_LEADS_CACHE = [];
+
 async function loadPartnerLeads() {
-  document.getElementById('partner-leads-loading').style.display = 'block';
+  document.getElementById('bl-verify-loading').style.display = 'block';
   const { res, data } = await apiFetch('/partner/leads').catch(() => ({ res: { ok: false }, data: {} }));
-  document.getElementById('partner-leads-loading').style.display = 'none';
+  document.getElementById('bl-verify-loading').style.display = 'none';
   if (!res.ok) return;
-  const list = document.getElementById('partner-leads-list');
-  list.innerHTML = (data.leads || []).length
-    ? data.leads.map(renderPartnerLeadCard).join('')
-    : '<div style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">No leads yet — matched buyer interest will show up here.</div>';
+
+  PARTNER_LEADS_CACHE = data.leads || [];
+  const verifyLeads = PARTNER_LEADS_CACHE.filter(l => PARTNER_LEAD_LOCKED_STATUSES.includes(l.status));
+  const activeLeads = PARTNER_LEADS_CACHE.filter(l => !PARTNER_LEAD_LOCKED_STATUSES.includes(l.status) && !PARTNER_LEAD_TERMINAL_STATUSES.includes(l.status));
+  const closedLeads = PARTNER_LEADS_CACHE.filter(l => PARTNER_LEAD_TERMINAL_STATUSES.includes(l.status));
+
+  document.getElementById('bl-verify-list').innerHTML = verifyLeads.length
+    ? verifyLeads.map(renderVerifyLeadCard).join('')
+    : emptyStateHtml('✓', 'Nothing needs verification right now.');
+
+  document.getElementById('bl-active-list').innerHTML = activeLeads.length
+    ? activeLeads.map(renderActiveDealCard).join('')
+    : emptyStateHtml('🤝', 'No active deals yet — verified leads show up here.');
+
+  document.getElementById('bl-closed-list').innerHTML = closedLeads.length
+    ? closedLeads.map(renderClosedDealCard).join('')
+    : emptyStateHtml('📁', 'Nothing closed yet.');
+
+  const badge = document.getElementById('bl-verify-badge');
+  badge.textContent = verifyLeads.length > 99 ? '99+' : verifyLeads.length;
+  badge.classList.toggle('show', verifyLeads.length > 0);
 }
 
-async function doPartnerVerify(id) {
-  const { res, data } = await apiFetch(`/partner/leads/${id}/verify`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
-  if (!res.ok) { alert(data.error || 'Could not verify this lead.'); return; }
-  loadPartnerLeads();
+// Jump here from a Fees & Payouts row: switch to whichever sub-tab the
+// deal actually lives in, open its expand panel, and scroll it into view.
+function openDealFromFee(partnerLeadId, leadStatus) {
+  const isClosed = PARTNER_LEAD_TERMINAL_STATUSES.includes(leadStatus);
+  const btn = document.querySelector(`#view-partner-leads .tab-bar .tab-btn[data-tab="${isClosed ? 'bl-closed' : 'bl-active'}"]`);
+  if (btn && !btn.classList.contains('active')) switchSubTab(btn);
+
+  const expand = document.getElementById(`deal-expand-${partnerLeadId}`);
+  if (expand) expand.style.display = 'block';
+  const card = document.getElementById(`${isClosed ? 'closed' : 'active'}-deal-${partnerLeadId}`);
+  setTimeout(() => card?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 30);
 }
 
-async function doPartnerNotAvailable(id) {
-  if (!confirm('Report this vehicle as no longer available? This will close the lead.')) return;
-  const { res, data } = await apiFetch(`/partner/leads/${id}/not-available`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
+async function doPartnerVerifyMenu(id) {
+  const choice = document.getElementById(`verify-menu-${id}`).value;
+  if (!choice) return;
+  if (choice === 'unavailable' && !confirm('Report this vehicle as no longer available? This will close the lead.')) return;
+
+  const endpoint = choice === 'verify' ? `/partner/leads/${id}/verify` : `/partner/leads/${id}/not-available`;
+  const { res, data } = await apiFetch(endpoint, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
   if (!res.ok) { alert(data.error || 'Could not update this lead.'); return; }
   loadPartnerLeads();
+}
+
+async function doSavePartnerLeadNotes(id) {
+  const notes = document.getElementById(`bl-notes-${id}`).value;
+  const msg   = document.getElementById(`bl-notes-msg-${id}`);
+  msg.textContent = 'Saving…'; msg.style.color = 'var(--gray)';
+
+  const { res } = await apiFetch(`/partner/leads/${id}/notes`, { method: 'PATCH', body: JSON.stringify({ notes }) })
+    .catch(() => ({ res: { ok: false } }));
+  if (!res.ok) { msg.textContent = 'Failed to save.'; msg.style.color = 'var(--red)'; return; }
+  msg.textContent = '✓ Saved.'; msg.style.color = 'var(--green)';
+  const cached = PARTNER_LEADS_CACHE.find(l => l.id === id);
+  if (cached) cached.notes = notes;
 }
 
 async function doPartnerUpdateStatus(id) {
@@ -2207,6 +2862,97 @@ async function doPartnerUpdateStatus(id) {
     .catch(() => ({ res: { ok: false }, data: {} }));
   if (!res.ok) { alert(data.error || 'Could not update status.'); return; }
   loadPartnerLeads();
+}
+
+// ── Fees & Payouts ──────────────────────────────────────────────
+const PARTNER_FEE_STATUS_LABELS = { pending: 'Pending sale', owed: 'Owed', paid: 'Paid', written_off: 'Written off' };
+const FEE_PAYOUT_REASON_LABELS = {
+  waiting_paperwork: 'Waiting on paperwork', waiting_title: 'Waiting on title',
+  waiting_on_accounting: 'Waiting on dealer accounting', other: 'Other',
+};
+
+// Payout-request tracking only matters once a fee is actually owed (after
+// closed-won) — pending fees aren't collectible yet, and paid/written-off
+// are already resolved, so those just show a dash.
+function feePayoutCellHtml(f) {
+  if (f.status !== 'owed') return '<span style="color:var(--gray)">—</span>';
+
+  const reasonLabel = f.payout_not_requested_reason ? FEE_PAYOUT_REASON_LABELS[f.payout_not_requested_reason] : null;
+  return `
+    ${f.payout_requested_at
+      ? `<div style="color:var(--green);font-weight:600;font-size:.76rem">✓ Requested ${formatDate(f.payout_requested_at)}</div>`
+      : `<button class="btn-primary btn-sm" style="width:auto" onclick="doMarkPayoutRequested(${f.id})">I Submitted a Request</button>
+         ${reasonLabel ? `<div style="font-size:.72rem;color:var(--gray);margin-top:.35rem">${reasonLabel}${f.payout_not_requested_notes ? ': ' + escapeHtmlJs(f.payout_not_requested_notes) : ''}</div>` : ''}`}
+    <button class="btn-primary btn-sm btn-outline" style="width:auto;margin-top:.35rem;display:block" onclick="openPayoutReasonForm(${f.id})">${f.payout_requested_at ? 'Undo / edit' : (reasonLabel ? 'Edit reason' : "Haven't yet — why?")}</button>
+    <div id="payout-form-${f.id}" style="display:none;margin-top:.5rem;min-width:200px">
+      <select id="payout-reason-${f.id}" style="width:auto;padding:.4rem .6rem;margin-bottom:.4rem">
+        <option value="">Choose a reason…</option>
+        ${Object.entries(FEE_PAYOUT_REASON_LABELS).map(([k, l]) => `<option value="${k}" ${f.payout_not_requested_reason === k ? 'selected' : ''}>${l}</option>`).join('')}
+      </select>
+      <textarea id="payout-notes-${f.id}" placeholder="Optional detail..." style="width:100%;min-height:44px;font-size:.78rem;padding:.4rem .6rem;border:1px solid var(--border);border-radius:2px;background:var(--white);font-family:'Jost',sans-serif;margin-bottom:.4rem">${f.payout_not_requested_notes ?? ''}</textarea>
+      <button class="btn-primary btn-sm" style="width:auto" onclick="doSaveFeeReason(${f.id})">Save</button>
+    </div>`;
+}
+
+function openPayoutReasonForm(id) {
+  const el = document.getElementById(`payout-form-${id}`);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function doMarkPayoutRequested(id) {
+  const { res, data } = await apiFetch(`/partner/fees/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'mark_requested' }) })
+    .catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) { alert(data.error || 'Could not update.'); return; }
+  loadPartnerFees();
+}
+
+async function doSaveFeeReason(id) {
+  const reason = document.getElementById(`payout-reason-${id}`).value;
+  const notes  = document.getElementById(`payout-notes-${id}`).value.trim();
+  if (!reason) { alert('Please choose a reason.'); return; }
+
+  const { res, data } = await apiFetch(`/partner/fees/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'set_reason', reason, notes }) })
+    .catch(() => ({ res: { ok: false }, data: {} }));
+  if (!res.ok) { alert(data.error || 'Could not update.'); return; }
+  loadPartnerFees();
+}
+
+async function loadPartnerFees() {
+  document.getElementById('bl-fees-loading').style.display = 'block';
+  document.getElementById('bl-fees-list').innerHTML        = '';
+
+  const { res, data } = await apiFetch('/partner/fees').catch(() => ({ res: { ok: false }, data: {} }));
+  document.getElementById('bl-fees-loading').style.display = 'none';
+  if (!res.ok) return;
+
+  const fees = data.fees || [];
+  if (!fees.length) {
+    document.getElementById('bl-fees-list').innerHTML = emptyStateHtml('💰', 'No fees yet — these show up once a verified lead closes.');
+    return;
+  }
+
+  document.getElementById('bl-fees-list').innerHTML = `
+    <div style="overflow-x:auto"><table class="dp-table">
+      <thead><tr><th>Customer</th><th>Vehicle</th><th>Fee</th><th>Amount</th><th>Status</th><th>Due</th><th>Payout</th></tr></thead>
+      <tbody>${fees.map(f => {
+        const listing = safeParseJson(f.listing_snapshot);
+        const carLine = `${listing.year || ''} ${listing.make || ''} ${listing.model || ''}`.trim() || 'Vehicle';
+        const amount  = f.dollar_amount != null ? f.dollar_amount : (f.fee_type === 'flat' ? f.fee_amount : null);
+        return `
+        <tr>
+          <td><span class="deal-clickable" style="font-weight:600;color:var(--navy)" onclick="openDealFromFee(${f.partner_lead_id},'${f.lead_status}')">${escapeHtmlJs(f.buyer_name || 'Buyer')}</span></td>
+          <td>${escapeHtmlJs(carLine)}</td>
+          <td>${f.fee_type === 'percent' ? `${f.fee_percent}% of ${f.fee_percent_basis === 'front_gross' ? 'front gross' : 'sale price'}` : 'Flat'}</td>
+          <td>${amount != null ? formatPrice(amount) : '—'}</td>
+          <td>
+            <span class="status-badge ${f.status === 'paid' ? 'status-approved' : f.status === 'written_off' ? 'status-rejected' : 'status-pending'}">${PARTNER_FEE_STATUS_LABELS[f.status] || f.status}</span>
+            ${f.overdue ? `<span class="status-badge status-rejected" style="margin-left:.3rem">Overdue</span>` : ''}
+          </td>
+          <td>${f.due_date ? formatDate(f.due_date) : '—'}</td>
+          <td>${feePayoutCellHtml(f)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
 }
 
 // ── Admin: Partner Applications / Active Partners / oversight ──────
