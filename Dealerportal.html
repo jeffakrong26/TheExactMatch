@@ -418,8 +418,7 @@
       <button class="tab-btn" onclick="switchTab('tab-reports')">Reports<span class="tab-badge" data-section="find_car"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-leads')">Sell Leads<span class="tab-badge" data-section="sell_car"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-messages')">Messages<span class="tab-badge" data-section="messages"></span></button>
-      <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers<span class="tab-badge" data-section="dealers"></span></button>
-      <button class="tab-btn" onclick="switchTab('tab-partners')">Partners<span class="tab-badge" data-section="partner_applications"></span></button>
+      <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers & Partners<span class="tab-badge" data-section="dealers"></span><span class="tab-badge" data-section="partner_applications"></span></button>
     </div>
 
     <!-- Tab: Submissions -->
@@ -485,7 +484,10 @@
       <div id="admin-messages-list"></div>
     </div>
 
-    <!-- Tab: Dealers -->
+    <!-- Tab: Dealers & Partners (merged — trade-in dealer network above,
+         buyer-lead-referral partner network below. Partner lead oversight,
+         fee accounting, and lifecycle email approval live in the CRM app
+         instead, alongside the rest of the deal pipeline.) -->
     <div class="tab-panel" id="tab-dealers">
       <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;border-bottom:none;padding-bottom:0;margin-bottom:1.5rem">
         <span>Dealer Accounts</span>
@@ -498,7 +500,7 @@
         <div id="admin-invites-list"></div>
       </div>
 
-      <div>
+      <div style="margin-bottom:2.5rem">
         <div class="section-label">Active Dealers</div>
         <div id="admin-dealers-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
         <div style="overflow-x:auto">
@@ -512,26 +514,17 @@
           </table>
         </div>
       </div>
-    </div>
 
-    <!-- Tab: Partners (buyer-lead-referral network — distinct from the
-         trade-in Dealers tab above) -->
-    <div class="tab-panel" id="tab-partners">
-      <div class="section-label">Partner Applications</div>
-      <div id="admin-partner-apps-loading" style="text-align:center;padding:1.5rem;color:var(--gray);font-size:.85rem">Loading...</div>
-      <div id="admin-partner-apps-list" style="margin-bottom:2.5rem"></div>
+      <div style="margin-bottom:2.5rem">
+        <div class="section-label">Partner Applications</div>
+        <div id="admin-partner-apps-loading" style="text-align:center;padding:1.5rem;color:var(--gray);font-size:.85rem">Loading...</div>
+        <div id="admin-partner-apps-list"></div>
+      </div>
 
-      <div class="section-label">Active Partners</div>
-      <div id="admin-partners-active-list" style="margin-bottom:2.5rem"></div>
-
-      <div class="section-label">Partner Leads (oversight)</div>
-      <div id="admin-partner-leads-list" style="margin-bottom:2.5rem;overflow-x:auto"></div>
-
-      <div class="section-label">Fees — Pending / Owed / Paid</div>
-      <div id="admin-partner-fees-list" style="margin-bottom:2.5rem;overflow-x:auto"></div>
-
-      <div class="section-label">Lifecycle Emails Awaiting Approval</div>
-      <div id="admin-partner-emails-list"></div>
+      <div>
+        <div class="section-label">Active Partners</div>
+        <div id="admin-partners-active-list"></div>
+      </div>
     </div>
 
   </div>
@@ -720,9 +713,6 @@ function showView(id) {
     loadAdminInvites();
     loadAdminPartnerApplications();
     loadAdminActivePartners();
-    loadAdminPartnerLeads();
-    loadAdminPartnerFees();
-    loadAdminPartnerLifecycleEmails();
     startNotificationPolling();
   } else if (notificationPollHandle) {
     clearInterval(notificationPollHandle);
@@ -2430,72 +2420,9 @@ async function doDeactivatePartner(id) {
   loadAdminActivePartners();
 }
 
-async function loadAdminPartnerLeads() {
-  const { res, data } = await apiFetch('/admin/partner-leads').catch(() => ({ res: { ok: false }, data: {} }));
-  if (!res.ok) return;
-  const el = document.getElementById('admin-partner-leads-list');
-  el.innerHTML = data.leads?.length ? `
-    <table class="dp-table">
-      <thead><tr><th>#</th><th>Partner</th><th>Buyer</th><th>Status</th><th>Created</th></tr></thead>
-      <tbody>${data.leads.map(l => `
-        <tr><td>${l.id}</td><td>${escapeHtmlJs(l.dealership_name)}</td><td>${escapeHtmlJs(l.buyer_name || '')}</td>
-        <td>${PARTNER_LEAD_STATUS_LABELS[l.status] || l.status}</td><td>${escapeHtmlJs(l.created_at)}</td></tr>`).join('')}</tbody>
-    </table>` : '<div style="font-size:.85rem;color:var(--gray)">No partner leads yet.</div>';
-}
-
-async function loadAdminPartnerFees() {
-  const { res, data } = await apiFetch('/admin/partner-fees').catch(() => ({ res: { ok: false }, data: {} }));
-  if (!res.ok) return;
-  const el = document.getElementById('admin-partner-fees-list');
-  el.innerHTML = data.fees?.length ? `
-    <table class="dp-table">
-      <thead><tr><th>#</th><th>Partner</th><th>Amount</th><th>Status</th><th>Due</th><th>Action</th></tr></thead>
-      <tbody>${data.fees.map(f => `
-        <tr${f.overdue ? ' style="color:var(--red)"' : ''}>
-          <td>${f.id}</td><td>${escapeHtmlJs(f.dealership_name)}</td>
-          <td>${f.dollar_amount != null ? '$' + f.dollar_amount : (f.fee_percent ? f.fee_percent + '% of ' + f.fee_percent_basis : '?')}</td>
-          <td>${escapeHtmlJs(f.status)}${f.overdue ? ' (OVERDUE)' : ''}</td>
-          <td>${escapeHtmlJs(f.due_date || '')}</td>
-          <td>${f.status === 'owed' ? `
-            <button class="btn-primary btn-sm" style="width:auto" onclick="doUpdateFee(${f.id},'paid')">Mark Paid</button>
-            <button class="btn-primary btn-sm btn-danger" style="width:auto" onclick="doUpdateFee(${f.id},'written_off')">Write Off</button>` : ''}</td>
-        </tr>`).join('')}</tbody>
-    </table>` : '<div style="font-size:.85rem;color:var(--gray)">No fees yet.</div>';
-}
-
-async function doUpdateFee(id, status) {
-  let dollar_amount = null;
-  if (status === 'paid') dollar_amount = prompt('Final dollar amount collected (leave blank to keep as-is)') || null;
-  const body = { status };
-  if (dollar_amount) body.dollar_amount = +dollar_amount;
-  await apiFetch(`/admin/partner-fees/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
-  loadAdminPartnerFees();
-}
-
-async function loadAdminPartnerLifecycleEmails() {
-  const { res, data } = await apiFetch('/admin/partner-lifecycle-emails').catch(() => ({ res: { ok: false }, data: {} }));
-  if (!res.ok) return;
-  const el = document.getElementById('admin-partner-emails-list');
-  el.innerHTML = data.emails?.length ? data.emails.map(e => `
-    <div class="dp-card" style="margin-bottom:1rem;padding:1.1rem 1.25rem;border:1px solid var(--border);border-radius:3px">
-      <div style="font-size:.78rem;color:var(--gray);margin-bottom:.4rem">To: ${escapeHtmlJs(e.to_email)} · Template: ${escapeHtmlJs(e.template_key)}${e.white_glove ? ' · White Glove' : ''}</div>
-      <strong style="color:var(--navy)">${escapeHtmlJs(e.subject)}</strong>
-      <div style="font-size:.82rem;color:var(--ink);margin:.6rem 0;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:2px;padding:.75rem">${e.html}</div>
-      <div style="display:flex;gap:.5rem">
-        <button class="btn-primary btn-sm btn-gold" style="width:auto" onclick="doApproveLifecycleEmail(${e.id})">Approve & Send</button>
-        <button class="btn-primary btn-sm btn-danger" style="width:auto" onclick="doRejectLifecycleEmail(${e.id})">Reject</button>
-      </div>
-    </div>`).join('') : '<div style="font-size:.85rem;color:var(--gray)">Nothing awaiting approval.</div>';
-}
-
-async function doApproveLifecycleEmail(id) {
-  await apiFetch(`/admin/partner-lifecycle-emails/${id}/approve`, { method: 'POST' });
-  loadAdminPartnerLifecycleEmails();
-}
-async function doRejectLifecycleEmail(id) {
-  await apiFetch(`/admin/partner-lifecycle-emails/${id}/reject`, { method: 'POST' });
-  loadAdminPartnerLifecycleEmails();
-}
+// Partner lead oversight, fee accounting, and lifecycle email approval now
+// live in the CRM app (theexactmatch-crm) alongside the rest of the deal
+// pipeline, not here.
 
 // ── Init ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {

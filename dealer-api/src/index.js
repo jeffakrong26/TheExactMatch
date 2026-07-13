@@ -5218,70 +5218,14 @@ async function adminPartnerAutodevLookup(request, env, params) {
   return json({ searched_name: partner.dealership_name, candidates: [...byId.values()].map(e => ({ ...e, sample_makes: [...e.sample_makes] })) });
 }
 
-async function adminPartnerLeadsList(request, env) {
-  const { results } = await env.DB.prepare(`
-    SELECT partner_leads.*, partners.dealership_name, partners.full_name as partner_name
-    FROM partner_leads JOIN partners ON partners.id = partner_leads.partner_id
-    ORDER BY partner_leads.created_at DESC
-  `).all();
-  return json({ leads: results });
-}
-
-async function adminPartnerFeesList(request, env) {
-  const { results } = await env.DB.prepare(`
-    SELECT partner_fees.*, partners.dealership_name, partners.full_name as partner_name
-    FROM partner_fees JOIN partners ON partners.id = partner_fees.partner_id
-    ORDER BY CASE partner_fees.status WHEN 'owed' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END, partner_fees.due_date IS NULL, partner_fees.due_date ASC
-  `).all();
-  return json({ fees: results.map(f => ({ ...f, overdue: f.status === 'owed' && f.due_date && new Date(f.due_date + 'Z') < new Date() })) });
-}
-
-async function adminUpdateFee(request, env, params) {
-  const body = await request.json().catch(() => ({}));
-  if (!['paid', 'written_off'].includes(body.status)) return json({ error: 'Status must be paid or written_off.' }, 400);
-
-  const fee = await env.DB.prepare('SELECT * FROM partner_fees WHERE id = ?').bind(+params.id).first();
-  if (!fee) return json({ error: 'Fee not found.' }, 404);
-
-  const sets = ['status = ?'];
-  const values = [body.status];
-  if (body.status === 'paid') { sets.push(`paid_at = datetime('now')`); }
-  if (body.dollar_amount != null) { sets.push('dollar_amount = ?'); values.push(body.dollar_amount); }
-  values.push(fee.id);
-  await env.DB.prepare(`UPDATE partner_fees SET ${sets.join(', ')} WHERE id = ?`).bind(...values).run();
-
-  if (body.status === 'paid') {
-    const lead = await env.DB.prepare('SELECT * FROM partner_leads WHERE id = ?').bind(fee.partner_lead_id).first();
-    const partner = await env.DB.prepare('SELECT * FROM partners WHERE id = ?').bind(fee.partner_id).first();
-    if (lead && partner) {
-      await mirrorPartnerLeadToCrm(env, lead, 'Referral fee collected.', 'referral_fee_collected', {
-        fee_amount: body.dollar_amount ?? fee.dollar_amount, fee_collected: true, fee_collected_at: new Date().toISOString(),
-        dealer_id: partner.id, dealer_name: partner.dealership_name,
-      }).catch(err => console.error('CRM fee mirror failed', fee.id, err));
-    }
-  }
-  return json({ success: true });
-}
-
-async function adminPartnerLifecycleEmailsList(request, env) {
-  const { results } = await env.DB.prepare(`SELECT * FROM partner_lifecycle_email_queue WHERE status = 'pending' ORDER BY created_at ASC`).all();
-  return json({ emails: results });
-}
-
-async function adminApprovePartnerLifecycleEmail(request, env, params) {
-  const email = await env.DB.prepare('SELECT * FROM partner_lifecycle_email_queue WHERE id = ?').bind(+params.id).first();
-  if (!email) return json({ error: 'Email not found.' }, 404);
-  if (email.status !== 'pending') return json({ error: 'This email is no longer pending.' }, 400);
-
-  await sendBrevoEmail(env, { to: email.to_email, subject: email.subject, html: email.html });
-  await env.DB.prepare(`UPDATE partner_lifecycle_email_queue SET status = 'sent', approved_at = datetime('now'), sent_at = datetime('now') WHERE id = ?`).bind(email.id).run();
-  return json({ success: true });
-}
-
-async function adminRejectPartnerLifecycleEmail(request, env, params) {
-  await env.DB.prepare(`UPDATE partner_lifecycle_email_queue SET status = 'rejected' WHERE id = ? AND status = 'pending'`).bind(+params.id).run();
-  return json({ success: true });
-}
+// Partner lead oversight, fee accounting (adminUpdateFee, including the
+// referral_fee_collected CRM mirror), and lifecycle email approval used to
+// live here — moved to the CRM Worker (crm/src/index.js), which now has a
+// second D1 binding (DEALER_DB) onto this same dealer-portal database, so
+// it can manage partner_leads/partner_fees/partner_lifecycle_email_queue
+// directly. Creation of fee/lifecycle-email rows stays here (createPendingFee,
+// markFeeOwed, queueLifecycleEmail) since that's tightly coupled to the lead
+// lifecycle already happening in this Worker.
 
 // ── Route table ───────────────────────────────────────────────────
 const ROUTES = [
@@ -5353,12 +5297,6 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/admin/partners/:id/reject',    handler: adminRejectPartner, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/partners/:id',           handler: adminUpdatePartner, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/partners/:id/autodev-lookup', handler: adminPartnerAutodevLookup, auth: true, admin: true },
-  { method: 'GET',   pattern: '/api/admin/partner-leads',          handler: adminPartnerLeadsList, auth: true, admin: true },
-  { method: 'GET',   pattern: '/api/admin/partner-fees',           handler: adminPartnerFeesList, auth: true, admin: true },
-  { method: 'PATCH', pattern: '/api/admin/partner-fees/:id',       handler: adminUpdateFee, auth: true, admin: true },
-  { method: 'GET',   pattern: '/api/admin/partner-lifecycle-emails',           handler: adminPartnerLifecycleEmailsList, auth: true, admin: true },
-  { method: 'POST',  pattern: '/api/admin/partner-lifecycle-emails/:id/approve', handler: adminApprovePartnerLifecycleEmail, auth: true, admin: true },
-  { method: 'POST',  pattern: '/api/admin/partner-lifecycle-emails/:id/reject',  handler: adminRejectPartnerLifecycleEmail, auth: true, admin: true },
 ];
 
 async function cleanupStaleRecords(env) {
