@@ -548,7 +548,7 @@
 
   <div class="content-area">
     <div style="background:rgba(192,154,91,.08);border:1px solid rgba(192,154,91,.2);border-radius:3px;padding:1rem 1.25rem;margin-bottom:1.75rem;font-size:.8rem;color:var(--gray);line-height:1.65">
-      <strong style="color:var(--navy)">Privacy notice:</strong> Seller contact information is never displayed. When you express interest, Jeff will coordinate the introduction. You see vehicle details only.
+      <strong style="color:var(--navy)">Privacy notice:</strong> Vehicle details are always visible. Seller contact information stays private until you express interest in that specific vehicle.
     </div>
 
     <div class="subtabs">
@@ -1236,7 +1236,7 @@ function renderSellerLeadCard(lead, opts = {}) {
       <div style="display:grid;grid-template-columns:var(--card-grid-3);gap:1rem;align-items:start;width:100%">
         ${leadAvatarHtml(lead, false)}
         <div>
-          <div class="item-card-title">${lead.year} ${lead.make} ${lead.model}</div>
+          <div class="item-card-title deal-clickable" onclick="openSellerLeadDetail(${lead.id})">${lead.year} ${lead.make} ${lead.model}</div>
           <div class="item-card-sub">${lead.notes ? lead.notes : 'No additional notes.'}</div>
           <div class="item-card-meta">
             <span class="meta-pill">${lead.mileage} miles</span>
@@ -1260,10 +1260,9 @@ function renderSellerLeadCard(lead, opts = {}) {
             onclick="toggleOfferBox(${lead.id})">
             ${lead.i_expressed_interest ? '✎ Edit Offer' : "I'm Interested"}
           </button>
-          ${lead.valuation_status ? `<button class="btn-primary btn-sm" onclick="toggleLeadValuation(${lead.id})" id="valuation-btn-${lead.id}">View Valuation</button>` : ''}
+          <button class="btn-primary btn-sm" onclick="openSellerLeadDetail(${lead.id})">View Details</button>
         </div>
       </div>
-      ${lead.valuation_status ? `<div id="lead-valuation-${lead.id}" style="display:none;width:100%;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)"></div>` : ''}
       <div id="offer-box-${lead.id}" style="display:${opts.openOffer ? 'block' : 'none'}" ${opts.openOffer ? 'data-rendered="true"' : ''}>
         ${opts.openOffer ? renderOfferBoxHtml(lead.id, lead) : ''}
       </div>
@@ -1271,21 +1270,41 @@ function renderSellerLeadCard(lead, opts = {}) {
   `;
 }
 
-async function toggleLeadValuation(leadId) {
-  const detail = document.getElementById(`lead-valuation-${leadId}`);
-  const btn    = document.getElementById(`valuation-btn-${leadId}`);
-  const isOpen = detail.style.display === 'block';
-  if (isOpen) { detail.style.display = 'none'; btn.textContent = 'View Valuation'; return; }
+// Full-page detail (see #sell-lead-page, same overlay the admin side uses)
+// — every vehicle field, but seller contact stays hidden until this dealer
+// has actually expressed interest (maskSellerContactUnlessInterested on the
+// backend already strips it otherwise, so this just reflects what's there).
+function openSellerLeadDetail(id) {
+  const lead = SELLER_LEADS_CACHE[id];
+  if (!lead) return;
 
-  btn.textContent = 'Hide';
-  detail.style.display = 'block';
-  if (detail.dataset.loaded === 'true') return;
+  const title = `${lead.year || ''} ${lead.make || ''} ${lead.model || ''}${lead.trim ? ' ' + lead.trim : ''}`.trim() || 'Vehicle';
+  document.getElementById('sell-lead-page-title').textContent = title;
+  document.getElementById('sell-lead-page-body').innerHTML = `
+    ${lead.i_expressed_interest
+      ? contactCardHtml({ name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim(), phone: lead.phone, email: lead.email, zip: lead.zip })
+      : `<div style="font-size:.82rem;color:var(--gray);margin-bottom:1.25rem;padding:.85rem 1rem;background:rgba(192,154,91,.08);border:1px solid rgba(192,154,91,.2);border-radius:3px">Seller contact info stays private until you express interest in this vehicle.</div>`}
+    <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.75rem">Vehicle Details</div>
+    ${sellLeadFieldsHtml(lead)}
+    ${lead.valuation_status ? `
+      <div class="section-label" style="border-bottom:none;padding-bottom:0;margin:1.75rem 0 .75rem">Valuation</div>
+      <div id="sell-lead-page-valuation"></div>
+    ` : ''}
+  `;
+  document.getElementById('sell-lead-page').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  window.scrollTo(0, 0);
 
+  if (lead.valuation_status) loadDealerLeadValuationDetail(id);
+}
+
+async function loadDealerLeadValuationDetail(leadId) {
+  const detail = document.getElementById('sell-lead-page-valuation');
+  if (!detail) return;
   detail.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--gray);font-size:.85rem">Loading...</div>';
   const { res, data } = await apiFetch(`/dealer/leads/${leadId}/valuation`).catch(() => ({res:{ok:false},data:{}}));
   if (!res.ok) { detail.innerHTML = `<div style="font-size:.82rem;color:var(--gray)">${data.error || 'No valuation yet.'}</div>`; return; }
   detail.innerHTML = renderValuationDetailHtml({ ...data.valuation, photos: data.photos }, { canUpload: false, leadId });
-  detail.dataset.loaded = 'true';
 }
 
 // The "I'm Interested" button toggles this box open/closed. Amount vs.

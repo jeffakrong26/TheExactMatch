@@ -356,10 +356,25 @@ async function submitVehicle(request, env, params, dealer) {
   return json({ success: true, id: result.meta.last_row_id, confidence: extracted.found_confidence });
 }
 
+// Seller contact info (name/email/phone/zip) only ever reaches a dealer once
+// they've actually expressed interest in that specific lead — same
+// unlock-on-interest convention Buyer Leads uses (maskBuyerContactIfLocked),
+// just gated on lead_interest instead of a verification step.
+function maskSellerContactUnlessInterested(lead) {
+  if (lead.i_expressed_interest) return lead;
+  return { ...lead, first_name: null, last_name: null, email: null, phone: null, zip: null };
+}
+
 async function dealerLeads(request, env, params, dealer) {
   const { results } = await env.DB.prepare(
-    `SELECT sell_my_car_leads.id, sell_my_car_leads.year, sell_my_car_leads.make, sell_my_car_leads.model,
-       sell_my_car_leads.mileage, sell_my_car_leads.condition, sell_my_car_leads.title_status,
+    `SELECT sell_my_car_leads.id, sell_my_car_leads.first_name, sell_my_car_leads.last_name, sell_my_car_leads.email,
+       sell_my_car_leads.phone, sell_my_car_leads.zip, sell_my_car_leads.year, sell_my_car_leads.make, sell_my_car_leads.model,
+       sell_my_car_leads.trim, sell_my_car_leads.mileage, sell_my_car_leads.vin, sell_my_car_leads.exterior_color,
+       sell_my_car_leads.condition, sell_my_car_leads.title_status, sell_my_car_leads.remaining_balance, sell_my_car_leads.payoff_amount,
+       sell_my_car_leads.accidents, sell_my_car_leads.accidents_count, sell_my_car_leads.accidents_damage,
+       sell_my_car_leads.mechanical_issues, sell_my_car_leads.mechanical_desc, sell_my_car_leads.warning_lights,
+       sell_my_car_leads.windshield, sell_my_car_leads.tires, sell_my_car_leads.modifications, sell_my_car_leads.modifications_desc,
+       sell_my_car_leads.keys, sell_my_car_leads.timeline,
        sell_my_car_leads.city, sell_my_car_leads.state, sell_my_car_leads.notes, sell_my_car_leads.created_at,
        vehicle_valuations.status as valuation_status, vehicle_valuations.vin as valuation_vin,
        vehicle_valuations.final_retail_value, vehicle_valuations.final_cash_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
@@ -371,7 +386,10 @@ async function dealerLeads(request, env, params, dealer) {
      ORDER BY sell_my_car_leads.created_at DESC`
   ).bind(dealer.id).all();
 
-  return json({ leads: results.map(l => ({ ...l, i_expressed_interest: !!l.i_expressed_interest, photo_confirmed: !!l.photo_confirmed })) });
+  const leads = results
+    .map(l => ({ ...l, i_expressed_interest: !!l.i_expressed_interest, photo_confirmed: !!l.photo_confirmed }))
+    .map(maskSellerContactUnlessInterested);
+  return json({ leads });
 }
 
 async function fetchPhotosBySlot(env, valuationId) {
@@ -432,8 +450,14 @@ async function expressInterest(request, env, params, dealer) {
 // valuation fields dealerLeads returns.
 async function dealerInterestedLeads(request, env, params, dealer) {
   const { results } = await env.DB.prepare(
-    `SELECT sell_my_car_leads.id, sell_my_car_leads.year, sell_my_car_leads.make, sell_my_car_leads.model,
-       sell_my_car_leads.mileage, sell_my_car_leads.condition, sell_my_car_leads.title_status,
+    `SELECT sell_my_car_leads.id, sell_my_car_leads.first_name, sell_my_car_leads.last_name, sell_my_car_leads.email,
+       sell_my_car_leads.phone, sell_my_car_leads.zip, sell_my_car_leads.year, sell_my_car_leads.make, sell_my_car_leads.model,
+       sell_my_car_leads.trim, sell_my_car_leads.mileage, sell_my_car_leads.vin, sell_my_car_leads.exterior_color,
+       sell_my_car_leads.condition, sell_my_car_leads.title_status, sell_my_car_leads.remaining_balance, sell_my_car_leads.payoff_amount,
+       sell_my_car_leads.accidents, sell_my_car_leads.accidents_count, sell_my_car_leads.accidents_damage,
+       sell_my_car_leads.mechanical_issues, sell_my_car_leads.mechanical_desc, sell_my_car_leads.warning_lights,
+       sell_my_car_leads.windshield, sell_my_car_leads.tires, sell_my_car_leads.modifications, sell_my_car_leads.modifications_desc,
+       sell_my_car_leads.keys, sell_my_car_leads.timeline,
        sell_my_car_leads.city, sell_my_car_leads.state, sell_my_car_leads.notes, sell_my_car_leads.created_at,
        vehicle_valuations.status as valuation_status, vehicle_valuations.vin as valuation_vin,
        vehicle_valuations.final_retail_value, vehicle_valuations.final_cash_value, vehicle_valuations.final_trade_in_value, vehicle_valuations.final_private_sale_value,
