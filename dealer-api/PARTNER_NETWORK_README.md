@@ -40,10 +40,18 @@ decisions below).
 
 `dealer-api/partner_zone_maps` (D1 table, `dealer-portal` database) — one row per
 ZIP: `zip, market, zone, zone_label, zone_order`. To add a new market, insert rows
-for that market's ZIPs; no code change needed. Houston (5 zones) and Austin (3
-zones) are seeded in `dealer-api/seed-partners.sql` — the Austin ZIP list is a
-first-pass, authored from public ZIP data during this build, same
-"refine border cases later, non-blocking" caveat the spec gave Houston's list.
+for that market's ZIPs; no code change needed. Houston (5 zones), Austin (3
+zones), San Antonio (4 zones), Dallas (5 zones), Fort Worth (3 zones, kept
+separate from Dallas despite both sitting in the DFW metroplex), and El Paso
+(2 zones, split east/west along the Franklin Mountains) are seeded in
+`dealer-api/seed-partners.sql` — every list past Houston's original spec is a
+first-pass, authored from public ZIP data, same "refine border cases later,
+non-blocking" caveat throughout. A dealer who applied before their market got
+zone data (e.g. a San Antonio partner signed up while that market was still
+unmapped) keeps whatever `market`/`zone` was resolved at application time —
+seeding new zone rows doesn't retroactively re-resolve existing dealers, so
+fix those by hand (`UPDATE dealers SET market=..., zone=..., market_unmapped=0
+WHERE id=...`) after confirming the new mapping.
 Apply changes with:
 
 ```
