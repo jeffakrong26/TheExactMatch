@@ -5373,20 +5373,10 @@ async function submitPartnerApplication(request, env) {
 
   await sendBrevoEmail(env, {
     to: email,
-    subject: 'Your TheExactMatch partner application — what you agreed to',
+    subject: 'Thanks for applying to the TheExactMatch partner network',
     html: brandedEmailHtml(`
       <p>Hey ${escapeHtml(name)},</p>
-      <p>Thanks for applying to the TheExactMatch Partner Network on behalf of ${escapeHtml(dealership_name)}. We review every application personally and will follow up soon.</p>
-      <p>Quick recap of the Partner Network Terms you agreed to:</p>
-      <ul style="padding-left:1.2rem;margin:.5rem 0 1rem">
-        <li><strong>Free to join.</strong> No cost at this time — we'll tell you directly if that ever changes.</li>
-        <li><strong>Speed matters.</strong> Verify buyer leads fast (ideally within the hour) and keep their status updated — slow or silent partners lose priority in the network.</li>
-        <li><strong>Referral fees</strong> are due within 30 days of a sale under the fee terms from your application. We'll follow up on anything outstanding.</li>
-        <li><strong>Customer satisfaction</strong> — we check in with referred buyers afterward, and continued partnership depends on how they're treated.</li>
-        <li><strong>One partner per market/zone.</strong> If you ever move to a different dealership, just email us where you're headed and we'll confirm your new zone is open.</li>
-        <li>Keep listings accurate, keep buyer info private, and either side can end the partnership at any time.</li>
-      </ul>
-      <p><a href="https://theexactmatch.com/partner-terms.html" style="color:#C09A5B">Read the full Partner Network Terms →</a></p>
+      <p>Thanks for applying to the TheExactMatch Partner Network on behalf of ${escapeHtml(dealership_name)}. We review every application personally — we'll follow up soon.</p>
     `),
   }).catch(err => console.error('partner application confirmation email failed', email, err));
 
@@ -5424,6 +5414,16 @@ async function adminApprovePartner(request, env, params) {
       <p>Good news — you're approved. Your Dealer Portal account is live now, no separate signup needed: just log in with the email and password you applied with.</p>
       <p><a href="https://theexactmatch.com/Dealerportal.html" style="color:#C09A5B">Log in to your Dealer Portal →</a></p>
       <p>From here, matched buyer leads in your zone will route to you first. When a buyer expresses interest in one of your vehicles, you'll get an email — please verify availability as fast as you can (we aim for under an hour) since that's what unlocks the buyer's contact info to you.</p>
+      <p>Quick recap of the Partner Network Terms you agreed to when you applied:</p>
+      <ul style="padding-left:1.2rem;margin:.5rem 0 1rem">
+        <li><strong>Free to join.</strong> No cost at this time — we'll tell you directly if that ever changes.</li>
+        <li><strong>Speed matters.</strong> Verify buyer leads fast (ideally within the hour) and keep their status updated — slow or silent partners lose priority in the network.</li>
+        <li><strong>Referral fees</strong> are due within 30 days of a sale under the fee terms from your application. We'll follow up on anything outstanding.</li>
+        <li><strong>Customer satisfaction</strong> — we check in with referred buyers afterward, and continued partnership depends on how they're treated.</li>
+        <li><strong>One partner per market/zone.</strong> If you ever move to a different dealership, just email us where you're headed and we'll confirm your new zone is open.</li>
+        <li>Keep listings accurate, keep buyer info private, and either side can end the partnership at any time.</li>
+      </ul>
+      <p><a href="https://theexactmatch.com/partner-terms.html" style="color:#C09A5B">Read the full Partner Network Terms →</a></p>
       <p>Welcome aboard.</p>
     `),
   }).catch(err => console.error('partner activation email failed', partner.id, err));
