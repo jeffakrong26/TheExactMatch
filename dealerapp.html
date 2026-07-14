@@ -42,6 +42,7 @@ h1 em{font-style:italic;color:var(--gold)}
 .conditional.show{display:block}
 .checkbox-row{display:flex;align-items:flex-start;gap:.6rem;font-size:.82rem;color:var(--gray);line-height:1.5}
 .checkbox-row input{width:auto;margin-top:.25rem}
+.checkbox-row input:disabled{opacity:.4;cursor:not-allowed}
 .honeypot{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .submit-btn{width:100%;padding:1rem;background:var(--navy);color:var(--beige);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:1.5rem;transition:background .2s}
 .submit-btn:hover{background:var(--navy2)}
@@ -161,8 +162,10 @@ h1 em{font-style:italic;color:var(--gold)}
       <div class="group"><label>Anything Else? (optional)</label><textarea id="anything_else"></textarea></div>
 
       <label class="checkbox-row" style="margin-top:1.5rem">
-        <input type="checkbox" id="agreed_terms" required/>
-        <span>I agree to the <a href="/partner-terms.html" target="_blank" style="color:var(--bronze)">Partner Network Terms</a>, including referral fee reporting obligations.</span>
+        <input type="checkbox" id="agreed_terms" required disabled/>
+        <span>I agree to the <a href="/partner-terms.html" id="terms-link" target="_blank" style="color:var(--bronze)" onclick="onTermsLinkClick()">Partner Network Terms</a>, including referral fee reporting obligations.
+          <span id="terms-hint" style="display:block;margin-top:.3rem;font-size:.78rem;color:var(--bronze)">Open and review the terms above to enable this checkbox.</span>
+        </span>
       </label>
 
       <button class="submit-btn" id="submit-btn" onclick="submitApplication()">Submit Application</button>
@@ -197,6 +200,13 @@ function onFeeTypeChange() {
   document.getElementById('fee-basis-conditional').style.display = document.getElementById('fee_type').value === 'percent' ? 'block' : 'none';
 }
 
+let termsOpened = false;
+function onTermsLinkClick() {
+  termsOpened = true;
+  document.getElementById('agreed_terms').disabled = false;
+  document.getElementById('terms-hint').style.display = 'none';
+}
+
 function showFormError(msg) {
   const el = document.getElementById('form-error');
   el.textContent = msg;
@@ -210,6 +220,9 @@ async function submitApplication() {
   const password = document.getElementById('password').value;
   if (password !== document.getElementById('password_confirm').value) {
     showFormError('Passwords do not match.'); return;
+  }
+  if (!termsOpened) {
+    showFormError('Please open and review the Partner Network Terms before continuing.'); return;
   }
   if (!document.getElementById('agreed_terms').checked) {
     showFormError('Please agree to the Partner Network Terms.'); return;
