@@ -1222,8 +1222,11 @@ function mapAutodevListing(raw, distanceMiles) {
 
 // Caps how many partner-dealer-scoped supplementary searches fire per
 // searchAutodevListings call, so partner count growth can't blow up the
-// per-report call budget.
-const MAX_PARTNER_INVENTORY_SEARCHES = 3;
+// per-report call budget. Raised from 3 now that the network has grown
+// past 3 distinct dealerships (Texas markets beyond Houston/Austin) —
+// at 3, the tail of the partner list (by dealer id) was silently never
+// searched at all for any pick, regardless of dedup below.
+const MAX_PARTNER_INVENTORY_SEARCHES = 6;
 
 // Auto.dev has no exact dealerId filter (confirmed: 400 "Invalid parameter"
 // on retailListing.dealerId) — only a dealer NAME filter, and that name
@@ -1306,8 +1309,20 @@ async function searchAutodevListings(env, { make, model, trim, zip, yearMin, yea
   // deduped by VIN against what the general search already found.
   if (partnerDealers?.length) {
     const existingVins = new Set(mapped.map(l => l.vin).filter(Boolean));
+    // partnerDealers can contain two rows for one physical dealership (e.g.
+    // Audi North Austin's shared-rep exception, ids 5/6, same
+    // autodev_dealer_id) — intentional for partitionByPartnerDealer's
+    // alternation logic below, but a plain slice() here would burn 2 of the
+    // cap's slots on one real dealer's inventory. Dedupe by dealer id just
+    // for deciding which dealers actually get searched.
+    const seenDealerIds = new Set();
+    const dealersToSearch = partnerDealers.filter(d => {
+      if (seenDealerIds.has(d.autodev_dealer_id)) return false;
+      seenDealerIds.add(d.autodev_dealer_id);
+      return true;
+    }).slice(0, MAX_PARTNER_INVENTORY_SEARCHES);
     const partnerBatches = await Promise.all(
-      partnerDealers.slice(0, MAX_PARTNER_INVENTORY_SEARCHES).map(d =>
+      dealersToSearch.map(d =>
         searchAutodevPartnerInventory(env, d, { make, model, yearMin, yearMax, priceMax, maxMileage, used, zip, leadId, clientCentroid })
       )
     );
