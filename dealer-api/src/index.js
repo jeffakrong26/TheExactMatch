@@ -7,6 +7,9 @@
 // listing's coordinates without any extra geocoding API call. PO-box-only
 // zips (e.g. 77001) have no ZCTA and won't be in this table.
 import ZIP_CENTROIDS from './zip-centroids.json';
+// The Tape's body_style/size/tier lookup, keyed "brand|model" (lowercase).
+// See taxonomyLookup() further down for the normalized-key accessor.
+import TAXONOMY from './taxonomy.json';
 
 function zipCentroid(zip) {
   return ZIP_CENTROIDS[(zip || '').trim()] || null;
@@ -5710,6 +5713,481 @@ async function adminRejectPartner(request, env, params) {
 // directly. Creation of fee/lifecycle-email rows stays here (createPendingFee,
 // markFeeOwed, queueLifecycleEmail) since that's tightly coupled to the lead
 // lifecycle already happening in this Worker.
+
+// ── The Tape: daily market-intelligence ingestion ──────────────────
+// Six independent sources feed market_items; each wrapped in
+// runIngestionSource so one source's failure (dead scraper, API shape
+// change) never blocks the others or the day's brief. market_source_status
+// tracks last-success per source for the /market "sources" footer row.
+
+function normalizeTaxonomyKey(brand, model) {
+  return `${(brand || '').trim().toLowerCase()}|${(model || '').trim().toLowerCase()}`;
+}
+
+function taxonomyLookup(brand, model) {
+  return TAXONOMY[normalizeTaxonomyKey(brand, model)] || null;
+}
+
+// Display format from the spec: "{size} {body_style}" with a tier prefix
+// when not mainstream, e.g. "midsize sedan", "luxury midsize SUV".
+function segmentLabel({ body_style, size, tier }) {
+  const bodyLabel = { sedan: 'sedan', suv_crossover: 'SUV', truck: 'truck', van: 'van', coupe_convertible: 'coupe/convertible', hatchback: 'hatchback' }[body_style] || body_style;
+  const sizeLabel = { subcompact: 'subcompact', compact: 'compact', midsize: 'midsize', fullsize: 'full-size' }[size] || size;
+  const tierPrefix = tier && tier !== 'mainstream' ? `${tier} ` : '';
+  return `${tierPrefix}${sizeLabel} ${bodyLabel}`;
+}
+
+function toSqliteDatetime(date) {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+async function recordSourceStatus(env, source, ok, error) {
+  try {
+    if (ok) {
+      await env.DB.prepare(
+        `INSERT INTO market_source_status (source, last_success_at) VALUES (?, datetime('now'))
+         ON CONFLICT(source) DO UPDATE SET last_success_at = datetime('now')`
+      ).bind(source).run();
+    } else {
+      await env.DB.prepare(
+        `INSERT INTO market_source_status (source, last_error, last_error_at) VALUES (?, ?, datetime('now'))
+         ON CONFLICT(source) DO UPDATE SET last_error = excluded.last_error, last_error_at = excluded.last_error_at`
+      ).bind(source, String(error?.message || error || 'unknown error')).run();
+    }
+  } catch (err) {
+    console.error('recordSourceStatus failed', source, err);
+  }
+}
+
+async function runIngestionSource(env, source, fn) {
+  try {
+    await fn();
+    await recordSourceStatus(env, source, true);
+  } catch (err) {
+    console.error(`[market] ingestion source "${source}" failed`, err?.stack || err);
+    await recordSourceStatus(env, source, false, err);
+  }
+}
+
+// ── NHTSA recalls ───────────────────────────────────────────────────
+// recallsByVehicle requires make+model+modelYear — confirmed live, no
+// wildcard/all-recalls-since-date endpoint exists — so this loops the
+// taxonomy's mainstream+luxury brand/model list across the current and
+// prior model year, in bounded-concurrency batches to stay polite to a
+// free unauthenticated government API. Exotic-tier brands are skipped:
+// recall volume there is negligible and not relevant to the Houston/Austin
+// mainstream/luxury business this feeds.
+function nhtsaModelYears() {
+  const y = new Date().getFullYear();
+  return [y, y - 1];
+}
+
+async function fetchNhtsaRecalls(make, model, modelYear) {
+  const url = new URL('https://api.nhtsa.gov/recalls/recallsByVehicle');
+  url.searchParams.set('make', make);
+  url.searchParams.set('model', model);
+  url.searchParams.set('modelYear', String(modelYear));
+  const res = await fetch(url.toString());
+  if (!res.ok) return [];
+  const data = await res.json().catch(() => null);
+  return Array.isArray(data?.results) ? data.results : [];
+}
+
+// NHTSA's ReportReceivedDate is "DD/MM/YYYY" (confirmed live), not ISO.
+function parseNhtsaDate(str) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(str || '');
+  if (!m) return null;
+  const d = new Date(`${m[3]}-${m[2]}-${m[1]}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+async function ingestNhtsaRecalls(env) {
+  const entries = Object.entries(TAXONOMY).filter(([, v]) => v.tier !== 'exotic');
+  const years = nhtsaModelYears();
+  const jobs = [];
+  for (const [key, taxonomy] of entries) {
+    const [brand, model] = key.split('|');
+    for (const year of years) jobs.push({ brand, model, taxonomy, year });
+  }
+
+  const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
+  const seenCampaigns = new Set();
+  let inserted = 0;
+
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
+    const batch = jobs.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(batch.map(job =>
+      fetchNhtsaRecalls(job.brand, job.model, job.year).catch(() => []).then(recalls => ({ job, recalls }))
+    ));
+
+    for (const { job, recalls } of results) {
+      for (const r of recalls) {
+        if (seenCampaigns.has(r.NHTSACampaignNumber)) continue;
+        const reportedAt = parseNhtsaDate(r.ReportReceivedDate);
+        if (!reportedAt || reportedAt.getTime() < cutoff) continue;
+        seenCampaigns.add(r.NHTSACampaignNumber);
+
+        const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = 'nhtsa' AND source_url = ?`)
+          .bind(`https://www.nhtsa.gov/recalls?nhtsaId=${r.NHTSACampaignNumber}`).first();
+        if (existing) continue;
+
+        await env.DB.prepare(`
+          INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, ingested_at, expires_at)
+          VALUES ('recall', ?, ?, 'nhtsa', ?, ?, ?, ?, ?, ?, 'none', 'national', datetime('now'), datetime('now', '+30 days'))
+        `).bind(
+          `${job.brand} ${job.model}: ${r.Component || 'Recall'}`,
+          r.Summary || null,
+          `https://www.nhtsa.gov/recalls?nhtsaId=${r.NHTSACampaignNumber}`,
+          job.brand, job.model, job.taxonomy.body_style, job.taxonomy.size, job.taxonomy.tier
+        ).run();
+        inserted++;
+      }
+    }
+  }
+  console.log(`[market] nhtsa recalls: ${inserted} inserted from ${jobs.length} vehicle/year checks`);
+}
+
+// ── Auto.dev inventory signals (Houston/Austin) ────────────────────
+// Anchored on a downtown zip per zone at a fixed radius — same shape as the
+// existing searchAutodevListings zip+distance call, just unfiltered by
+// make/model for a broad market read. DOM comes from the listing's own
+// createdAt field when Auto.dev provides one; market_inventory_watch is the
+// fallback (and a standing cross-check) for when it doesn't.
+const MARKET_INVENTORY_ANCHORS = {
+  houston: { zip: '77002', distance: 30 },
+  austin: { zip: '78701', distance: 30 },
+};
+
+function autodevListingCreatedAt(raw) {
+  const rawDate = raw.createdAt || raw.retailListing?.createdAt || raw.retailListing?.firstSeenDate || null;
+  if (!rawDate) return null;
+  const d = new Date(rawDate);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+async function ingestAutodevInventorySignals(env) {
+  const today = new Date().toISOString().slice(0, 10);
+  const domBySegment = new Map(); // "body_style|size|tier" -> { ...taxonomy, sum, count }
+  const regionAvgDom = {};
+
+  for (const [region, anchor] of Object.entries(MARKET_INVENTORY_ANCHORS)) {
+    const { ok, data } = await autodevFetch(env, '/listings', {
+      zip: anchor.zip, distance: anchor.distance, 'retailListing.used': 'true', limit: 50,
+    });
+    if (!ok || !Array.isArray(data?.data)) continue;
+
+    let domSum = 0, domCount = 0;
+
+    for (const raw of data.data) {
+      const listing = mapAutodevListing(raw, 0);
+      if (!listing.vin) continue;
+      const taxonomy = taxonomyLookup(listing.make, listing.model);
+
+      let dom;
+      const createdAt = autodevListingCreatedAt(raw);
+      if (createdAt) {
+        dom = Math.max(0, Math.round((Date.now() - createdAt.getTime()) / 86400000));
+      } else {
+        const existing = await env.DB.prepare('SELECT first_seen_date FROM market_inventory_watch WHERE vin = ?').bind(listing.vin).first();
+        dom = existing ? Math.round((Date.now() - new Date(existing.first_seen_date).getTime()) / 86400000) : 0;
+      }
+
+      await env.DB.prepare(`
+        INSERT INTO market_inventory_watch (vin, brand, model, body_style, size, tier, electrified, region, first_seen_date, last_seen_date)
+        VALUES (?, ?, ?, ?, ?, ?, 'none', ?, ?, ?)
+        ON CONFLICT(vin) DO UPDATE SET last_seen_date = excluded.last_seen_date
+      `).bind(listing.vin, listing.make, listing.model, taxonomy?.body_style ?? null, taxonomy?.size ?? null, taxonomy?.tier ?? null, region,
+        createdAt ? toSqliteDatetime(createdAt).slice(0, 10) : today, today).run();
+
+      domSum += dom; domCount++;
+
+      if (taxonomy) {
+        const segKey = `${taxonomy.body_style}|${taxonomy.size}|${taxonomy.tier}`;
+        const seg = domBySegment.get(segKey) || { ...taxonomy, sum: 0, count: 0 };
+        seg.sum += dom; seg.count++;
+        domBySegment.set(segKey, seg);
+      }
+    }
+
+    regionAvgDom[region] = domCount ? Math.round((domSum / domCount) * 10) / 10 : null;
+  }
+
+  const domSegmentArray = [...domBySegment.values()].map(s => ({
+    body_style: s.body_style, size: s.size, tier: s.tier, dom: Math.round((s.sum / s.count) * 10) / 10,
+  }));
+
+  // Week-over-week movers vs. yesterday's snapshot, surfaced as market_move
+  // items so synthesis can call out "segment X now averaging Y days, up/down
+  // from yesterday" without re-deriving it from raw rows itself. A ≥3-day
+  // swing floor keeps ordinary day-to-day wobble from reading as a "move".
+  const yesterday = await env.DB.prepare(
+    `SELECT dom_by_segment FROM market_daily WHERE day < ? ORDER BY day DESC LIMIT 1`
+  ).bind(today).first();
+  const priorSegments = yesterday?.dom_by_segment ? JSON.parse(yesterday.dom_by_segment) : [];
+
+  for (const seg of domSegmentArray) {
+    const prior = priorSegments.find(p => p.body_style === seg.body_style && p.size === seg.size && p.tier === seg.tier);
+    if (!prior || prior.dom == null) continue;
+    const delta = Math.round((seg.dom - prior.dom) * 10) / 10;
+    if (Math.abs(delta) < 3) continue;
+    await env.DB.prepare(`
+      INSERT INTO market_items (type, title, detail, source, body_style, size, tier, electrified, region, direction, magnitude, ingested_at, expires_at)
+      VALUES ('inventory_signal', ?, ?, 'autodev', ?, ?, ?, 'none', 'houston', ?, ?, datetime('now'), datetime('now', '+1 days'))
+    `).bind(
+      `${segmentLabel(seg)} inventory ${delta > 0 ? 'sitting longer' : 'moving faster'} in Houston`,
+      `Averaging ${seg.dom} days on market, ${delta > 0 ? 'up' : 'down'} from ${prior.dom} yesterday.`,
+      seg.body_style, seg.size, seg.tier, delta > 0 ? 'up' : 'down', delta
+    ).run();
+  }
+
+  await env.DB.prepare(`
+    INSERT INTO market_daily (day, hou_avg_dom, atx_avg_dom, dom_by_segment)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(day) DO UPDATE SET hou_avg_dom = excluded.hou_avg_dom, atx_avg_dom = excluded.atx_avg_dom, dom_by_segment = excluded.dom_by_segment
+  `).bind(today, regionAvgDom.houston ?? null, regionAvgDom.austin ?? null, JSON.stringify(domSegmentArray)).run();
+}
+
+// ── Manheim Used Vehicle Value Index ────────────────────────────────
+// Published monthly, no API — the Cox Automotive insights list page
+// reliably links the latest post (confirmed live), which is then run
+// through the same fetch-HTML-then-Claude-extract pattern already used
+// for dealer listing scraping (extractListingWithClaude). Re-running this
+// on days without a new post just re-extracts the same value/as-of month,
+// which is exactly the "carry forward, don't fake movement" behavior the
+// spec asks for.
+async function ingestManheimIndex(env) {
+  const listRes = await fetch('https://www.coxautoinc.com/insights/?insight_series=manheim-used-vehicle-index', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)' },
+  });
+  if (!listRes.ok) throw new Error(`Cox Automotive insights list HTTP ${listRes.status}`);
+  const listHtml = await listRes.text();
+  const match = listHtml.match(/href="(https:\/\/www\.coxautoinc\.com\/insights\/manheim[^"]*)"/);
+  if (!match) throw new Error('Could not find latest MUVVI post URL');
+  const postUrl = match[1];
+
+  const postRes = await fetch(postUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)' } });
+  if (!postRes.ok) throw new Error(`MUVVI post fetch HTTP ${postRes.status}`);
+  const cleaned = cleanHtmlText(await postRes.text()).slice(0, 8000);
+
+  const tool = {
+    name: 'record_muvvi',
+    description: 'Record the Manheim Used Vehicle Value Index value reported in this article.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        index_value: { type: 'number', description: 'The current Manheim Used Vehicle Value Index numeric value (e.g. 212.9)' },
+        as_of_month: { type: 'string', description: 'The month/period this index value is reported as-of, e.g. "June 2026"' },
+        pct_change_yoy: { type: 'number', description: 'Year-over-year percent change if stated in the article, else 0' },
+        found: { type: 'boolean', description: 'false if this article does not actually report an index value' },
+      },
+      required: ['index_value', 'as_of_month', 'pct_change_yoy', 'found'],
+      additionalProperties: false,
+    },
+  };
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6', max_tokens: 300,
+      tools: [tool], tool_choice: { type: 'tool', name: 'record_muvvi' },
+      messages: [{ role: 'user', content: `Extract the Manheim Used Vehicle Value Index figure from this article.\n\n${cleaned}` }],
+    }),
+  });
+  if (!res.ok) throw new Error(`Claude API error (MUVVI extraction): HTTP ${res.status}`);
+  const data = await res.json();
+  const result = (data.content || []).find(b => b.type === 'tool_use')?.input;
+  if (!result?.found) throw new Error('MUVVI article did not contain a parseable index value');
+
+  const today = new Date().toISOString().slice(0, 10);
+  await env.DB.prepare(`
+    INSERT INTO market_daily (day, used_index, used_index_asof)
+    VALUES (?, ?, ?)
+    ON CONFLICT(day) DO UPDATE SET used_index = excluded.used_index, used_index_asof = excluded.used_index_asof
+  `).bind(today, result.index_value, result.as_of_month).run();
+
+  if (result.pct_change_yoy) {
+    await env.DB.prepare(`
+      INSERT INTO market_items (type, title, detail, source, source_url, direction, magnitude, region, ingested_at, expires_at)
+      VALUES ('market_move', ?, ?, 'manheim', ?, ?, ?, 'national', datetime('now'), datetime('now', '+1 days'))
+    `).bind(
+      `Manheim index at ${result.index_value} (${result.as_of_month})`,
+      `${result.pct_change_yoy >= 0 ? 'Up' : 'Down'} ${Math.abs(result.pct_change_yoy)}% year-over-year.`,
+      postUrl, result.pct_change_yoy >= 0 ? 'up' : 'down', result.pct_change_yoy
+    ).run();
+  }
+}
+
+// ── Incentives ───────────────────────────────────────────────────────
+// Best-effort: one public aggregator page (CarsDirect — Edmunds' incentive
+// page 403s on any non-browser client and isn't worth fighting), run
+// through the same fetch-then-Claude-extract pattern as Manheim above.
+// One row per offer; `source` already makes this swappable for another
+// aggregator later without a schema change, per the spec.
+function tryParseMonthEnd(monthYearStr) {
+  const m = /([A-Za-z]+)\s+(\d{4})/.exec(monthYearStr || '');
+  if (!m) return null;
+  const monthIdx = new Date(`${m[1]} 1, 2000`).getMonth();
+  if (Number.isNaN(monthIdx)) return null;
+  return new Date(Date.UTC(Number(m[2]), monthIdx + 1, 0));
+}
+
+async function ingestIncentives(env) {
+  const res = await fetch('https://www.carsdirect.com/deals', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)' },
+  });
+  if (!res.ok) throw new Error(`CarsDirect deals HTTP ${res.status}`);
+  const cleaned = cleanHtmlText(await res.text()).slice(0, 15000);
+
+  const tool = {
+    name: 'record_incentives',
+    description: 'Record current new-vehicle incentive offers (APR, lease, or cash back) found on this page.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        incentives: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              brand: { type: 'string' },
+              model: { type: 'string' },
+              offer_type: { type: 'string', enum: ['apr', 'lease', 'cash'] },
+              headline: { type: 'string', description: 'Short one-line summary, e.g. "0% APR for 60 months"' },
+              ends_month: { type: 'string', description: 'Month this offer expires, e.g. "July 2026" — empty string if not stated' },
+            },
+            required: ['brand', 'model', 'offer_type', 'headline', 'ends_month'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['incentives'],
+      additionalProperties: false,
+    },
+  };
+
+  const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6', max_tokens: 2048,
+      tools: [tool], tool_choice: { type: 'tool', name: 'record_incentives' },
+      messages: [{ role: 'user', content: `Extract every distinct current new-vehicle incentive offer (APR/lease/cash) from this deals page. Skip generic marketing copy — only actual named offers tied to a specific make/model.\n\n${cleaned}` }],
+    }),
+  });
+  if (!apiRes.ok) throw new Error(`Claude API error (incentive extraction): HTTP ${apiRes.status}`);
+  const data = await apiRes.json();
+  const incentives = (data.content || []).find(b => b.type === 'tool_use')?.input?.incentives || [];
+
+  for (const inc of incentives) {
+    const taxonomy = taxonomyLookup(inc.brand, inc.model);
+    const endsAtDate = inc.ends_month ? tryParseMonthEnd(inc.ends_month) : null;
+    const endsAt = endsAtDate ? toSqliteDatetime(endsAtDate) : null;
+    const expiresAt = endsAt || toSqliteDatetime(new Date(Date.now() + 30 * 24 * 3600 * 1000));
+
+    await env.DB.prepare(`
+      INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, starts_at, ends_at, ingested_at, expires_at)
+      VALUES ('incentive', ?, ?, 'carsdirect', ?, ?, ?, ?, ?, ?, 'none', 'national', datetime('now'), ?, datetime('now'), ?)
+    `).bind(
+      `${inc.brand} ${inc.model}: ${inc.headline}`,
+      `${inc.offer_type.toUpperCase()} offer.`,
+      'https://www.carsdirect.com/deals',
+      inc.brand, inc.model, taxonomy?.body_style ?? null, taxonomy?.size ?? null, taxonomy?.tier ?? 'mainstream',
+      endsAt, expiresAt
+    ).run();
+  }
+  console.log(`[market] incentives: ${incentives.length} extracted from CarsDirect`);
+}
+
+// ── Auction results (exotic corner) ─────────────────────────────────
+// Bring a Trailer's results page embeds a clean `auctionsCompletedInitialData`
+// JSON blob (confirmed live) — no HTML scraping needed. Cars & Bids'
+// past-auctions page is a client-rendered SPA with no equivalent embedded
+// data found; skipped for now (source string already makes it addable
+// later without a schema change).
+async function ingestAuctionResults(env) {
+  const res = await fetch('https://bringatrailer.com/auctions/results/', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)' },
+  });
+  if (!res.ok) throw new Error(`BaT results HTTP ${res.status}`);
+  const html = await res.text();
+  const match = html.match(/var auctionsCompletedInitialData = (\{.*?\});/s);
+  if (!match) throw new Error('Could not find BaT results data blob');
+  const items = JSON.parse(match[1])?.items || [];
+
+  let inserted = 0;
+  for (const item of items.slice(0, 20)) {
+    const soldMatch = /Sold for ([A-Z]+ \$[\d,]+)/.exec(item.sold_text || '');
+    if (!soldMatch) continue; // reserve-not-met / bid-to-only — not a completed sale
+    const priceNum = Number((soldMatch[1].match(/[\d,]+/) || ['0'])[0].replace(/,/g, ''));
+
+    const titleLower = (item.title || '').toLowerCase();
+    const brandEntry = [...new Set(Object.keys(TAXONOMY).map(k => k.split('|')[0]))]
+      .find(b => titleLower.includes(b));
+    let taxonomy = null, model = null;
+    if (brandEntry) {
+      const modelMatch = Object.entries(TAXONOMY).find(([k]) => k.startsWith(brandEntry + '|') && titleLower.includes(k.split('|')[1]));
+      if (modelMatch) { taxonomy = modelMatch[1]; model = modelMatch[0].split('|')[1]; }
+    }
+
+    const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = 'bat' AND source_url = ?`).bind(item.url).first();
+    if (existing) continue;
+
+    await env.DB.prepare(`
+      INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, direction, magnitude, ingested_at, expires_at)
+      VALUES ('auction', ?, ?, 'bat', ?, ?, ?, ?, ?, ?, 'none', 'national', 'neutral', ?, datetime('now'), datetime('now', '+14 days'))
+    `).bind(
+      item.title, `Sold for ${soldMatch[1]}.`, item.url,
+      brandEntry || null, model, taxonomy?.body_style ?? null, taxonomy?.size ?? null, taxonomy?.tier ?? 'exotic',
+      priceNum
+    ).run();
+    inserted++;
+  }
+  console.log(`[market] auctions: ${inserted} BaT sales inserted`);
+}
+
+// ── News ─────────────────────────────────────────────────────────────
+// Automotive News' RSS URL now redirects to a Google-News-shaped sitemap
+// (confirmed live) — still just title/link/date per item, which is all the
+// spec needs ("one-line summaries only, always link out"). Deduped by
+// source_url so re-running daily doesn't re-insert the same headline.
+async function ingestNews(env) {
+  const res = await fetch('https://www.autonews.com/section/rss/news', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)' },
+  });
+  if (!res.ok) throw new Error(`Automotive News feed HTTP ${res.status}`);
+  const xml = await res.text();
+  const urlBlocks = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map(m => m[1]);
+
+  let inserted = 0;
+  for (const block of urlBlocks.slice(0, 15)) {
+    const loc = (/<loc>([^<]+)<\/loc>/.exec(block) || [])[1];
+    const title = (/<news:title><!\[CDATA\[([\s\S]*?)\]\]><\/news:title>/.exec(block) || [])[1];
+    const pubDate = (/<news:publication_date>([^<]+)<\/news:publication_date>/.exec(block) || [])[1];
+    if (!loc || !title) continue;
+
+    const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source_url = ?`).bind(loc).first();
+    if (existing) continue;
+
+    const ingestedAt = pubDate && !Number.isNaN(new Date(pubDate).getTime()) ? toSqliteDatetime(new Date(pubDate)) : toSqliteDatetime(new Date());
+    await env.DB.prepare(`
+      INSERT INTO market_items (type, title, source, source_url, region, ingested_at, expires_at)
+      VALUES ('news', ?, 'news:autonews.com', ?, 'national', ?, datetime('now', '+7 days'))
+    `).bind(title, loc, ingestedAt).run();
+    inserted++;
+  }
+  console.log(`[market] news: ${inserted} new items from Automotive News`);
+}
+
+// ── Retention ────────────────────────────────────────────────────────
+async function cleanupExpiredMarketItems(env) {
+  const deletedItems = await env.DB.prepare(`DELETE FROM market_items WHERE expires_at IS NOT NULL AND expires_at < datetime('now')`).run();
+  const deletedWatch = await env.DB.prepare(`DELETE FROM market_inventory_watch WHERE last_seen_date < date('now', '-10 days')`).run();
+  console.log(`[market] cleanup: ${deletedItems.meta.changes} expired items, ${deletedWatch.meta.changes} stale inventory-watch rows removed`);
+}
 
 // ── Route table ───────────────────────────────────────────────────
 const ROUTES = [
