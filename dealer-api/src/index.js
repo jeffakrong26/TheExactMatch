@@ -863,6 +863,18 @@ async function submitFindCarLead(request, env, params, dealer, token, ctx) {
 
   const leadId = result.meta.last_row_id;
   if (ctx) {
+    // The Tape Phase 2 hook: log every real client request so demand-side
+    // scoring (segments/models clients are actually asking for) has data to
+    // work with once it's activated — no scoring change yet, just collection.
+    if (preferred_make) {
+      const demandTaxonomy = taxonomyLookup(preferred_make, preferred_model);
+      ctx.waitUntil(env.DB.prepare(`
+        INSERT INTO demand_signals (source, brand, model, body_style, size, tier, electrified)
+        VALUES ('find_my_car', ?, ?, ?, ?, ?, 'none')
+      `).bind(preferred_make, preferred_model, demandTaxonomy?.body_style ?? null, demandTaxonomy?.size ?? null, demandTaxonomy?.tier ?? null).run()
+        .catch(err => console.error('demand_signals insert failed', leadId, err)));
+    }
+
     ctx.waitUntil(sendClientConfirmationEmail(env, { first_name, email }).catch(err => console.error('confirmation email failed', leadId, err)));
     // The report pipeline (Claude + Auto.dev, multiple round trips) can run
     // long enough to hit the hard 30s ctx.waitUntil() ceiling for HTTP-triggered
@@ -3751,6 +3763,15 @@ async function submitSellCarLead(request, env, params, dealer, token, ctx) {
     };
     ctx.waitUntil(env.JOB_QUEUE.send({ type: 'sell_car_valuation', leadId, input }).catch(err => console.error('failed to enqueue valuation job for lead', leadId, err)));
 
+    if (make) {
+      const demandTaxonomy = taxonomyLookup(make, model);
+      ctx.waitUntil(env.DB.prepare(`
+        INSERT INTO demand_signals (source, brand, model, body_style, size, tier, electrified)
+        VALUES ('sell_my_car', ?, ?, ?, ?, ?, 'none')
+      `).bind(make, model, demandTaxonomy?.body_style ?? null, demandTaxonomy?.size ?? null, demandTaxonomy?.tier ?? null).run()
+        .catch(err => console.error('demand_signals insert failed', leadId, err)));
+    }
+
     const currentVehicle = [year, make, model, trim].filter(Boolean).join(' ') || null;
     ctx.waitUntil(notifyCrm(env, '/api/hooks/lead-created', {
       funnel_type: 'sell_my_car', source_lead_id: leadId,
@@ -6451,13 +6472,19 @@ async function runMarketIngestion(env) {
 async function adminMarketToday(request, env) {
   const today = new Date().toISOString().slice(0, 10);
   const row = await env.DB.prepare(`SELECT * FROM market_daily WHERE day = ?`).bind(today).first();
-  if (!row) return json({ day: today, brief: null, synthesis_ok: null });
+  const pipelineRow = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM partner_leads WHERE status NOT IN ('won_delivered', 'lost')`
+  ).first();
+  const openPipelineCount = pipelineRow?.n ?? 0;
+
+  if (!row) return json({ day: today, brief: null, synthesis_ok: null, open_pipeline_count: openPipelineCount });
   return json({
     day: row.day,
     used_index: row.used_index, used_index_asof: row.used_index_asof,
     hou_avg_dom: row.hou_avg_dom, atx_avg_dom: row.atx_avg_dom,
     dom_by_segment: row.dom_by_segment ? JSON.parse(row.dom_by_segment) : [],
     tx_incentive_count: row.tx_incentive_count,
+    open_pipeline_count: openPipelineCount,
     synthesis_ok: !!row.synthesis_ok,
     brief: row.brief_json ? JSON.parse(row.brief_json) : null,
   });
