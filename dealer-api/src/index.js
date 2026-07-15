@@ -5742,7 +5742,11 @@ async function adminRejectPartner(request, env, params) {
 // tracks last-success per source for the /market "sources" footer row.
 
 function normalizeTaxonomyKey(brand, model) {
-  return `${(brand || '').trim().toLowerCase()}|${(model || '').trim().toLowerCase()}`;
+  // Auto.dev listings occasionally carry a non-string make/model (confirmed
+  // live: a real listing threw "(model || '').trim is not a function" mid-
+  // ingestion run) — String() coercion first so a stray number/object never
+  // takes down the whole inventory-signals source.
+  return `${String(brand ?? '').trim().toLowerCase()}|${String(model ?? '').trim().toLowerCase()}`;
 }
 
 function taxonomyLookup(brand, model) {
