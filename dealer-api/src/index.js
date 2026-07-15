@@ -3913,6 +3913,7 @@ async function adminDealers(request, env) {
   const { results } = await env.DB.prepare(`
     SELECT dealers.id, dealers.name, dealers.dealership_name, dealers.email, dealers.role, dealers.status, dealers.created_at,
       dealers.zip, dealers.market, dealers.zone, dealers.rating, dealers.autodev_dealer_id, dealers.dealership_type,
+      dealers.default_submission_visibility,
       EXISTS(SELECT 1 FROM admin_seen_items WHERE section = 'dealers' AND item_id = dealers.id) as seen
     FROM dealers WHERE role != 'admin' ORDER BY created_at DESC
   `).all();

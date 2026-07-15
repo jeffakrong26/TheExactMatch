@@ -402,6 +402,20 @@
       <div class="dash-card-title">Submit a Vehicle to Highlights</div>
       <div class="dash-card-desc">Submit inventory for Jeff's Weekly Finds newsletter — by link or manually — and manage your past submissions.</div>
     </div>
+    <div class="dash-card" onclick="showView('view-network-inventory')">
+      <div class="dash-card-icon">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="16" cy="16" r="4"/>
+          <circle cx="6" cy="8" r="2.5"/>
+          <circle cx="26" cy="8" r="2.5"/>
+          <circle cx="6" cy="24" r="2.5"/>
+          <circle cx="26" cy="24" r="2.5"/>
+          <path d="M8.5 9.5 13 14M23.5 9.5 19 14M8.5 22.5 13 18M23.5 22.5 19 18"/>
+        </svg>
+      </div>
+      <div class="dash-card-title">Network Inventory</div>
+      <div class="dash-card-desc">Vehicles other dealers (or Jeff) have made available to the network. Express interest to connect.</div>
+    </div>
   </div>
 
 </div><!-- /view-dashboard -->
@@ -579,6 +593,42 @@
 </div><!-- /view-leads -->
 
 <!-- ════════════════════════════════════════════════════════
+     VIEW: NETWORK INVENTORY
+═════════════════════════════════════════════════════════ -->
+<div class="view" id="view-network-inventory">
+
+  <div class="subview-header">
+    <div class="subview-header-inner">
+      <div>
+        <button class="subview-back" onclick="showView('view-dashboard')">← Dashboard</button>
+        <div class="subview-title">Network <em>Inventory</em></div>
+        <div class="subview-sub">Vehicles other dealers (or Jeff) have made available to the network</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-area">
+    <div class="subtabs">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="ni-available" onclick="switchSubTab(this)">Available</button>
+        <button class="tab-btn" data-tab="ni-interested" onclick="switchSubTab(this, 'loadNetworkInventoryInterested')">Interested</button>
+      </div>
+
+      <div class="tab-panel active" id="ni-available">
+        <div id="network-inventory-loading" class="loading-text">Loading...</div>
+        <div id="network-inventory-list"></div>
+      </div>
+
+      <div class="tab-panel" id="ni-interested">
+        <div id="network-inventory-interested-loading" class="loading-text">Loading...</div>
+        <div id="network-inventory-interested-list"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /view-network-inventory -->
+
+<!-- ════════════════════════════════════════════════════════
      VIEW: ADMIN DASHBOARD
 ═════════════════════════════════════════════════════════ -->
 <div class="view" id="view-admin">
@@ -655,7 +705,7 @@
           <table class="dp-table" id="admin-dealers-table" style="display:none">
             <thead>
               <tr>
-                <th>Dealer</th><th>Dealership</th><th>Email</th><th>Zip</th><th>Market / Zone</th><th>Rating</th><th>Auto.dev ID</th><th>Status</th><th>Joined</th><th></th><th>Actions</th>
+                <th>Dealer</th><th>Dealership</th><th>Email</th><th>Zip</th><th>Market / Zone</th><th>Rating</th><th>Auto.dev ID</th><th>Submissions</th><th>Status</th><th>Joined</th><th></th><th>Actions</th>
               </tr>
             </thead>
             <tbody id="admin-dealers-body"></tbody>
@@ -861,6 +911,7 @@ function showView(id) {
   if (id === 'view-leads')          loadLeads();
   if (id === 'view-submit')         resetSubmitView();
   if (id === 'view-partner-leads')  loadPartnerLeads();
+  if (id === 'view-network-inventory') loadNetworkInventory();
   if (id === 'view-admin') {
     loadAdminSubmissions();
     loadAdminFindLeads();
@@ -1505,6 +1556,118 @@ async function doMarkSubmissionSold(id) {
   loadMySubmissions();
 }
 
+// ── Network Inventory (Max Motors wholesale flow) ──────────────────
+// Same visual shape as My Submissions — these ARE inventory_submissions
+// rows, just visibility='network' ones from other dealers or from Jeff
+// (POST /api/admin/submissions/manual) instead of the browsing dealer's own.
+async function loadNetworkInventory() {
+  document.getElementById('network-inventory-loading').style.display = 'block';
+  document.getElementById('network-inventory-list').innerHTML        = '';
+
+  const { res, data } = await apiFetch('/dealer/network-inventory')
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('network-inventory-loading').style.display = 'none';
+
+  if (!res.ok) {
+    document.getElementById('network-inventory-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">⚠</div><div class="empty-state-text">Could not load network inventory.</div></div>';
+    return;
+  }
+
+  const subs = data.submissions || [];
+  if (!subs.length) {
+    document.getElementById('network-inventory-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">🚗</div><div class="empty-state-text">Nothing available from the network right now.<br/>Check back soon.</div></div>';
+    return;
+  }
+
+  document.getElementById('network-inventory-list').innerHTML = subs.map(s => renderNetworkInventoryCard(s)).join('');
+}
+
+async function loadNetworkInventoryInterested() {
+  document.getElementById('network-inventory-interested-loading').style.display = 'block';
+  document.getElementById('network-inventory-interested-list').innerHTML        = '';
+
+  const { res, data } = await apiFetch('/dealer/network-inventory/interested')
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('network-inventory-interested-loading').style.display = 'none';
+
+  if (!res.ok) return;
+
+  const subs = data.submissions || [];
+  if (!subs.length) {
+    document.getElementById('network-inventory-interested-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">🤝</div><div class="empty-state-text">Nothing here yet — express interest from Available and it\'ll show up here.</div></div>';
+    return;
+  }
+
+  document.getElementById('network-inventory-interested-list').innerHTML = subs.map(s => renderNetworkInventoryCard(s)).join('');
+}
+
+function renderNetworkInventoryCard(s) {
+  return `
+    <div class="item-card" style="flex-direction:column;display:flex;gap:0;align-items:stretch">
+      <div style="display:flex;gap:1rem;flex-wrap:wrap">
+        ${s.photo_url ? `<img src="${s.photo_url}" style="width:110px;height:78px;object-fit:cover;border-radius:3px;flex-shrink:0"/>` : ''}
+        <div style="flex:1">
+          <div class="item-card-title">${s.year} ${s.make} ${s.model}${s.trim ? ' ' + s.trim : ''}</div>
+          <div class="item-card-sub" style="margin-bottom:.4rem">${escapeHtmlJs(s.source_dealership_name || 'TheExactMatch')}</div>
+          <div class="item-card-meta">
+            ${s.price ? `<span class="meta-pill">${formatPrice(s.price)}</span>` : ''}
+            ${s.mileage ? `<span class="meta-pill">${s.mileage.toLocaleString()} miles</span>` : ''}
+            ${s.category ? `<span class="meta-pill">${s.category}</span>` : ''}
+            <span class="meta-pill" style="opacity:.6">${formatDate(s.created_at)}</span>
+          </div>
+          ${s.listing_url ? `<a href="${s.listing_url}" target="_blank" rel="noopener" style="font-size:.78rem;color:var(--gold);font-weight:600;text-decoration:none">View listing →</a>` : ''}
+          ${s.description ? `<div style="font-size:.75rem;color:var(--gray);margin-top:.4rem;line-height:1.6">${escapeHtmlJs(s.description)}</div>` : ''}
+          ${s.i_expressed_interest ? `
+            <div style="font-size:.75rem;color:var(--green);margin-top:.5rem;font-weight:600">
+              ✓ Interested${s.offer_amount ? ` — Offered ${formatPrice(s.offer_amount)}` : ''}${s.message ? ` — "${escapeHtmlJs(s.message)}"` : ''}
+            </div>` : ''}
+        </div>
+        <div class="item-card-actions">
+          <button class="interest-btn ${s.i_expressed_interest ? 'interested' : ''}" onclick="toggleNetworkInterestBox(${s.id})">
+            ${s.i_expressed_interest ? '✎ Edit Interest' : "I'm Interested"}
+          </button>
+        </div>
+      </div>
+      <div id="ni-offer-box-${s.id}" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Offer Amount ($, optional)</label><input type="number" id="ni-offer-amount-${s.id}" value="${s.offer_amount ?? ''}"/></div>
+        </div>
+        <div class="dp-form-group"><label>Message (optional)</label><textarea id="ni-offer-message-${s.id}">${s.message ?? ''}</textarea></div>
+        <div style="display:flex;gap:.75rem;align-items:center">
+          <button class="btn-primary btn-sm" onclick="submitNetworkInterest(${s.id})">Send Interest</button>
+          <span id="ni-offer-msg-${s.id}" style="font-size:.8rem"></span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function toggleNetworkInterestBox(id) {
+  const box = document.getElementById(`ni-offer-box-${id}`);
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+async function submitNetworkInterest(id) {
+  const msg = document.getElementById(`ni-offer-msg-${id}`);
+  msg.textContent = 'Sending…'; msg.style.color = 'var(--gray)';
+
+  const offerAmount = document.getElementById(`ni-offer-amount-${id}`).value;
+  const message = document.getElementById(`ni-offer-message-${id}`).value;
+
+  const { res } = await apiFetch(`/dealer/network-inventory/${id}/interest`, {
+    method: 'POST', body: JSON.stringify({ offer_amount: offerAmount, message }),
+  }).catch(() => ({res:{ok:false}}));
+
+  if (!res.ok) { msg.textContent = 'Failed to send.'; msg.style.color = 'var(--red)'; return; }
+  msg.textContent = '✓ Sent.'; msg.style.color = 'var(--green)';
+  loadNetworkInventory();
+}
+
 // ── ADMIN ─────────────────────────────────────────────────────
 function switchTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
@@ -1614,6 +1777,7 @@ async function loadAdminSubmissions() {
             ${s.price ? `<span class="meta-pill">${formatPrice(s.price)}</span>` : ''}
             ${s.mileage ? `<span class="meta-pill">${s.mileage.toLocaleString()} miles</span>` : ''}
             <span class="meta-pill">${s.category}</span>
+            ${s.interest_count ? `<span class="meta-pill" style="color:var(--green)">🔔 ${s.interest_count} dealer${s.interest_count === 1 ? '' : 's'} interested</span>` : ''}
             <span class="meta-pill" style="opacity:.6">${formatDate(s.created_at)}</span>
           </div>
           ${s.listing_url ? `<a href="${s.listing_url}" target="_blank" rel="noopener" style="font-size:.78rem;color:var(--gold);font-weight:600;text-decoration:none">View original listing →</a>` : `<span style="font-size:.78rem;color:#9B2335">⚠ No listing URL on file</span>`}
@@ -1622,6 +1786,11 @@ async function loadAdminSubmissions() {
         </div>
         <div class="item-card-actions">
           <span class="status-badge status-${s.status}">${s.status}</span>
+          <select class="visibility-select" style="font-size:.7rem;padding:.3rem .4rem;border:1px solid var(--border);border-radius:2px;background:var(--white);color:var(--navy)" onchange="adminSetVisibility(${s.id}, this.value)" title="Who this submission is visible to">
+            <option value="highlights" ${s.visibility === 'highlights' ? 'selected' : ''}>Highlights</option>
+            <option value="private" ${s.visibility === 'private' ? 'selected' : ''}>Private</option>
+            <option value="network" ${s.visibility === 'network' ? 'selected' : ''}>Network</option>
+          </select>
           <button class="btn-primary btn-sm" onclick="toggleSubDetail(${s.id})" id="sub-review-btn-${s.id}">Review</button>
           ${s.status === 'pending' ? `
             <button class="btn-primary btn-sm btn-success" onclick="adminUpdateSub(${s.id},'approved')">Approve</button>
@@ -1756,6 +1925,13 @@ async function adminDeleteSubmission(id) {
   const { res } = await apiFetch(`/admin/submissions/${id}`, { method: 'DELETE' }).catch(() => ({res:{ok:false}}));
   if (res.ok) loadAdminSubmissions();
   else alert('Delete failed.');
+}
+
+async function adminSetVisibility(id, visibility) {
+  const { res } = await apiFetch(`/admin/submissions/${id}`, { method: 'PATCH', body: JSON.stringify({ visibility }) })
+    .catch(() => ({res:{ok:false}}));
+  if (res.ok) loadAdminSubmissions();
+  else alert('Failed to update visibility.');
 }
 
 async function adminUpdateSub(id, status) {
@@ -2431,6 +2607,13 @@ async function loadAdminDealers() {
           ? `<div style="font-size:.68rem;color:var(--gray);margin-bottom:.35rem;word-break:break-all;max-width:110px">${escapeHtmlJs(d.autodev_dealer_id)}</div><button class="btn-primary btn-sm btn-outline" onclick="doLookupDealerAutodevId(${d.id})">Re-find</button>`
           : `<button class="btn-primary btn-sm" onclick="doLookupDealerAutodevId(${d.id})">Find ID</button>`}
       </td>
+      <td>
+        <select style="font-size:.72rem;padding:.3rem .4rem;border:1px solid var(--border);border-radius:2px;background:var(--white);color:var(--navy)" onchange="doSaveDealerSubmissionVisibility(${d.id}, this.value)" title="What pool this dealer's submissions default into">
+          <option value="highlights" ${!d.default_submission_visibility || d.default_submission_visibility === 'highlights' ? 'selected' : ''}>Highlights (default)</option>
+          <option value="private" ${d.default_submission_visibility === 'private' ? 'selected' : ''}>Private</option>
+          <option value="network" ${d.default_submission_visibility === 'network' ? 'selected' : ''}>Network</option>
+        </select>
+      </td>
       <td><span class="status-badge ${d.status === 'active' ? 'status-approved' : 'status-rejected'}">${d.status}</span></td>
       <td>${formatDate(d.created_at)}</td>
       <td>${d.seen
@@ -2489,6 +2672,16 @@ async function adminUpdateDealer(id, status) {
   }).catch(() => ({res:{ok:false}}));
   if (res.ok) { markItemSeen('dealers', id); loadAdminDealers(); }
   else alert('Update failed.');
+}
+
+// Which pool this dealer's future submissions default into (highlights/
+// private/network) — 'highlights' is every dealer's behavior today; Max
+// Motors (wholesale) is the first to be set to 'private'.
+async function doSaveDealerSubmissionVisibility(id, value) {
+  const { res } = await apiFetch(`/admin/dealers/${id}`, {
+    method: 'PATCH', body: JSON.stringify({ default_submission_visibility: value })
+  }).catch(() => ({res:{ok:false}}));
+  if (!res.ok) alert('Failed to update.');
 }
 
 // ── Dealer invites (admin side) ────────────────────────────────
