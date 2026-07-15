@@ -999,19 +999,45 @@ ${(lead.payment_method === 'Financing' || lead.payment_method === 'Leasing') ? `
 - Anything else: ${lead.anything_else || 'none stated'}`;
 }
 
+// Shared with generateReportForLead, which needs the same single-vehicle-
+// vs-shortlist-vs-empty distinction to decide whether pulling a partner
+// inventory snapshot is worth the extra Auto.dev calls.
+function consideringIsSingleVehicle(considering) {
+  const raw = (considering || '').trim();
+  if (!raw) return false;
+  return raw.split(',').map(s => s.trim()).filter(Boolean).length === 1;
+}
+
+// "Any Makes or Models Already Considering?" (lead.considering) has always
+// accepted a comma-separated list per its own placeholder text ("e.g.
+// Toyota RAV4, Honda CR-V" — two different vehicles, not one). Treating any
+// non-empty value as "the one exact make/model" broke down the moment a
+// client actually followed that example and listed several different
+// candidates (e.g. "Mercedes, Honda, Audi") — Claude was told all 3 picks
+// MUST be that one "exact make and model", a contradiction when the string
+// names three different brands. Splitting on comma distinguishes a real
+// single-vehicle answer ("mercedes c63") from a shortlist.
 function buildVehiclePrompt(lead, partnerInventoryText) {
   const year = new Date().getFullYear();
-  const consideringSpecificModel = (lead.considering || '').trim().length > 0;
-  return `A car-buying client filled out our "Find My Car" form. Based on their answers, recommend exactly 3 specific vehicles (year, make, model, trim) that best fit their needs. For each, write a short rationale addressed DIRECTLY to the client in second person — always "you"/"your", never "they"/"their"/"the client"/"the buyer". For example: "This fits your need for extra cargo space" — not "This fits their need for extra cargo space."
+  const consideringRaw = (lead.considering || '').trim();
+  const consideringCandidates = consideringRaw ? consideringRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const isSingleVehicle = consideringIsSingleVehicle(lead.considering);
+  const isShortlist = consideringCandidates.length > 1;
 
-${consideringSpecificModel
-  ? `The client already told us the specific make/model they want: "${lead.considering}". All 3 recommendations MUST be that exact make and model — vary them by year, trim, or configuration only. Do not substitute a different make/model, even a similar one, unless what they wrote isn't a real, buildable vehicle.`
-  : `The client did not name a specific make/model, so use the rest of their answers (vehicle type, priorities, budget, etc.) to recommend the 3 best-fitting vehicles — these may span different makes/models.${partnerInventoryText ? `
+  const partnerBlock = (intro) => partnerInventoryText ? `
 
 Our dealer partner network currently has this real, in-stock inventory (not exhaustive, just a sample):
 ${partnerInventoryText}
 
-Since the client has no specific make/model requirement, strongly prefer recommending vehicles from this list when they reasonably fit the client's budget, priorities, and mileage cap — that's the inventory we can actually route them to. Only recommend something outside this list if nothing in it is a reasonable fit for what they're looking for.` : ''}`}
+${intro}` : '';
+
+  return `A car-buying client filled out our "Find My Car" form. Based on their answers, recommend exactly 3 specific vehicles (year, make, model, trim) that best fit their needs. For each, write a short rationale addressed DIRECTLY to the client in second person — always "you"/"your", never "they"/"their"/"the client"/"the buyer". For example: "This fits your need for extra cargo space" — not "This fits their need for extra cargo space."
+
+${isSingleVehicle
+  ? `The client already told us the specific make/model they want: "${consideringRaw}". All 3 recommendations MUST be that exact make and model — vary them by year, trim, or configuration only. Do not substitute a different make/model, even a similar one, unless what they wrote isn't a real, buildable vehicle.`
+  : isShortlist
+  ? `The client named a shortlist of makes/models they're considering: ${consideringCandidates.map(c => `"${c}"`).join(', ')}. Recommend 3 vehicles drawn from this shortlist — you don't need to cover every candidate, and recommending more than one configuration of the same candidate is fine if it's clearly the best overall fit. Don't substitute something outside this shortlist unless one of these isn't a real, buildable vehicle.${partnerBlock(`When more than one shortlisted candidate would reasonably fit the client's budget, priorities, and mileage cap, prefer whichever is available from this partner inventory — that's the inventory we can actually route them to.`)}`
+  : `The client did not name a specific make/model, so use the rest of their answers (vehicle type, priorities, budget, etc.) to recommend the 3 best-fitting vehicles — these may span different makes/models.${partnerBlock(`Since the client has no specific make/model requirement, strongly prefer recommending vehicles from this list when they reasonably fit the client's budget, priorities, and mileage cap — that's the inventory we can actually route them to. Only recommend something outside this list if nothing in it is a reasonable fit for what they're looking for.`)}`}
 
 Client details:
 ${clientDetailsBlock(lead)}
@@ -2208,9 +2234,11 @@ async function generateReportForLead(env, leadId) {
 
   const activeDealers = await loadActivePartnerDealers(env);
   // Only worth the extra Auto.dev calls when Claude actually has picking
-  // freedom to use them — if the client named a specific make/model,
-  // buildVehiclePrompt's "considering" branch ignores this anyway.
-  const partnerInventoryText = (lead.considering || '').trim()
+  // freedom to use them — if the client pinned down one specific vehicle,
+  // buildVehiclePrompt's single-vehicle branch ignores this anyway. A
+  // shortlist of several candidates (e.g. "Mercedes, Honda, Audi") still
+  // benefits, same as a fully open answer.
+  const partnerInventoryText = consideringIsSingleVehicle(lead.considering)
     ? null
     : await fetchPartnerInventorySnapshot(env, activeDealers, lead);
   const picks = await pickVehicles(env, lead, partnerInventoryText);
