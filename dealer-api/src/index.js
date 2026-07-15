@@ -6734,6 +6734,75 @@ async function debugMarketTest(request, env) {
   });
 }
 
+// ── Exotic-car comp search (admin, on-demand) ───────────────────────
+// Single Anthropic call with the server-side web_search tool — Claude
+// searches and reads results itself, no client-side scraping needed. This
+// replaced an earlier plan to hand-build scrapers per comp site (Classic.com
+// sits behind a Cloudflare bot-challenge, CarGurus/DupontRegistry/JD Power
+// block direct fetches — general web search sidesteps all of that). Not part
+// of The Tape's automated daily pipeline; stateless, nothing persisted.
+async function adminCompSearch(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const vin = (body.vin || '').trim().toUpperCase();
+  let year = body.year, make = (body.make || '').trim(), model = (body.model || '').trim(), trim = (body.trim || '').trim();
+  const mileage = body.mileage != null && body.mileage !== '' ? +body.mileage : null;
+
+  if (vin) {
+    const decoded = await decodeVin(env, vin);
+    if (decoded) {
+      year = decoded.year || year;
+      make = decoded.make || make;
+      model = decoded.model || model;
+      trim = decoded.trim || trim;
+    }
+  }
+
+  if (!year || !make || !model) return json({ error: 'Year, make, and model are required (or a decodable VIN).' }, 400);
+
+  const vehicleDesc = `${year} ${make} ${model}${trim ? ' ' + trim : ''}${mileage ? `, approximately ${mileage.toLocaleString()} miles` : ''}${vin ? ` (VIN ${vin})` : ''}`;
+
+  const prompt = `Research the current market value for this vehicle: ${vehicleDesc}.
+
+Search for:
+1. Completed/sold auction results (Bring a Trailer, Cars & Bids, and similar) — actual hammer prices, not "bid to" unsold reserve-not-met results.
+2. Current active retail listings/asking prices (dealer sites, Classic.com, CarGurus, etc).
+3. Any aggregator benchmark values (e.g. Classic.com Market Benchmark) if this is a collectible/enthusiast vehicle.
+
+If this vehicle has known distinct trim/special-edition variants (e.g. a performance variant like an SV/S/Anniversario/Competition package) that command meaningfully different values, call that out explicitly and do NOT blend them into one number — note which comps are for the exact spec requested versus a different variant.
+
+Respond in plain text with:
+- A short comp table (source, year/trim, mileage, price, sold vs asking)
+- A clear final price recommendation with a range for both wholesale/auction value and retail/private-sale value
+- Any caveats (color/options/condition/service-history factors you can't verify remotely)
+
+Be direct and concise — no hedging filler, no repeating the question back.`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6', max_tokens: 3000,
+      tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 10 }],
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    return json({ error: `Claude API error: HTTP ${res.status} — ${errBody}` }, 502);
+  }
+  const data = await res.json();
+  if (data.stop_reason === 'refusal') return json({ error: 'The research request was declined.' }, 502);
+
+  // Take the last text block (the final synthesized answer after any
+  // searches), not every text block — interleaved commentary before/between
+  // searches ("I'll look for...") isn't part of the report.
+  const textBlocks = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
+  const report = textBlocks[textBlocks.length - 1]?.trim();
+  if (!report) return json({ error: 'No report returned — try again.' }, 502);
+
+  return json({ report, vehicle: { year, make, model, trim: trim || null, mileage, vin: vin || null } });
+}
+
 // ── Route table ───────────────────────────────────────────────────
 const ROUTES = [
   { method: 'POST',  pattern: '/api/setup/init-admin',          handler: initAdmin },
@@ -6824,6 +6893,9 @@ const ROUTES = [
   { method: 'PATCH', pattern: '/api/admin/market/unmapped',           handler: adminMapMarketTaxonomy, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/market/sources',            handler: adminMarketSources, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/debug/market-test',         handler: debugMarketTest, auth: true, admin: true },
+
+  // ── Exotic-car comp search (on-demand, not part of The Tape) ──
+  { method: 'POST',  pattern: '/api/admin/comps/search',              handler: adminCompSearch, auth: true, admin: true },
 ];
 
 async function cleanupStaleRecords(env) {
