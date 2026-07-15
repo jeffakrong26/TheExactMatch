@@ -999,14 +999,19 @@ ${(lead.payment_method === 'Financing' || lead.payment_method === 'Leasing') ? `
 - Anything else: ${lead.anything_else || 'none stated'}`;
 }
 
-function buildVehiclePrompt(lead) {
+function buildVehiclePrompt(lead, partnerInventoryText) {
   const year = new Date().getFullYear();
   const consideringSpecificModel = (lead.considering || '').trim().length > 0;
   return `A car-buying client filled out our "Find My Car" form. Based on their answers, recommend exactly 3 specific vehicles (year, make, model, trim) that best fit their needs. For each, write a short rationale addressed DIRECTLY to the client in second person — always "you"/"your", never "they"/"their"/"the client"/"the buyer". For example: "This fits your need for extra cargo space" — not "This fits their need for extra cargo space."
 
 ${consideringSpecificModel
   ? `The client already told us the specific make/model they want: "${lead.considering}". All 3 recommendations MUST be that exact make and model — vary them by year, trim, or configuration only. Do not substitute a different make/model, even a similar one, unless what they wrote isn't a real, buildable vehicle.`
-  : `The client did not name a specific make/model, so use the rest of their answers (vehicle type, priorities, budget, etc.) to recommend the 3 best-fitting vehicles — these may span different makes/models.`}
+  : `The client did not name a specific make/model, so use the rest of their answers (vehicle type, priorities, budget, etc.) to recommend the 3 best-fitting vehicles — these may span different makes/models.${partnerInventoryText ? `
+
+Our dealer partner network currently has this real, in-stock inventory (not exhaustive, just a sample):
+${partnerInventoryText}
+
+Since the client has no specific make/model requirement, strongly prefer recommending vehicles from this list when they reasonably fit the client's budget, priorities, and mileage cap — that's the inventory we can actually route them to. Only recommend something outside this list if nothing in it is a reasonable fit for what they're looking for.` : ''}`}
 
 Client details:
 ${clientDetailsBlock(lead)}
@@ -1065,7 +1070,7 @@ The real vehicle we found for them:
   return toolUse ? toolUse.input.rationale : null;
 }
 
-async function pickVehicles(env, lead) {
+async function pickVehicles(env, lead, partnerInventoryText) {
   const tool = {
     name: 'record_recommendations',
     description: 'Record exactly 3 recommended vehicles for this buyer.',
@@ -1107,7 +1112,7 @@ async function pickVehicles(env, lead) {
       max_tokens: 2048,
       tools: [tool],
       tool_choice: { type: 'tool', name: 'record_recommendations' },
-      messages: [{ role: 'user', content: buildVehiclePrompt(lead) }],
+      messages: [{ role: 'user', content: buildVehiclePrompt(lead, partnerInventoryText) }],
     }),
   });
 
@@ -1465,6 +1470,61 @@ async function loadActivePartnerDealers(env) {
      FROM dealers WHERE role != 'admin' AND status = 'active' AND autodev_dealer_id IS NOT NULL AND autodev_dealer_id != ''`
   ).all();
   return results.map(d => ({ ...d, brands_new: safeJsonParse(d.brands_new, []) }));
+}
+
+// One-time, per-report snapshot of what active partner dealers actually
+// have in stock right now (no make/model filter) — feeds pickVehicles so
+// Claude's recommendations are grounded in real partner inventory instead
+// of a blind guess whenever the client didn't name a specific make/model.
+// Without this, Claude has zero visibility into what partners carry, so a
+// "flexible" buyer's picks land on partner inventory only by coincidence
+// (see buildVehiclePrompt). Runs once per report, not once per pick, so
+// the existing MAX_PARTNER_INVENTORY_SEARCHES cap (which bounds per-pick
+// per-search calls) doesn't apply here — capped separately below.
+const MAX_PARTNER_SNAPSHOT_DEALERS = 6;
+
+async function fetchPartnerInventorySnapshot(env, activeDealers, lead) {
+  const seenDealerIds = new Set();
+  const dealers = activeDealers
+    .filter(d => {
+      // Audi North Austin (dealer rows 5/6) shares one autodev_dealer_id —
+      // same dedupe concern partitionByPartnerDealer handles elsewhere.
+      if (seenDealerIds.has(d.autodev_dealer_id)) return false;
+      seenDealerIds.add(d.autodev_dealer_id);
+      return true;
+    })
+    .slice(0, MAX_PARTNER_SNAPSHOT_DEALERS);
+
+  const used = leadUsedFilter(lead.condition);
+  const batches = await Promise.all(dealers.map(async d => {
+    const { ok, data } = await autodevFetch(env, '/listings', {
+      'retailListing.dealer': d.dealership_name,
+      'retailListing.price': lead.budget_max ? `0-${Math.round(Number(lead.budget_max))}` : undefined,
+      'retailListing.miles': lead.max_mileage ? `0-${Math.round(Number(lead.max_mileage))}` : undefined,
+      'retailListing.used': used === true ? 'true' : (used === false ? 'false' : undefined),
+      zip: lead.zip || undefined,
+      distance: lead.zip ? 300 : undefined,
+      limit: 30,
+    }, { leadId: lead.id });
+    if (!ok || !Array.isArray(data?.data)) return { dealer: d.dealership_name, vehicles: [] };
+
+    const dedupe = new Set();
+    const vehicles = [];
+    for (const raw of data.data) {
+      if (raw.retailListing?.dealerId !== d.autodev_dealer_id) continue; // name-collision guard, same as searchAutodevPartnerInventory
+      const v = raw.vehicle || {};
+      if (!v.year || !v.make || !v.model) continue;
+      const key = `${v.year} ${v.make} ${v.model}${v.trim ? ' ' + v.trim : ''}`;
+      if (dedupe.has(key)) continue;
+      dedupe.add(key);
+      vehicles.push(key);
+      if (vehicles.length >= 6) break;
+    }
+    return { dealer: d.dealership_name, vehicles };
+  }));
+
+  const lines = batches.filter(b => b.vehicles.length).map(b => `${b.dealer}: ${b.vehicles.join(', ')}`);
+  return lines.length ? lines.join('\n') : null;
 }
 
 // New-car buyer requests can only be fulfilled/monetized by a same-brand
@@ -2131,9 +2191,15 @@ async function generateReportForLead(env, leadId) {
   const lead = await env.DB.prepare('SELECT * FROM find_car_leads WHERE id = ?').bind(leadId).first();
   if (!lead) return;
 
-  const picks = await pickVehicles(env, lead);
-  console.log(`[timing] pickVehicles: ${Date.now() - t0}ms`);
   const activeDealers = await loadActivePartnerDealers(env);
+  // Only worth the extra Auto.dev calls when Claude actually has picking
+  // freedom to use them — if the client named a specific make/model,
+  // buildVehiclePrompt's "considering" branch ignores this anyway.
+  const partnerInventoryText = (lead.considering || '').trim()
+    ? null
+    : await fetchPartnerInventorySnapshot(env, activeDealers, lead);
+  const picks = await pickVehicles(env, lead, partnerInventoryText);
+  console.log(`[timing] pickVehicles: ${Date.now() - t0}ms`);
   const partnerCfg = await getPartnerConfig(env);
   const tVehicles = Date.now();
   const tags = picks.map(pick => `${pick.year} ${pick.make} ${pick.model}`);
