@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="robots" content="noindex, nofollow"/>
+<title>The Tape — TheExactMatch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0c1420; --bg2:#121b2b; --bg3:#182238;
+  --text:#e8edf5; --text-dim:#8a97ab;
+  --accent:#d4b26a; --border:#24314a;
+  --green:#3ecf8e; --amber:#e0a940; --red:#e46862;
+  --ticker-bg:#060a12; --ticker-text:#e8edf5;
+  --shadow:0 8px 24px rgba(0,0,0,.35);
+}
+:root[data-theme="day"]{
+  --bg:#f5f2ea; --bg2:#ffffff; --bg3:#efeadf;
+  --text:#1a2233; --text-dim:#6b7280;
+  --accent:#8a6a12; --border:#ddd8cc;
+  --green:#1a7a4f; --amber:#8a5a10; --red:#a83a35;
+  --shadow:0 4px 16px rgba(20,20,10,.08);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="night"]){
+    --bg:#f5f2ea; --bg2:#ffffff; --bg3:#efeadf;
+    --text:#1a2233; --text-dim:#6b7280;
+    --accent:#8a6a12; --border:#ddd8cc;
+    --green:#1a7a4f; --amber:#8a5a10; --red:#a83a35;
+    --shadow:0 4px 16px rgba(20,20,10,.08);
+  }
+}
+html{background:var(--bg)}
+body{font-family:'IBM Plex Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;transition:background .2s,color .2s}
+.display{font-family:'Archivo',sans-serif}
+a{color:var(--accent)}
+button{font-family:inherit}
+
+/* ── Login screen ── */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+.login-card{width:100%;max-width:340px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:2rem;box-shadow:var(--shadow)}
+.login-card h1{font-family:'Archivo',sans-serif;font-size:1.3rem;font-weight:800;margin-bottom:.25rem}
+.login-card .sub{color:var(--text-dim);font-size:.78rem;margin-bottom:1.5rem}
+.login-card input{width:100%;padding:.7rem .85rem;margin-bottom:.75rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:.85rem;outline:none}
+.login-card input:focus{border-color:var(--accent)}
+.login-card button{width:100%;padding:.75rem;background:var(--accent);color:var(--bg);border:none;border-radius:4px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:.75rem;cursor:pointer;margin-top:.25rem}
+.login-err{color:var(--red);font-size:.78rem;margin-top:.6rem;min-height:1em}
+
+/* ── Ticker (always dark, both themes) ── */
+#ticker-wrap{background:var(--ticker-bg);color:var(--ticker-text);overflow:hidden;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:50}
+#ticker-track{display:inline-flex;gap:2.5rem;padding:.55rem 0;animation:ticker-scroll 38s linear infinite}
+@media (prefers-reduced-motion: reduce){#ticker-track{animation:none;flex-wrap:wrap;white-space:normal}}
+@keyframes ticker-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.tick{display:inline-flex;align-items:baseline;gap:.4rem;font-size:.78rem;padding:0 1.25rem}
+.tick .label{color:#9fb0c9;text-transform:uppercase;letter-spacing:.06em;font-size:.68rem}
+.tick .value{font-weight:600}
+.tick .change.up{color:var(--green)}
+.tick .change.down{color:var(--red)}
+.tick .change.neutral{color:var(--text-dim)}
+
+/* ── Layout ── */
+#app{display:none}
+.wrap{max-width:1100px;margin:0 auto;padding:1.25rem 1.25rem 3rem}
+header.tape-header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1.5rem}
+.eyebrow{font-size:.65rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.35rem}
+h1.tape-title{font-family:'Archivo',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.01em}
+.tape-date{color:var(--text-dim);font-size:.85rem;margin-top:.2rem}
+.header-controls{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.pill-toggle{display:flex;border:1px solid var(--border);border-radius:20px;overflow:hidden;background:var(--bg2)}
+.pill-toggle button{padding:.4rem .9rem;background:transparent;border:none;color:var(--text-dim);font-size:.72rem;font-weight:600;letter-spacing:.03em;text-transform:uppercase;cursor:pointer}
+.pill-toggle button.active{background:var(--accent);color:var(--bg)}
+.icon-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--bg2);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.9rem}
+.logout-link{font-size:.7rem;color:var(--text-dim);text-decoration:underline;cursor:pointer;background:none;border:none}
+
+/* ── Stat cards ── */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.75rem;margin-bottom:1.5rem}
+@media(min-width:700px){.stat-grid{grid-template-columns:repeat(4,1fr)}}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:.9rem 1rem}
+.stat-card .stat-label{font-size:.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.4rem}
+.stat-card .stat-value{font-family:'Archivo',sans-serif;font-size:1.5rem;font-weight:700}
+.stat-card .stat-sub{font-size:.7rem;color:var(--text-dim);margin-top:.2rem}
+
+/* ── Charts ── */
+.chart-grid{display:grid;grid-template-columns:1fr;gap:.9rem;margin-bottom:1.5rem}
+@media(min-width:800px){.chart-grid{grid-template-columns:1fr 1fr}}
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1rem}
+.chart-card h3{font-family:'Archivo',sans-serif;font-size:.85rem;font-weight:700;margin-bottom:.75rem;display:flex;justify-content:space-between;align-items:baseline}
+.chart-card h3 span{font-size:.65rem;color:var(--text-dim);font-weight:500}
+.chart-card svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:.9rem;margin-top:.5rem;font-size:.65rem;color:var(--text-dim)}
+.legend span::before{content:'';display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:.3rem;vertical-align:middle}
+.legend .lg::before{background:var(--green)} .legend .la::before{background:var(--amber)} .legend .lr::before{background:var(--red)}
+
+/* ── Panels ── */
+.panel-grid{display:grid;grid-template-columns:1fr;gap:.9rem}
+@media(min-width:800px){.panel-grid{grid-template-columns:1fr 1fr}}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1.1rem;grid-column:span 1}
+.panel.wide{grid-column:1 / -1}
+.panel h3{font-family:'Archivo',sans-serif;font-size:.9rem;font-weight:700;margin-bottom:.85rem;display:flex;align-items:center;gap:.4rem}
+.panel .headline{font-family:'Archivo',sans-serif;font-size:1.05rem;font-weight:600;line-height:1.4;margin-bottom:.5rem}
+.row-item{padding:.55rem 0;border-bottom:1px solid var(--border);font-size:.82rem;line-height:1.5}
+.row-item:last-child{border-bottom:none}
+.row-item .rt{font-weight:600}
+.row-item .rd{color:var(--text-dim);font-size:.78rem}
+.row-item a{text-decoration:none}
+.row-item a:hover{text-decoration:underline}
+.hot-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:.4rem;box-shadow:0 0 6px var(--red)}
+.idea-item{background:var(--bg3);border-radius:4px;padding:.6rem .75rem;margin-bottom:.5rem;font-size:.8rem}
+.idea-tag{display:block;font-size:.6rem;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);font-weight:700;margin-bottom:.25rem}
+.one-thing-text{font-size:.88rem;line-height:1.65}
+.empty{color:var(--text-dim);font-size:.8rem;font-style:italic}
+.sample-banner{background:var(--bg3);border:1px dashed var(--border);border-radius:6px;padding:.6rem .9rem;font-size:.75rem;color:var(--text-dim);margin-bottom:1.25rem;text-align:center}
+
+/* ── Sources footer ── */
+.sources-footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:1rem;font-size:.68rem;color:var(--text-dim)}
+.source-chip{display:flex;align-items:center;gap:.35rem}
+.source-dot{width:6px;height:6px;border-radius:50%}
+.source-dot.ok{background:var(--green)} .source-dot.err{background:var(--red)} .source-dot.unknown{background:var(--text-dim)}
+
+.lens-hidden{display:none !important}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <h1 class="display">The Tape</h1>
+    <div class="sub">THE EXACT MATCH &middot; INTERNAL</div>
+    <form id="login-form">
+      <input type="email" id="login-email" placeholder="Email" autocomplete="username" required/>
+      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required/>
+      <button type="submit" id="login-btn">Sign in</button>
+      <div class="login-err" id="login-err"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app">
+  <div id="ticker-wrap">
+    <div id="ticker-track"></div>
+  </div>
+
+  <div class="wrap">
+    <header class="tape-header">
+      <div>
+        <div class="eyebrow">THE EXACT MATCH &middot; INTERNAL</div>
+        <h1 class="tape-title display">The Tape</h1>
+        <div class="tape-date" id="tape-date"></div>
+      </div>
+      <div class="header-controls">
+        <div class="pill-toggle" id="lens-toggle">
+          <button data-lens="business" class="active">Business</button>
+          <button data-lens="exotic">Exotic Corner</button>
+        </div>
+        <button class="icon-btn" id="theme-toggle" title="Toggle day/night">&#9789;</button>
+        <button class="logout-link" id="logout-btn">Sign out</button>
+      </div>
+    </header>
+
+    <div class="sample-banner lens-hidden" id="sample-banner">Sample preview — today's brief hasn't run yet. This will update automatically once the morning cron completes.</div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Used Index (Manheim)</div>
+        <div class="stat-value" id="stat-index">—</div>
+        <div class="stat-sub" id="stat-index-sub">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Houston Avg DOM</div>
+        <div class="stat-value" id="stat-hou-dom">—</div>
+        <div class="stat-sub">days on market</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active TX Incentives</div>
+        <div class="stat-value" id="stat-incentives">—</div>
+        <div class="stat-sub">live offers tagged TX</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Deals in Pipeline</div>
+        <div class="stat-value" id="stat-pipeline">—</div>
+        <div class="stat-sub">open, not lost/delivered</div>
+      </div>
+    </div>
+
+    <div id="business-lens">
+      <div class="chart-grid">
+        <div class="chart-card">
+          <h3>Used Value Index <span>90 days</span></h3>
+          <svg id="chart-line" viewBox="0 0 480 180" preserveAspectRatio="none"></svg>
+        </div>
+        <div class="chart-card">
+          <h3>Days on Market by Segment <span>Houston</span></h3>
+          <svg id="chart-bar" viewBox="0 0 480 220" preserveAspectRatio="none"></svg>
+          <div class="legend">
+            <span class="lg">&lt; 30 days</span>
+            <span class="la">30–45 days</span>
+            <span class="lr">&gt; 45 days</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-grid">
+        <div class="panel wide">
+          <h3>Today's headline</h3>
+          <div class="headline" id="panel-headline">—</div>
+        </div>
+
+        <div class="panel">
+          <h3>What's moving</h3>
+          <div id="panel-movers"><span class="empty">No movers yet.</span></div>
+        </div>
+
+        <div class="panel">
+          <h3>Active incentives</h3>
+          <div id="panel-incentives"><span class="empty">No incentives yet.</span></div>
+        </div>
+
+        <div class="panel">
+          <h3>Recalls</h3>
+          <div id="panel-recalls"><span class="empty">None this week.</span></div>
+        </div>
+
+        <div class="panel">
+          <h3>News</h3>
+          <div id="panel-news"><span class="empty">Nothing notable.</span></div>
+        </div>
+
+        <div class="panel wide">
+          <h3>Content ideas</h3>
+          <div id="panel-ideas"><span class="empty">None yet.</span></div>
+        </div>
+
+        <div class="panel wide">
+          <h3>One thing today</h3>
+          <div class="one-thing-text" id="panel-one-thing">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="exotic-lens" class="lens-hidden">
+      <div class="panel-grid">
+        <div class="panel wide">
+          <h3>Exotic corner — recent auction results</h3>
+          <div id="panel-exotic"><span class="empty">No results to report.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sources-footer" id="sources-footer"></div>
+  </div>
+</div>
+
+<script>
+const API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';
+let authToken = localStorage.getItem('tem_dealer_token') || null;
+
+async function apiFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  const res = await fetch(`${API}${path}`, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  return { res, data };
+}
+
+// ── Theme ──
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('theme-toggle').innerHTML = theme === 'day' ? '&#9788;' : '&#9789;';
+}
+function initTheme() {
+  const saved = localStorage.getItem('tem_tape_theme') || 'night';
+  applyTheme(saved);
+}
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'night';
+  const next = current === 'day' ? 'night' : 'day';
+  localStorage.setItem('tem_tape_theme', next);
+  applyTheme(next);
+});
+initTheme();
+
+// ── Lens toggle ──
+document.getElementById('lens-toggle').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-lens]');
+  if (!btn) return;
+  document.querySelectorAll('#lens-toggle button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const lens = btn.dataset.lens;
+  document.getElementById('business-lens').classList.toggle('lens-hidden', lens !== 'business');
+  document.getElementById('exotic-lens').classList.toggle('lens-hidden', lens !== 'exotic');
+});
+
+// ── Auth ──
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  document.getElementById('login-btn').disabled = true;
+  const { res, data } = await apiFetch('/dealer/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+  document.getElementById('login-btn').disabled = false;
+  if (!res.ok) { errEl.textContent = data.error || 'Sign-in failed.'; return; }
+  if (data.dealer?.role !== 'admin') { errEl.textContent = 'This dashboard is admin-only.'; return; }
+  authToken = data.token;
+  localStorage.setItem('tem_dealer_token', authToken);
+  enterApp();
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await apiFetch('/dealer/logout', { method: 'POST' }).catch(() => {});
+  authToken = null;
+  localStorage.removeItem('tem_dealer_token');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+});
+
+async function restoreSession() {
+  if (!authToken) return false;
+  const { res, data } = await apiFetch('/dealer/me').catch(() => ({ res: { ok: false }, data: {} }));
+  if (res.ok && data.role === 'admin') return true;
+  authToken = null;
+  localStorage.removeItem('tem_dealer_token');
+  return false;
+}
+
+// ── Sample data (rendered before the first real cron run) ──
+const SAMPLE_BRIEF = {
+  tape: [
+    { label: 'MUVVI', value: '212.9', change: '+2.1% YoY', direction: 'up' },
+    { label: 'HOU DOM', value: '38d', change: '+3d', direction: 'down' },
+    { label: 'ATX DOM', value: '34d', change: '-1d', direction: 'up' },
+    { label: 'TX INCENTIVES', value: '6', change: 'active', direction: 'neutral' },
+    { label: 'PIPELINE', value: '—', change: 'sample', direction: 'neutral' },
+  ],
+  headline: 'Quiet day — no major moves. This is sample data; today\'s real brief will replace it after the morning run.',
+  movers: [{ label: 'Sample: Midsize SUV segment', why: 'Placeholder mover shown until real ingestion runs.' }],
+  incentives: [{ label: 'Sample: Toyota Camry — 1.9% APR', detail: 'Placeholder incentive.', hot: false }],
+  recalls: [],
+  news: [],
+  exotic: [{ label: 'Sample: 2015 Porsche 911', detail: 'Sold for USD $88,000.', url: '#' }],
+  content_ideas: [{ tag: 'newsletter', hook: 'Sample content idea — real hooks appear after the first brief.' }],
+  one_thing: 'This is placeholder education text. Once the daily brief runs, a fresh 2-3 sentence market-education note appears here.',
+};
+
+// ── Segment label + DOM color, mirrors segmentLabel()/thresholds in dealer-api/src/index.js ──
+function segmentLabel(seg) {
+  const body = { sedan: 'sedan', suv_crossover: 'SUV', truck: 'truck', van: 'van', coupe_convertible: 'coupe/convertible', hatchback: 'hatchback' }[seg.body_style] || seg.body_style;
+  const size = { subcompact: 'subcompact', compact: 'compact', midsize: 'midsize', fullsize: 'full-size' }[seg.size] || seg.size;
+  const tierPrefix = seg.tier && seg.tier !== 'mainstream' ? `${seg.tier} ` : '';
+  return `${tierPrefix}${size} ${body}`;
+}
+function domColor(dom) {
+  if (dom < 30) return 'var(--green)';
+  if (dom <= 45) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ── Ticker ──
+function renderTicker(tape) {
+  const track = document.getElementById('ticker-track');
+  const items = (tape || []).map(t => `
+    <span class="tick"><span class="label">${escapeHtml(t.label)}</span><span class="value">${escapeHtml(t.value)}</span><span class="change ${t.direction}">${escapeHtml(t.change)}</span></span>
+  `).join('');
+  // Duplicated once so the 50%-translateX loop is seamless.
+  track.innerHTML = items + items;
+}
+
+// ── Line chart (used value index, 90 days) ──
+function renderLineChart(history) {
+  const svg = document.getElementById('chart-line');
+  const points = (history || []).filter(h => h.used_index != null);
+  if (!points.length) {
+    svg.innerHTML = `<text x="240" y="90" text-anchor="middle" fill="var(--text-dim)" font-size="11">No history yet</text>`;
+    return;
+  }
+  const w = 480, h = 180, pad = 10;
+  const values = points.map(p => p.used_index);
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = (max - min) || 1;
+  const stepX = (w - pad * 2) / Math.max(1, points.length - 1);
+  const coords = points.map((p, i) => {
+    const x = pad + i * stepX;
+    const y = pad + (h - pad * 2) * (1 - (p.used_index - min) / range);
+    return [x, y];
+  });
+  const path = coords.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const areaPath = `${path} L${coords[coords.length - 1][0].toFixed(1)},${h - pad} L${coords[0][0].toFixed(1)},${h - pad} Z`;
+  svg.innerHTML = `
+    <path d="${areaPath}" fill="var(--accent)" opacity="0.12"></path>
+    <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"></path>
+    <text x="${pad}" y="14" fill="var(--text-dim)" font-size="10">${max.toFixed(1)}</text>
+    <text x="${pad}" y="${h - 4}" fill="var(--text-dim)" font-size="10">${min.toFixed(1)}</text>
+  `;
+}
+
+// ── Bar chart (DOM by segment, Houston) ──
+function renderBarChart(segments) {
+  const svg = document.getElementById('chart-bar');
+  if (!segments || !segments.length) {
+    svg.innerHTML = `<text x="240" y="110" text-anchor="middle" fill="var(--text-dim)" font-size="11">No segment data yet</text>`;
+    return;
+  }
+  const w = 480, h = 220, pad = 8, labelH = 34, top = 10;
+  const chartH = h - labelH - top;
+  const maxDom = Math.max(45, ...segments.map(s => s.dom)) * 1.15;
+  const refY = top + chartH * (1 - 45 / maxDom);
+  const barW = (w - pad * 2) / segments.length;
+
+  const bars = segments.map((s, i) => {
+    const barH = chartH * (s.dom / maxDom);
+    const x = pad + i * barW + barW * 0.15;
+    const y = top + chartH - barH;
+    const bw = barW * 0.7;
+    const label = segmentLabel(s);
+    return `
+      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" fill="${domColor(s.dom)}" rx="2"></rect>
+      <text x="${(x + bw / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" fill="var(--text)" font-size="9">${s.dom}</text>
+      <text x="${(x + bw / 2).toFixed(1)}" y="${h - labelH + 12}" text-anchor="middle" fill="var(--text-dim)" font-size="8" transform="rotate(20 ${(x + bw / 2).toFixed(1)} ${h - labelH + 12})">${escapeHtml(label)}</text>
+    `;
+  }).join('');
+
+  svg.innerHTML = `
+    <line x1="${pad}" y1="${refY.toFixed(1)}" x2="${w - pad}" y2="${refY.toFixed(1)}" stroke="var(--text-dim)" stroke-width="1" stroke-dasharray="4,3"></line>
+    <text x="${pad}" y="${(refY - 4).toFixed(1)}" text-anchor="start" fill="var(--text-dim)" font-size="8">45d ref</text>
+    ${bars}
+  `;
+}
+
+// ── Panels ──
+function renderPanels(brief) {
+  document.getElementById('panel-headline').textContent = brief.headline || '—';
+
+  const movers = brief.movers || [];
+  document.getElementById('panel-movers').innerHTML = movers.length
+    ? movers.map(m => `<div class="row-item"><div class="rt">${escapeHtml(m.label)}</div><div class="rd">${escapeHtml(m.why)}</div></div>`).join('')
+    : '<span class="empty">No movers yet.</span>';
+
+  const incentives = brief.incentives || [];
+  document.getElementById('panel-incentives').innerHTML = incentives.length
+    ? incentives.map(i => `<div class="row-item">${i.hot ? '<span class="hot-dot"></span>' : ''}<span class="rt">${escapeHtml(i.label)}</span><div class="rd">${escapeHtml(i.detail)}</div></div>`).join('')
+    : '<span class="empty">No incentives yet.</span>';
+
+  const recalls = brief.recalls || [];
+  document.getElementById('panel-recalls').innerHTML = recalls.length
+    ? recalls.map(r => `<div class="row-item"><a href="${escapeHtml(r.url)}" target="_blank" rel="noopener"><span class="rt">${escapeHtml(r.label)}</span></a><div class="rd">${escapeHtml(r.detail)}</div></div>`).join('')
+    : '<span class="empty">None this week.</span>';
+
+  const news = brief.news || [];
+  document.getElementById('panel-news').innerHTML = news.length
+    ? news.map(n => `<div class="row-item"><a href="${escapeHtml(n.url)}" target="_blank" rel="noopener">${escapeHtml(n.label)}</a></div>`).join('')
+    : '<span class="empty">Nothing notable.</span>';
+
+  const ideas = brief.content_ideas || [];
+  document.getElementById('panel-ideas').innerHTML = ideas.length
+    ? ideas.map(i => `<div class="idea-item"><div class="idea-tag">${escapeHtml(i.tag)}</div>${escapeHtml(i.hook)}</div>`).join('')
+    : '<span class="empty">None yet.</span>';
+
+  document.getElementById('panel-one-thing').textContent = brief.one_thing || '—';
+
+  const exotic = brief.exotic || [];
+  document.getElementById('panel-exotic').innerHTML = exotic.length
+    ? exotic.map(x => `<div class="row-item"><a href="${escapeHtml(x.url)}" target="_blank" rel="noopener"><span class="rt">${escapeHtml(x.label)}</span></a><div class="rd">${escapeHtml(x.detail)}</div></div>`).join('')
+    : '<span class="empty">No results to report.</span>';
+}
+
+function renderStats(data, brief) {
+  document.getElementById('stat-index').textContent = data.used_index != null ? data.used_index : '—';
+  document.getElementById('stat-index-sub').textContent = data.used_index_asof ? `as of ${data.used_index_asof}` : '—';
+  document.getElementById('stat-hou-dom').textContent = data.hou_avg_dom != null ? `${data.hou_avg_dom}d` : '—';
+  document.getElementById('stat-incentives').textContent = data.tx_incentive_count != null ? data.tx_incentive_count : (brief?.incentives?.length ?? '—');
+  document.getElementById('stat-pipeline').textContent = data.open_pipeline_count != null ? data.open_pipeline_count : '—';
+}
+
+function renderSources(sources) {
+  const el = document.getElementById('sources-footer');
+  if (!sources || !sources.length) { el.innerHTML = ''; return; }
+  el.innerHTML = sources.map(s => {
+    const status = s.last_error_at && (!s.last_success_at || s.last_error_at > s.last_success_at) ? 'err' : (s.last_success_at ? 'ok' : 'unknown');
+    const when = s.last_success_at || s.last_error_at || 'never';
+    return `<span class="source-chip"><span class="source-dot ${status}"></span>${escapeHtml(s.source)}: ${escapeHtml(when)}</span>`;
+  }).join('');
+}
+
+// ── Load + render ──
+async function loadMarketData() {
+  document.getElementById('tape-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  const [{ res: todayRes, data: today }, { res: histRes, data: hist }, { res: srcRes, data: src }] = await Promise.all([
+    apiFetch('/admin/market/today'),
+    apiFetch('/admin/market/history'),
+    apiFetch('/admin/market/sources'),
+  ]);
+
+  const brief = (todayRes.ok && today.brief) ? today.brief : SAMPLE_BRIEF;
+  document.getElementById('sample-banner').classList.toggle('lens-hidden', !!(todayRes.ok && today.brief));
+
+  renderTicker(brief.tape);
+  renderStats(todayRes.ok ? today : {}, brief);
+  renderPanels(brief);
+  renderLineChart(histRes.ok ? hist.history : []);
+  renderBarChart(todayRes.ok ? today.dom_by_segment : []);
+  renderSources(srcRes.ok ? src.sources : []);
+}
+
+async function enterApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  await loadMarketData();
+}
+
+(async function init() {
+  const ok = await restoreSession();
+  if (ok) await enterApp();
+  else document.getElementById('login-screen').style.display = 'flex';
+})();
+</script>
+</body>
+</html>
