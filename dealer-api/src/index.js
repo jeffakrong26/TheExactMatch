@@ -5792,12 +5792,21 @@ async function runIngestionSource(env, source, fn) {
 
 // ── NHTSA recalls ───────────────────────────────────────────────────
 // recallsByVehicle requires make+model+modelYear — confirmed live, no
-// wildcard/all-recalls-since-date endpoint exists — so this loops the
-// taxonomy's mainstream+luxury brand/model list across the current and
-// prior model year, in bounded-concurrency batches to stay polite to a
-// free unauthenticated government API. Exotic-tier brands are skipped:
-// recall volume there is negligible and not relevant to the Houston/Austin
-// mainstream/luxury business this feeds.
+// wildcard/all-recalls-since-date endpoint exists. A full taxonomy sweep
+// (~190 models x 2 years = ~380 fetches) blew through the Worker's
+// per-invocation subrequest ceiling in production before any other source
+// even got its first request in — every source shares ONE budget for the
+// whole runMarketIngestion() call. This curated list of the highest-volume,
+// Texas-relevant models keeps NHTSA's share small enough to leave headroom
+// for the other five sources + synthesis in the same invocation.
+const NHTSA_RECALL_WATCHLIST = [
+  ['Toyota', 'Camry'], ['Toyota', 'RAV4'], ['Toyota', 'Highlander'], ['Toyota', 'Tacoma'],
+  ['Honda', 'Accord'], ['Honda', 'CR-V'], ['Honda', 'Civic'],
+  ['Ford', 'F-150'], ['Ford', 'Explorer'],
+  ['Chevrolet', 'Silverado 1500'], ['Chevrolet', 'Tahoe'], ['Chevrolet', 'Equinox'],
+  ['Ram', '1500'], ['Jeep', 'Grand Cherokee'], ['Nissan', 'Altima'],
+];
+
 function nhtsaModelYears() {
   const y = new Date().getFullYear();
   return [y, y - 1];
@@ -5823,11 +5832,10 @@ function parseNhtsaDate(str) {
 }
 
 async function ingestNhtsaRecalls(env) {
-  const entries = Object.entries(TAXONOMY).filter(([, v]) => v.tier !== 'exotic');
   const years = nhtsaModelYears();
   const jobs = [];
-  for (const [key, taxonomy] of entries) {
-    const [brand, model] = key.split('|');
+  for (const [brand, model] of NHTSA_RECALL_WATCHLIST) {
+    const taxonomy = taxonomyLookup(brand, model) || {};
     for (const year of years) jobs.push({ brand, model, taxonomy, year });
   }
 
