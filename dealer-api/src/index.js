@@ -6189,6 +6189,359 @@ async function cleanupExpiredMarketItems(env) {
   console.log(`[market] cleanup: ${deletedItems.meta.changes} expired items, ${deletedWatch.meta.changes} stale inventory-watch rows removed`);
 }
 
+// ── Scoring + Samantha safety net ───────────────────────────────────
+// Any active incentive whose brand+model matches an open deal in the real
+// pipeline (partner_leads, via report_vehicles for make/model) gets pinned
+// hot=1 — highest-priority item on the board, and called out by name in the
+// reminder email when the deal is in a near-close stage.
+async function crossCheckPipelineMatches(env) {
+  await env.DB.prepare(`UPDATE market_items SET hot = 0 WHERE type = 'incentive'`).run();
+
+  const { results: openDeals } = await env.DB.prepare(`
+    SELECT DISTINCT rv.make AS brand, rv.model AS model, pl.status
+    FROM partner_leads pl
+    JOIN report_vehicles rv ON rv.id = pl.report_vehicle_id
+    WHERE pl.status NOT IN ('won_delivered', 'lost') AND rv.make IS NOT NULL AND rv.model IS NOT NULL
+  `).all();
+
+  const nearCloseStatuses = new Set(['negotiations', 'test_drive_scheduled']);
+  const hotMatches = [];
+
+  for (const deal of openDeals) {
+    const { results: matches } = await env.DB.prepare(`
+      SELECT id FROM market_items
+      WHERE type = 'incentive' AND (expires_at IS NULL OR expires_at > datetime('now'))
+        AND LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?)
+    `).bind(deal.brand, deal.model).all();
+
+    for (const m of matches) {
+      await env.DB.prepare(`UPDATE market_items SET hot = 1 WHERE id = ?`).bind(m.id).run();
+      hotMatches.push({ brand: deal.brand, model: deal.model, nearClose: nearCloseStatuses.has(deal.status) });
+    }
+  }
+  return hotMatches;
+}
+
+// recency + type weight (spec order: pipeline match > TX incentives > recalls
+// on high-volume models > big inventory swings > news > exotic). The hot
+// bonus dwarfs everything else so a pipeline match always sorts first;
+// among non-hot items, type weight dominates and recency breaks ties.
+const MARKET_TYPE_WEIGHTS = { incentive: 50, market_move: 35, recall: 40, inventory_signal: 30, auction: 20, news: 15 };
+
+async function scoreMarketItems(env) {
+  const { results: items } = await env.DB.prepare(
+    `SELECT id, type, region, hot, ingested_at FROM market_items WHERE expires_at IS NULL OR expires_at > datetime('now')`
+  ).all();
+
+  for (const item of items) {
+    const ageHours = (Date.now() - new Date(item.ingested_at.replace(' ', 'T') + 'Z').getTime()) / 3600000;
+    const recencyScore = Math.max(0, 100 - ageHours);
+    const typeWeight = MARKET_TYPE_WEIGHTS[item.type] ?? 10;
+    const regionBonus = item.type === 'incentive' && ['tx', 'houston', 'austin'].includes(item.region) ? 20 : 0;
+    const hotBonus = item.hot ? 1000 : 0;
+    await env.DB.prepare(`UPDATE market_items SET score = ? WHERE id = ?`).bind(typeWeight + recencyScore + regionBonus + hotBonus, item.id).run();
+  }
+}
+
+// ── Synthesis ────────────────────────────────────────────────────────
+// One Anthropic call/day, forced through a strict tool schema (same
+// tool-use pattern as extractListingWithClaude/generateValuationNarrative
+// above) rather than "respond only in JSON" prompting — more reliable, and
+// consistent with how every other Claude call in this file works.
+const MARKET_BRIEF_TOOL = {
+  name: 'record_market_brief',
+  description: "Record today's synthesized market intelligence brief for The Tape.",
+  strict: true,
+  input_schema: {
+    type: 'object',
+    properties: {
+      tape: {
+        type: 'array', minItems: 4, maxItems: 6,
+        items: {
+          type: 'object',
+          properties: {
+            label: { type: 'string' }, value: { type: 'string' }, change: { type: 'string' },
+            direction: { type: 'string', enum: ['up', 'down', 'neutral'] },
+          },
+          required: ['label', 'value', 'change', 'direction'], additionalProperties: false,
+        },
+      },
+      headline: { type: 'string', description: 'One plain-English sentence: the single most important thing today. No hype — if the day was quiet, say so plainly.' },
+      movers: {
+        type: 'array', maxItems: 5,
+        items: { type: 'object', properties: { label: { type: 'string' }, why: { type: 'string' } }, required: ['label', 'why'], additionalProperties: false },
+      },
+      incentives: {
+        type: 'array', maxItems: 8,
+        items: {
+          type: 'object',
+          properties: { label: { type: 'string' }, detail: { type: 'string' }, hot: { type: 'boolean' } },
+          required: ['label', 'detail', 'hot'], additionalProperties: false,
+        },
+      },
+      recalls: {
+        type: 'array', maxItems: 3,
+        items: { type: 'object', properties: { label: { type: 'string' }, detail: { type: 'string' }, url: { type: 'string' } }, required: ['label', 'detail', 'url'], additionalProperties: false },
+      },
+      news: {
+        type: 'array', maxItems: 4,
+        items: { type: 'object', properties: { label: { type: 'string' }, url: { type: 'string' } }, required: ['label', 'url'], additionalProperties: false },
+      },
+      exotic: {
+        type: 'array', maxItems: 3,
+        items: { type: 'object', properties: { label: { type: 'string' }, detail: { type: 'string' }, url: { type: 'string' } }, required: ['label', 'detail', 'url'], additionalProperties: false },
+      },
+      content_ideas: {
+        type: 'array', minItems: 3, maxItems: 3,
+        items: {
+          type: 'object',
+          properties: { tag: { type: 'string', enum: ['newsletter', 'social'] }, hook: { type: 'string' } },
+          required: ['tag', 'hook'], additionalProperties: false,
+        },
+      },
+      one_thing: { type: 'string', description: '2-3 sentence piece of car-market education (holdback, money factor, model-year changeover timing, auction fees, etc.) not already covered recently.' },
+      one_thing_topic: { type: 'string', description: 'Short topic label for this one_thing (e.g. "holdback"), used to avoid repeating topics on future days.' },
+    },
+    required: ['tape', 'headline', 'movers', 'incentives', 'recalls', 'news', 'exotic', 'content_ideas', 'one_thing', 'one_thing_topic'],
+    additionalProperties: false,
+  },
+};
+
+function marketItemSummaryLine(i) {
+  return `[${i.hot ? 'HOT ' : ''}${i.region}] ${i.brand || ''} ${i.model || ''} — ${i.title}${i.detail ? `: ${i.detail}` : ''}${i.source_url ? ` (${i.source_url})` : ''}`.replace(/\s+/g, ' ').trim();
+}
+
+async function synthesizeMarketBrief(env) {
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { results: topItems } = await env.DB.prepare(`
+    SELECT * FROM market_items WHERE expires_at IS NULL OR expires_at > datetime('now')
+    ORDER BY score DESC LIMIT 60
+  `).all();
+
+  const dayRow = await env.DB.prepare(`SELECT * FROM market_daily WHERE day = ?`).bind(today).first();
+  const { results: coveredTopics } = await env.DB.prepare(
+    `SELECT DISTINCT topic FROM market_one_thing_log WHERE day > date('now', '-45 days')`
+  ).all();
+
+  const txIncentiveCount = topItems.filter(i => i.type === 'incentive' && ['tx', 'houston', 'austin'].includes(i.region)).length;
+
+  const itemsByType = {};
+  for (const item of topItems) (itemsByType[item.type] ||= []).push(item);
+
+  const prompt = `You are writing "The Tape" — a private, internal daily used-car market brief for a Texas dealer/broker (TheExactMatch), read on a phone first thing in the morning. Plain English, no hype, no manufactured drama. If the day was quiet, say so plainly in the headline — never invent excitement that isn't there. Respond only via the record_market_brief tool.
+
+Today's computed stats:
+- Manheim Used Vehicle Value Index: ${dayRow?.used_index ?? 'not yet available'} (as of ${dayRow?.used_index_asof ?? 'n/a'})
+- Houston avg days-on-market: ${dayRow?.hou_avg_dom ?? 'n/a'}
+- Austin avg days-on-market: ${dayRow?.atx_avg_dom ?? 'n/a'}
+- Active TX-region incentives: ${txIncentiveCount}
+
+Recent "one thing" topics already covered (last 45 days) — pick a different topic: ${coveredTopics.map(t => t.topic).join(', ') || 'none yet'}
+
+Incentives (highest score first, HOT = matches an open deal in the pipeline — always lead with these):
+${(itemsByType.incentive || []).map(marketItemSummaryLine).join('\n') || 'None ingested today.'}
+
+Market moves / inventory signals:
+${[...(itemsByType.market_move || []), ...(itemsByType.inventory_signal || [])].map(marketItemSummaryLine).join('\n') || 'No notable moves today.'}
+
+Recalls:
+${(itemsByType.recall || []).map(marketItemSummaryLine).join('\n') || 'None this week.'}
+
+News:
+${(itemsByType.news || []).map(marketItemSummaryLine).join('\n') || 'Nothing notable.'}
+
+Exotic/auction corner:
+${(itemsByType.auction || []).map(marketItemSummaryLine).join('\n') || 'No results to report.'}
+
+Build the tape (5-6 tickers covering the index, Houston DOM, Austin DOM, TX incentive count, and 1-2 of the day's biggest movers), the headline, top movers with why, ranked incentives (HOT ones first), up to 3 recalls, up to 4 news one-liners, up to 3 exotic auction results, exactly 3 content ideas (draft hooks only — nothing publishes automatically), and one_thing (a fresh education topic).`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6', max_tokens: 3000,
+      tools: [MARKET_BRIEF_TOOL], tool_choice: { type: 'tool', name: 'record_market_brief' },
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!res.ok) throw new Error(`Claude API error (market brief synthesis): HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.stop_reason === 'refusal') throw new Error('Claude declined the market brief synthesis request');
+  const brief = (data.content || []).find(b => b.type === 'tool_use')?.input;
+  if (!brief) throw new Error('No brief returned from synthesis call');
+
+  await env.DB.prepare(`
+    INSERT INTO market_daily (day, brief_json, one_thing, synthesis_ok, tx_incentive_count)
+    VALUES (?, ?, ?, 1, ?)
+    ON CONFLICT(day) DO UPDATE SET brief_json = excluded.brief_json, one_thing = excluded.one_thing, synthesis_ok = 1, tx_incentive_count = excluded.tx_incentive_count
+  `).bind(today, JSON.stringify(brief), brief.one_thing, txIncentiveCount).run();
+
+  await env.DB.prepare(`INSERT INTO market_one_thing_log (day, topic) VALUES (?, ?)`).bind(today, brief.one_thing_topic).run();
+
+  return brief;
+}
+
+// ── Reminder email + failure alert ──────────────────────────────────
+const MARKET_ADMIN_EMAIL = 'theexactmatch@gmail.com'; // same inbox every other admin alert in this file uses
+
+function marketWeekdayName(date) {
+  return date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Chicago' });
+}
+
+async function sendMarketReminderEmail(env, brief, hotMatches) {
+  const weekday = marketWeekdayName(new Date());
+  const biggestMoves = (brief.movers || []).slice(0, 3);
+  const nearCloseHot = hotMatches.find(m => m.nearClose);
+
+  await sendBrevoEmail(env, {
+    to: MARKET_ADMIN_EMAIL,
+    subject: `The Tape · ${weekday}: ${brief.headline}`,
+    html: brandedEmailHtml(`
+      <p style="font-size:1.05rem;"><strong>${escapeHtml(brief.headline)}</strong></p>
+      ${biggestMoves.length ? `<ul>${biggestMoves.map(m => `<li>${escapeHtml(m.label)} — ${escapeHtml(m.why)}</li>`).join('')}</ul>` : ''}
+      ${nearCloseHot ? `<p><strong>⚡ ${escapeHtml(nearCloseHot.brand)} ${escapeHtml(nearCloseHot.model)} incentive matches an active deal in negotiations/test-drive stage — check the pipeline.</strong></p>` : ''}
+      <p style="text-align:center;margin-top:1.5rem;">
+        <a href="https://theexactmatch.com/market" style="display:inline-block;padding:.85rem 2rem;background:#0C1C33;color:#F5F0E8;text-decoration:none;border-radius:2px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-size:.8rem;">Open The Tape</a>
+      </p>
+    `),
+  });
+}
+
+async function sendMarketFailureAlert(env, err) {
+  await sendBrevoEmail(env, {
+    to: MARKET_ADMIN_EMAIL,
+    subject: "The Tape didn't run this morning",
+    html: brandedEmailHtml(`
+      <p>The Tape's daily synthesis failed this morning — check ingestion logs (Cloudflare dashboard → Workers Logs → theexactmatch-dealer-api) around this time.</p>
+      <p><strong>Error:</strong> ${escapeHtml(err?.message || String(err))}</p>
+    `),
+  });
+}
+
+// ── Daily orchestration (runs on the new 0 11 * * * UTC cron) ───────
+async function runMarketIngestion(env) {
+  await runIngestionSource(env, 'nhtsa', () => ingestNhtsaRecalls(env));
+  await runIngestionSource(env, 'autodev', () => ingestAutodevInventorySignals(env));
+  await runIngestionSource(env, 'manheim', () => ingestManheimIndex(env));
+  await runIngestionSource(env, 'carsdirect', () => ingestIncentives(env));
+  await runIngestionSource(env, 'bat', () => ingestAuctionResults(env));
+  await runIngestionSource(env, 'news', () => ingestNews(env));
+
+  await cleanupExpiredMarketItems(env).catch(err => console.error('[market] cleanup failed', err));
+
+  const hotMatches = await crossCheckPipelineMatches(env).catch(err => { console.error('[market] safety net failed', err); return []; });
+  await scoreMarketItems(env).catch(err => console.error('[market] scoring failed', err));
+
+  try {
+    const brief = await synthesizeMarketBrief(env);
+    await sendMarketReminderEmail(env, brief, hotMatches);
+  } catch (err) {
+    console.error('[market] synthesis failed', err?.stack || err);
+    const today = new Date().toISOString().slice(0, 10);
+    await env.DB.prepare(`
+      INSERT INTO market_daily (day, synthesis_ok) VALUES (?, 0)
+      ON CONFLICT(day) DO UPDATE SET synthesis_ok = 0
+    `).bind(today).run();
+    await sendMarketFailureAlert(env, err);
+  }
+}
+
+// ── The Tape: admin API ─────────────────────────────────────────────
+async function adminMarketToday(request, env) {
+  const today = new Date().toISOString().slice(0, 10);
+  const row = await env.DB.prepare(`SELECT * FROM market_daily WHERE day = ?`).bind(today).first();
+  if (!row) return json({ day: today, brief: null, synthesis_ok: null });
+  return json({
+    day: row.day,
+    used_index: row.used_index, used_index_asof: row.used_index_asof,
+    hou_avg_dom: row.hou_avg_dom, atx_avg_dom: row.atx_avg_dom,
+    dom_by_segment: row.dom_by_segment ? JSON.parse(row.dom_by_segment) : [],
+    tx_incentive_count: row.tx_incentive_count,
+    synthesis_ok: !!row.synthesis_ok,
+    brief: row.brief_json ? JSON.parse(row.brief_json) : null,
+  });
+}
+
+async function adminMarketHistory(request, env) {
+  const { results } = await env.DB.prepare(
+    `SELECT day, used_index, used_index_asof, hou_avg_dom, atx_avg_dom FROM market_daily
+     WHERE day > date('now', '-90 days') ORDER BY day ASC`
+  ).all();
+  return json({ history: results });
+}
+
+async function adminCreateMarketItem(request, env) {
+  const body = await request.json().catch(() => ({}));
+  if (!body.title || !body.type) return json({ error: 'title and type are required.' }, 400);
+
+  const taxonomy = taxonomyLookup(body.brand, body.model);
+  const result = await env.DB.prepare(`
+    INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, direction, magnitude, ends_at, ingested_at, expires_at)
+    VALUES (?, ?, ?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+  `).bind(
+    body.type, body.title, body.detail || null, body.source_url || null,
+    body.brand || null, body.model || null,
+    body.body_style || taxonomy?.body_style || null, body.size || taxonomy?.size || null,
+    body.tier || taxonomy?.tier || null, body.electrified || 'none',
+    body.region || 'national', body.direction || 'neutral', body.magnitude ?? null,
+    body.ends_at || null, body.expires_at || toSqliteDatetime(new Date(Date.now() + 30 * 24 * 3600 * 1000))
+  ).run();
+
+  return json({ success: true, id: result.meta.last_row_id });
+}
+
+// Ingested brand/model combos that fell through taxonomy.json with no
+// mapping — surfaced so an admin can quick-map them from real ingested
+// data instead of guessing at ~200 models up front.
+async function adminMarketUnmapped(request, env) {
+  const { results } = await env.DB.prepare(`
+    SELECT DISTINCT brand, model FROM market_items
+    WHERE brand IS NOT NULL AND model IS NOT NULL AND body_style IS NULL
+    ORDER BY brand, model
+  `).all();
+  return json({ unmapped: results });
+}
+
+// Maps every ingested market_items row for this brand/model (case-
+// insensitive) to the given taxonomy — not a persistent override table
+// (taxonomy.json stays the source of truth for future ingestion runs),
+// just a quick fix-up for what's already on the board today.
+async function adminMapMarketTaxonomy(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const { brand, model, body_style, size, tier } = body;
+  if (!brand || !model || !body_style || !size || !tier) {
+    return json({ error: 'brand, model, body_style, size, and tier are all required.' }, 400);
+  }
+  const result = await env.DB.prepare(`
+    UPDATE market_items SET body_style = ?, size = ?, tier = ?
+    WHERE LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?)
+  `).bind(body_style, size, tier, brand, model).run();
+  return json({ success: true, updated: result.meta.changes });
+}
+
+async function adminMarketSources(request, env) {
+  const { results } = await env.DB.prepare(`SELECT * FROM market_source_status ORDER BY source`).all();
+  return json({ sources: results });
+}
+
+// Manual "run it now" trigger, same debug-route convention as
+// debugAutodevTest — lets ingestion/synthesis be verified end-to-end
+// without waiting for the 11:00 UTC cron.
+async function debugMarketTest(request, env) {
+  await runMarketIngestion(env);
+  const today = new Date().toISOString().slice(0, 10);
+  const dayRow = await env.DB.prepare(`SELECT * FROM market_daily WHERE day = ?`).bind(today).first();
+  const { results: counts } = await env.DB.prepare(
+    `SELECT type, COUNT(*) as count FROM market_items WHERE expires_at IS NULL OR expires_at > datetime('now') GROUP BY type`
+  ).all();
+  return json({
+    day: dayRow?.day, synthesis_ok: !!dayRow?.synthesis_ok,
+    brief: dayRow?.brief_json ? JSON.parse(dayRow.brief_json) : null,
+    item_counts: counts,
+  });
+}
+
 // ── Route table ───────────────────────────────────────────────────
 const ROUTES = [
   { method: 'POST',  pattern: '/api/setup/init-admin',          handler: initAdmin },
@@ -6266,6 +6619,15 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/admin/partners/:id/reject',    handler: adminRejectPartner, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/partners/:id',           handler: adminUpdateDealer, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/partners/:id/autodev-lookup', handler: adminAutodevDealerLookup, auth: true, admin: true },
+
+  // ── The Tape ──
+  { method: 'GET',   pattern: '/api/admin/market/today',              handler: adminMarketToday, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/market/history',            handler: adminMarketHistory, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/market/items',              handler: adminCreateMarketItem, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/market/unmapped',           handler: adminMarketUnmapped, auth: true, admin: true },
+  { method: 'PATCH', pattern: '/api/admin/market/unmapped',           handler: adminMapMarketTaxonomy, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/market/sources',            handler: adminMarketSources, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/debug/market-test',         handler: debugMarketTest, auth: true, admin: true },
 ];
 
 async function cleanupStaleRecords(env) {
@@ -6376,6 +6738,8 @@ export default {
     // migration for what's otherwise the exact same scheduled() entrypoint.
     if (event.cron === '0 6 * * *') {
       ctx.waitUntil(cleanupStaleRecords(env));
+    } else if (event.cron === '0 11 * * *') {
+      ctx.waitUntil(runMarketIngestion(env).catch(err => console.error('[market] runMarketIngestion failed', err)));
     } else {
       ctx.waitUntil(sweepPartnerTimers(env).catch(err => console.error('sweepPartnerTimers failed', err)));
     }
