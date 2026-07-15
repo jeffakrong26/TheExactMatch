@@ -42,6 +42,10 @@ function normalizeWebsiteUrl(input) {
   }
 }
 const VALID_SUB_STATUSES    = ['pending', 'approved', 'rejected', 'published', 'sold'];
+// 'highlights' = today's only behavior (candidate for the public newsletter);
+// 'private' = admin-only, never surfaced anywhere else (Max Motors' wholesale
+// flow); 'network' = browsable by other dealers on the Network Inventory tab.
+const VALID_SUBMISSION_VISIBILITY = ['highlights', 'private', 'network'];
 // 'pending'/'rejected'/'deactivated' added for the partner-network application
 // flow — dealers ARE partners, one status vocabulary for the one account type.
 const VALID_DEALER_STATUSES = ['active', 'suspended', 'pending', 'rejected', 'deactivated'];
@@ -347,13 +351,14 @@ async function submitVehicle(request, env, params, dealer) {
   const result = await env.DB.prepare(`
     INSERT INTO inventory_submissions (
       dealer_id, year, make, model, trim, mileage, asking_price, vin, exterior_color, engine, transmission,
-      category, description, write_up, listing_url, photo_url, image_urls, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+      category, description, write_up, listing_url, photo_url, image_urls, status, visibility
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
   `).bind(
     dealer.id, year, make, model, trim, mileage, price,
     structuredFields.vin || genericSpecs.vin || extracted.vin || null,
     exteriorColor, engine, transmission,
-    category, notes, writeUp, listingUrl, photos[0] || null, JSON.stringify(photos)
+    category, notes, writeUp, listingUrl, photos[0] || null, JSON.stringify(photos),
+    dealer.default_submission_visibility || 'highlights'
   ).run();
 
   return json({ success: true, id: result.meta.last_row_id, confidence: extracted.found_confidence });
@@ -503,15 +508,16 @@ async function submitVehicleManual(request, env, params, dealer) {
   const result = await env.DB.prepare(`
     INSERT INTO inventory_submissions (
       dealer_id, year, make, model, trim, mileage, asking_price, vin, exterior_color, engine, transmission,
-      category, description, listing_url, status, submission_method
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'manual')
+      category, description, listing_url, status, submission_method, visibility
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'manual', ?)
   `).bind(
     dealer.id, year, make, model, (body.trim || '').trim() || null,
     body.mileage != null && body.mileage !== '' ? +body.mileage : null,
     body.price != null && body.price !== '' ? +body.price : null,
     (body.vin || '').trim() || null, (body.exterior_color || '').trim() || null,
     (body.engine || '').trim() || null, (body.transmission || '').trim() || null,
-    category, (body.description || '').trim() || null, (body.listing_url || '').trim() || null
+    category, (body.description || '').trim() || null, (body.listing_url || '').trim() || null,
+    dealer.default_submission_visibility || 'highlights'
   ).run();
 
   return json({ success: true, id: result.meta.last_row_id });
@@ -585,6 +591,64 @@ async function dealerUpdateSubmission(request, env, params, dealer) {
   return json({ success: true });
 }
 
+// ── Network Inventory (Max Motors wholesale flow) ──────────────────
+// Mirrors dealerLeads/expressInterest/dealerInterestedLeads (sell_my_car_leads
+// above), just against inventory_submissions + submission_interest instead —
+// a dealer's own submissions are excluded since browsing "network inventory"
+// means what *other* dealers/admin have made available, not your own listing.
+async function networkInventory(request, env, params, dealer) {
+  const { results } = await env.DB.prepare(
+    `SELECT inventory_submissions.id, inventory_submissions.year, inventory_submissions.make, inventory_submissions.model,
+            inventory_submissions.trim, inventory_submissions.mileage, inventory_submissions.asking_price AS price,
+            inventory_submissions.exterior_color, inventory_submissions.engine, inventory_submissions.transmission,
+            inventory_submissions.category, inventory_submissions.description, inventory_submissions.listing_url,
+            inventory_submissions.photo_url, inventory_submissions.image_urls, inventory_submissions.created_at,
+            dealers.dealership_name as source_dealership_name,
+            EXISTS(SELECT 1 FROM submission_interest WHERE submission_id = inventory_submissions.id AND dealer_id = ?) as i_expressed_interest
+     FROM inventory_submissions JOIN dealers ON dealers.id = inventory_submissions.dealer_id
+     WHERE inventory_submissions.visibility = 'network' AND inventory_submissions.dealer_id != ?
+     ORDER BY inventory_submissions.created_at DESC`
+  ).bind(dealer.id, dealer.id).all();
+
+  return json({ submissions: results.map(s => ({ ...s, i_expressed_interest: !!s.i_expressed_interest })) });
+}
+
+async function networkInventoryExpressInterest(request, env, params, dealer) {
+  const submissionId = +params.id;
+  const submission = await env.DB.prepare(`SELECT id FROM inventory_submissions WHERE id = ? AND visibility = 'network'`).bind(submissionId).first();
+  if (!submission) return json({ error: 'Listing not found.' }, 404);
+
+  const body = await request.json().catch(() => ({}));
+  const offerAmount = body.offer_amount != null && body.offer_amount !== '' ? +body.offer_amount : null;
+  const message = (body.message || '').trim() || null;
+
+  await env.DB.prepare(`
+    INSERT INTO submission_interest (submission_id, dealer_id, offer_amount, message, updated_at)
+    VALUES (?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(submission_id, dealer_id) DO UPDATE SET
+      offer_amount = excluded.offer_amount, message = excluded.message, updated_at = datetime('now')
+  `).bind(submissionId, dealer.id, offerAmount, message).run();
+
+  return json({ success: true });
+}
+
+async function networkInventoryInterested(request, env, params, dealer) {
+  const { results } = await env.DB.prepare(
+    `SELECT inventory_submissions.id, inventory_submissions.year, inventory_submissions.make, inventory_submissions.model,
+            inventory_submissions.trim, inventory_submissions.mileage, inventory_submissions.asking_price AS price,
+            inventory_submissions.photo_url, inventory_submissions.listing_url,
+            dealers.dealership_name as source_dealership_name,
+            submission_interest.offer_amount, submission_interest.message, submission_interest.updated_at as interest_updated_at
+     FROM submission_interest
+     JOIN inventory_submissions ON inventory_submissions.id = submission_interest.submission_id
+     JOIN dealers ON dealers.id = inventory_submissions.dealer_id
+     WHERE submission_interest.dealer_id = ?
+     ORDER BY submission_interest.updated_at DESC`
+  ).bind(dealer.id).all();
+
+  return json({ submissions: results.map(s => ({ ...s, i_expressed_interest: true })) });
+}
+
 // ── Admin actions ─────────────────────────────────────────────────
 async function adminSubmissions(request, env) {
   const { results } = await env.DB.prepare(
@@ -593,8 +657,9 @@ async function adminSubmissions(request, env) {
             inventory_submissions.vin, inventory_submissions.exterior_color, inventory_submissions.engine,
             inventory_submissions.transmission, inventory_submissions.category, inventory_submissions.description,
             inventory_submissions.write_up, inventory_submissions.listing_url, inventory_submissions.photo_url,
-            inventory_submissions.image_urls, inventory_submissions.status, inventory_submissions.created_at,
-            dealers.name as dealer_name, dealers.dealership_name
+            inventory_submissions.image_urls, inventory_submissions.status, inventory_submissions.visibility, inventory_submissions.created_at,
+            dealers.name as dealer_name, dealers.dealership_name,
+            (SELECT COUNT(*) FROM submission_interest WHERE submission_id = inventory_submissions.id) as interest_count
      FROM inventory_submissions JOIN dealers ON dealers.id = inventory_submissions.dealer_id
      ORDER BY inventory_submissions.created_at DESC`
   ).all();
@@ -618,6 +683,10 @@ async function adminUpdateSubmission(request, env, params) {
     if (!VALID_SUB_STATUSES.includes(body.status)) return json({ error: 'Invalid status.' }, 400);
     sets.push('status = ?'); values.push(body.status);
   }
+  if ('visibility' in body) {
+    if (!VALID_SUBMISSION_VISIBILITY.includes(body.visibility)) return json({ error: 'Invalid visibility.' }, 400);
+    sets.push('visibility = ?'); values.push(body.visibility);
+  }
   if (!sets.length) return json({ error: 'No editable fields provided.' }, 400);
 
   values.push(+params.id);
@@ -628,6 +697,43 @@ async function adminUpdateSubmission(request, env, params) {
 async function adminDeleteSubmission(request, env, params) {
   await env.DB.prepare('DELETE FROM inventory_submissions WHERE id = ?').bind(+params.id).run();
   return json({ success: true });
+}
+
+// Admin-originated inventory item — the reverse of a dealer submitting to
+// Jeff (e.g. a wholesale find Jeff wants to push out to Max or the network).
+// Same required fields as submitVehicleManual, but dealer_id is the admin's
+// own row (inventory_submissions.dealer_id is NOT NULL, and "submitted by
+// TheExactMatch" reads correctly here) and visibility defaults to 'network'
+// since the point of this route is pushing something out, not filing it away.
+async function adminCreateSubmission(request, env, params, dealer) {
+  const body = await request.json().catch(() => ({}));
+  const year  = body.year != null ? +body.year : null;
+  const make  = (body.make || '').trim();
+  const model = (body.model || '').trim();
+  const category = body.category;
+
+  if (!year || !make || !model) return json({ error: 'Year, make, and model are required.' }, 400);
+  if (!category) return json({ error: 'Category is required.' }, 400);
+
+  const visibility = body.visibility || 'network';
+  if (!VALID_SUBMISSION_VISIBILITY.includes(visibility)) return json({ error: 'Invalid visibility.' }, 400);
+
+  const result = await env.DB.prepare(`
+    INSERT INTO inventory_submissions (
+      dealer_id, year, make, model, trim, mileage, asking_price, vin, exterior_color, engine, transmission,
+      category, description, listing_url, status, submission_method, visibility
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'manual', ?)
+  `).bind(
+    dealer.id, year, make, model, (body.trim || '').trim() || null,
+    body.mileage != null && body.mileage !== '' ? +body.mileage : null,
+    body.price != null && body.price !== '' ? +body.price : null,
+    (body.vin || '').trim() || null, (body.exterior_color || '').trim() || null,
+    (body.engine || '').trim() || null, (body.transmission || '').trim() || null,
+    category, (body.description || '').trim() || null, (body.listing_url || '').trim() || null,
+    visibility
+  ).run();
+
+  return json({ success: true, id: result.meta.last_row_id });
 }
 
 // Same fetch + schema.org/OG/Claude-fallback pipeline as adminScrapeListingUrl
@@ -3976,6 +4082,17 @@ async function adminUpdateDealer(request, env, params) {
   if ('replacement_referral' in body) {
     sets.push('replacement_referral = ?'); values.push(body.replacement_referral || null);
   }
+  // Which pool a dealer's submissions default into — 'highlights' (public
+  // newsletter candidate, today's only behavior) unless set otherwise. Only
+  // Max Motors uses 'private' today; exposed generally in case another
+  // wholesale-style dealer relationship comes up later.
+  if ('default_submission_visibility' in body) {
+    const value = body.default_submission_visibility || null;
+    if (value !== null && !VALID_SUBMISSION_VISIBILITY.includes(value)) {
+      return json({ error: 'Invalid default_submission_visibility.' }, 400);
+    }
+    sets.push('default_submission_visibility = ?'); values.push(value);
+  }
   if (!sets.length) return json({ error: 'Nothing to update.' }, 400);
 
   values.push(+params.id);
@@ -6631,7 +6748,11 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/dealer/my-submissions',       handler: mySubmissions, auth: true },
   { method: 'PATCH', pattern: '/api/dealer/submissions/:id',       handler: dealerUpdateSubmission, auth: true },
   { method: 'POST',  pattern: '/api/dealer/submissions/:id/photo', handler: dealerUploadSubmissionPhoto, auth: true },
+  { method: 'GET',   pattern: '/api/dealer/network-inventory',              handler: networkInventory, auth: true },
+  { method: 'GET',   pattern: '/api/dealer/network-inventory/interested',   handler: networkInventoryInterested, auth: true },
+  { method: 'POST',  pattern: '/api/dealer/network-inventory/:id/interest', handler: networkInventoryExpressInterest, auth: true },
   { method: 'GET',   pattern: '/api/admin/submissions',           handler: adminSubmissions, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/submissions/manual',    handler: adminCreateSubmission, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/submissions/:id',       handler: adminUpdateSubmission, auth: true, admin: true },
   { method: 'DELETE', pattern: '/api/admin/submissions/:id',      handler: adminDeleteSubmission, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/submissions/:id/scrape-listing', handler: adminScrapeSubmissionListing, auth: true, admin: true },
