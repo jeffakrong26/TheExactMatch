@@ -96,6 +96,13 @@
     .btn-success{background:var(--green);color:var(--white)}
     .btn-success:hover{background:#143d26}
 
+    /* ── MODAL (Regenerate report, etc.) ── */
+    .modal-overlay{position:fixed;inset:0;background:rgba(12,28,51,.55);display:flex;align-items:center;justify-content:center;padding:1.5rem;z-index:1000}
+    .modal-box{background:var(--white);border-radius:4px;max-width:640px;width:100%;max-height:88vh;overflow-y:auto;padding:2rem}
+    .modal-box-title{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:500;color:var(--navy);margin-bottom:.35rem}
+    .modal-box-sub{font-size:.82rem;color:var(--gray);margin-bottom:1.5rem;line-height:1.6}
+    .modal-actions{display:flex;gap:.75rem;margin-top:.5rem}
+
     /* ── ICON BUTTONS (View As eye, delete trash — no emoji) ── */
     .icon-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex-shrink:0;border-radius:2px;border:1px solid var(--border);background:var(--white);color:var(--gray);cursor:pointer;transition:all .2s;padding:0}
     .icon-btn svg{width:14px;height:14px}
@@ -2011,6 +2018,10 @@ async function adminDeleteReport(code) {
   else alert('Delete failed.');
 }
 
+// Keyed by report_code — lets the Regenerate modal pre-fill from the lead
+// row it already has in hand, instead of firing a second fetch.
+const reportLeadCache = {};
+
 async function toggleReportDetail(code, id) {
   const detail = document.getElementById(`report-detail-${code}`);
   const isOpen = detail.style.display === 'block';
@@ -2029,6 +2040,7 @@ async function toggleReportDetail(code, id) {
   const { res, data } = await apiFetch(`/admin/reports/${code}`).catch(() => ({res:{ok:false},data:{}}));
   if (!res.ok) { detail.innerHTML = '<div style="color:var(--red);font-size:.82rem">Failed to load.</div>'; return; }
 
+  reportLeadCache[code] = data.lead;
   const isPending = data.report.status !== 'approved';
 
   detail.innerHTML = `
@@ -2138,7 +2150,7 @@ async function toggleReportDetail(code, id) {
       <div style="display:flex;gap:.75rem;align-items:center">
         <button class="btn-primary btn-sm" onclick="saveReportEdits('${code}')">Save Changes</button>
         ${isPending ? `<button class="btn-primary btn-sm btn-gold" onclick="approveReport('${code}')" id="approve-btn-${code}">Approve &amp; Email Client</button>` : ''}
-        <button class="btn-primary btn-sm btn-outline" onclick="regenerateReport('${code}', ${isPending})" id="regenerate-btn-${code}">Regenerate</button>
+        <button class="btn-primary btn-sm btn-outline" onclick="openRegenerateModal('${code}', ${isPending})">Regenerate</button>
         <span id="report-save-msg-${code}" style="font-size:.8rem"></span>
       </div>
     </div>
@@ -2148,24 +2160,101 @@ async function toggleReportDetail(code, id) {
 
 // Reruns the full search from scratch (fresh Claude picks + Auto.dev
 // matching) for this lead — for when none of the 3 options are good enough
-// to send, or a client's already said they don't like what they got.
-// Backend deletes this report_vehicles/find_car_reports row and creates a
-// brand new one (new report_code, back to pending_approval), so any link
-// already emailed to the client stops working — confirm() spells that out
-// explicitly when the report was already approved.
-async function regenerateReport(code, isPending) {
-  const warning = isPending
-    ? 'Regenerate this report? This reruns the full search and replaces all 3 options. This cannot be undone.'
-    : 'Regenerate this report? This reruns the full search and replaces all 3 options — the link already emailed to the client will stop working, and the new report goes back to pending approval until you review and re-send it. This cannot be undone.';
-  if (!confirm(warning)) return;
-  const btn = document.getElementById(`regenerate-btn-${code}`);
+// to send, or a client's already said they don't like what they got. Since
+// a bad result is often the search criteria's fault (wrong model, mileage
+// cap too tight, budget off) rather than bad luck, this opens an editable
+// form pre-filled from the current lead instead of just blindly rerunning
+// the same inputs. Backend deletes this report_vehicles/find_car_reports
+// row and creates a brand new one (new report_code, back to
+// pending_approval), so any link already emailed to the client stops
+// working — called out explicitly when the report was already approved.
+function openRegenerateModal(code, isPending) {
+  const lead = reportLeadCache[code] || {};
+  const v = (val) => escapeHtmlJs(val ?? '');
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay" id="regenerate-modal-overlay">
+      <div class="modal-box">
+        <div class="modal-box-title">Regenerate Report</div>
+        <div class="modal-box-sub">
+          Edit anything that should change before rerunning the search — this replaces all 3 current options.
+          ${!isPending ? ' The link already emailed to the client will stop working, and the new report goes back to pending approval until you review and re-send it.' : ''}
+          This cannot be undone.
+        </div>
+
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Preferred Make</label><input type="text" id="rg-preferred_make" value="${v(lead.preferred_make)}"/></div>
+          <div class="dp-form-group"><label>Preferred Model</label><input type="text" id="rg-preferred_model" value="${v(lead.preferred_model)}"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Year — From</label><input type="number" id="rg-year_min" value="${v(lead.year_min)}"/></div>
+          <div class="dp-form-group"><label>Year — To</label><input type="number" id="rg-year_max" value="${v(lead.year_max)}"/></div>
+        </div>
+        <div class="dp-form-group"><label>Other Makes/Models Also Open To</label><input type="text" id="rg-considering" value="${v(lead.considering)}"/></div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Vehicle Type</label><input type="text" id="rg-vehicle_type" value="${v(lead.vehicle_type)}"/></div>
+          <div class="dp-form-group"><label>Size Preference</label><input type="text" id="rg-size_preference" value="${v(lead.size_preference)}"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Condition</label><input type="text" id="rg-condition" value="${v(lead.condition)}"/></div>
+          <div class="dp-form-group"><label>Max Mileage</label><input type="number" id="rg-max_mileage" value="${v(lead.max_mileage)}"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Budget — Min</label><input type="number" id="rg-budget_min" value="${v(lead.budget_min)}"/></div>
+          <div class="dp-form-group"><label>Budget — Max</label><input type="number" id="rg-budget_max" value="${v(lead.budget_max)}"/></div>
+        </div>
+        <div class="dp-form-group"><label>Priorities</label><input type="text" id="rg-priorities" value="${v(lead.priorities)}"/></div>
+        <div class="dp-form-group"><label>Specific Needs</label><textarea id="rg-specific_needs" style="min-height:60px">${v(lead.specific_needs)}</textarea></div>
+        <div class="dp-form-group"><label>Anything Else</label><textarea id="rg-anything_else" style="min-height:60px">${v(lead.anything_else)}</textarea></div>
+        <label style="display:flex;align-items:center;gap:.55rem;font-size:.82rem;color:var(--gray);margin-bottom:1.5rem">
+          <input type="checkbox" id="rg-undecided" ${lead.undecided ? 'checked' : ''} style="width:auto"/>
+          Client doesn't know what they want — skip the search, create a manual-consult report instead
+        </label>
+
+        <div class="modal-actions">
+          <button class="btn-primary btn-sm btn-outline" style="width:auto" onclick="closeRegenerateModal()">Cancel</button>
+          <button class="btn-primary btn-sm btn-gold" style="width:auto" onclick="confirmRegenerate('${code}')" id="regenerate-confirm-btn">Regenerate</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+function closeRegenerateModal() {
+  document.getElementById('regenerate-modal-overlay')?.remove();
+}
+
+async function confirmRegenerate(code) {
+  const btn = document.getElementById('regenerate-confirm-btn');
   btn.disabled = true; btn.textContent = 'Regenerating…';
-  const { res, data } = await apiFetch(`/admin/reports/${code}/regenerate`, { method: 'POST' }).catch(() => ({res:{ok:false},data:{}}));
+
+  const field = (id) => document.getElementById(id).value.trim();
+  const payload = {
+    preferred_make: field('rg-preferred_make'),
+    preferred_model: field('rg-preferred_model'),
+    year_min: field('rg-year_min'),
+    year_max: field('rg-year_max'),
+    considering: field('rg-considering'),
+    vehicle_type: field('rg-vehicle_type'),
+    size_preference: field('rg-size_preference'),
+    condition: field('rg-condition'),
+    max_mileage: field('rg-max_mileage'),
+    budget_min: field('rg-budget_min'),
+    budget_max: field('rg-budget_max'),
+    priorities: field('rg-priorities'),
+    specific_needs: field('rg-specific_needs'),
+    anything_else: field('rg-anything_else'),
+    undecided: document.getElementById('rg-undecided').checked,
+  };
+
+  const { res, data } = await apiFetch(`/admin/reports/${code}/regenerate`, { method: 'POST', body: JSON.stringify(payload) })
+    .catch(() => ({res:{ok:false},data:{}}));
   if (!res.ok) {
     btn.disabled = false; btn.textContent = 'Regenerate';
     alert(data.error || 'Failed to regenerate.');
     return;
   }
+  closeRegenerateModal();
   loadAdminReports();
 }
 

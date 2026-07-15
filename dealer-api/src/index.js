@@ -4062,7 +4062,11 @@ async function adminGetReport(request, env, params) {
     `SELECT * FROM report_vehicles WHERE report_id = ? ORDER BY position`
   ).bind(report.id).all();
 
-  return json({ report, vehicles });
+  // Full lead row (not just name/email above) so the Regenerate modal can
+  // pre-fill every search-criteria field for editing before rerunning.
+  const lead = await env.DB.prepare('SELECT * FROM find_car_leads WHERE id = ?').bind(report.find_lead_id).first();
+
+  return json({ report, vehicles, lead });
 }
 
 const REPORT_VEHICLE_EDITABLE_FIELDS = [
@@ -4128,16 +4132,46 @@ async function adminApproveReport(request, env, params, dealer, token, ctx) {
   return json({ success: true });
 }
 
-// Re-runs sourcing for a lead whose report failed to find real listings
-// (e.g. an Auto.dev outage left every position "sourcing_in_progress")
-// without asking the client to resubmit. Deletes this report_code and its
-// vehicles first so the failed attempt doesn't sit in the admin queue
-// alongside the fresh one — the new report gets its own report_code.
-// Not gated on report status: an admin using this deliberately should be
-// trusted the same as any other admin action in this file.
+// Re-runs sourcing for a lead — either because a report failed to find real
+// listings (e.g. an Auto.dev outage left every position "sourcing_in_progress")
+// or because the client didn't like the 3 options and the underlying search
+// criteria itself needs to change first (wrong model, mileage cap too tight,
+// budget off). The admin UI's Regenerate modal always sends the full
+// editable-fields set (unchanged fields included) since it's pre-filled from
+// the current lead row, so this just applies whatever it receives rather
+// than distinguishing "changed" from "resubmitted as-is". Deletes this
+// report_code and its vehicles first so the old attempt doesn't sit in the
+// admin queue alongside the fresh one — the new report gets its own
+// report_code. Not gated on report status: an admin using this deliberately
+// should be trusted the same as any other admin action in this file.
+const LEAD_REGENERATE_EDITABLE_FIELDS = [
+  'vehicle_type', 'size_preference', 'condition', 'budget_min', 'budget_max',
+  'priorities', 'preferred_make', 'preferred_model', 'considering',
+  'specific_needs', 'anything_else',
+];
+const LEAD_REGENERATE_INT_FIELDS = ['max_mileage', 'year_min', 'year_max'];
+
 async function adminRegenerateReport(request, env, params) {
   const report = await env.DB.prepare('SELECT id, find_lead_id FROM find_car_reports WHERE report_code = ?').bind(params.code).first();
   if (!report) return json({ error: 'Report not found.' }, 404);
+
+  const body = await request.json().catch(() => ({}));
+  const fieldUpdates = {};
+  for (const f of LEAD_REGENERATE_EDITABLE_FIELDS) {
+    if (body[f] !== undefined) fieldUpdates[f] = (body[f] ?? '').toString().trim();
+  }
+  for (const f of LEAD_REGENERATE_INT_FIELDS) {
+    if (body[f] === undefined) continue;
+    const n = parseInt(body[f], 10);
+    fieldUpdates[f] = Number.isFinite(n) ? n : null;
+  }
+  if (body.undecided !== undefined) fieldUpdates.undecided = body.undecided ? 1 : 0;
+
+  const updateKeys = Object.keys(fieldUpdates);
+  if (updateKeys.length) {
+    await env.DB.prepare(`UPDATE find_car_leads SET ${updateKeys.map(f => `${f} = ?`).join(', ')} WHERE id = ?`)
+      .bind(...updateKeys.map(f => fieldUpdates[f]), report.find_lead_id).run();
+  }
 
   await env.DB.prepare('DELETE FROM report_vehicles WHERE report_id = ?').bind(report.id).run();
   await env.DB.prepare('DELETE FROM find_car_reports WHERE id = ?').bind(report.id).run();
