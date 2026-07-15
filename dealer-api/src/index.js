@@ -6038,14 +6038,22 @@ async function ingestManheimIndex(env) {
   `).bind(today, result.index_value, result.as_of_month).run();
 
   if (result.pct_change_yoy) {
-    await env.DB.prepare(`
-      INSERT INTO market_items (type, title, detail, source, source_url, direction, magnitude, region, ingested_at, expires_at)
-      VALUES ('market_move', ?, ?, 'manheim', ?, ?, ?, 'national', datetime('now'), datetime('now', '+1 days'))
-    `).bind(
-      `Manheim index at ${result.index_value} (${result.as_of_month})`,
-      `${result.pct_change_yoy >= 0 ? 'Up' : 'Down'} ${Math.abs(result.pct_change_yoy)}% year-over-year.`,
-      postUrl, result.pct_change_yoy >= 0 ? 'up' : 'down', result.pct_change_yoy
-    ).run();
+    const moveTitle = `Manheim index at ${result.index_value} (${result.as_of_month})`;
+    // Same as-of month re-extracted again today (re-runs, or the monthly
+    // post just hasn't changed yet) shouldn't add another ticker item.
+    const existing = await env.DB.prepare(
+      `SELECT id FROM market_items WHERE type = 'market_move' AND source = 'manheim' AND title = ? AND ingested_at > datetime('now', '-20 hours')`
+    ).bind(moveTitle).first();
+    if (!existing) {
+      await env.DB.prepare(`
+        INSERT INTO market_items (type, title, detail, source, source_url, direction, magnitude, region, ingested_at, expires_at)
+        VALUES ('market_move', ?, ?, 'manheim', ?, ?, ?, 'national', datetime('now'), datetime('now', '+1 days'))
+      `).bind(
+        moveTitle,
+        `${result.pct_change_yoy >= 0 ? 'Up' : 'Down'} ${Math.abs(result.pct_change_yoy)}% year-over-year.`,
+        postUrl, result.pct_change_yoy >= 0 ? 'up' : 'down', result.pct_change_yoy
+      ).run();
+    }
   }
 }
 
@@ -6111,7 +6119,19 @@ async function ingestIncentives(env) {
   const data = await apiRes.json();
   const incentives = (data.content || []).find(b => b.type === 'tool_use')?.input?.incentives || [];
 
+  let inserted = 0;
   for (const inc of incentives) {
+    const title = `${inc.brand} ${inc.model}: ${inc.headline}`;
+    // No stable per-offer URL to dedupe on (source_url is always the same
+    // /deals page) — same brand+model+title re-ingested same-day is the
+    // next best key, since re-running this source mid-day (as happened
+    // during manual debug testing) would otherwise insert a fresh duplicate
+    // batch every time, and unchecked would do the same every day in prod.
+    const existing = await env.DB.prepare(`
+      SELECT id FROM market_items WHERE type = 'incentive' AND source = 'carsdirect' AND title = ? AND ingested_at > datetime('now', '-20 hours')
+    `).bind(title).first();
+    if (existing) continue;
+
     const taxonomy = taxonomyLookup(inc.brand, inc.model);
     const endsAtDate = inc.ends_month ? tryParseMonthEnd(inc.ends_month) : null;
     const endsAt = endsAtDate ? toSqliteDatetime(endsAtDate) : null;
@@ -6121,14 +6141,14 @@ async function ingestIncentives(env) {
       INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, starts_at, ends_at, ingested_at, expires_at)
       VALUES ('incentive', ?, ?, 'carsdirect', ?, ?, ?, ?, ?, ?, 'none', 'national', datetime('now'), ?, datetime('now'), ?)
     `).bind(
-      `${inc.brand} ${inc.model}: ${inc.headline}`,
-      `${inc.offer_type.toUpperCase()} offer.`,
+      title, `${inc.offer_type.toUpperCase()} offer.`,
       'https://www.carsdirect.com/deals',
       inc.brand, inc.model, taxonomy?.body_style ?? null, taxonomy?.size ?? null, taxonomy?.tier ?? 'mainstream',
       endsAt, expiresAt
     ).run();
+    inserted++;
   }
-  console.log(`[market] incentives: ${incentives.length} extracted from CarsDirect`);
+  console.log(`[market] incentives: ${inserted} inserted (${incentives.length} extracted) from CarsDirect`);
 }
 
 // ── Auction results (exotic corner) ─────────────────────────────────
@@ -6285,7 +6305,7 @@ const MARKET_BRIEF_TOOL = {
     type: 'object',
     properties: {
       tape: {
-        type: 'array', minItems: 4, maxItems: 6,
+        type: 'array', description: 'Exactly 5-6 ticker items.',
         items: {
           type: 'object',
           properties: {
@@ -6297,11 +6317,11 @@ const MARKET_BRIEF_TOOL = {
       },
       headline: { type: 'string', description: 'One plain-English sentence: the single most important thing today. No hype — if the day was quiet, say so plainly.' },
       movers: {
-        type: 'array', maxItems: 5,
+        type: 'array', description: 'Up to 5 items, fewer if there is less to report.',
         items: { type: 'object', properties: { label: { type: 'string' }, why: { type: 'string' } }, required: ['label', 'why'], additionalProperties: false },
       },
       incentives: {
-        type: 'array', maxItems: 8,
+        type: 'array', description: 'Up to 8 items, ranked, HOT ones first.',
         items: {
           type: 'object',
           properties: { label: { type: 'string' }, detail: { type: 'string' }, hot: { type: 'boolean' } },
@@ -6309,19 +6329,19 @@ const MARKET_BRIEF_TOOL = {
         },
       },
       recalls: {
-        type: 'array', maxItems: 3,
+        type: 'array', description: 'Up to 3 items.',
         items: { type: 'object', properties: { label: { type: 'string' }, detail: { type: 'string' }, url: { type: 'string' } }, required: ['label', 'detail', 'url'], additionalProperties: false },
       },
       news: {
-        type: 'array', maxItems: 4,
+        type: 'array', description: 'Up to 4 items.',
         items: { type: 'object', properties: { label: { type: 'string' }, url: { type: 'string' } }, required: ['label', 'url'], additionalProperties: false },
       },
       exotic: {
-        type: 'array', maxItems: 3,
+        type: 'array', description: 'Up to 3 items.',
         items: { type: 'object', properties: { label: { type: 'string' }, detail: { type: 'string' }, url: { type: 'string' } }, required: ['label', 'detail', 'url'], additionalProperties: false },
       },
       content_ideas: {
-        type: 'array', minItems: 3, maxItems: 3,
+        type: 'array', description: 'Exactly 3 items — no more, no fewer.',
         items: {
           type: 'object',
           properties: { tag: { type: 'string', enum: ['newsletter', 'social'] }, hook: { type: 'string' } },
@@ -6394,11 +6414,26 @@ Build the tape (5-6 tickers covering the index, Houston DOM, Austin DOM, TX ince
       messages: [{ role: 'user', content: prompt }],
     }),
   });
-  if (!res.ok) throw new Error(`Claude API error (market brief synthesis): HTTP ${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`Claude API error (market brief synthesis): HTTP ${res.status} — ${errBody}`);
+  }
   const data = await res.json();
   if (data.stop_reason === 'refusal') throw new Error('Claude declined the market brief synthesis request');
   const brief = (data.content || []).find(b => b.type === 'tool_use')?.input;
   if (!brief) throw new Error('No brief returned from synthesis call');
+
+  // Array-length caps can no longer be enforced in the tool schema itself
+  // (Anthropic's strict mode rejects minItems/maxItems > 1 — confirmed live,
+  // HTTP 400 "'minItems' values other than 0 or 1 are not supported") so
+  // they're enforced here instead.
+  brief.tape = (brief.tape || []).slice(0, 6);
+  brief.movers = (brief.movers || []).slice(0, 5);
+  brief.incentives = (brief.incentives || []).slice(0, 8);
+  brief.recalls = (brief.recalls || []).slice(0, 3);
+  brief.news = (brief.news || []).slice(0, 4);
+  brief.exotic = (brief.exotic || []).slice(0, 3);
+  brief.content_ideas = (brief.content_ideas || []).slice(0, 3);
 
   await env.DB.prepare(`
     INSERT INTO market_daily (day, brief_json, one_thing, synthesis_ok, tx_incentive_count)
