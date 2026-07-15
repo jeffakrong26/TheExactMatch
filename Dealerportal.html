@@ -2137,11 +2137,35 @@ async function toggleReportDetail(code, id) {
       <div style="display:flex;gap:.75rem;align-items:center">
         <button class="btn-primary btn-sm" onclick="saveReportEdits('${code}')">Save Changes</button>
         ${isPending ? `<button class="btn-primary btn-sm btn-gold" onclick="approveReport('${code}')" id="approve-btn-${code}">Approve &amp; Email Client</button>` : ''}
+        <button class="btn-primary btn-sm btn-outline" onclick="regenerateReport('${code}', ${isPending})" id="regenerate-btn-${code}">Regenerate</button>
         <span id="report-save-msg-${code}" style="font-size:.8rem"></span>
       </div>
     </div>
   `;
   detail.dataset.loaded = 'true';
+}
+
+// Reruns the full search from scratch (fresh Claude picks + Auto.dev
+// matching) for this lead — for when none of the 3 options are good enough
+// to send, or a client's already said they don't like what they got.
+// Backend deletes this report_vehicles/find_car_reports row and creates a
+// brand new one (new report_code, back to pending_approval), so any link
+// already emailed to the client stops working — confirm() spells that out
+// explicitly when the report was already approved.
+async function regenerateReport(code, isPending) {
+  const warning = isPending
+    ? 'Regenerate this report? This reruns the full search and replaces all 3 options. This cannot be undone.'
+    : 'Regenerate this report? This reruns the full search and replaces all 3 options — the link already emailed to the client will stop working, and the new report goes back to pending approval until you review and re-send it. This cannot be undone.';
+  if (!confirm(warning)) return;
+  const btn = document.getElementById(`regenerate-btn-${code}`);
+  btn.disabled = true; btn.textContent = 'Regenerating…';
+  const { res, data } = await apiFetch(`/admin/reports/${code}/regenerate`, { method: 'POST' }).catch(() => ({res:{ok:false},data:{}}));
+  if (!res.ok) {
+    btn.disabled = false; btn.textContent = 'Regenerate';
+    alert(data.error || 'Failed to regenerate.');
+    return;
+  }
+  loadAdminReports();
 }
 
 async function saveReportEdits(code) {
