@@ -514,7 +514,30 @@
         <!-- Step 5 — Anything else -->
         <div class="ms-step" data-step="5">
           <div class="form-group"><label>Specific Needs or Requirements</label><textarea placeholder="E.g. Third row seating, AWD required, tow package..." id="ff-specific-needs"></textarea></div>
-          <div class="form-group"><label>Any Makes or Models Already Considering?</label><input type="text" placeholder="e.g. Toyota RAV4, Honda CR-V" id="ff-considering"/></div>
+
+          <div class="form-group">
+            <label>Do You Know What You're Looking For?</label>
+            <select id="ff-knows-what">
+              <option value="yes">Yes, I have some ideas</option>
+              <option value="no">Not sure yet — I'd like some guidance</option>
+            </select>
+          </div>
+
+          <div id="ff-knows-yes-wrap">
+            <div class="form-row">
+              <div class="form-group"><label>Preferred Make</label><input type="text" placeholder="e.g. Toyota" id="ff-pref-make"/></div>
+              <div class="form-group"><label>Preferred Model</label><input type="text" placeholder="e.g. RAV4" id="ff-pref-model"/></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Year — From</label><input type="number" placeholder="2020" id="ff-year-min"/></div>
+              <div class="form-group"><label>Year — To</label><input type="number" placeholder="2024" id="ff-year-max"/></div>
+            </div>
+            <div class="form-group"><label>Any Other Makes or Models You're Also Open To?</label><input type="text" placeholder="e.g. Honda CR-V, Mazda CX-5" id="ff-considering"/></div>
+          </div>
+          <div id="ff-knows-no-wrap" style="display:none">
+            <p class="form-sub" style="margin-bottom:.9rem">No problem — we'll reach out personally to help narrow things down based on everything else you've told us here.</p>
+          </div>
+
           <div class="form-group"><label>Anything Else We Should Know?</label><textarea placeholder="Anything else that would help us find your match..." id="ff-anything-else"></textarea></div>
         </div>
 
@@ -1459,6 +1482,25 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 });
 
+document.addEventListener('DOMContentLoaded', function(){
+  const knowsSelect = document.getElementById('ff-knows-what');
+  const yesWrap = document.getElementById('ff-knows-yes-wrap');
+  const noWrap = document.getElementById('ff-knows-no-wrap');
+  if(!knowsSelect || !yesWrap || !noWrap) return;
+  knowsSelect.addEventListener('change', function(){
+    const knows = knowsSelect.value === 'yes';
+    yesWrap.style.display = knows ? 'block' : 'none';
+    noWrap.style.display = knows ? 'none' : 'block';
+    if(!knows){
+      document.getElementById('ff-pref-make').value = '';
+      document.getElementById('ff-pref-model').value = '';
+      document.getElementById('ff-year-min').value = '';
+      document.getElementById('ff-year-max').value = '';
+      document.getElementById('ff-considering').value = '';
+    }
+  });
+});
+
 // ── Find My Car submit ───────────────────────────────────────
 function submitFindForm() {
   const btn = document.getElementById('ff-next-btn');
@@ -1487,6 +1529,11 @@ function submitFindForm() {
     current_change: document.getElementById('ff-current-change').value.trim(),
     trade_in:   document.getElementById('ff-tradein').value,
     specific_needs: document.getElementById('ff-specific-needs').value.trim(),
+    undecided:  document.getElementById('ff-knows-what').value === 'no',
+    preferred_make: document.getElementById('ff-pref-make').value.trim(),
+    preferred_model: document.getElementById('ff-pref-model').value.trim(),
+    year_min:   document.getElementById('ff-year-min').value.trim(),
+    year_max:   document.getElementById('ff-year-max').value.trim(),
     considering: document.getElementById('ff-considering').value.trim(),
     anything_else: document.getElementById('ff-anything-else').value.trim()
   });

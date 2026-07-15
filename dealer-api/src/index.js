@@ -826,13 +826,26 @@ async function submitFindCarLead(request, env, params, dealer, token, ctx) {
   const maxMileage = parseInt(body.max_mileage, 10);
   if (!Number.isFinite(maxMileage) || maxMileage <= 0) return json({ error: 'Maximum mileage is required.' }, 400);
 
+  const undecided = !!body.undecided;
+  // Structured fields are meaningless once the client's told us they don't
+  // know what they want yet — ignore anything the client left over from
+  // before toggling to "not sure" rather than trust the client to have
+  // cleared them.
+  const preferred_make  = undecided ? null : (body.preferred_make || '').trim() || null;
+  const preferred_model = undecided ? null : (body.preferred_model || '').trim() || null;
+  const yearMinParsed = parseInt(body.year_min, 10);
+  const yearMaxParsed = parseInt(body.year_max, 10);
+  const year_min = !undecided && Number.isFinite(yearMinParsed) ? yearMinParsed : null;
+  const year_max = !undecided && Number.isFinite(yearMaxParsed) ? yearMaxParsed : null;
+
   const result = await env.DB.prepare(`
     INSERT INTO find_car_leads (
       first_name, last_name, email, phone, zip, vehicle_type, size_preference, condition,
       budget_min, budget_max, max_mileage, timeline, payment_method, credit_range, desired_monthly_min, desired_monthly_max, down_payment,
       priorities, current_vehicle, current_like, current_change,
-      trade_in, specific_needs, considering, anything_else
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      trade_in, specific_needs, considering, anything_else,
+      preferred_make, preferred_model, year_min, year_max, undecided
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     first_name, last_name, email, phone,
     (body.zip || '').trim(), body.vehicle_type || '', body.size_preference || '', body.condition || '',
@@ -841,7 +854,8 @@ async function submitFindCarLead(request, env, params, dealer, token, ctx) {
     (body.desired_monthly_min || '').toString().trim(), (body.desired_monthly_max || '').toString().trim(), (body.down_payment || '').toString().trim(),
     body.priorities || '',
     (body.current_vehicle || '').trim(), (body.current_like || '').trim(), (body.current_change || '').trim(),
-    body.trade_in || '', (body.specific_needs || '').trim(), (body.considering || '').trim(), (body.anything_else || '').trim()
+    body.trade_in || '', (body.specific_needs || '').trim(), (undecided ? '' : (body.considering || '')).trim(), (body.anything_else || '').trim(),
+    preferred_make, preferred_model, year_min, year_max, undecided ? 1 : 0
   ).run();
 
   const leadId = result.meta.last_row_id;
@@ -995,34 +1009,43 @@ ${(lead.payment_method === 'Financing' || lead.payment_method === 'Leasing') ? `
 - What they want to change: ${lead.current_change || 'not specified'}
 - Interested in a trade-in: ${lead.trade_in || 'not specified'}
 - Specific needs/requirements: ${lead.specific_needs || 'none stated'}
-- Makes/models already considering: ${lead.considering || 'none stated'}
+- Preferred make: ${lead.preferred_make || 'not specified'}
+- Preferred model: ${lead.preferred_model || 'not specified'}
+- Preferred year range: ${(lead.year_min || lead.year_max) ? `${lead.year_min || 'any'}–${lead.year_max || 'any'}` : 'not specified'}
+- Other makes/models also open to: ${lead.considering || 'none stated'}
 - Anything else: ${lead.anything_else || 'none stated'}`;
 }
 
-// Shared with generateReportForLead, which needs the same single-vehicle-
-// vs-shortlist-vs-empty distinction to decide whether pulling a partner
-// inventory snapshot is worth the extra Auto.dev calls.
-function consideringIsSingleVehicle(considering) {
-  const raw = (considering || '').trim();
-  if (!raw) return false;
-  return raw.split(',').map(s => s.trim()).filter(Boolean).length === 1;
+// Shared with generateReportForLead, which needs the same "is Claude
+// actually pinned to one exact vehicle" signal to decide whether pulling a
+// partner inventory snapshot is worth the extra Auto.dev calls — skip it
+// only when there's truly no picking freedom to use it.
+function isPinnedToSingleVehicle(lead) {
+  if ((lead.preferred_make || '').trim() && (lead.preferred_model || '').trim()) return true;
+  if ((lead.preferred_make || '').trim()) return false; // brand-only still has model-picking freedom
+  const extras = (lead.considering || '').trim();
+  if (!extras) return false;
+  return extras.split(',').map(s => s.trim()).filter(Boolean).length === 1;
 }
 
-// "Any Makes or Models Already Considering?" (lead.considering) has always
-// accepted a comma-separated list per its own placeholder text ("e.g.
-// Toyota RAV4, Honda CR-V" — two different vehicles, not one). Treating any
-// non-empty value as "the one exact make/model" broke down the moment a
-// client actually followed that example and listed several different
-// candidates (e.g. "Mercedes, Honda, Audi") — Claude was told all 3 picks
-// MUST be that one "exact make and model", a contradiction when the string
-// names three different brands. Splitting on comma distinguishes a real
-// single-vehicle answer ("mercedes c63") from a shortlist.
+// The "Any Other Makes or Models You're Also Open To?" field (lead.considering)
+// has always accepted a comma-separated list per its own placeholder text
+// ("e.g. Toyota RAV4, Honda CR-V" — two different vehicles, not one) — kept
+// as a free-text secondary signal now that Preferred Make/Model/Year are
+// their own structured fields, rather than the single overloaded field that
+// used to have to carry both "the one thing they want" and "a shortlist"
+// (see the shortlist bug from lead 54: "Mercedes, Honda, Audi" broke the old
+// "all 3 picks MUST be this one exact make/model" instruction).
 function buildVehiclePrompt(lead, partnerInventoryText) {
   const year = new Date().getFullYear();
-  const consideringRaw = (lead.considering || '').trim();
-  const consideringCandidates = consideringRaw ? consideringRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
-  const isSingleVehicle = consideringIsSingleVehicle(lead.considering);
-  const isShortlist = consideringCandidates.length > 1;
+  const make = (lead.preferred_make || '').trim();
+  const model = (lead.preferred_model || '').trim();
+  const yearRangeText = (lead.year_min || lead.year_max) ? `${lead.year_min || 'any'}–${lead.year_max || 'any'}` : '';
+  const extras = (lead.considering || '').trim();
+  const extraCandidates = extras ? extras.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const extrasNote = extraCandidates.length
+    ? ` They also mentioned being open to: ${extraCandidates.map(c => `"${c}"`).join(', ')} — treat these as secondary options, not a requirement.`
+    : '';
 
   const partnerBlock = (intro) => partnerInventoryText ? `
 
@@ -1031,13 +1054,22 @@ ${partnerInventoryText}
 
 ${intro}` : '';
 
+  let vehicleInstruction;
+  if (make && model) {
+    vehicleInstruction = `The client told us the specific make/model they want: "${make} ${model}"${yearRangeText ? ` (year range: ${yearRangeText})` : ''}. All 3 recommendations MUST be that exact make and model — vary them by year, trim, or configuration only, and stay inside the year range if one was given. Do not substitute a different make/model, even a similar one, unless "${make} ${model}" isn't a real, buildable vehicle.${extrasNote}`;
+  } else if (make) {
+    vehicleInstruction = `The client told us they want a ${make}${yearRangeText ? ` (year range: ${yearRangeText})` : ''}, but hasn't picked a specific model. Recommend 3 different ${make} models/trims that best fit the rest of their answers.${extrasNote}${partnerBlock(`When more than one ${make} model would reasonably fit, prefer whichever is available from this partner inventory — that's the inventory we can actually route them to.`)}`;
+  } else if (extraCandidates.length > 1) {
+    vehicleInstruction = `The client named a shortlist of makes/models they're considering: ${extraCandidates.map(c => `"${c}"`).join(', ')}. Recommend 3 vehicles drawn from this shortlist — you don't need to cover every candidate, and recommending more than one configuration of the same candidate is fine if it's clearly the best overall fit. Don't substitute something outside this shortlist unless one of these isn't a real, buildable vehicle.${partnerBlock(`When more than one shortlisted candidate would reasonably fit the client's budget, priorities, and mileage cap, prefer whichever is available from this partner inventory — that's the inventory we can actually route them to.`)}`;
+  } else if (extraCandidates.length === 1) {
+    vehicleInstruction = `The client told us the specific make/model they want: "${extraCandidates[0]}". All 3 recommendations MUST be that exact make and model — vary them by year, trim, or configuration only. Do not substitute a different make/model, even a similar one, unless what they wrote isn't a real, buildable vehicle.`;
+  } else {
+    vehicleInstruction = `The client did not name a specific make/model, so use the rest of their answers (vehicle type, priorities, budget, etc.) to recommend the 3 best-fitting vehicles — these may span different makes/models.${partnerBlock(`Since the client has no specific make/model requirement, strongly prefer recommending vehicles from this list when they reasonably fit the client's budget, priorities, and mileage cap — that's the inventory we can actually route them to. Only recommend something outside this list if nothing in it is a reasonable fit for what they're looking for.`)}`;
+  }
+
   return `A car-buying client filled out our "Find My Car" form. Based on their answers, recommend exactly 3 specific vehicles (year, make, model, trim) that best fit their needs. For each, write a short rationale addressed DIRECTLY to the client in second person — always "you"/"your", never "they"/"their"/"the client"/"the buyer". For example: "This fits your need for extra cargo space" — not "This fits their need for extra cargo space."
 
-${isSingleVehicle
-  ? `The client already told us the specific make/model they want: "${consideringRaw}". All 3 recommendations MUST be that exact make and model — vary them by year, trim, or configuration only. Do not substitute a different make/model, even a similar one, unless what they wrote isn't a real, buildable vehicle.`
-  : isShortlist
-  ? `The client named a shortlist of makes/models they're considering: ${consideringCandidates.map(c => `"${c}"`).join(', ')}. Recommend 3 vehicles drawn from this shortlist — you don't need to cover every candidate, and recommending more than one configuration of the same candidate is fine if it's clearly the best overall fit. Don't substitute something outside this shortlist unless one of these isn't a real, buildable vehicle.${partnerBlock(`When more than one shortlisted candidate would reasonably fit the client's budget, priorities, and mileage cap, prefer whichever is available from this partner inventory — that's the inventory we can actually route them to.`)}`
-  : `The client did not name a specific make/model, so use the rest of their answers (vehicle type, priorities, budget, etc.) to recommend the 3 best-fitting vehicles — these may span different makes/models.${partnerBlock(`Since the client has no specific make/model requirement, strongly prefer recommending vehicles from this list when they reasonably fit the client's budget, priorities, and mileage cap — that's the inventory we can actually route them to. Only recommend something outside this list if nothing in it is a reasonable fit for what they're looking for.`)}`}
+${vehicleInstruction}
 
 Client details:
 ${clientDetailsBlock(lead)}
@@ -2227,10 +2259,65 @@ function createMarketcheckThrottle(maxConcurrent = 3) {
   };
 }
 
+// A client who said they don't know what they want yet gets no automated
+// picks at all — asking Claude to guess 3 specific vehicles from "not
+// sure" is the exact case automation handles worst, and it's also the
+// customer who benefits most from a real phone call. Skips
+// pickVehicles/Auto.dev entirely and creates a 3-slot report shell in the
+// same "needs manual sourcing" state the admin dashboard already has
+// tooling for (paste a listing URL → Fetch Listing → Mark as Ready) — so
+// building the report by hand after the call reuses existing UI rather
+// than needing new manual-entry screens.
+async function createManualConsultReport(env, lead) {
+  const reportResult = await env.DB.prepare(
+    `INSERT INTO find_car_reports (report_code, find_lead_id, status, flagged_for_review) VALUES ('', ?, 'pending_approval', 0)`
+  ).bind(lead.id).run();
+  const reportId = reportResult.meta.last_row_id;
+  const reportCode = `TEM-${new Date().getFullYear()}-${String(reportId).padStart(4, '0')}`;
+  await env.DB.prepare('UPDATE find_car_reports SET report_code = ? WHERE id = ?').bind(reportCode, reportId).run();
+
+  for (let position = 1; position <= 3; position++) {
+    await env.DB.prepare(
+      `INSERT INTO report_vehicles (report_id, position, source) VALUES (?, ?, 'sourcing_in_progress')`
+    ).bind(reportId, position).run();
+  }
+
+  await sendBrevoEmail(env, {
+    to: 'theexactmatch@gmail.com',
+    subject: `📞 Needs a personal consult — ${lead.first_name} ${lead.last_name}`,
+    html: brandedEmailHtml(`
+      <p style="color:#0C1C33;border:1px solid rgba(192,154,91,.5);background:rgba(192,154,91,.1);border-radius:2px;padding:.75rem 1rem">
+        <strong>${escapeHtml(lead.first_name)} ${escapeHtml(lead.last_name)}</strong> said they don't know what they're looking for yet — this one's a call, not an auto-generated report.
+      </p>
+      <p><strong>Phone:</strong> ${escapeHtml(lead.phone || 'not given')}<br/>
+      <strong>Email:</strong> ${escapeHtml(lead.email)}<br/>
+      <strong>ZIP:</strong> ${escapeHtml(lead.zip || 'not given')}</p>
+      <p>What they already told us:</p>
+      <ul style="padding-left:1.2rem">
+        ${lead.vehicle_type ? `<li>Vehicle type: ${escapeHtml(lead.vehicle_type)}</li>` : ''}
+        ${lead.condition ? `<li>Condition: ${escapeHtml(lead.condition)}</li>` : ''}
+        ${(lead.budget_min || lead.budget_max) ? `<li>Budget: $${escapeHtml(lead.budget_min || '?')} – $${escapeHtml(lead.budget_max || '?')}</li>` : ''}
+        ${lead.priorities ? `<li>Priorities: ${escapeHtml(lead.priorities)}</li>` : ''}
+        ${lead.current_vehicle ? `<li>Current vehicle: ${escapeHtml(lead.current_vehicle)}</li>` : ''}
+        ${lead.current_like ? `<li>Likes about it: ${escapeHtml(lead.current_like)}</li>` : ''}
+        ${lead.current_change ? `<li>Wants to change: ${escapeHtml(lead.current_change)}</li>` : ''}
+        ${lead.specific_needs ? `<li>Specific needs: ${escapeHtml(lead.specific_needs)}</li>` : ''}
+        ${lead.anything_else ? `<li>Anything else: ${escapeHtml(lead.anything_else)}</li>` : ''}
+      </ul>
+      <p>A blank report (${reportCode}) is already sitting in the dashboard ready for you to fill in with whatever you land on together — paste a listing URL per option once you know what to search for.</p>
+    `),
+  });
+}
+
 async function generateReportForLead(env, leadId) {
   const t0 = Date.now();
   const lead = await env.DB.prepare('SELECT * FROM find_car_leads WHERE id = ?').bind(leadId).first();
   if (!lead) return;
+
+  if (lead.undecided) {
+    await createManualConsultReport(env, lead);
+    return;
+  }
 
   const activeDealers = await loadActivePartnerDealers(env);
   // Only worth the extra Auto.dev calls when Claude actually has picking
@@ -2238,7 +2325,7 @@ async function generateReportForLead(env, leadId) {
   // buildVehiclePrompt's single-vehicle branch ignores this anyway. A
   // shortlist of several candidates (e.g. "Mercedes, Honda, Audi") still
   // benefits, same as a fully open answer.
-  const partnerInventoryText = consideringIsSingleVehicle(lead.considering)
+  const partnerInventoryText = isPinnedToSingleVehicle(lead)
     ? null
     : await fetchPartnerInventorySnapshot(env, activeDealers, lead);
   const picks = await pickVehicles(env, lead, partnerInventoryText);

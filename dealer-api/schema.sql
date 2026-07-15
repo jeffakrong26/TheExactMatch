@@ -114,7 +114,12 @@ CREATE TABLE find_car_leads (
   considering TEXT,
   anything_else TEXT,
   status TEXT NOT NULL DEFAULT 'new',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  preferred_make TEXT,
+  preferred_model TEXT,
+  year_min INTEGER,
+  year_max INTEGER,
+  undecided INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE contact_messages (

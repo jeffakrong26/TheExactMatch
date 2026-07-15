@@ -1915,6 +1915,7 @@ function renderAdminFindLeadCard(lead) {
           <span class="deal-clickable deal-customer" onclick="toggleFindLeadExpand(${lead.id})">${escapeHtmlJs(fullName)}</span>
         </div>
         <span class="status-badge ${stage.cls}">${stage.label}</span>
+        ${(lead.undecided && lead.report_status !== 'approved') ? `<span class="status-badge" style="background:rgba(192,154,91,.18);color:#8a6a12">📞 Needs Consult Call</span>` : ''}
       </div>
       <div class="item-card-meta" style="margin:.4rem 0 0">
         ${(lead.budget_min || lead.budget_max) ? `<span class="meta-pill">$${lead.budget_min || '0'} – $${lead.budget_max || '?'}</span>` : ''}
@@ -2978,6 +2979,10 @@ const CREDIT_RANGE_LABELS = {
 
 function buyerIntakeHtml(lead) {
   const rows = [];
+  if (lead.undecided) rows.push(['Vehicle Preference', '📞 Not sure yet — needs a personal consult call']);
+  if (lead.preferred_make) rows.push(['Preferred Make', lead.preferred_make]);
+  if (lead.preferred_model) rows.push(['Preferred Model', lead.preferred_model]);
+  if (lead.year_min || lead.year_max) rows.push(['Preferred Year Range', `${lead.year_min || 'any'} – ${lead.year_max || 'any'}`]);
   if (lead.vehicle_type) rows.push(['Vehicle Type', lead.vehicle_type]);
   if (lead.size_preference) rows.push(['Size Preference', lead.size_preference]);
   if (lead.condition) rows.push(['Condition Preference', lead.condition]);
@@ -2994,7 +2999,7 @@ function buyerIntakeHtml(lead) {
   if (lead.max_mileage) rows.push(['Max Mileage', Number(lead.max_mileage).toLocaleString()]);
   if (lead.priorities) rows.push(['Priorities', lead.priorities]);
   if (lead.specific_needs) rows.push(['Specific Needs', lead.specific_needs]);
-  if (lead.considering) rows.push(['Also Considering', lead.considering]);
+  if (lead.considering) rows.push(['Other Makes/Models Also Open To', lead.considering]);
   if (lead.anything_else) rows.push(['Anything Else', lead.anything_else]);
 
   if (!rows.length) return '<div style="font-size:.8rem;color:var(--gray)">No search-form details on file for this buyer.</div>';
