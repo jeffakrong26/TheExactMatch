@@ -6777,6 +6777,12 @@ Respond in plain text with:
 
 Be direct and concise — no hedging filler, no repeating the question back.`;
 
+  // Streamed (stream: true) even though nothing is proxied to the client —
+  // a real multi-round web_search research call can run past Cloudflare's
+  // idle-connection timeout on a plain blocking request (confirmed live:
+  // HTTP 524 from api.anthropic.com after ~2 min with max_uses:10). Keeping
+  // the connection actively streaming avoids that; we just accumulate it
+  // server-side and return one JSON response as before.
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
@@ -6784,19 +6790,45 @@ Be direct and concise — no hedging filler, no repeating the question back.`;
       model: 'claude-sonnet-4-6', max_tokens: 3000,
       tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 10 }],
       messages: [{ role: 'user', content: prompt }],
+      stream: true,
     }),
   });
   if (!res.ok) {
     const errBody = await res.text().catch(() => '');
     return json({ error: `Claude API error: HTTP ${res.status} — ${errBody}` }, 502);
   }
-  const data = await res.json();
-  if (data.stop_reason === 'refusal') return json({ error: 'The research request was declined.' }, 502);
+
+  const blocks = []; // index -> { type, text }
+  let stopReason = null;
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      let evt;
+      try { evt = JSON.parse(line.slice(6)); } catch { continue; }
+      if (evt.type === 'content_block_start') {
+        blocks[evt.index] = { type: evt.content_block.type, text: '' };
+      } else if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+        if (blocks[evt.index]) blocks[evt.index].text += evt.delta.text;
+      } else if (evt.type === 'message_delta' && evt.delta?.stop_reason) {
+        stopReason = evt.delta.stop_reason;
+      }
+    }
+  }
+
+  if (stopReason === 'refusal') return json({ error: 'The research request was declined.' }, 502);
 
   // Take the last text block (the final synthesized answer after any
   // searches), not every text block — interleaved commentary before/between
   // searches ("I'll look for...") isn't part of the report.
-  const textBlocks = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
+  const textBlocks = blocks.filter(b => b?.type === 'text').map(b => b.text);
   const report = textBlocks[textBlocks.length - 1]?.trim();
   if (!report) return json({ error: 'No report returned — try again.' }, 502);
 
