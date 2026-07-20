@@ -127,6 +127,15 @@ h1.tape-title{font-family:'Archivo',sans-serif;font-size:2rem;font-weight:800;le
 .clean-badge{background:var(--green);color:var(--bg);font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:.15rem .45rem;border-radius:10px;margin-left:.5rem;white-space:nowrap}
 .watchlist-link{font-size:.7rem;text-decoration:underline}
 
+/* ── "Not relevant" flag action ── */
+.row-flag{margin-top:.35rem}
+.flag-link{background:none;border:none;color:var(--text-dim);font-size:.68rem;text-decoration:underline;cursor:pointer;padding:0}
+.flag-link:hover{color:var(--red)}
+.reason-picker{display:none;flex-wrap:wrap;gap:.35rem;margin-top:.4rem}
+.reason-picker button{font-size:.65rem;padding:.32rem .6rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer}
+.reason-picker button:hover{border-color:var(--accent)}
+.reason-picker button:disabled{opacity:.5;cursor:default}
+
 .lens-hidden{display:none !important}
 </style>
 </head>
@@ -303,6 +312,7 @@ document.getElementById('lens-toggle').addEventListener('click', e => {
   document.getElementById('business-lens').classList.toggle('lens-hidden', lens !== 'business');
   document.getElementById('exotic-lens').classList.toggle('lens-hidden', lens !== 'exotic');
 });
+setupExoticFlagHandlers();
 
 // ── Auth ──
 document.getElementById('login-form').addEventListener('submit', async e => {
@@ -502,11 +512,12 @@ function renderExoticCorner(data) {
             const clean = t.tier === 1 && e.below_mileage_threshold === 1;
             const title = [e.brand, e.model, e.watchlist_trim].filter(Boolean).join(' ') || e.title;
             return `
-              <div class="row-item">
+              <div class="row-item" data-item-id="${e.id}">
                 <a href="${escapeHtml(e.source_url || '#')}" target="_blank" rel="noopener">
                   <span class="rt">${escapeHtml(title)}</span>
                 </a>${clean ? '<span class="clean-badge">Clean example</span>' : ''}
                 <div class="rd">${escapeHtml(e.detail || '')}${e.mileage ? ` &middot; ${Number(e.mileage).toLocaleString()} mi` : ''}</div>
+                ${flagActionHtml(e.id)}
               </div>
             `;
           }).join('')}
@@ -518,12 +529,59 @@ function renderExoticCorner(data) {
   const unmatched = data?.unmatched || [];
   unmatchedEl.innerHTML = unmatched.length
     ? unmatched.map(e => `
-        <div class="row-item">
+        <div class="row-item" data-item-id="${e.id}">
           <a href="${escapeHtml(e.source_url || '#')}" target="_blank" rel="noopener"><span class="rt">${escapeHtml(e.title)}</span></a>
           <div class="rd">${escapeHtml(e.detail || '')}${e.mileage ? ` &middot; ${Number(e.mileage).toLocaleString()} mi` : ''}</div>
+          ${flagActionHtml(e.id)}
         </div>
       `).join('')
     : '<span class="empty">Nothing outside the watchlist recently.</span>';
+}
+
+function flagActionHtml(id) {
+  return `
+    <div class="row-flag">
+      <button class="flag-link" data-flag-id="${id}" type="button">Not relevant</button>
+      <div class="reason-picker" id="picker-${id}">
+        <button data-reason="mismatch" data-id="${id}" type="button">Not this car</button>
+        <button data-reason="parts_project" data-id="${id}" type="button">Parts/project only</button>
+        <button data-reason="wrong_trim" data-id="${id}" type="button">Wrong trim/spec</button>
+        <button data-reason="other" data-id="${id}" type="button">Other&hellip;</button>
+      </div>
+    </div>
+  `;
+}
+
+function setupExoticFlagHandlers() {
+  ['panel-exotic-tiers', 'panel-exotic-unmatched'].forEach(containerId => {
+    const container = document.getElementById(containerId);
+    container.addEventListener('click', async ev => {
+      const flagBtn = ev.target.closest('[data-flag-id]');
+      if (flagBtn) {
+        const picker = document.getElementById(`picker-${flagBtn.dataset.flagId}`);
+        container.querySelectorAll('.reason-picker').forEach(p => { if (p !== picker) p.style.display = 'none'; });
+        if (picker) picker.style.display = picker.style.display === 'flex' ? 'none' : 'flex';
+        return;
+      }
+
+      const reasonBtn = ev.target.closest('[data-reason]');
+      if (!reasonBtn) return;
+      const id = reasonBtn.dataset.id;
+      const reason = reasonBtn.dataset.reason;
+      let note = null;
+      if (reason === 'other') note = prompt('Optional note (why is this not relevant?):') || null;
+
+      const picker = reasonBtn.closest('.reason-picker');
+      picker.querySelectorAll('button').forEach(b => b.disabled = true);
+      const { res } = await apiFetch(`/admin/market/items/${id}/not-relevant`, { method: 'POST', body: JSON.stringify({ reason, note }) });
+      if (res.ok) {
+        const row = ev.target.closest('[data-item-id]');
+        if (row) row.remove();
+      } else {
+        picker.querySelectorAll('button').forEach(b => b.disabled = false);
+      }
+    });
+  });
 }
 
 function renderStats(data, brief) {

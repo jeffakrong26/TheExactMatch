@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="robots" content="noindex, nofollow"/>
+<title>Exclusion Rules — The Tape</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0c1420; --bg2:#121b2b; --bg3:#182238;
+  --text:#e8edf5; --text-dim:#8a97ab;
+  --accent:#d4b26a; --border:#24314a;
+  --green:#3ecf8e; --amber:#e0a940; --red:#e46862;
+  --shadow:0 8px 24px rgba(0,0,0,.35);
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#f5f2ea; --bg2:#ffffff; --bg3:#efeadf;
+    --text:#1a2233; --text-dim:#6b7280;
+    --accent:#8a6a12; --border:#ddd8cc;
+    --green:#1a7a4f; --amber:#8a5a10; --red:#a83a35;
+    --shadow:0 4px 16px rgba(20,20,10,.08);
+  }
+}
+html{background:var(--bg)}
+body{font-family:'IBM Plex Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh}
+.display{font-family:'Archivo',sans-serif}
+a{color:var(--accent)}
+button{font-family:inherit}
+
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+.login-card{width:100%;max-width:340px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:2rem;box-shadow:var(--shadow)}
+.login-card h1{font-family:'Archivo',sans-serif;font-size:1.3rem;font-weight:800;margin-bottom:.25rem}
+.login-card .sub{color:var(--text-dim);font-size:.78rem;margin-bottom:1.5rem}
+.login-card input{width:100%;padding:.7rem .85rem;margin-bottom:.75rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.85rem;outline:none}
+.login-card button{width:100%;padding:.75rem;background:var(--accent);color:var(--bg);border:none;border-radius:4px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:.75rem;cursor:pointer;margin-top:.25rem}
+.login-err{color:var(--red);font-size:.78rem;margin-top:.6rem;min-height:1em}
+
+#app{display:none}
+.wrap{max-width:920px;margin:0 auto;padding:1.25rem 1.25rem 3rem}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1.5rem}
+.eyebrow{font-size:.65rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.35rem}
+.back-link{font-size:.72rem;text-decoration:none;color:var(--text-dim)}
+.back-link:hover{color:var(--accent)}
+h1.title{font-family:'Archivo',sans-serif;font-size:1.7rem;font-weight:800;letter-spacing:-.01em}
+.count-sub{color:var(--text-dim);font-size:.85rem;margin-top:.2rem}
+.logout-link{font-size:.7rem;color:var(--text-dim);text-decoration:underline;cursor:pointer;background:none;border:none}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1.1rem;margin-bottom:1.25rem}
+.card h2{font-family:'Archivo',sans-serif;font-size:.95rem;font-weight:700;margin-bottom:.9rem}
+.card p.hint{color:var(--text-dim);font-size:.78rem;margin-bottom:.9rem;line-height:1.5}
+
+.scope-block{margin-bottom:1.25rem}
+.scope-heading{font-family:'Archivo',sans-serif;font-size:.85rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:baseline;gap:.5rem}
+.scope-heading span{font-size:.65rem;color:var(--text-dim);font-weight:500}
+.ex-row{display:grid;grid-template-columns:1fr auto;gap:.75rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.ex-row:last-child{border-bottom:none}
+.ex-main{line-height:1.5}
+.ex-title{font-weight:600}
+.ex-meta{color:var(--text-dim);font-size:.74rem;margin-top:.15rem}
+.ex-row.inactive{opacity:.45}
+.btn{padding:.4rem .7rem;background:transparent;color:var(--text-dim);border:1px solid var(--border);border-radius:4px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:.65rem;cursor:pointer}
+.empty{color:var(--text-dim);font-size:.8rem;font-style:italic}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <h1 class="display">Exclusion Rules</h1>
+    <div class="sub">THE EXACT MATCH &middot; INTERNAL</div>
+    <form id="login-form">
+      <input type="email" id="login-email" placeholder="Email" autocomplete="username" required/>
+      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required/>
+      <button type="submit" id="login-btn">Sign in</button>
+      <div class="login-err" id="login-err"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app">
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <div class="eyebrow">THE EXACT MATCH &middot; INTERNAL</div>
+        <a class="back-link" href="/market">&larr; Back to The Tape</a>
+        <h1 class="title display">Exclusion Rules</h1>
+        <div class="count-sub" id="active-count">Active exclusion rules: —</div>
+      </div>
+      <button class="logout-link" id="logout-btn">Sign out</button>
+    </header>
+
+    <div class="card">
+      <h2>How these get created</h2>
+      <p class="hint">Rules accumulate automatically from the "Not relevant" action on
+        the exotic corner in The Tape, plus a starter set of parts/project/chassis
+        keywords seeded at launch. Deactivate a rule below if something got
+        over-excluded — there's no manual add form here by design, since flagging a
+        bad result from the source is the intended path.</p>
+      <div id="scope-list"><span class="empty">Loading&hellip;</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';
+let authToken = localStorage.getItem('tem_dealer_token') || null;
+let allExclusions = [];
+
+async function apiFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  const res = await fetch(`${API}${path}`, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  return { res, data };
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  document.getElementById('login-btn').disabled = true;
+  const { res, data } = await apiFetch('/dealer/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+  document.getElementById('login-btn').disabled = false;
+  if (!res.ok) { errEl.textContent = data.error || 'Sign-in failed.'; return; }
+  if (data.dealer?.role !== 'admin') { errEl.textContent = 'This page is admin-only.'; return; }
+  authToken = data.token;
+  localStorage.setItem('tem_dealer_token', authToken);
+  enterApp();
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await apiFetch('/dealer/logout', { method: 'POST' }).catch(() => {});
+  authToken = null;
+  localStorage.removeItem('tem_dealer_token');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+});
+
+async function restoreSession() {
+  if (!authToken) return false;
+  const { res, data } = await apiFetch('/dealer/me').catch(() => ({ res: { ok: false }, data: {} }));
+  if (res.ok && data.role === 'admin') return true;
+  authToken = null;
+  localStorage.removeItem('tem_dealer_token');
+  return false;
+}
+
+const SCOPE_LABELS = {
+  listing_keyword: ['Listing keyword', 'excludes any listing whose title contains this phrase'],
+  brand_model: ['Brand + Model', 'excludes this make/model entirely'],
+  brand_model_trim: ['Brand + Model + Trim', 'excludes this specific trim/spec only'],
+};
+
+function exclusionLine(e) {
+  if (e.scope === 'listing_keyword') {
+    return e.keyword ? `Keyword: "${e.keyword}"` : '(note only, no active rule)';
+  }
+  if (e.scope === 'brand_model') return [e.brand, e.model].filter(Boolean).join(' ');
+  if (e.scope === 'brand_model_trim') return [e.brand, e.model, e.trim].filter(Boolean).join(' ');
+  return e.scope;
+}
+
+function renderList() {
+  const container = document.getElementById('scope-list');
+  if (!allExclusions.length) { container.innerHTML = '<span class="empty">No exclusion rules yet.</span>'; return; }
+
+  const scopes = ['listing_keyword', 'brand_model', 'brand_model_trim'];
+  container.innerHTML = scopes.map(scope => {
+    const rows = allExclusions.filter(e => e.scope === scope);
+    if (!rows.length) return '';
+    const [label, sub] = SCOPE_LABELS[scope] || [scope, ''];
+    return `
+      <div class="scope-block">
+        <div class="scope-heading">${label} <span>${escapeHtml(sub)}</span></div>
+        ${rows.map(e => `
+          <div class="ex-row ${e.active ? '' : 'inactive'}">
+            <div class="ex-main">
+              <div class="ex-title">${escapeHtml(exclusionLine(e))}${e.active ? '' : ' (inactive)'}</div>
+              <div class="ex-meta">${escapeHtml(e.reason || '')}${e.created_at ? ` &middot; ${escapeHtml(e.created_at)}` : ''}</div>
+            </div>
+            <button class="btn" data-id="${e.id}" data-active="${e.active}">${e.active ? 'Deactivate' : 'Reactivate'}</button>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }).join('');
+}
+
+document.getElementById('scope-list').addEventListener('click', async ev => {
+  const btn = ev.target.closest('button[data-id]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const currentlyActive = btn.dataset.active === 'true' || btn.dataset.active === '1';
+  btn.disabled = true;
+  await apiFetch(`/admin/market/exclusions/${id}`, { method: 'PATCH', body: JSON.stringify({ active: currentlyActive ? 0 : 1 }) });
+  await loadExclusions();
+});
+
+async function loadExclusions() {
+  const { res, data } = await apiFetch('/admin/market/exclusions');
+  if (!res.ok) return;
+  allExclusions = data.exclusions || [];
+  document.getElementById('active-count').textContent = `Active exclusion rules: ${data.active_count ?? allExclusions.filter(e => e.active).length}`;
+  renderList();
+}
+
+async function enterApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  await loadExclusions();
+}
+
+(async function init() {
+  const ok = await restoreSession();
+  if (ok) await enterApp();
+  else document.getElementById('login-screen').style.display = 'flex';
+})();
+</script>
+</body>
+</html>

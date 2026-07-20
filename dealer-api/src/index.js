@@ -6460,6 +6460,61 @@ function matchVehicleReference(refRows, { title, brand, model }) {
   return null;
 }
 
+// Word-boundary phrase containment — used for exclusion-rule matching so a
+// bare keyword like "project" doesn't false-match inside an unrelated word
+// (e.g. "Projector"). Pads both sides with spaces so the phrase must be
+// bounded by whitespace (or string start/end) on both ends.
+function haystackIncludesPhrase(haystackNorm, phraseNorm) {
+  if (!phraseNorm) return false;
+  return (' ' + haystackNorm + ' ').includes(' ' + phraseNorm + ' ');
+}
+
+async function loadActiveExclusions(env) {
+  const { results } = await env.DB.prepare(`SELECT * FROM market_exclusions WHERE active = 1`).all();
+  return results;
+}
+
+// Brand+model matching only answers "is this the right car" — it says
+// nothing about whether the listing is actually a complete, sellable
+// vehicle (auction sites also sell parts lots, bare chassis, and
+// explicitly-incomplete project cars under the same make/model — a "1973
+// Porsche 911T Project" selling for $26k is a completeness signal, not a
+// clean-example comp), nor whether it's the wrong trim/spec Jeff doesn't
+// track. market_exclusions accumulates all three kinds of rule — seeded
+// keyword defaults at build time, plus whatever Jeff flags via the "Not
+// relevant" action on /market (see adminMarketItemNotRelevant) — and this
+// runs as a second, independent hard filter alongside the watchlist/
+// vehicle_reference match, regardless of tier.
+function isExcludedByRules(exclusions, { title, brand, model }) {
+  const haystackNorm = normalizeMatchText([brand, model, title].filter(Boolean).join(' '));
+  for (const rule of exclusions) {
+    if (rule.scope === 'listing_keyword') {
+      if (rule.keyword && haystackIncludesPhrase(haystackNorm, normalizeMatchText(rule.keyword))) return true;
+    } else if (rule.scope === 'brand_model') {
+      if (!rule.brand || !rule.model) continue;
+      if (haystackIncludesPhrase(haystackNorm, normalizeMatchText(rule.brand)) && haystackIncludesPhrase(haystackNorm, normalizeMatchText(rule.model))) return true;
+    } else if (rule.scope === 'brand_model_trim') {
+      if (!rule.brand || !rule.model || !rule.trim) continue;
+      if (haystackIncludesPhrase(haystackNorm, normalizeMatchText(rule.brand))
+        && haystackIncludesPhrase(haystackNorm, normalizeMatchText(rule.model))
+        && haystackIncludesPhrase(haystackNorm, normalizeMatchText(rule.trim))) return true;
+    }
+  }
+  return false;
+}
+
+// Broader candidate list purely for the "Not relevant → parts/chassis/
+// project only" reason on the flag action — used to guess which keyword(s)
+// to log as a new listing_keyword rule from a flagged title, independent of
+// what's already enforced in market_exclusions.
+const NOT_RELEVANT_KEYWORD_CANDIDATES = [
+  'chassis', 'drivetrain only', 'parts car', 'parts only', 'for parts',
+  'project car', 'project', 'restoration project', 'non-running', 'non running',
+  'not running', 'no engine', 'missing engine', 'engine out',
+  'rolling shell', 'rolling chassis', 'salvage', 'basket case', 'donor car',
+  'shell only', 'parting out', 'stripped chassis', 'no title',
+];
+
 function extractYearFromTitle(title) {
   const m = /\b(19[5-9]\d|20[0-4]\d)\b/.exec(title || '');
   return m ? parseInt(m[0], 10) : null;
@@ -6507,6 +6562,7 @@ async function ingestAuctionResults(env) {
   const items = JSON.parse(match[1])?.items || [];
   const watchlistRows = await loadActiveWatchlist(env);
   const referenceRows = await loadVehicleReference(env);
+  const exclusionRows = await loadActiveExclusions(env);
 
   let inserted = 0, skipped = 0;
   for (const item of items.slice(0, 20)) {
@@ -6540,7 +6596,7 @@ async function ingestAuctionResults(env) {
     // discarded outright, not stored and down-ranked. (To tighten this to
     // watchlist-only matches, drop the `|| refMatch` below.)
     const refMatch = wlMatch ? null : matchVehicleReference(referenceRows, { title: item.title, brand: finalBrand, model: finalModel });
-    if (!wlMatch && !refMatch) { skipped++; continue; }
+    if ((!wlMatch && !refMatch) || isExcludedByRules(exclusionRows, { title: item.title, brand: finalBrand, model: finalModel })) { skipped++; continue; }
 
     const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = 'bat' AND source_url = ?`).bind(item.url).first();
     if (existing) continue;
@@ -6596,6 +6652,7 @@ async function ingestPCarMarketResults(env) {
   const items = data?.results || [];
   const watchlistRows = await loadActiveWatchlist(env);
   const referenceRows = await loadVehicleReference(env);
+  const exclusionRows = await loadActiveExclusions(env);
 
   let inserted = 0, skipped = 0;
   for (const item of items) {
@@ -6613,7 +6670,7 @@ async function ingestPCarMarketResults(env) {
 
     // Hard filter — see the matching comment in ingestAuctionResults.
     const refMatch = wlMatch ? null : matchVehicleReference(referenceRows, { title: item.title, brand, model });
-    if (!wlMatch && !refMatch) { skipped++; continue; }
+    if ((!wlMatch && !refMatch) || isExcludedByRules(exclusionRows, { title: item.title, brand, model })) { skipped++; continue; }
 
     const url = `https://www.pcarmarket.com/auction/${item.slug}`;
     const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = 'pcarmarket' AND source_url = ?`).bind(url).first();
@@ -6643,6 +6700,7 @@ async function ingestCollectingCarsResults(env) {
   if (!hits) throw new Error('Could not find Collecting Cars hits data blob');
   const watchlistRows = await loadActiveWatchlist(env);
   const referenceRows = await loadVehicleReference(env);
+  const exclusionRows = await loadActiveExclusions(env);
 
   let inserted = 0, skipped = 0;
   for (const hit of hits.slice(0, 20)) {
@@ -6665,7 +6723,7 @@ async function ingestCollectingCarsResults(env) {
 
     // Hard filter — see the matching comment in ingestAuctionResults.
     const refMatch = wlMatch ? null : matchVehicleReference(referenceRows, { title: hit.title, brand, model });
-    if (!wlMatch && !refMatch) { skipped++; continue; }
+    if ((!wlMatch && !refMatch) || isExcludedByRules(exclusionRows, { title: hit.title, brand, model })) { skipped++; continue; }
 
     const url = `https://collectingcars.com/for-sale/${hit.slug}`;
     const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = 'collectingcars' AND source_url = ?`).bind(url).first();
@@ -7196,7 +7254,10 @@ async function adminWatchlistBrands(request, env) {
   const pairs = [...watchlistPairs, ...referencePairs];
   const brands = [...new Set(pairs.map(r => r.brand))].sort();
   const models = [...new Set(pairs.map(r => r.model))].sort();
-  return json({ brands, models, pairs: watchlistPairs });
+  // `pairs` is the full brand+model union (not just watchlist) so the
+  // add-entry form can filter the Model datalist down to whatever's valid
+  // for the selected Make.
+  return json({ brands, models, pairs });
 }
 
 // Grouped-by-tier view for the /market exotic corner panel — joins matched
@@ -7244,6 +7305,7 @@ async function adminMarketExotic(request, env) {
 async function adminMarketCleanupJunkAuctions(request, env) {
   const watchlistRows = await loadActiveWatchlist(env);
   const referenceRows = await loadVehicleReference(env);
+  const exclusionRows = await loadActiveExclusions(env);
 
   const { results: items } = await env.DB.prepare(
     `SELECT id, title, brand, model FROM market_items WHERE type = 'auction'`
@@ -7254,7 +7316,8 @@ async function adminMarketCleanupJunkAuctions(request, env) {
   for (const item of items) {
     const wlMatch = matchExoticWatchlistRow(watchlistRows, { title: item.title, brand: item.brand, model: item.model });
     const refMatch = wlMatch ? null : matchVehicleReference(referenceRows, { title: item.title, brand: item.brand, model: item.model });
-    if (wlMatch || refMatch) continue;
+    const isJunk = (!wlMatch && !refMatch) || isExcludedByRules(exclusionRows, { title: item.title, brand: item.brand, model: item.model });
+    if (!isJunk) continue;
 
     await env.DB.prepare(`DELETE FROM market_items WHERE id = ?`).bind(item.id).run();
     deleted++;
@@ -7262,6 +7325,99 @@ async function adminMarketCleanupJunkAuctions(request, env) {
   }
 
   return json({ checked: items.length, deleted, kept: items.length - deleted, removed_titles: removedTitles });
+}
+
+// "Not relevant" action (spec: Update 3 self-service feedback loop) — hides
+// the flagged item immediately and, where the reason gives enough to work
+// with, logs a durable market_exclusions rule so the same kind of listing
+// is filtered at ingestion time going forward without a coding session.
+async function adminMarketItemNotRelevant(request, env, params) {
+  const id = params.id;
+  const body = await request.json().catch(() => ({}));
+  const reason = body.reason; // 'mismatch' | 'wrong_trim' | 'parts_project' | 'other'
+  const note = body.note?.trim() || null;
+
+  const item = await env.DB.prepare(`SELECT * FROM market_items WHERE id = ?`).bind(id).first();
+  if (!item) return json({ error: 'Item not found.' }, 404);
+
+  // Hide immediately regardless of reason — this is the one part of the
+  // action that always happens.
+  await env.DB.prepare(`UPDATE market_items SET expires_at = datetime('now') WHERE id = ?`).bind(id).run();
+
+  const exclusionsCreated = [];
+
+  if (reason === 'mismatch' && item.brand && item.model) {
+    const result = await env.DB.prepare(`
+      INSERT INTO market_exclusions (scope, brand, model, reason) VALUES ('brand_model', ?, ?, ?)
+    `).bind(item.brand, item.model, note || 'Flagged: not actually this car').run();
+    exclusionsCreated.push(result.meta.last_row_id);
+
+  } else if (reason === 'wrong_trim' && item.brand && item.model) {
+    // Trim isn't a column on market_items itself — only reachable via the
+    // matched watchlist row, if there is one. Without a trim to key off,
+    // a scope=brand_model_trim rule would have nothing to match against,
+    // so fall back to excluding at brand+model level instead.
+    let trim = null;
+    if (item.watchlist_id) {
+      const wl = await env.DB.prepare(`SELECT trim FROM exotic_watchlist WHERE id = ?`).bind(item.watchlist_id).first();
+      trim = wl?.trim || null;
+    }
+    if (trim) {
+      const result = await env.DB.prepare(`
+        INSERT INTO market_exclusions (scope, brand, model, trim, reason) VALUES ('brand_model_trim', ?, ?, ?, ?)
+      `).bind(item.brand, item.model, trim, note || 'Flagged: wrong trim/spec').run();
+      exclusionsCreated.push(result.meta.last_row_id);
+    } else {
+      const result = await env.DB.prepare(`
+        INSERT INTO market_exclusions (scope, brand, model, reason) VALUES ('brand_model', ?, ?, ?)
+      `).bind(item.brand, item.model, note || 'Flagged: wrong trim/spec (trim unknown, excluded at brand+model level)').run();
+      exclusionsCreated.push(result.meta.last_row_id);
+    }
+
+  } else if (reason === 'parts_project') {
+    const titleLower = (item.title || '').toLowerCase();
+    const detected = NOT_RELEVANT_KEYWORD_CANDIDATES.filter(k => titleLower.includes(k));
+    for (const kw of detected) {
+      const existingRule = await env.DB.prepare(
+        `SELECT id FROM market_exclusions WHERE scope = 'listing_keyword' AND keyword = ? AND active = 1`
+      ).bind(kw).first();
+      if (existingRule) continue; // already covered, no need for a duplicate row
+      const result = await env.DB.prepare(`
+        INSERT INTO market_exclusions (scope, keyword, reason) VALUES ('listing_keyword', ?, ?)
+      `).bind(kw, note || 'Flagged: parts/chassis/project only, not a complete vehicle').run();
+      exclusionsCreated.push(result.meta.last_row_id);
+    }
+
+  } else if (note) {
+    // 'other' (or an unrecognized reason) — nothing structured enough to
+    // assert an automated rule from free text, but keep the note visible in
+    // the exclusions admin list (inactive: it never gets applied at
+    // ingestion, isJunkListingTitle-equivalent checks skip keyword-less rows).
+    await env.DB.prepare(`
+      INSERT INTO market_exclusions (scope, reason, active) VALUES ('listing_keyword', ?, 0)
+    `).bind(note).run();
+  }
+
+  return json({ success: true, hidden_item_id: Number(id), exclusions_created: exclusionsCreated });
+}
+
+// ── Exclusions admin (market/exclusions.html) ───────────────────────
+async function adminListExclusions(request, env) {
+  const { results } = await env.DB.prepare(
+    `SELECT * FROM market_exclusions ORDER BY scope ASC, created_at DESC`
+  ).all();
+  return json({ exclusions: results, active_count: results.filter(r => r.active).length });
+}
+
+async function adminUpdateExclusion(request, env, params) {
+  const id = params.id;
+  const body = await request.json().catch(() => ({}));
+  const existing = await env.DB.prepare(`SELECT id FROM market_exclusions WHERE id = ?`).bind(id).first();
+  if (!existing) return json({ error: 'Exclusion rule not found.' }, 404);
+
+  await env.DB.prepare(`UPDATE market_exclusions SET active = ? WHERE id = ?`)
+    .bind(body.active ? 1 : 0, id).run();
+  return json({ success: true });
 }
 
 // Manual "run it now" trigger, same debug-route convention as
@@ -7473,6 +7629,9 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/admin/market/sources',            handler: adminMarketSources, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/market/exotic',              handler: adminMarketExotic, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/market/cleanup-junk-auctions', handler: adminMarketCleanupJunkAuctions, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/market/items/:id/not-relevant', handler: adminMarketItemNotRelevant, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/market/exclusions',          handler: adminListExclusions, auth: true, admin: true },
+  { method: 'PATCH', pattern: '/api/admin/market/exclusions/:id',      handler: adminUpdateExclusion, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/debug/market-test',         handler: debugMarketTest, auth: true, admin: true },
 
   // ── Exotic watchlist admin ──

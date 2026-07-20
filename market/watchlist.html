@@ -148,6 +148,7 @@ h1.title{font-family:'Archivo',sans-serif;font-size:1.7rem;font-weight:800;lette
 const API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';
 let authToken = localStorage.getItem('tem_dealer_token') || null;
 let allEntries = [];
+let allBrandModelPairs = [];
 
 async function apiFetch(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
@@ -352,10 +353,26 @@ async function loadWatchlist() {
   }
 
   if (brandsRes.ok) {
+    allBrandModelPairs = brandsData.pairs || [];
     document.getElementById('brand-list').innerHTML = (brandsData.brands || []).map(b => `<option value="${escapeHtml(b)}">`).join('');
-    document.getElementById('model-list').innerHTML = (brandsData.models || []).map(m => `<option value="${escapeHtml(m)}">`).join('');
+    updateModelOptions(document.getElementById('f-brand').value.trim());
   }
 }
+
+// Narrows the Model datalist to whatever's on file for the typed Make —
+// suggests, never blocks (an unrecognized brand just falls back to every
+// known model, and any typed value can still be saved either way).
+function updateModelOptions(brandFilter) {
+  const brandLower = brandFilter.toLowerCase();
+  const matches = brandFilter
+    ? allBrandModelPairs.filter(p => p.brand.toLowerCase() === brandLower)
+    : allBrandModelPairs;
+  const pool = matches.length ? matches : allBrandModelPairs;
+  const models = [...new Set(pool.map(p => p.model))].sort();
+  document.getElementById('model-list').innerHTML = models.map(m => `<option value="${escapeHtml(m)}">`).join('');
+}
+
+document.getElementById('f-brand').addEventListener('input', e => updateModelOptions(e.target.value.trim()));
 
 async function enterApp() {
   document.getElementById('login-screen').style.display = 'none';
