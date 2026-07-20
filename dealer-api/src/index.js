@@ -5872,12 +5872,15 @@ function taxonomyLookup(brand, model) {
 }
 
 // Display format from the spec: "{size} {body_style}" with a tier prefix
-// when not mainstream, e.g. "midsize sedan", "luxury midsize SUV".
+// when not mainstream, e.g. "midsize sedan", "luxury midsize SUV". size/tier
+// can be null for a DOM bucket that got rolled up to a broader granularity
+// (see rollupDomBySegment) — in that case just drop that part of the label
+// rather than printing "null".
 function segmentLabel({ body_style, size, tier }) {
   const bodyLabel = { sedan: 'sedan', suv_crossover: 'SUV', truck: 'truck', van: 'van', coupe_convertible: 'coupe/convertible', hatchback: 'hatchback' }[body_style] || body_style;
-  const sizeLabel = { subcompact: 'subcompact', compact: 'compact', midsize: 'midsize', fullsize: 'full-size' }[size] || size;
+  const sizeLabel = size ? ({ subcompact: 'subcompact', compact: 'compact', midsize: 'midsize', fullsize: 'full-size' }[size] || size) : '';
   const tierPrefix = tier && tier !== 'mainstream' ? `${tier} ` : '';
-  return `${tierPrefix}${sizeLabel} ${bodyLabel}`;
+  return `${tierPrefix}${sizeLabel ? sizeLabel + ' ' : ''}${bodyLabel}`;
 }
 
 function toSqliteDatetime(date) {
@@ -6002,13 +6005,26 @@ async function ingestNhtsaRecalls(env) {
 // ── Auto.dev inventory signals (Houston/Austin) ────────────────────
 // Anchored on a downtown zip per zone at a fixed radius — same shape as the
 // existing searchAutodevListings zip+distance call, just unfiltered by
-// make/model for a broad market read. DOM comes from the listing's own
-// createdAt field when Auto.dev provides one; market_inventory_watch is the
-// fallback (and a standing cross-check) for when it doesn't.
+// make/model for a broad market read.
+//
+// DOM is computed ONLY from closed (sold/delisted) listings, never as a
+// same-day snapshot of currently-active listings' current age — that metric
+// is inherently noisy (a small active-listing pool, often <15 per segment/
+// zone, means a few listings closing or posting can swing the average 20+
+// days overnight; this was a known bug in an earlier version of this
+// function). A listing is "closed" when it drops out of today's fetch after
+// having been open; DOM = last confirmed day - first seen day.
 const MARKET_INVENTORY_ANCHORS = {
   houston: { zip: '77002', distance: 30 },
   austin: { zip: '78701', distance: 30 },
 };
+
+// Minimum sample size to trust a bucket at its native granularity; below
+// this, roll up to a broader bucket (drop tier, then drop size). Below the
+// absolute floor even at the broadest (body_style-only) bucket, omit
+// entirely rather than show a small-N number.
+const DOM_MIN_PREFERRED_N = 15;
+const DOM_ABSOLUTE_FLOOR_N = 8;
 
 function autodevListingCreatedAt(raw) {
   const rawDate = raw.createdAt || raw.retailListing?.createdAt || raw.retailListing?.firstSeenDate || null;
@@ -6017,10 +6033,64 @@ function autodevListingCreatedAt(raw) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function daysBetweenDates(startDate, endDate) {
+  return Math.round((new Date(endDate + 'T00:00:00Z').getTime() - new Date(startDate + 'T00:00:00Z').getTime()) / 86400000);
+}
+
+function domBucketAvg(idxs, rows) {
+  const doms = idxs.map(i => rows[i].dom);
+  const n = doms.length;
+  return { dom: Math.round((doms.reduce((a, c) => a + c, 0) / n) * 10) / 10, n };
+}
+
+// Progressive rollup: emit the finest (body_style,size,tier) bucket where
+// n >= DOM_MIN_PREFERRED_N; for the rest, re-group by (body_style,size) and
+// emit those that clear the threshold; whatever's left rolls up to
+// body_style alone, shown only if it clears the absolute floor.
+function rollupDomBySegment(rows) {
+  const out = [];
+
+  const fullBuckets = new Map();
+  rows.forEach((r, i) => {
+    const key = `${r.body_style}|${r.size}|${r.tier}`;
+    if (!fullBuckets.has(key)) fullBuckets.set(key, { body_style: r.body_style, size: r.size, tier: r.tier, idxs: [] });
+    fullBuckets.get(key).idxs.push(i);
+  });
+  const leftoverAfterFull = [];
+  for (const b of fullBuckets.values()) {
+    if (b.idxs.length >= DOM_MIN_PREFERRED_N) out.push({ body_style: b.body_style, size: b.size, tier: b.tier, ...domBucketAvg(b.idxs, rows) });
+    else leftoverAfterFull.push(...b.idxs);
+  }
+
+  const dropTierBuckets = new Map();
+  leftoverAfterFull.forEach(i => {
+    const r = rows[i];
+    const key = `${r.body_style}|${r.size}`;
+    if (!dropTierBuckets.has(key)) dropTierBuckets.set(key, { body_style: r.body_style, size: r.size, idxs: [] });
+    dropTierBuckets.get(key).idxs.push(i);
+  });
+  const leftoverAfterDropTier = [];
+  for (const b of dropTierBuckets.values()) {
+    if (b.idxs.length >= DOM_MIN_PREFERRED_N) out.push({ body_style: b.body_style, size: b.size, tier: null, ...domBucketAvg(b.idxs, rows) });
+    else leftoverAfterDropTier.push(...b.idxs);
+  }
+
+  const dropSizeBuckets = new Map();
+  leftoverAfterDropTier.forEach(i => {
+    const key = rows[i].body_style;
+    if (!dropSizeBuckets.has(key)) dropSizeBuckets.set(key, { body_style: key, idxs: [] });
+    dropSizeBuckets.get(key).idxs.push(i);
+  });
+  for (const b of dropSizeBuckets.values()) {
+    if (b.idxs.length >= DOM_ABSOLUTE_FLOOR_N) out.push({ body_style: b.body_style, size: null, tier: null, ...domBucketAvg(b.idxs, rows) });
+    // else: omit — even the broadest bucket doesn't clear the absolute floor.
+  }
+
+  return out;
+}
+
 async function ingestAutodevInventorySignals(env) {
   const today = new Date().toISOString().slice(0, 10);
-  const domBySegment = new Map(); // "body_style|size|tier" -> { ...taxonomy, sum, count }
-  const regionAvgDom = {};
 
   for (const [region, anchor] of Object.entries(MARKET_INVENTORY_ANCHORS)) {
     const { ok, data } = await autodevFetch(env, '/listings', {
@@ -6028,67 +6098,81 @@ async function ingestAutodevInventorySignals(env) {
     });
     if (!ok || !Array.isArray(data?.data)) continue;
 
-    let domSum = 0, domCount = 0;
-
+    const seenVins = new Set();
     for (const raw of data.data) {
       const listing = mapAutodevListing(raw, 0);
       if (!listing.vin) continue;
+      seenVins.add(listing.vin);
       const taxonomy = taxonomyLookup(listing.make, listing.model);
-
-      let dom;
       const createdAt = autodevListingCreatedAt(raw);
-      if (createdAt) {
-        dom = Math.max(0, Math.round((Date.now() - createdAt.getTime()) / 86400000));
-      } else {
-        const existing = await env.DB.prepare('SELECT first_seen_date FROM market_inventory_watch WHERE vin = ?').bind(listing.vin).first();
-        dom = existing ? Math.round((Date.now() - new Date(existing.first_seen_date).getTime()) / 86400000) : 0;
-      }
+      const firstSeenDate = createdAt ? toSqliteDatetime(createdAt).slice(0, 10) : today;
 
       await env.DB.prepare(`
         INSERT INTO market_inventory_watch (vin, brand, model, body_style, size, tier, electrified, region, first_seen_date, last_seen_date)
         VALUES (?, ?, ?, ?, ?, ?, 'none', ?, ?, ?)
-        ON CONFLICT(vin) DO UPDATE SET last_seen_date = excluded.last_seen_date
+        ON CONFLICT(vin) DO UPDATE SET last_seen_date = excluded.last_seen_date, closed_date = NULL
       `).bind(listing.vin, listing.make, listing.model, taxonomy?.body_style ?? null, taxonomy?.size ?? null, taxonomy?.tier ?? null, region,
-        createdAt ? toSqliteDatetime(createdAt).slice(0, 10) : today, today).run();
-
-      domSum += dom; domCount++;
-
-      if (taxonomy) {
-        const segKey = `${taxonomy.body_style}|${taxonomy.size}|${taxonomy.tier}`;
-        const seg = domBySegment.get(segKey) || { ...taxonomy, sum: 0, count: 0 };
-        seg.sum += dom; seg.count++;
-        domBySegment.set(segKey, seg);
-      }
+        firstSeenDate, today).run();
     }
 
-    regionAvgDom[region] = domCount ? Math.round((domSum / domCount) * 10) / 10 : null;
+    // Anything still marked open for this region that wasn't in today's
+    // fetch just closed (sold or delisted) — this is the only place DOM
+    // gets computed, from (last confirmed day - first seen day).
+    const { results: openRows } = await env.DB.prepare(
+      `SELECT vin, body_style, size, tier, first_seen_date, last_seen_date FROM market_inventory_watch
+       WHERE region = ? AND closed_date IS NULL AND last_seen_date < ?`
+    ).bind(region, today).all();
+
+    for (const row of openRows) {
+      if (seenVins.has(row.vin)) continue;
+      const dom = Math.max(0, daysBetweenDates(row.first_seen_date, row.last_seen_date));
+      await env.DB.prepare(`UPDATE market_inventory_watch SET closed_date = ? WHERE vin = ?`).bind(today, row.vin).run();
+      if (row.body_style && row.size && row.tier) {
+        await env.DB.prepare(`
+          INSERT INTO market_closed_listings (vin, region, body_style, size, tier, dom, closed_date)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).bind(row.vin, region, row.body_style, row.size, row.tier, dom, today).run();
+      }
+    }
   }
 
-  const domSegmentArray = [...domBySegment.values()].map(s => ({
-    body_style: s.body_style, size: s.size, tier: s.tier, dom: Math.round((s.sum / s.count) * 10) / 10,
-  }));
+  const regionAvgDom = {};
+  let domSegmentArray = [];
+  for (const region of Object.keys(MARKET_INVENTORY_ANCHORS)) {
+    const { results: closedRows } = await env.DB.prepare(
+      `SELECT body_style, size, tier, dom FROM market_closed_listings WHERE region = ? AND closed_date > date('now', '-7 days')`
+    ).bind(region).all();
+
+    regionAvgDom[region] = closedRows.length >= DOM_ABSOLUTE_FLOOR_N
+      ? Math.round((closedRows.reduce((s, r) => s + r.dom, 0) / closedRows.length) * 10) / 10
+      : null;
+
+    domSegmentArray = domSegmentArray.concat(rollupDomBySegment(closedRows).map(b => ({ ...b, region })));
+  }
 
   // Week-over-week movers vs. yesterday's snapshot, surfaced as market_move
   // items so synthesis can call out "segment X now averaging Y days, up/down
   // from yesterday" without re-deriving it from raw rows itself. A ≥3-day
-  // swing floor keeps ordinary day-to-day wobble from reading as a "move".
+  // swing floor keeps ordinary day-to-day wobble from reading as a "move"
+  // (the 7-day trailing average already smooths most of that out).
   const yesterday = await env.DB.prepare(
     `SELECT dom_by_segment FROM market_daily WHERE day < ? ORDER BY day DESC LIMIT 1`
   ).bind(today).first();
   const priorSegments = yesterday?.dom_by_segment ? JSON.parse(yesterday.dom_by_segment) : [];
 
   for (const seg of domSegmentArray) {
-    const prior = priorSegments.find(p => p.body_style === seg.body_style && p.size === seg.size && p.tier === seg.tier);
+    const prior = priorSegments.find(p => p.region === seg.region && p.body_style === seg.body_style && p.size === seg.size && p.tier === seg.tier);
     if (!prior || prior.dom == null) continue;
     const delta = Math.round((seg.dom - prior.dom) * 10) / 10;
     if (Math.abs(delta) < 3) continue;
+    const regionLabel = seg.region === 'houston' ? 'Houston' : 'Austin';
     await env.DB.prepare(`
       INSERT INTO market_items (type, title, detail, source, body_style, size, tier, electrified, region, direction, magnitude, ingested_at, expires_at)
-      VALUES ('inventory_signal', ?, ?, 'autodev', ?, ?, ?, 'none', 'houston', ?, ?, datetime('now'), datetime('now', '+1 days'))
+      VALUES ('inventory_signal', ?, ?, 'autodev', ?, ?, ?, 'none', ?, ?, ?, datetime('now'), datetime('now', '+1 days'))
     `).bind(
-      `${segmentLabel(seg)} inventory ${delta > 0 ? 'sitting longer' : 'moving faster'} in Houston`,
-      `Averaging ${seg.dom} days on market, ${delta > 0 ? 'up' : 'down'} from ${prior.dom} yesterday.`,
-      seg.body_style, seg.size, seg.tier, delta > 0 ? 'up' : 'down', delta
+      `${segmentLabel(seg)} inventory ${delta > 0 ? 'sitting longer' : 'moving faster'} in ${regionLabel}`,
+      `Averaging ${seg.dom} days on market (7-day trailing, n=${seg.n}), ${delta > 0 ? 'up' : 'down'} from ${prior.dom} yesterday.`,
+      seg.body_style, seg.size, seg.tier, seg.region, delta > 0 ? 'up' : 'down', delta
     ).run();
   }
 
@@ -6273,12 +6357,110 @@ async function ingestIncentives(env) {
   console.log(`[market] incentives: ${inserted} inserted (${incentives.length} extracted) from CarsDirect`);
 }
 
+// ── Exotic watchlist matching ───────────────────────────────────────
+// Runtime-editable watchlist (see market/watchlist.html + adminWatchlist*
+// below) — matching works off raw title text rather than the TAXONOMY
+// model list, since classic exotics (360, F430, Murciélago, Gallardo, ...)
+// mostly aren't in TAXONOMY at all (that list only tracks current-gen
+// models for body_style/size/tier classification).
+function normalizeMatchText(s) {
+  return String(s ?? '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip diacritics: e.g. accented e -> plain e
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+// Word-boundary containment, with a guard against a plain trim (e.g. "GT3")
+// matching a title for a more decorated variant of the same car (e.g. a
+// "992 GT3 RS" listing shouldn't satisfy a watchlist row for plain "GT3").
+const TRIM_DISTINGUISHING_SUFFIXES = new Set(['rs', 's', 'speciale', 'stradale', 'pista', 'anniversario', 'performante']);
+function watchlistTrimMatches(haystackNorm, trimNorm) {
+  if (!trimNorm) return true;
+  const escaped = trimNorm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(^|\\s)${escaped}(\\s|$)`);
+  const m = re.exec(haystackNorm);
+  if (!m) return false;
+  const after = haystackNorm.slice(m.index + m[0].length).trim().split(/\s+/)[0] || '';
+  const trimWords = trimNorm.split(/\s+/);
+  const trimEndsWithSuffix = TRIM_DISTINGUISHING_SUFFIXES.has(trimWords[trimWords.length - 1]);
+  return trimEndsWithSuffix || !TRIM_DISTINGUISHING_SUFFIXES.has(after);
+}
+
+async function loadActiveWatchlist(env) {
+  const { results } = await env.DB.prepare(`SELECT * FROM exotic_watchlist WHERE active = 1`).all();
+  return results;
+}
+
+// haystack combines any structured brand/model already known plus the raw
+// title/detail text, so this works both for ingestion (title only) and
+// manual admin entries (structured brand/model fields).
+function matchExoticWatchlistRow(watchlistRows, { title, brand, model, year }) {
+  const haystackNorm = normalizeMatchText([brand, model, title].filter(Boolean).join(' '));
+  let best = null, bestScore = -1;
+  for (const row of watchlistRows) {
+    const brandNorm = normalizeMatchText(row.brand);
+    if (!haystackNorm.includes(brandNorm)) continue;
+    const modelNorm = normalizeMatchText(row.model);
+    if (modelNorm && !haystackNorm.includes(modelNorm)) continue;
+    if (year != null) {
+      if (row.year_start != null && year < row.year_start) continue;
+      if (row.year_end != null && year > row.year_end) continue;
+    }
+    const trimNorm = normalizeMatchText(row.trim);
+    if (row.trim && !watchlistTrimMatches(haystackNorm, trimNorm)) continue;
+
+    let score = 1;
+    if (row.trim) score += 2;
+    if (row.year_start != null || row.year_end != null) score += 1;
+    if (score > bestScore) { bestScore = score; best = row; }
+  }
+  return best;
+}
+
+// null = no mileage filter applies to this row, or mileage unknown (can't
+// confirm clean either way) — only 0/1 when it's actually verifiable.
+function computeBelowMileageThreshold(row, mileage) {
+  if (row.max_mileage == null || mileage == null) return null;
+  return mileage <= row.max_mileage ? 1 : 0;
+}
+
+function extractYearFromTitle(title) {
+  const m = /\b(19[5-9]\d|20[0-4]\d)\b/.exec(title || '');
+  return m ? parseInt(m[0], 10) : null;
+}
+
+function extractMileageFromTitle(title) {
+  const t = title || '';
+  let m = /(\d[\d,]*(?:\.\d+)?)\s*k[\s-]*mile/i.exec(t);
+  if (m) return Math.round(parseFloat(m[1].replace(/,/g, '')) * 1000);
+  m = /(\d[\d,]*)[\s-]*mile/i.exec(t);
+  if (m) return parseInt(m[1].replace(/,/g, ''), 10);
+  return null;
+}
+
 // ── Auction results (exotic corner) ─────────────────────────────────
-// Bring a Trailer's results page embeds a clean `auctionsCompletedInitialData`
-// JSON blob (confirmed live) — no HTML scraping needed. Cars & Bids'
-// past-auctions page is a client-rendered SPA with no equivalent embedded
-// data found; skipped for now (source string already makes it addable
-// later without a schema change).
+// Multiple sources per spec, each independent so one failing doesn't take
+// down the others (see runMarketIngestion). Confirmed live, one at a time:
+//   - Bring a Trailer: results page embeds a clean `auctionsCompletedInitialData`
+//     JSON blob — no HTML scraping needed.
+//   - PCarMarket: a genuine public JSON REST API sits under the site
+//     (discovered via the "next" pagination link embedded in the /results
+//     page) — /api/auctions/?status=sold&type=cars returns clean structured
+//     data (make/model/year/mileage_body/odometer_type/high_bid/status),
+//     no HTML parsing needed at all.
+//   - Collecting Cars: the /sold page embeds a full Algolia InstantSearch
+//     server-rendered state blob with a "hits" array of the same shape
+//     (productMake/modelName/productYear/priceSold/features.mileage) —
+//     extracted via extractJsonArrayAfterKey since it's deeply nested
+//     inside a larger state object, not a clean standalone blob like BaT's.
+//   - Cars & Bids: past-auctions page is a client-rendered SPA — the only
+//     embedded data is generic site-wide stats/reviews, not auction results;
+//     real data loads via a client-side API call this Worker can't easily
+//     reverse-engineer. Skipped (source string already makes it addable
+//     later without a schema change).
+//   - Classic.com: sits behind a Cloudflare bot-challenge (confirmed in the
+//     comp-search research above); skipped for the same reason.
 async function ingestAuctionResults(env) {
   const res = await fetch('https://bringatrailer.com/auctions/results/', {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)' },
@@ -6288,6 +6470,7 @@ async function ingestAuctionResults(env) {
   const match = html.match(/var auctionsCompletedInitialData = (\{.*?\});/s);
   if (!match) throw new Error('Could not find BaT results data blob');
   const items = JSON.parse(match[1])?.items || [];
+  const watchlistRows = await loadActiveWatchlist(env);
 
   let inserted = 0;
   for (const item of items.slice(0, 20)) {
@@ -6304,20 +6487,148 @@ async function ingestAuctionResults(env) {
       if (modelMatch) { taxonomy = modelMatch[1]; model = modelMatch[0].split('|')[1]; }
     }
 
+    const year = extractYearFromTitle(item.title);
+    const mileage = extractMileageFromTitle(item.title);
+    const wlMatch = matchExoticWatchlistRow(watchlistRows, { title: item.title, year });
+    const belowThreshold = wlMatch ? computeBelowMileageThreshold(wlMatch, mileage) : null;
+    // Fall back to the watchlist row's own brand/model when TAXONOMY (which
+    // only covers current-gen exotics) didn't catch this one — e.g. a 360
+    // Challenge Stradale still ends up with brand/model set, just no
+    // body_style/size yet (falls into the unmapped-taxonomy admin queue).
+    const finalBrand = brandEntry || wlMatch?.brand || null;
+    const finalModel = model || wlMatch?.model || null;
+
     const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = 'bat' AND source_url = ?`).bind(item.url).first();
     if (existing) continue;
 
     await env.DB.prepare(`
-      INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, direction, magnitude, ingested_at, expires_at)
-      VALUES ('auction', ?, ?, 'bat', ?, ?, ?, ?, ?, ?, 'none', 'national', 'neutral', ?, datetime('now'), datetime('now', '+14 days'))
+      INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, direction, magnitude, ingested_at, expires_at, mileage, watchlist_id, watchlist_tier, below_mileage_threshold)
+      VALUES ('auction', ?, ?, 'bat', ?, ?, ?, ?, ?, ?, 'none', 'national', 'neutral', ?, datetime('now'), datetime('now', '+14 days'), ?, ?, ?, ?)
     `).bind(
       item.title, `Sold for ${soldMatch[1]}.`, item.url,
-      brandEntry || null, model, taxonomy?.body_style ?? null, taxonomy?.size ?? null, taxonomy?.tier ?? 'exotic',
-      priceNum
+      finalBrand, finalModel, taxonomy?.body_style ?? null, taxonomy?.size ?? null, taxonomy?.tier ?? 'exotic',
+      priceNum, mileage, wlMatch?.id ?? null, wlMatch?.tier ?? null, belowThreshold
     ).run();
     inserted++;
   }
   console.log(`[market] auctions: ${inserted} BaT sales inserted`);
+}
+
+// Balanced-bracket scan for a JSON array embedded at "key":[ ... ] inside a
+// larger blob that isn't valid JSON on its own (e.g. Collecting Cars' full
+// page state) — a non-greedy regex can't safely bound nested arrays/objects,
+// so this walks the array tracking string/escape state until depth returns
+// to zero.
+function extractJsonArrayAfterKey(text, key) {
+  const marker = `"${key}":[`;
+  const start = text.indexOf(marker);
+  if (start === -1) return null;
+  const arrStart = start + marker.length - 1;
+  let depth = 0, inString = false, escape = false;
+  for (let i = arrStart; i < text.length; i++) {
+    const c = text[i];
+    if (inString) {
+      if (escape) escape = false;
+      else if (c === '\\') escape = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') { inString = true; continue; }
+    if (c === '[') depth++;
+    else if (c === ']') {
+      depth--;
+      if (depth === 0) return JSON.parse(text.slice(arrStart, i + 1));
+    }
+  }
+  return null;
+}
+
+async function ingestPCarMarketResults(env) {
+  const res = await fetch('https://www.pcarmarket.com/api/auctions/?limit=30&sort_by=ending_soon&status=sold&type=cars', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)', 'Accept': 'application/json' },
+  });
+  if (!res.ok) throw new Error(`PCarMarket API HTTP ${res.status}`);
+  const data = await res.json();
+  const items = data?.results || [];
+  const watchlistRows = await loadActiveWatchlist(env);
+
+  let inserted = 0;
+  for (const item of items) {
+    if (item.status_class !== 'sold' || !item.high_bid) continue; // active/reserve-not-met — not a completed sale
+    const url = `https://www.pcarmarket.com/auction/${item.slug}`;
+
+    const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = 'pcarmarket' AND source_url = ?`).bind(url).first();
+    if (existing) continue;
+
+    const brand = item.vehicle?.make || null;
+    const model = item.vehicle?.model || null;
+    const year = item.vehicle?.year || extractYearFromTitle(item.title);
+    let mileage = item.mileage_body != null ? Number(item.mileage_body) : extractMileageFromTitle(item.title);
+    if (mileage != null && item.odometer_type === 'km') mileage = Math.round(mileage * 0.621371);
+
+    const taxonomy = taxonomyLookup(brand, model);
+    const wlMatch = matchExoticWatchlistRow(watchlistRows, { title: item.title, brand, model, year });
+    const belowThreshold = wlMatch ? computeBelowMileageThreshold(wlMatch, mileage) : null;
+
+    await env.DB.prepare(`
+      INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, direction, magnitude, ingested_at, expires_at, mileage, watchlist_id, watchlist_tier, below_mileage_threshold)
+      VALUES ('auction', ?, ?, 'pcarmarket', ?, ?, ?, ?, ?, ?, 'none', 'national', 'neutral', ?, datetime('now'), datetime('now', '+14 days'), ?, ?, ?, ?)
+    `).bind(
+      item.title, `Sold for ${item.current_bid}.`, url,
+      brand || wlMatch?.brand || null, model || wlMatch?.model || null,
+      taxonomy?.body_style ?? null, taxonomy?.size ?? null, taxonomy?.tier ?? 'exotic',
+      item.high_bid, mileage, wlMatch?.id ?? null, wlMatch?.tier ?? null, belowThreshold
+    ).run();
+    inserted++;
+  }
+  console.log(`[market] auctions: ${inserted} PCarMarket sales inserted`);
+}
+
+async function ingestCollectingCarsResults(env) {
+  const res = await fetch('https://collectingcars.com/sold', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)' },
+  });
+  if (!res.ok) throw new Error(`Collecting Cars HTTP ${res.status}`);
+  const html = await res.text();
+  const hits = extractJsonArrayAfterKey(html, 'hits');
+  if (!hits) throw new Error('Could not find Collecting Cars hits data blob');
+  const watchlistRows = await loadActiveWatchlist(env);
+
+  let inserted = 0;
+  for (const hit of hits.slice(0, 20)) {
+    if (hit.listingStage !== 'sold' || hit.isSoldPriceHidden || !hit.priceSold) continue;
+    const url = `https://collectingcars.com/for-sale/${hit.slug}`;
+
+    const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = 'collectingcars' AND source_url = ?`).bind(url).first();
+    if (existing) continue;
+
+    const brand = hit.productMake || hit.vehicleMake || null;
+    const model = hit.modelName || null;
+    const year = hit.productYear ? parseInt(hit.productYear, 10) : (hit.features?.modelYear ? parseInt(hit.features.modelYear, 10) : null);
+
+    let mileage = null;
+    const mileageMatch = /([\d,]+)\s*(km|mi)/i.exec(hit.features?.mileage || '');
+    if (mileageMatch) {
+      const n = parseInt(mileageMatch[1].replace(/,/g, ''), 10);
+      mileage = /km/i.test(mileageMatch[2]) ? Math.round(n * 0.621371) : n;
+    }
+
+    const taxonomy = taxonomyLookup(brand, model);
+    const wlMatch = matchExoticWatchlistRow(watchlistRows, { title: hit.title, brand, model, year });
+    const belowThreshold = wlMatch ? computeBelowMileageThreshold(wlMatch, mileage) : null;
+
+    await env.DB.prepare(`
+      INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, direction, magnitude, ingested_at, expires_at, mileage, watchlist_id, watchlist_tier, below_mileage_threshold)
+      VALUES ('auction', ?, ?, 'collectingcars', ?, ?, ?, ?, ?, ?, 'none', 'national', 'neutral', ?, datetime('now'), datetime('now', '+14 days'), ?, ?, ?, ?)
+    `).bind(
+      hit.title, `Sold for ${(hit.currencyCode || '').toUpperCase()} ${Number(hit.priceSold).toLocaleString()}.`, url,
+      brand || wlMatch?.brand || null, model || wlMatch?.model || null,
+      taxonomy?.body_style ?? null, taxonomy?.size ?? null, taxonomy?.tier ?? 'exotic',
+      hit.priceSold, mileage, wlMatch?.id ?? null, wlMatch?.tier ?? null, belowThreshold
+    ).run();
+    inserted++;
+  }
+  console.log(`[market] auctions: ${inserted} Collecting Cars sales inserted`);
 }
 
 // ── News ─────────────────────────────────────────────────────────────
@@ -6357,7 +6668,11 @@ async function ingestNews(env) {
 async function cleanupExpiredMarketItems(env) {
   const deletedItems = await env.DB.prepare(`DELETE FROM market_items WHERE expires_at IS NOT NULL AND expires_at < datetime('now')`).run();
   const deletedWatch = await env.DB.prepare(`DELETE FROM market_inventory_watch WHERE last_seen_date < date('now', '-10 days')`).run();
-  console.log(`[market] cleanup: ${deletedItems.meta.changes} expired items, ${deletedWatch.meta.changes} stale inventory-watch rows removed`);
+  // 35 days is comfortably beyond the 7-day trailing window the DOM rollup
+  // reads from — kept a bit longer than strictly needed as a debugging
+  // buffer, without letting the table grow unbounded.
+  const deletedClosed = await env.DB.prepare(`DELETE FROM market_closed_listings WHERE closed_date < date('now', '-35 days')`).run();
+  console.log(`[market] cleanup: ${deletedItems.meta.changes} expired items, ${deletedWatch.meta.changes} stale inventory-watch rows, ${deletedClosed.meta.changes} old closed-listing rows removed`);
 }
 
 // ── Scoring + Samantha safety net ───────────────────────────────────
@@ -6399,9 +6714,21 @@ async function crossCheckPipelineMatches(env) {
 // among non-hot items, type weight dominates and recency breaks ties.
 const MARKET_TYPE_WEIGHTS = { incentive: 50, market_move: 35, recall: 40, inventory_signal: 30, auction: 20, news: 15 };
 
+// Tier 1 watchlist matches over the mileage threshold are still stored (for
+// trend context) but deprioritized — Jeff wants clean low-mile examples
+// surfaced first, not buried among higher-mileage cars (spec: exotic
+// watchlist matching logic).
+const WATCHLIST_TIER_BONUS = { 1: 25, 2: 10, 3: 5 };
+function watchlistScoreBonus(watchlistTier, belowMileageThreshold) {
+  if (!watchlistTier) return 0;
+  const base = WATCHLIST_TIER_BONUS[watchlistTier] ?? 0;
+  if (watchlistTier === 1 && belowMileageThreshold === 0) return -30;
+  return base;
+}
+
 async function scoreMarketItems(env) {
   const { results: items } = await env.DB.prepare(
-    `SELECT id, type, region, hot, ingested_at FROM market_items WHERE expires_at IS NULL OR expires_at > datetime('now')`
+    `SELECT id, type, region, hot, ingested_at, watchlist_tier, below_mileage_threshold FROM market_items WHERE expires_at IS NULL OR expires_at > datetime('now')`
   ).all();
 
   for (const item of items) {
@@ -6410,7 +6737,8 @@ async function scoreMarketItems(env) {
     const typeWeight = MARKET_TYPE_WEIGHTS[item.type] ?? 10;
     const regionBonus = item.type === 'incentive' && ['tx', 'houston', 'austin'].includes(item.region) ? 20 : 0;
     const hotBonus = item.hot ? 1000 : 0;
-    await env.DB.prepare(`UPDATE market_items SET score = ? WHERE id = ?`).bind(typeWeight + recencyScore + regionBonus + hotBonus, item.id).run();
+    const watchlistBonus = watchlistScoreBonus(item.watchlist_tier, item.below_mileage_threshold);
+    await env.DB.prepare(`UPDATE market_items SET score = ? WHERE id = ?`).bind(typeWeight + recencyScore + regionBonus + hotBonus + watchlistBonus, item.id).run();
   }
 }
 
@@ -6612,6 +6940,8 @@ async function runMarketIngestion(env) {
   await runIngestionSource(env, 'manheim', () => ingestManheimIndex(env));
   await runIngestionSource(env, 'carsdirect', () => ingestIncentives(env));
   await runIngestionSource(env, 'bat', () => ingestAuctionResults(env));
+  await runIngestionSource(env, 'pcarmarket', () => ingestPCarMarketResults(env));
+  await runIngestionSource(env, 'collectingcars', () => ingestCollectingCarsResults(env));
   await runIngestionSource(env, 'news', () => ingestNews(env));
 
   await cleanupExpiredMarketItems(env).catch(err => console.error('[market] cleanup failed', err));
@@ -6663,24 +6993,40 @@ async function adminMarketHistory(request, env) {
   return json({ history: results });
 }
 
+// Manual entry is a first-class source for Tier 1 exotics — those trade
+// privately/through dealer networks as much as at auction, so this is the
+// intended path for Jeff to log pricing intel heard through dealer
+// relationships (see exotic_watchlist notes). Runs the same watchlist match
+// as automated auction ingestion whenever brand/model/title looks exotic.
 async function adminCreateMarketItem(request, env) {
   const body = await request.json().catch(() => ({}));
   if (!body.title || !body.type) return json({ error: 'title and type are required.' }, 400);
 
   const taxonomy = taxonomyLookup(body.brand, body.model);
+  const year = body.year != null && body.year !== '' ? parseInt(body.year, 10) : extractYearFromTitle(body.title);
+  const mileage = body.mileage != null && body.mileage !== '' ? parseInt(body.mileage, 10) : extractMileageFromTitle(body.title);
+
+  let wlMatch = null, belowThreshold = null;
+  if (body.type === 'auction' || body.type === 'market_move') {
+    const watchlistRows = await loadActiveWatchlist(env);
+    wlMatch = matchExoticWatchlistRow(watchlistRows, { title: body.title, brand: body.brand, model: body.model, year });
+    belowThreshold = wlMatch ? computeBelowMileageThreshold(wlMatch, mileage) : null;
+  }
+
   const result = await env.DB.prepare(`
-    INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, direction, magnitude, ends_at, ingested_at, expires_at)
-    VALUES (?, ?, ?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+    INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, direction, magnitude, ends_at, ingested_at, expires_at, mileage, watchlist_id, watchlist_tier, below_mileage_threshold)
+    VALUES (?, ?, ?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?)
   `).bind(
     body.type, body.title, body.detail || null, body.source_url || null,
-    body.brand || null, body.model || null,
+    body.brand || wlMatch?.brand || null, body.model || wlMatch?.model || null,
     body.body_style || taxonomy?.body_style || null, body.size || taxonomy?.size || null,
     body.tier || taxonomy?.tier || null, body.electrified || 'none',
     body.region || 'national', body.direction || 'neutral', body.magnitude ?? null,
-    body.ends_at || null, body.expires_at || toSqliteDatetime(new Date(Date.now() + 30 * 24 * 3600 * 1000))
+    body.ends_at || null, body.expires_at || toSqliteDatetime(new Date(Date.now() + 30 * 24 * 3600 * 1000)),
+    mileage, wlMatch?.id ?? null, wlMatch?.tier ?? null, belowThreshold
   ).run();
 
-  return json({ success: true, id: result.meta.last_row_id });
+  return json({ success: true, id: result.meta.last_row_id, watchlist_match: wlMatch ? { id: wlMatch.id, tier: wlMatch.tier, brand: wlMatch.brand, model: wlMatch.model, trim: wlMatch.trim } : null });
 }
 
 // Ingested brand/model combos that fell through taxonomy.json with no
@@ -6715,6 +7061,110 @@ async function adminMapMarketTaxonomy(request, env) {
 async function adminMarketSources(request, env) {
   const { results } = await env.DB.prepare(`SELECT * FROM market_source_status ORDER BY source`).all();
   return json({ sources: results });
+}
+
+// ── Exotic watchlist admin (market/watchlist.html) ──────────────────
+// Runtime CRUD — no deploy/migration needed to add, edit, or retire a
+// watchlist entry (spec: self-service watchlist management). Deactivate
+// rather than hard-delete so history isn't lost.
+async function adminListWatchlist(request, env) {
+  const { results } = await env.DB.prepare(
+    `SELECT * FROM exotic_watchlist ORDER BY tier ASC, brand ASC, model ASC, trim ASC`
+  ).all();
+  const activeCount = results.filter(r => r.active).length;
+  return json({ entries: results, active_count: activeCount });
+}
+
+async function adminCreateWatchlistEntry(request, env) {
+  const body = await request.json().catch(() => ({}));
+  if (!body.brand || !body.model || !body.tier) return json({ error: 'brand, model, and tier are required.' }, 400);
+  const tier = parseInt(body.tier, 10);
+  if (![1, 2, 3].includes(tier)) return json({ error: 'tier must be 1, 2, or 3.' }, 400);
+
+  const result = await env.DB.prepare(`
+    INSERT INTO exotic_watchlist (brand, model, trim, year_start, year_end, tier, max_mileage, notes, active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+  `).bind(
+    body.brand.trim(), body.model.trim(), body.trim_level?.trim() || null,
+    body.year_start != null && body.year_start !== '' ? parseInt(body.year_start, 10) : null,
+    body.year_end != null && body.year_end !== '' ? parseInt(body.year_end, 10) : null,
+    tier,
+    body.max_mileage != null && body.max_mileage !== '' ? parseInt(body.max_mileage, 10) : null,
+    body.notes?.trim() || null
+  ).run();
+
+  return json({ success: true, id: result.meta.last_row_id });
+}
+
+async function adminUpdateWatchlistEntry(request, env, params) {
+  const id = params.id;
+  const body = await request.json().catch(() => ({}));
+  const existing = await env.DB.prepare(`SELECT * FROM exotic_watchlist WHERE id = ?`).bind(id).first();
+  if (!existing) return json({ error: 'Watchlist entry not found.' }, 404);
+
+  const tier = body.tier != null ? parseInt(body.tier, 10) : existing.tier;
+  if (![1, 2, 3].includes(tier)) return json({ error: 'tier must be 1, 2, or 3.' }, 400);
+
+  await env.DB.prepare(`
+    UPDATE exotic_watchlist SET
+      brand = ?, model = ?, trim = ?, year_start = ?, year_end = ?, tier = ?, max_mileage = ?, notes = ?, active = ?
+    WHERE id = ?
+  `).bind(
+    body.brand?.trim() || existing.brand,
+    body.model?.trim() || existing.model,
+    body.trim_level !== undefined ? (body.trim_level?.trim() || null) : existing.trim,
+    body.year_start !== undefined ? (body.year_start !== '' && body.year_start != null ? parseInt(body.year_start, 10) : null) : existing.year_start,
+    body.year_end !== undefined ? (body.year_end !== '' && body.year_end != null ? parseInt(body.year_end, 10) : null) : existing.year_end,
+    tier,
+    body.max_mileage !== undefined ? (body.max_mileage !== '' && body.max_mileage != null ? parseInt(body.max_mileage, 10) : null) : existing.max_mileage,
+    body.notes !== undefined ? (body.notes?.trim() || null) : existing.notes,
+    body.active != null ? (body.active ? 1 : 0) : existing.active,
+    id
+  ).run();
+
+  return json({ success: true });
+}
+
+// Distinct brand/model pairs already entered, for the admin form's
+// autocomplete (free-text fields, not a locked dropdown — new brands/models
+// should stay addable on the fly).
+async function adminWatchlistBrands(request, env) {
+  const { results } = await env.DB.prepare(
+    `SELECT DISTINCT brand, model FROM exotic_watchlist ORDER BY brand, model`
+  ).all();
+  const brands = [...new Set(results.map(r => r.brand))];
+  const models = [...new Set(results.map(r => r.model))];
+  return json({ brands, models, pairs: results });
+}
+
+// Grouped-by-tier view for the /market exotic corner panel — joins matched
+// auction items to their watchlist row so the frontend can show tier
+// headers and a "clean example" badge for below-threshold Tier 1 matches,
+// plus a short list of recent unmatched auction activity for context.
+async function adminMarketExotic(request, env) {
+  const { results: matched } = await env.DB.prepare(`
+    SELECT mi.id, mi.title, mi.detail, mi.source, mi.source_url, mi.brand, mi.model, mi.mileage,
+           mi.below_mileage_threshold, mi.ingested_at,
+           ew.tier AS watchlist_tier, ew.trim AS watchlist_trim, ew.notes AS watchlist_notes
+    FROM market_items mi
+    JOIN exotic_watchlist ew ON mi.watchlist_id = ew.id
+    WHERE mi.type = 'auction' AND (mi.expires_at IS NULL OR mi.expires_at > datetime('now'))
+    ORDER BY ew.tier ASC, mi.below_mileage_threshold DESC, mi.ingested_at DESC
+  `).all();
+
+  const tiers = [1, 2, 3].map(tier => ({
+    tier,
+    entries: matched.filter(m => m.watchlist_tier === tier),
+  }));
+
+  const { results: unmatched } = await env.DB.prepare(`
+    SELECT id, title, detail, source, source_url, brand, model, mileage, ingested_at
+    FROM market_items
+    WHERE type = 'auction' AND watchlist_id IS NULL AND (expires_at IS NULL OR expires_at > datetime('now'))
+    ORDER BY ingested_at DESC LIMIT 10
+  `).all();
+
+  return json({ tiers, unmatched });
 }
 
 // Manual "run it now" trigger, same debug-route convention as
@@ -6924,7 +7374,14 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/admin/market/unmapped',           handler: adminMarketUnmapped, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/market/unmapped',           handler: adminMapMarketTaxonomy, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/market/sources',            handler: adminMarketSources, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/market/exotic',              handler: adminMarketExotic, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/debug/market-test',         handler: debugMarketTest, auth: true, admin: true },
+
+  // ── Exotic watchlist admin ──
+  { method: 'GET',    pattern: '/api/admin/market/watchlist',         handler: adminListWatchlist, auth: true, admin: true },
+  { method: 'POST',   pattern: '/api/admin/market/watchlist',         handler: adminCreateWatchlistEntry, auth: true, admin: true },
+  { method: 'PATCH',  pattern: '/api/admin/market/watchlist/:id',     handler: adminUpdateWatchlistEntry, auth: true, admin: true },
+  { method: 'GET',    pattern: '/api/admin/market/watchlist/brands',  handler: adminWatchlistBrands, auth: true, admin: true },
 
   // ── Exotic-car comp search (on-demand, not part of The Tape) ──
   { method: 'POST',  pattern: '/api/admin/comps/search',              handler: adminCompSearch, auth: true, admin: true },

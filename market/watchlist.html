@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="robots" content="noindex, nofollow"/>
+<title>Exotic Watchlist — The Tape</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0c1420; --bg2:#121b2b; --bg3:#182238;
+  --text:#e8edf5; --text-dim:#8a97ab;
+  --accent:#d4b26a; --border:#24314a;
+  --green:#3ecf8e; --amber:#e0a940; --red:#e46862;
+  --shadow:0 8px 24px rgba(0,0,0,.35);
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#f5f2ea; --bg2:#ffffff; --bg3:#efeadf;
+    --text:#1a2233; --text-dim:#6b7280;
+    --accent:#8a6a12; --border:#ddd8cc;
+    --green:#1a7a4f; --amber:#8a5a10; --red:#a83a35;
+    --shadow:0 4px 16px rgba(20,20,10,.08);
+  }
+}
+html{background:var(--bg)}
+body{font-family:'IBM Plex Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh}
+.display{font-family:'Archivo',sans-serif}
+a{color:var(--accent)}
+button,input,select,textarea{font-family:inherit}
+
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+.login-card{width:100%;max-width:340px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:2rem;box-shadow:var(--shadow)}
+.login-card h1{font-family:'Archivo',sans-serif;font-size:1.3rem;font-weight:800;margin-bottom:.25rem}
+.login-card .sub{color:var(--text-dim);font-size:.78rem;margin-bottom:1.5rem}
+.login-card input{width:100%;padding:.7rem .85rem;margin-bottom:.75rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.85rem;outline:none}
+.login-card button{width:100%;padding:.75rem;background:var(--accent);color:var(--bg);border:none;border-radius:4px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:.75rem;cursor:pointer;margin-top:.25rem}
+.login-err{color:var(--red);font-size:.78rem;margin-top:.6rem;min-height:1em}
+
+#app{display:none}
+.wrap{max-width:920px;margin:0 auto;padding:1.25rem 1.25rem 3rem}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1.5rem}
+.eyebrow{font-size:.65rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.35rem}
+.back-link{font-size:.72rem;text-decoration:none;color:var(--text-dim)}
+.back-link:hover{color:var(--accent)}
+h1.title{font-family:'Archivo',sans-serif;font-size:1.7rem;font-weight:800;letter-spacing:-.01em}
+.count-sub{color:var(--text-dim);font-size:.85rem;margin-top:.2rem}
+.logout-link{font-size:.7rem;color:var(--text-dim);text-decoration:underline;cursor:pointer;background:none;border:none}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1.1rem;margin-bottom:1.25rem}
+.card h2{font-family:'Archivo',sans-serif;font-size:.95rem;font-weight:700;margin-bottom:.9rem}
+
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem .75rem}
+@media(min-width:640px){.form-grid{grid-template-columns:repeat(4,1fr)}}
+.form-grid label{display:flex;flex-direction:column;gap:.3rem;font-size:.68rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em}
+.form-grid input,.form-grid select,.form-grid textarea{padding:.55rem .65rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.82rem;outline:none}
+.form-grid input:focus,.form-grid select:focus,.form-grid textarea:focus{border-color:var(--accent)}
+.span-2{grid-column:span 2}
+.span-full{grid-column:1/-1}
+.form-actions{margin-top:.9rem;display:flex;gap:.6rem;align-items:center}
+.btn{padding:.6rem 1.1rem;background:var(--accent);color:var(--bg);border:none;border-radius:4px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:.72rem;cursor:pointer}
+.btn.secondary{background:transparent;color:var(--text-dim);border:1px solid var(--border)}
+.btn.small{padding:.4rem .7rem;font-size:.65rem}
+.form-err{color:var(--red);font-size:.75rem}
+.form-ok{color:var(--green);font-size:.75rem}
+
+.tier-block{margin-bottom:1.25rem}
+.tier-heading{font-family:'Archivo',sans-serif;font-size:.85rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:baseline;gap:.5rem}
+.tier-heading span{font-size:.65rem;color:var(--text-dim);font-weight:500;text-transform:none;letter-spacing:0}
+.wl-row{display:grid;grid-template-columns:1fr auto;gap:.75rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.wl-row:last-child{border-bottom:none}
+.wl-main{line-height:1.5}
+.wl-title{font-weight:600}
+.wl-meta{color:var(--text-dim);font-size:.74rem;margin-top:.15rem}
+.wl-row.inactive{opacity:.45}
+.wl-actions{display:flex;gap:.4rem}
+.empty{color:var(--text-dim);font-size:.8rem;font-style:italic}
+
+.edit-form{background:var(--bg3);border-radius:4px;padding:.8rem;margin-top:.5rem}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <h1 class="display">Exotic Watchlist</h1>
+    <div class="sub">THE EXACT MATCH &middot; INTERNAL</div>
+    <form id="login-form">
+      <input type="email" id="login-email" placeholder="Email" autocomplete="username" required/>
+      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required/>
+      <button type="submit" id="login-btn">Sign in</button>
+      <div class="login-err" id="login-err"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app">
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <div class="eyebrow">THE EXACT MATCH &middot; INTERNAL</div>
+        <a class="back-link" href="/market">&larr; Back to The Tape</a>
+        <h1 class="title display">Exotic Watchlist</h1>
+        <div class="count-sub" id="active-count">Active watchlist entries: —</div>
+      </div>
+      <button class="logout-link" id="logout-btn">Sign out</button>
+    </header>
+
+    <div class="card">
+      <h2>Add entry</h2>
+      <form id="add-form">
+        <div class="form-grid">
+          <label>Year start (optional)<input type="number" id="f-year-start" placeholder="any"/></label>
+          <label>Year end (optional)<input type="number" id="f-year-end" placeholder="and up"/></label>
+          <label>Make<input type="text" id="f-brand" list="brand-list" required/></label>
+          <label>Model<input type="text" id="f-model" list="model-list" required/></label>
+          <label>Trim (optional)<input type="text" id="f-trim" placeholder="e.g. GT3 RS"/></label>
+          <label>Tier
+            <select id="f-tier">
+              <option value="1">1 — Core focus</option>
+              <option value="2">2 — Modern halo</option>
+              <option value="3">3 — Ultra-luxury</option>
+            </select>
+          </label>
+          <label>Max mileage (optional)<input type="number" id="f-max-mileage" placeholder="no limit"/></label>
+          <label class="span-2">Notes (optional)<input type="text" id="f-notes"/></label>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn" id="add-btn">Add to watchlist</button>
+          <span class="form-err" id="add-err"></span>
+          <span class="form-ok" id="add-ok"></span>
+        </div>
+      </form>
+      <datalist id="brand-list"></datalist>
+      <datalist id="model-list"></datalist>
+    </div>
+
+    <div class="card" id="list-card">
+      <h2>Watchlist</h2>
+      <div id="tier-list"><span class="empty">Loading&hellip;</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';
+let authToken = localStorage.getItem('tem_dealer_token') || null;
+let allEntries = [];
+
+async function apiFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  const res = await fetch(`${API}${path}`, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  return { res, data };
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ── Auth ──
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  document.getElementById('login-btn').disabled = true;
+  const { res, data } = await apiFetch('/dealer/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+  document.getElementById('login-btn').disabled = false;
+  if (!res.ok) { errEl.textContent = data.error || 'Sign-in failed.'; return; }
+  if (data.dealer?.role !== 'admin') { errEl.textContent = 'This page is admin-only.'; return; }
+  authToken = data.token;
+  localStorage.setItem('tem_dealer_token', authToken);
+  enterApp();
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await apiFetch('/dealer/logout', { method: 'POST' }).catch(() => {});
+  authToken = null;
+  localStorage.removeItem('tem_dealer_token');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+});
+
+async function restoreSession() {
+  if (!authToken) return false;
+  const { res, data } = await apiFetch('/dealer/me').catch(() => ({ res: { ok: false }, data: {} }));
+  if (res.ok && data.role === 'admin') return true;
+  authToken = null;
+  localStorage.removeItem('tem_dealer_token');
+  return false;
+}
+
+// ── Rendering ──
+const TIER_LABELS = {
+  1: ['Tier 1', 'Core focus — low-mileage priority'],
+  2: ['Tier 2', 'Modern halo cars'],
+  3: ['Tier 3', 'Ultra-luxury, lighter tracking'],
+};
+
+function entryLine(e) {
+  const yearRange = e.year_start && e.year_end ? `${e.year_start}–${e.year_end}`
+    : e.year_start ? `${e.year_start}+`
+    : e.year_end ? `up to ${e.year_end}`
+    : 'any year';
+  const title = [e.brand, e.model, e.trim].filter(Boolean).join(' ');
+  const mileage = e.max_mileage ? `max ${Number(e.max_mileage).toLocaleString()} mi` : 'no mileage limit';
+  const meta = [yearRange, mileage, e.notes].filter(Boolean).join(' · ');
+  return { title, meta };
+}
+
+function renderList() {
+  const container = document.getElementById('tier-list');
+  if (!allEntries.length) { container.innerHTML = '<span class="empty">No watchlist entries yet.</span>'; return; }
+
+  container.innerHTML = [1, 2, 3].map(tier => {
+    const rows = allEntries.filter(e => e.tier === tier);
+    if (!rows.length) return '';
+    const [label, sub] = TIER_LABELS[tier];
+    return `
+      <div class="tier-block">
+        <div class="tier-heading">${label} <span>${escapeHtml(sub)}</span></div>
+        ${rows.map(e => {
+          const { title, meta } = entryLine(e);
+          return `
+            <div class="wl-row ${e.active ? '' : 'inactive'}" data-id="${e.id}">
+              <div class="wl-main">
+                <div class="wl-title">${escapeHtml(title)}${e.active ? '' : ' (inactive)'}</div>
+                <div class="wl-meta">${escapeHtml(meta)}</div>
+              </div>
+              <div class="wl-actions">
+                <button class="btn secondary small" data-action="edit" data-id="${e.id}">Edit</button>
+                <button class="btn secondary small" data-action="toggle" data-id="${e.id}">${e.active ? 'Deactivate' : 'Reactivate'}</button>
+              </div>
+            </div>
+            <div class="edit-slot" data-edit-slot="${e.id}"></div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }).join('');
+}
+
+function editFormHtml(e) {
+  return `
+    <div class="edit-form">
+      <div class="form-grid">
+        <label>Year start<input type="number" data-f="year_start" value="${e.year_start ?? ''}"/></label>
+        <label>Year end<input type="number" data-f="year_end" value="${e.year_end ?? ''}"/></label>
+        <label>Make<input type="text" data-f="brand" value="${escapeHtml(e.brand)}"/></label>
+        <label>Model<input type="text" data-f="model" value="${escapeHtml(e.model)}"/></label>
+        <label>Trim<input type="text" data-f="trim_level" value="${escapeHtml(e.trim || '')}"/></label>
+        <label>Tier
+          <select data-f="tier">
+            <option value="1" ${e.tier === 1 ? 'selected' : ''}>1 — Core focus</option>
+            <option value="2" ${e.tier === 2 ? 'selected' : ''}>2 — Modern halo</option>
+            <option value="3" ${e.tier === 3 ? 'selected' : ''}>3 — Ultra-luxury</option>
+          </select>
+        </label>
+        <label>Max mileage<input type="number" data-f="max_mileage" value="${e.max_mileage ?? ''}"/></label>
+        <label class="span-2">Notes<input type="text" data-f="notes" value="${escapeHtml(e.notes || '')}"/></label>
+      </div>
+      <div class="form-actions">
+        <button class="btn small" data-action="save" data-id="${e.id}">Save</button>
+        <button class="btn secondary small" data-action="cancel" data-id="${e.id}">Cancel</button>
+        <span class="form-err" data-err="${e.id}"></span>
+      </div>
+    </div>
+  `;
+}
+
+document.getElementById('tier-list').addEventListener('click', async ev => {
+  const btn = ev.target.closest('button[data-action]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+  const slot = document.querySelector(`[data-edit-slot="${id}"]`);
+
+  if (action === 'edit') {
+    const entry = allEntries.find(e => String(e.id) === String(id));
+    slot.innerHTML = editFormHtml(entry);
+    return;
+  }
+  if (action === 'cancel') {
+    slot.innerHTML = '';
+    return;
+  }
+  if (action === 'toggle') {
+    const entry = allEntries.find(e => String(e.id) === String(id));
+    btn.disabled = true;
+    await apiFetch(`/admin/market/watchlist/${id}`, { method: 'PATCH', body: JSON.stringify({ active: entry.active ? 0 : 1 }) });
+    await loadWatchlist();
+    return;
+  }
+  if (action === 'save') {
+    const form = slot.querySelector('.edit-form');
+    const fields = {};
+    form.querySelectorAll('[data-f]').forEach(input => { fields[input.dataset.f] = input.value; });
+    btn.disabled = true;
+    const { res, data } = await apiFetch(`/admin/market/watchlist/${id}`, { method: 'PATCH', body: JSON.stringify(fields) });
+    if (!res.ok) {
+      form.querySelector(`[data-err="${id}"]`).textContent = data.error || 'Save failed.';
+      btn.disabled = false;
+      return;
+    }
+    await loadWatchlist();
+  }
+});
+
+document.getElementById('add-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const errEl = document.getElementById('add-err');
+  const okEl = document.getElementById('add-ok');
+  errEl.textContent = ''; okEl.textContent = '';
+
+  const payload = {
+    year_start: document.getElementById('f-year-start').value,
+    year_end: document.getElementById('f-year-end').value,
+    brand: document.getElementById('f-brand').value.trim(),
+    model: document.getElementById('f-model').value.trim(),
+    trim_level: document.getElementById('f-trim').value.trim(),
+    tier: document.getElementById('f-tier').value,
+    max_mileage: document.getElementById('f-max-mileage').value,
+    notes: document.getElementById('f-notes').value.trim(),
+  };
+
+  document.getElementById('add-btn').disabled = true;
+  const { res, data } = await apiFetch('/admin/market/watchlist', { method: 'POST', body: JSON.stringify(payload) });
+  document.getElementById('add-btn').disabled = false;
+  if (!res.ok) { errEl.textContent = data.error || 'Could not add entry.'; return; }
+
+  okEl.textContent = 'Added.';
+  setTimeout(() => { okEl.textContent = ''; }, 2000);
+  document.getElementById('add-form').reset();
+  await loadWatchlist();
+});
+
+async function loadWatchlist() {
+  const [{ res: listRes, data: list }, { res: brandsRes, data: brandsData }] = await Promise.all([
+    apiFetch('/admin/market/watchlist'),
+    apiFetch('/admin/market/watchlist/brands'),
+  ]);
+
+  if (listRes.ok) {
+    allEntries = list.entries || [];
+    document.getElementById('active-count').textContent = `Active watchlist entries: ${list.active_count ?? allEntries.filter(e => e.active).length}`;
+    renderList();
+  }
+
+  if (brandsRes.ok) {
+    document.getElementById('brand-list').innerHTML = (brandsData.brands || []).map(b => `<option value="${escapeHtml(b)}">`).join('');
+    document.getElementById('model-list').innerHTML = (brandsData.models || []).map(m => `<option value="${escapeHtml(m)}">`).join('');
+  }
+}
+
+async function enterApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  await loadWatchlist();
+}
+
+(async function init() {
+  const ok = await restoreSession();
+  if (ok) await enterApp();
+  else document.getElementById('login-screen').style.display = 'flex';
+})();
+</script>
+</body>
+</html>

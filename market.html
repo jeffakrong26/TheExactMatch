@@ -120,6 +120,13 @@ h1.tape-title{font-family:'Archivo',sans-serif;font-size:2rem;font-weight:800;le
 .source-dot{width:6px;height:6px;border-radius:50%}
 .source-dot.ok{background:var(--green)} .source-dot.err{background:var(--red)} .source-dot.unknown{background:var(--text-dim)}
 
+/* ── Exotic corner: tier groups ── */
+.exotic-tier-heading{font-family:'Archivo',sans-serif;font-size:.82rem;font-weight:700;margin:.9rem 0 .4rem;display:flex;align-items:baseline;gap:.5rem}
+.exotic-tier-heading:first-child{margin-top:0}
+.exotic-tier-heading span{font-size:.65rem;color:var(--text-dim);font-weight:500}
+.clean-badge{background:var(--green);color:var(--bg);font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:.15rem .45rem;border-radius:10px;margin-left:.5rem;white-space:nowrap}
+.watchlist-link{font-size:.7rem;text-decoration:underline}
+
 .lens-hidden{display:none !important}
 </style>
 </head>
@@ -243,8 +250,12 @@ h1.tape-title{font-family:'Archivo',sans-serif;font-size:2rem;font-weight:800;le
     <div id="exotic-lens" class="lens-hidden">
       <div class="panel-grid">
         <div class="panel wide">
-          <h3>Exotic corner — recent auction results</h3>
-          <div id="panel-exotic"><span class="empty">No results to report.</span></div>
+          <h3>Exotic corner — watchlist matches <a class="watchlist-link" href="/market/watchlist">Manage watchlist &rarr;</a></h3>
+          <div id="panel-exotic-tiers"><span class="empty">No results to report.</span></div>
+        </div>
+        <div class="panel wide">
+          <h3>Other recent auction activity</h3>
+          <div id="panel-exotic-unmatched"><span class="empty">Nothing outside the watchlist recently.</span></div>
         </div>
       </div>
     </div>
@@ -347,11 +358,14 @@ const SAMPLE_BRIEF = {
 };
 
 // ── Segment label + DOM color, mirrors segmentLabel()/thresholds in dealer-api/src/index.js ──
+// seg.size/seg.tier can be null for a bucket rolled up to a broader
+// granularity (thin-sample guard) — omit that part of the label instead of
+// printing "null".
 function segmentLabel(seg) {
   const body = { sedan: 'sedan', suv_crossover: 'SUV', truck: 'truck', van: 'van', coupe_convertible: 'coupe/convertible', hatchback: 'hatchback' }[seg.body_style] || seg.body_style;
-  const size = { subcompact: 'subcompact', compact: 'compact', midsize: 'midsize', fullsize: 'full-size' }[seg.size] || seg.size;
+  const size = seg.size ? ({ subcompact: 'subcompact', compact: 'compact', midsize: 'midsize', fullsize: 'full-size' }[seg.size] || seg.size) : '';
   const tierPrefix = seg.tier && seg.tier !== 'mainstream' ? `${seg.tier} ` : '';
-  return `${tierPrefix}${size} ${body}`;
+  return `${tierPrefix}${size ? size + ' ' : ''}${body}`;
 }
 function domColor(dom) {
   if (dom < 30) return 'var(--green)';
@@ -420,10 +434,14 @@ function renderBarChart(segments) {
     const y = top + chartH - barH;
     const bw = barW * 0.7;
     const label = segmentLabel(s);
+    const title = `${label}: ${s.dom}d avg (7-day trailing, n=${s.n ?? '?'})`;
     return `
-      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" fill="${domColor(s.dom)}" rx="2"></rect>
-      <text x="${(x + bw / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" fill="var(--text)" font-size="9">${s.dom}</text>
-      <text x="${(x + bw / 2).toFixed(1)}" y="${h - labelH + 12}" text-anchor="middle" fill="var(--text-dim)" font-size="8" transform="rotate(20 ${(x + bw / 2).toFixed(1)} ${h - labelH + 12})">${escapeHtml(label)}</text>
+      <g>
+        <title>${escapeHtml(title)}</title>
+        <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" fill="${domColor(s.dom)}" rx="2"></rect>
+        <text x="${(x + bw / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" fill="var(--text)" font-size="9">${s.dom}</text>
+        <text x="${(x + bw / 2).toFixed(1)}" y="${h - labelH + 12}" text-anchor="middle" fill="var(--text-dim)" font-size="8" transform="rotate(20 ${(x + bw / 2).toFixed(1)} ${h - labelH + 12})">${escapeHtml(label)}</text>
+      </g>
     `;
   }).join('');
 
@@ -464,11 +482,48 @@ function renderPanels(brief) {
     : '<span class="empty">None yet.</span>';
 
   document.getElementById('panel-one-thing').textContent = brief.one_thing || '—';
+}
 
-  const exotic = brief.exotic || [];
-  document.getElementById('panel-exotic').innerHTML = exotic.length
-    ? exotic.map(x => `<div class="row-item"><a href="${escapeHtml(x.url)}" target="_blank" rel="noopener"><span class="rt">${escapeHtml(x.label)}</span></a><div class="rd">${escapeHtml(x.detail)}</div></div>`).join('')
-    : '<span class="empty">No results to report.</span>';
+const EXOTIC_TIER_LABELS = {
+  1: ['Tier 1', 'core focus'],
+  2: ['Tier 2', 'modern halo'],
+  3: ['Tier 3', 'ultra-luxury'],
+};
+
+function renderExoticCorner(data) {
+  const tiersEl = document.getElementById('panel-exotic-tiers');
+  const tiers = (data?.tiers || []).filter(t => t.entries && t.entries.length);
+  tiersEl.innerHTML = tiers.length
+    ? tiers.map(t => {
+        const [label, sub] = EXOTIC_TIER_LABELS[t.tier] || [`Tier ${t.tier}`, ''];
+        return `
+          <div class="exotic-tier-heading">${label} <span>${escapeHtml(sub)}</span></div>
+          ${t.entries.map(e => {
+            const clean = t.tier === 1 && e.below_mileage_threshold === 1;
+            const title = [e.brand, e.model, e.watchlist_trim].filter(Boolean).join(' ') || e.title;
+            return `
+              <div class="row-item">
+                <a href="${escapeHtml(e.source_url || '#')}" target="_blank" rel="noopener">
+                  <span class="rt">${escapeHtml(title)}</span>
+                </a>${clean ? '<span class="clean-badge">Clean example</span>' : ''}
+                <div class="rd">${escapeHtml(e.detail || '')}${e.mileage ? ` &middot; ${Number(e.mileage).toLocaleString()} mi` : ''}</div>
+              </div>
+            `;
+          }).join('')}
+        `;
+      }).join('')
+    : '<span class="empty">No watchlist matches yet.</span>';
+
+  const unmatchedEl = document.getElementById('panel-exotic-unmatched');
+  const unmatched = data?.unmatched || [];
+  unmatchedEl.innerHTML = unmatched.length
+    ? unmatched.map(e => `
+        <div class="row-item">
+          <a href="${escapeHtml(e.source_url || '#')}" target="_blank" rel="noopener"><span class="rt">${escapeHtml(e.title)}</span></a>
+          <div class="rd">${escapeHtml(e.detail || '')}${e.mileage ? ` &middot; ${Number(e.mileage).toLocaleString()} mi` : ''}</div>
+        </div>
+      `).join('')
+    : '<span class="empty">Nothing outside the watchlist recently.</span>';
 }
 
 function renderStats(data, brief) {
@@ -493,10 +548,11 @@ function renderSources(sources) {
 async function loadMarketData() {
   document.getElementById('tape-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-  const [{ res: todayRes, data: today }, { res: histRes, data: hist }, { res: srcRes, data: src }] = await Promise.all([
+  const [{ res: todayRes, data: today }, { res: histRes, data: hist }, { res: srcRes, data: src }, { res: exoticRes, data: exotic }] = await Promise.all([
     apiFetch('/admin/market/today'),
     apiFetch('/admin/market/history'),
     apiFetch('/admin/market/sources'),
+    apiFetch('/admin/market/exotic'),
   ]);
 
   const brief = (todayRes.ok && today.brief) ? today.brief : SAMPLE_BRIEF;
@@ -506,8 +562,9 @@ async function loadMarketData() {
   renderStats(todayRes.ok ? today : {}, brief);
   renderPanels(brief);
   renderLineChart(histRes.ok ? hist.history : []);
-  renderBarChart(todayRes.ok ? today.dom_by_segment : []);
+  renderBarChart(todayRes.ok ? (today.dom_by_segment || []).filter(s => s.region === 'houston') : []);
   renderSources(srcRes.ok ? src.sources : []);
+  renderExoticCorner(exoticRes.ok ? exotic : null);
 }
 
 async function enterApp() {
