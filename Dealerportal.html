@@ -649,6 +649,7 @@
       <button class="tab-btn active" onclick="switchTab('tab-find-leads')">Find My Car</button>
       <button class="tab-btn" onclick="switchTab('tab-leads')">Sell My Car<span class="tab-badge" data-section="sell_car"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-reports')">Reports<span class="tab-badge" data-section="find_car"></span></button>
+      <button class="tab-btn" onclick="switchTab('tab-saved-searches')">Saved Searches</button>
       <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers<span class="tab-badge" data-section="dealers"></span><span class="tab-badge" data-section="partner_applications"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-submissions')">Weekly Finds Submissions<span class="tab-badge" data-section="newsletter"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-messages')">Messages<span class="tab-badge" data-section="messages"></span></button>
@@ -674,6 +675,50 @@
       <div class="section-label">Vehicle Match Reports</div>
       <div id="admin-reports-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
       <div id="admin-reports-list"></div>
+    </div>
+
+    <!-- Tab: Saved Searches -->
+    <div class="tab-panel" id="tab-saved-searches">
+      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;border-bottom:none;padding-bottom:0;margin-bottom:1.5rem">
+        <span>Saved Searches</span>
+        <button class="btn-primary btn-sm btn-gold" style="width:auto" id="ss-add-toggle-btn" onclick="toggleSavedSearchForm()">+ New Search</button>
+      </div>
+
+      <div id="ss-add-form" style="display:none;margin-bottom:2rem;padding:1.25rem;background:var(--beige);border-radius:4px">
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Label <span class="required-mark">*</span></label><input type="text" id="ss-label" placeholder="e.g. GT3 RS under 20k mi"/></div>
+          <div class="dp-form-group"><label>Alert Email</label><input type="email" id="ss-alert-email" placeholder="theexactmatch@gmail.com"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Make</label><input type="text" id="ss-make" placeholder="Porsche"/></div>
+          <div class="dp-form-group"><label>Model</label><input type="text" id="ss-model" placeholder="911"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Trim</label><input type="text" id="ss-trim" placeholder="GT3 RS"/></div>
+          <div class="dp-form-group"><label>Zip</label><input type="text" id="ss-zip" placeholder="78701"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Year Min</label><input type="number" id="ss-year-min" placeholder="2018"/></div>
+          <div class="dp-form-group"><label>Year Max</label><input type="number" id="ss-year-max" placeholder="2024"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Max Price ($)</label><input type="number" id="ss-price-max" placeholder="200000"/></div>
+          <div class="dp-form-group"><label>Max Mileage</label><input type="number" id="ss-max-mileage" placeholder="20000"/></div>
+        </div>
+        <div class="dp-form-group">
+          <label>Condition</label>
+          <select id="ss-used">
+            <option value="">Either</option>
+            <option value="true">Used only</option>
+            <option value="false">New only</option>
+          </select>
+        </div>
+        <div class="dp-alert dp-alert-err" id="ss-add-error"></div>
+        <button class="btn-primary btn-sm btn-gold" style="width:auto" onclick="doCreateSavedSearch()">Save Search</button>
+      </div>
+
+      <div id="admin-saved-searches-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+      <div id="admin-saved-searches-list"></div>
     </div>
 
     <!-- Tab: Dealers (merged — trade-in dealer network above,
@@ -741,6 +786,18 @@
         <div class="dp-form-group">
           <label>Notes (optional)</label>
           <textarea id="admin-sv-description"></textarea>
+        </div>
+        <div class="dp-form-group">
+          <label>Visibility</label>
+          <select id="admin-sv-visibility" onchange="toggleAdminSvDealerPicker()">
+            <option value="highlights">Highlights (newsletter)</option>
+            <option value="network">All Dealers (Network)</option>
+            <option value="selected">Selected Dealers</option>
+          </select>
+        </div>
+        <div class="dp-form-group" id="admin-sv-dealer-picker" style="display:none">
+          <label>Dealers</label>
+          <div id="admin-sv-dealer-checkboxes" style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:2px;padding:.5rem;background:var(--white)"></div>
         </div>
         <button class="btn-primary" id="admin-submit-btn" onclick="doAdminSubmitVehicle()" style="max-width:260px">Submit Vehicle</button>
       </div>
@@ -916,6 +973,7 @@ function showView(id) {
     loadAdminSubmissions();
     loadAdminFindLeads();
     loadAdminReports();
+    loadSavedSearches();
     loadAdminLeads();
     loadAdminMessages();
     loadAdminDealers();
@@ -1050,9 +1108,20 @@ function routeAfterAuth() {
   if (currentDealer && currentDealer.role === 'admin') {
     isAdmin = true;
     showView('view-admin');
+    openSavedSearchFromLink();
   } else {
     enterDealerDash();
   }
+}
+
+// Email alert links land here as ?ss=<id> — jumps straight to that search's
+// matches instead of leaving the admin on the default Find My Car tab.
+async function openSavedSearchFromLink() {
+  const id = new URLSearchParams(window.location.search).get('ss');
+  if (!id) return;
+  switchTab('tab-saved-searches');
+  await loadSavedSearches();
+  if (document.getElementById(`ss-matches-${id}`)) toggleSavedSearchMatches(id);
 }
 
 function updateNavAuth(loggedIn) {
@@ -1675,7 +1744,7 @@ function switchTab(tabId) {
     b.classList.remove('active');
     if (panels[i]) panels[i].classList.remove('active');
   });
-  const tabIndex = ['tab-find-leads','tab-leads','tab-reports','tab-dealers','tab-submissions','tab-messages'].indexOf(tabId);
+  const tabIndex = ['tab-find-leads','tab-leads','tab-reports','tab-saved-searches','tab-dealers','tab-submissions','tab-messages'].indexOf(tabId);
   document.querySelectorAll('.tab-btn')[tabIndex]?.classList.add('active');
   document.getElementById(tabId)?.classList.add('active');
   // Note: switching tabs never clears a badge — only reviewing/approving/
@@ -1713,10 +1782,40 @@ function toggleAdminSubmitForm() {
   document.getElementById('admin-submit-toggle-btn').textContent = isHidden ? 'Cancel' : '+ Submit a Vehicle';
 }
 
+// Shows/hides the dealer checkbox list under the manual-submit form's
+// Visibility selector — only relevant when "Selected Dealers" is picked.
+function toggleAdminSvDealerPicker() {
+  const visibility = document.getElementById('admin-sv-visibility').value;
+  const picker = document.getElementById('admin-sv-dealer-picker');
+  if (visibility !== 'selected') { picker.style.display = 'none'; return; }
+  picker.style.display = 'block';
+  renderDealerCheckboxes('admin-sv-dealer-checkboxes', []);
+}
+
+// Shared by the manual-submit form and the per-submission "Selected Dealers"
+// picker — both just need a checkbox per dealer from ADMIN_DEALERS_CACHE,
+// with whichever ones are already targeted pre-checked.
+async function renderDealerCheckboxes(containerId, selectedIds) {
+  const box = document.getElementById(containerId);
+  if (!ADMIN_DEALERS_CACHE.length) await loadAdminDealers();
+  if (!ADMIN_DEALERS_CACHE.length) { box.innerHTML = '<span style="font-size:.78rem;color:var(--gray)">No dealers found.</span>'; return; }
+  box.innerHTML = ADMIN_DEALERS_CACHE.map(d => `
+    <label style="display:flex;align-items:center;gap:.5rem;font-size:.8rem;padding:.25rem 0">
+      <input type="checkbox" value="${d.id}" ${selectedIds.includes(d.id) ? 'checked' : ''}/>
+      ${escapeHtmlJs(d.dealership_name || d.name)}${d.dealership_name ? ` — ${escapeHtmlJs(d.name)}` : ''}
+    </label>
+  `).join('');
+}
+
+function checkedDealerIds(containerId) {
+  return Array.from(document.querySelectorAll(`#${containerId} input[type=checkbox]:checked`)).map(el => +el.value);
+}
+
 async function doAdminSubmitVehicle() {
   const listing_url = document.getElementById('admin-sv-listing-url').value.trim();
   const category    = document.getElementById('admin-sv-category').value;
   const description = document.getElementById('admin-sv-description').value.trim();
+  const visibility  = document.getElementById('admin-sv-visibility').value;
 
   document.getElementById('admin-submit-error').classList.remove('show');
   document.getElementById('admin-submit-success').classList.remove('show');
@@ -1726,14 +1825,24 @@ async function doAdminSubmitVehicle() {
     return;
   }
 
+  let dealer_ids;
+  if (visibility === 'selected') {
+    dealer_ids = checkedDealerIds('admin-sv-dealer-checkboxes');
+    if (!dealer_ids.length) {
+      showAlert('admin-submit-error', 'Select at least one dealer.');
+      return;
+    }
+  }
+
   setLoading('admin-submit-btn', true, 'Fetching listing…');
 
   // Same endpoint dealers use — an admin's own session is just a dealer
   // row with role='admin', so this attributes the submission to Jeff's
   // own account rather than needing a separate admin-only code path.
+  // visibility/dealer_ids are only honored server-side for admin sessions.
   const { res, data } = await apiFetch('/dealer/submit-vehicle', {
     method: 'POST',
-    body:   JSON.stringify({ listing_url, category, description })
+    body:   JSON.stringify({ listing_url, category, description, visibility, dealer_ids })
   }).catch(() => ({res:{ok:false},data:{error:'Connection error.'}}));
 
   setLoading('admin-submit-btn', false, null, 'Submit Vehicle');
@@ -1747,6 +1856,8 @@ async function doAdminSubmitVehicle() {
   document.getElementById('admin-sv-listing-url').value = '';
   document.getElementById('admin-sv-description').value = '';
   document.getElementById('admin-sv-category').value = '';
+  document.getElementById('admin-sv-visibility').value = 'highlights';
+  toggleAdminSvDealerPicker();
   loadAdminSubmissions();
 }
 
@@ -1786,10 +1897,11 @@ async function loadAdminSubmissions() {
         </div>
         <div class="item-card-actions">
           <span class="status-badge status-${s.status}">${s.status}</span>
-          <select class="visibility-select" style="font-size:.7rem;padding:.3rem .4rem;border:1px solid var(--border);border-radius:2px;background:var(--white);color:var(--navy)" onchange="adminSetVisibility(${s.id}, this.value)" title="Who this submission is visible to">
+          <select class="visibility-select" style="font-size:.7rem;padding:.3rem .4rem;border:1px solid var(--border);border-radius:2px;background:var(--white);color:var(--navy)" onchange="onAdminVisibilityChange(${s.id}, this.value)" title="Who this submission is visible to">
             <option value="highlights" ${s.visibility === 'highlights' ? 'selected' : ''}>Highlights</option>
             <option value="private" ${s.visibility === 'private' ? 'selected' : ''}>Private</option>
             <option value="network" ${s.visibility === 'network' ? 'selected' : ''}>Network</option>
+            <option value="selected" ${s.visibility === 'selected' ? 'selected' : ''}>Selected Dealers</option>
           </select>
           <button class="btn-primary btn-sm" onclick="toggleSubDetail(${s.id})" id="sub-review-btn-${s.id}">Review</button>
           ${s.status === 'pending' ? `
@@ -1801,6 +1913,12 @@ async function loadAdminSubmissions() {
           ` : ''}
           <button class="btn-primary btn-sm btn-danger" onclick="adminDeleteSubmission(${s.id})">Delete</button>
         </div>
+      </div>
+      <div id="sub-dealer-picker-${s.id}" style="display:${s.visibility === 'selected' ? 'block' : 'none'};margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+        <div style="font-size:.78rem;color:var(--gray);margin-bottom:.5rem">Visible only to the dealers checked below:</div>
+        <div id="sub-dealer-checkboxes-${s.id}" style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:2px;padding:.5rem;background:var(--white)"></div>
+        <button class="btn-primary btn-sm" style="margin-top:.5rem" onclick="saveSubDealerAccess(${s.id})">Save Dealers</button>
+        <span id="sub-dealer-save-msg-${s.id}" style="font-size:.75rem;margin-left:.5rem"></span>
       </div>
       <div id="sub-detail-${s.id}" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
         ${photos.length
@@ -1847,6 +1965,13 @@ async function loadAdminSubmissions() {
       </div>
     </div>
   `}).join('');
+
+  // Pre-populate the dealer picker for submissions already set to 'selected'
+  // so reopening the tab shows who's currently targeted, not a blank list.
+  subs.filter(s => s.visibility === 'selected').forEach(s => {
+    const selectedIds = (s.selected_dealer_ids || '').split(',').filter(Boolean).map(Number);
+    renderDealerCheckboxes(`sub-dealer-checkboxes-${s.id}`, selectedIds);
+  });
 }
 
 function toggleSubDetail(id) {
@@ -1927,11 +2052,40 @@ async function adminDeleteSubmission(id) {
   else alert('Delete failed.');
 }
 
-async function adminSetVisibility(id, visibility) {
-  const { res } = await apiFetch(`/admin/submissions/${id}`, { method: 'PATCH', body: JSON.stringify({ visibility }) })
+async function adminSetVisibility(id, visibility, dealer_ids) {
+  const { res } = await apiFetch(`/admin/submissions/${id}`, { method: 'PATCH', body: JSON.stringify({ visibility, dealer_ids }) })
     .catch(() => ({res:{ok:false}}));
   if (res.ok) loadAdminSubmissions();
   else alert('Failed to update visibility.');
+}
+
+// The dropdown fires this on every change. 'selected' can't be applied
+// immediately — the dealer checkboxes below still need to be checked
+// first — so it only reveals the picker; every other value takes effect
+// right away, same as before.
+function onAdminVisibilityChange(id, visibility) {
+  const picker = document.getElementById(`sub-dealer-picker-${id}`);
+  if (visibility !== 'selected') {
+    picker.style.display = 'none';
+    adminSetVisibility(id, visibility);
+    return;
+  }
+  picker.style.display = 'block';
+  renderDealerCheckboxes(`sub-dealer-checkboxes-${id}`, []);
+}
+
+async function saveSubDealerAccess(id) {
+  const dealerIds = checkedDealerIds(`sub-dealer-checkboxes-${id}`);
+  const msg = document.getElementById(`sub-dealer-save-msg-${id}`);
+  if (!dealerIds.length) { msg.textContent = 'Select at least one dealer.'; msg.style.color = 'var(--red)'; return; }
+  msg.textContent = 'Saving…'; msg.style.color = 'var(--gray)';
+
+  const { res, data } = await apiFetch(`/admin/submissions/${id}`, {
+    method: 'PATCH', body: JSON.stringify({ visibility: 'selected', dealer_ids: dealerIds })
+  }).catch(() => ({res:{ok:false},data:{}}));
+
+  if (!res.ok) { msg.textContent = data.error || 'Failed to save.'; msg.style.color = 'var(--red)'; return; }
+  loadAdminSubmissions();
 }
 
 async function adminUpdateSub(id, status) {
@@ -2192,6 +2346,145 @@ async function adminDeleteReport(code) {
   const { res } = await apiFetch(`/admin/reports/${code}`, { method: 'DELETE' }).catch(() => ({res:{ok:false}}));
   if (res.ok) loadAdminReports();
   else alert('Delete failed.');
+}
+
+// ── Saved Searches (save criteria, get emailed on new matches) ──────
+function toggleSavedSearchForm() {
+  const form = document.getElementById('ss-add-form');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+function savedSearchCriteriaSummary(s) {
+  const parts = [];
+  const vehicle = [s.year_min || s.year_max ? `${s.year_min || ''}${s.year_min || s.year_max ? '–' : ''}${s.year_max || ''}`.trim() : null, s.make, s.model, s.trim].filter(Boolean).join(' ');
+  if (vehicle) parts.push(vehicle);
+  if (s.price_max) parts.push(`≤ $${Number(s.price_max).toLocaleString()}`);
+  if (s.max_mileage) parts.push(`≤ ${Number(s.max_mileage).toLocaleString()} mi`);
+  if (s.zip) parts.push(`zip ${s.zip}`);
+  if (s.used === 1) parts.push('used only');
+  if (s.used === 0) parts.push('new only');
+  return parts.length ? parts.join(' · ') : 'No criteria set';
+}
+
+async function loadSavedSearches() {
+  document.getElementById('admin-saved-searches-loading').style.display = 'block';
+  document.getElementById('admin-saved-searches-list').innerHTML        = '';
+
+  const { res, data } = await apiFetch('/admin/saved-searches').catch(() => ({res:{ok:false},data:{}}));
+  document.getElementById('admin-saved-searches-loading').style.display = 'none';
+  if (!res.ok) return;
+
+  const searches = data.searches || [];
+  if (!searches.length) {
+    document.getElementById('admin-saved-searches-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-text">No saved searches yet.<br/>Add one and get emailed when new matching listings show up.</div></div>';
+    return;
+  }
+
+  document.getElementById('admin-saved-searches-list').innerHTML = searches.map(s => `
+    <div class="item-card" style="flex-direction:column;display:flex;gap:0">
+      <div style="display:grid;grid-template-columns:var(--card-grid-2);gap:1rem;align-items:start;width:100%">
+        <div>
+          <div class="item-card-title deal-clickable" onclick="toggleSavedSearchMatches(${s.id})">${escapeHtmlJs(s.label)}</div>
+          <div class="item-card-sub">${escapeHtmlJs(savedSearchCriteriaSummary(s))}</div>
+          <div class="item-card-meta">
+            <span class="status-badge ${s.active ? 'status-approved' : 'status-pending'}">${s.active ? 'active' : 'paused'}</span>
+            <span class="meta-pill" style="opacity:.6">${s.match_count} match${s.match_count === 1 ? '' : 'es'}</span>
+            <span class="meta-pill" style="opacity:.6">${s.last_checked_at ? 'last checked ' + formatDate(s.last_checked_at) : 'never checked'}</span>
+            <span class="meta-pill" style="opacity:.6">alerts to ${escapeHtmlJs(s.alert_email)}</span>
+          </div>
+        </div>
+        <div class="item-card-actions">
+          <div style="display:flex;gap:.5rem">
+            <button class="btn-primary btn-sm" id="ss-check-btn-${s.id}" onclick="doCheckSavedSearchNow(${s.id})">Check now</button>
+            <button class="btn-primary btn-sm ${s.active ? 'btn-danger' : 'btn-success'}" onclick="doToggleSavedSearch(${s.id}, ${s.active ? 'false' : 'true'})">${s.active ? 'Pause' : 'Resume'}</button>
+            <button class="icon-btn icon-btn-danger" onclick="doDeleteSavedSearch(${s.id})" title="Delete saved search">${ICON_TRASH}</button>
+          </div>
+        </div>
+      </div>
+      <div id="ss-matches-${s.id}" style="display:none;width:100%;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)"></div>
+    </div>
+  `).join('');
+}
+
+async function doCreateSavedSearch() {
+  const errEl = document.getElementById('ss-add-error');
+  errEl.classList.remove('show');
+
+  const label = document.getElementById('ss-label').value.trim();
+  const make  = document.getElementById('ss-make').value.trim();
+  const model = document.getElementById('ss-model').value.trim();
+  if (!label) { errEl.textContent = 'Label is required.'; errEl.classList.add('show'); return; }
+  if (!make && !model) { errEl.textContent = 'Enter at least a make or model.'; errEl.classList.add('show'); return; }
+
+  const usedVal = document.getElementById('ss-used').value;
+  const body = {
+    label,
+    make: make || undefined,
+    model: model || undefined,
+    trim_level: document.getElementById('ss-trim').value.trim() || undefined,
+    zip: document.getElementById('ss-zip').value.trim() || undefined,
+    year_min: document.getElementById('ss-year-min').value || undefined,
+    year_max: document.getElementById('ss-year-max').value || undefined,
+    price_max: document.getElementById('ss-price-max').value || undefined,
+    max_mileage: document.getElementById('ss-max-mileage').value || undefined,
+    used: usedVal === '' ? undefined : usedVal === 'true',
+    alert_email: document.getElementById('ss-alert-email').value.trim() || undefined,
+  };
+
+  const { res, data } = await apiFetch('/admin/saved-searches', { method: 'POST', body: JSON.stringify(body) })
+    .catch(() => ({res:{ok:false},data:{}}));
+  if (!res.ok) { errEl.textContent = data.error || 'Failed to save.'; errEl.classList.add('show'); return; }
+
+  ['ss-label','ss-alert-email','ss-make','ss-model','ss-trim','ss-zip','ss-year-min','ss-year-max','ss-price-max','ss-max-mileage'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('ss-used').value = '';
+  toggleSavedSearchForm();
+  loadSavedSearches();
+}
+
+async function doToggleSavedSearch(id, active) {
+  const { res } = await apiFetch(`/admin/saved-searches/${id}`, { method: 'PATCH', body: JSON.stringify({ active }) })
+    .catch(() => ({res:{ok:false}}));
+  if (res.ok) loadSavedSearches();
+  else alert('Failed to update.');
+}
+
+async function doDeleteSavedSearch(id) {
+  if (!confirm('Delete this saved search? Its match history goes with it. This cannot be undone.')) return;
+  const { res } = await apiFetch(`/admin/saved-searches/${id}`, { method: 'DELETE' }).catch(() => ({res:{ok:false}}));
+  if (res.ok) loadSavedSearches();
+  else alert('Delete failed.');
+}
+
+async function doCheckSavedSearchNow(id) {
+  setLoading(`ss-check-btn-${id}`, true, 'Checking…');
+  const { res, data } = await apiFetch(`/admin/saved-searches/${id}/check-now`, { method: 'POST' })
+    .catch(() => ({res:{ok:false},data:{}}));
+  setLoading(`ss-check-btn-${id}`, false, null, 'Check now');
+  if (!res.ok) { alert('Check failed.'); return; }
+  loadSavedSearches();
+  if (data.new_match_count > 0) alert(`${data.new_match_count} new match${data.new_match_count === 1 ? '' : 'es'} — emailed.`);
+}
+
+async function toggleSavedSearchMatches(id) {
+  const detail = document.getElementById(`ss-matches-${id}`);
+  const isOpen = detail.style.display === 'block';
+  if (isOpen) { detail.style.display = 'none'; return; }
+  detail.style.display = 'block';
+
+  detail.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--gray);font-size:.85rem">Loading...</div>';
+  const { res, data } = await apiFetch(`/admin/saved-searches/${id}/matches`).catch(() => ({res:{ok:false},data:{}}));
+  if (!res.ok) { detail.innerHTML = '<div style="color:var(--red);font-size:.82rem">Failed to load.</div>'; return; }
+
+  const matches = data.matches || [];
+  detail.innerHTML = matches.length ? matches.map(m => `
+    <div style="padding:.6rem 0;border-bottom:1px solid var(--border);font-size:.82rem">
+      <strong>${escapeHtmlJs([m.year, m.make, m.model, m.trim].filter(Boolean).join(' '))}</strong>
+      ${m.price ? ` — $${Number(m.price).toLocaleString()}` : ''}${m.mileage ? ` — ${Number(m.mileage).toLocaleString()} mi` : ''}
+      <div style="color:var(--gray);font-size:.75rem">${escapeHtmlJs([m.dealer_name, m.dealer_city, m.dealer_state].filter(Boolean).join(', '))} · found ${formatDate(m.first_seen)}</div>
+      ${m.vdp_url ? `<a href="${m.vdp_url}" target="_blank" style="font-size:.75rem">View listing →</a>` : ''}
+    </div>
+  `).join('') : '<div style="color:var(--gray);font-size:.82rem">No matches found yet.</div>';
 }
 
 // Keyed by report_code — lets the Regenerate modal pre-fill from the lead

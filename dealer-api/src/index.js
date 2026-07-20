@@ -44,8 +44,10 @@ function normalizeWebsiteUrl(input) {
 const VALID_SUB_STATUSES    = ['pending', 'approved', 'rejected', 'published', 'sold'];
 // 'highlights' = today's only behavior (candidate for the public newsletter);
 // 'private' = admin-only, never surfaced anywhere else (Max Motors' wholesale
-// flow); 'network' = browsable by other dealers on the Network Inventory tab.
-const VALID_SUBMISSION_VISIBILITY = ['highlights', 'private', 'network'];
+// flow); 'network' = browsable by other dealers on the Network Inventory tab;
+// 'selected' = browsable only by the dealers listed in
+// submission_dealer_access for that submission.
+const VALID_SUBMISSION_VISIBILITY = ['highlights', 'private', 'network', 'selected'];
 // 'pending'/'rejected'/'deactivated' added for the partner-network application
 // flow — dealers ARE partners, one status vocabulary for the one account type.
 const VALID_DEALER_STATUSES = ['active', 'suspended', 'pending', 'rejected', 'deactivated'];
@@ -309,6 +311,21 @@ async function submitVehicle(request, env, params, dealer) {
   if (!/^https?:\/\//i.test(listingUrl)) return json({ error: 'Please paste a full listing URL.' }, 400);
   if (!category) return json({ error: 'Category is required.' }, 400);
 
+  // Only an admin submitting through this shared endpoint (the "+ Submit a
+  // Vehicle" form on the Vehicle Submissions tab) may pick the audience
+  // explicitly — an ordinary dealer's visibility always comes from
+  // dealer.default_submission_visibility below, never from client input.
+  let explicitVisibility = null;
+  let selectedDealerIds = [];
+  if (dealer.role === 'admin' && 'visibility' in body) {
+    if (!VALID_SUBMISSION_VISIBILITY.includes(body.visibility)) return json({ error: 'Invalid visibility.' }, 400);
+    explicitVisibility = body.visibility;
+    if (explicitVisibility === 'selected') {
+      selectedDealerIds = Array.isArray(body.dealer_ids) ? body.dealer_ids.map(id => +id).filter(Boolean) : [];
+      if (!selectedDealerIds.length) return json({ error: 'Select at least one dealer.' }, 400);
+    }
+  }
+
   let html;
   try {
     const res = await fetch(listingUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchBot/1.0)' } });
@@ -358,10 +375,17 @@ async function submitVehicle(request, env, params, dealer) {
     structuredFields.vin || genericSpecs.vin || extracted.vin || null,
     exteriorColor, engine, transmission,
     category, notes, writeUp, listingUrl, photos[0] || null, JSON.stringify(photos),
-    dealer.default_submission_visibility || 'highlights'
+    explicitVisibility || dealer.default_submission_visibility || 'highlights'
   ).run();
 
-  return json({ success: true, id: result.meta.last_row_id, confidence: extracted.found_confidence });
+  const submissionId = result.meta.last_row_id;
+  if (selectedDealerIds.length) {
+    await env.DB.batch(selectedDealerIds.map(dealerId =>
+      env.DB.prepare('INSERT INTO submission_dealer_access (submission_id, dealer_id) VALUES (?, ?)').bind(submissionId, dealerId)
+    ));
+  }
+
+  return json({ success: true, id: submissionId, confidence: extracted.found_confidence });
 }
 
 // Seller contact info (name/email/phone/zip) only ever reaches a dealer once
@@ -606,16 +630,27 @@ async function networkInventory(request, env, params, dealer) {
             dealers.dealership_name as source_dealership_name,
             EXISTS(SELECT 1 FROM submission_interest WHERE submission_id = inventory_submissions.id AND dealer_id = ?) as i_expressed_interest
      FROM inventory_submissions JOIN dealers ON dealers.id = inventory_submissions.dealer_id
-     WHERE inventory_submissions.visibility = 'network' AND inventory_submissions.dealer_id != ?
+     WHERE (inventory_submissions.visibility = 'network'
+            OR (inventory_submissions.visibility = 'selected'
+                AND EXISTS(SELECT 1 FROM submission_dealer_access
+                           WHERE submission_id = inventory_submissions.id
+                           AND dealer_id = ?)))
+       AND inventory_submissions.dealer_id != ?
      ORDER BY inventory_submissions.created_at DESC`
-  ).bind(dealer.id, dealer.id).all();
+  ).bind(dealer.id, dealer.id, dealer.id).all();
 
   return json({ submissions: results.map(s => ({ ...s, i_expressed_interest: !!s.i_expressed_interest })) });
 }
 
 async function networkInventoryExpressInterest(request, env, params, dealer) {
   const submissionId = +params.id;
-  const submission = await env.DB.prepare(`SELECT id FROM inventory_submissions WHERE id = ? AND visibility = 'network'`).bind(submissionId).first();
+  const submission = await env.DB.prepare(`
+    SELECT id FROM inventory_submissions
+    WHERE id = ?
+      AND (visibility = 'network'
+           OR (visibility = 'selected'
+               AND EXISTS(SELECT 1 FROM submission_dealer_access WHERE submission_id = inventory_submissions.id AND dealer_id = ?)))
+  `).bind(submissionId, dealer.id).first();
   if (!submission) return json({ error: 'Listing not found.' }, 404);
 
   const body = await request.json().catch(() => ({}));
@@ -659,7 +694,8 @@ async function adminSubmissions(request, env) {
             inventory_submissions.write_up, inventory_submissions.listing_url, inventory_submissions.photo_url,
             inventory_submissions.image_urls, inventory_submissions.status, inventory_submissions.visibility, inventory_submissions.created_at,
             dealers.name as dealer_name, dealers.dealership_name,
-            (SELECT COUNT(*) FROM submission_interest WHERE submission_id = inventory_submissions.id) as interest_count
+            (SELECT COUNT(*) FROM submission_interest WHERE submission_id = inventory_submissions.id) as interest_count,
+            (SELECT GROUP_CONCAT(dealer_id) FROM submission_dealer_access WHERE submission_id = inventory_submissions.id) as selected_dealer_ids
      FROM inventory_submissions JOIN dealers ON dealers.id = inventory_submissions.dealer_id
      ORDER BY inventory_submissions.created_at DESC`
   ).all();
@@ -685,12 +721,26 @@ async function adminUpdateSubmission(request, env, params) {
   }
   if ('visibility' in body) {
     if (!VALID_SUBMISSION_VISIBILITY.includes(body.visibility)) return json({ error: 'Invalid visibility.' }, 400);
+    if (body.visibility === 'selected') {
+      const dealerIds = Array.isArray(body.dealer_ids) ? body.dealer_ids.map(id => +id).filter(Boolean) : [];
+      if (!dealerIds.length) return json({ error: 'Select at least one dealer.' }, 400);
+      body._selectedDealerIds = dealerIds;
+    }
     sets.push('visibility = ?'); values.push(body.visibility);
   }
   if (!sets.length) return json({ error: 'No editable fields provided.' }, 400);
 
-  values.push(+params.id);
+  const id = +params.id;
+  values.push(id);
   await env.DB.prepare(`UPDATE inventory_submissions SET ${sets.join(', ')} WHERE id = ?`).bind(...values).run();
+
+  if (body._selectedDealerIds) {
+    await env.DB.prepare('DELETE FROM submission_dealer_access WHERE submission_id = ?').bind(id).run();
+    await env.DB.batch(body._selectedDealerIds.map(dealerId =>
+      env.DB.prepare('INSERT INTO submission_dealer_access (submission_id, dealer_id) VALUES (?, ?)').bind(id, dealerId)
+    ));
+  }
+
   return json({ success: true });
 }
 
@@ -718,6 +768,12 @@ async function adminCreateSubmission(request, env, params, dealer) {
   const visibility = body.visibility || 'network';
   if (!VALID_SUBMISSION_VISIBILITY.includes(visibility)) return json({ error: 'Invalid visibility.' }, 400);
 
+  let dealerIds = [];
+  if (visibility === 'selected') {
+    dealerIds = Array.isArray(body.dealer_ids) ? body.dealer_ids.map(id => +id).filter(Boolean) : [];
+    if (!dealerIds.length) return json({ error: 'Select at least one dealer.' }, 400);
+  }
+
   const result = await env.DB.prepare(`
     INSERT INTO inventory_submissions (
       dealer_id, year, make, model, trim, mileage, asking_price, vin, exterior_color, engine, transmission,
@@ -733,7 +789,14 @@ async function adminCreateSubmission(request, env, params, dealer) {
     visibility
   ).run();
 
-  return json({ success: true, id: result.meta.last_row_id });
+  const submissionId = result.meta.last_row_id;
+  if (dealerIds.length) {
+    await env.DB.batch(dealerIds.map(dealerId =>
+      env.DB.prepare('INSERT INTO submission_dealer_access (submission_id, dealer_id) VALUES (?, ?)').bind(submissionId, dealerId)
+    ));
+  }
+
+  return json({ success: true, id: submissionId });
 }
 
 // Same fetch + schema.org/OG/Claude-fallback pipeline as adminScrapeListingUrl
@@ -7539,6 +7602,166 @@ async function adminMarketSources(request, env) {
   return json({ sources: results });
 }
 
+// ── Saved Searches (admin: save criteria, get emailed on new matches) ──
+// Reuses searchAutodevListings (no partnerDealers — this is Jeff's own
+// search, not a customer match) rather than a new data source. Dedupe is
+// keyed on vdp_url, not vin, since a relist under a new url should still
+// notify even for a vin already seen once.
+async function checkOneSavedSearch(env, search) {
+  const { listings } = await searchAutodevListings(env, {
+    make: search.make, model: search.model, trim: search.trim,
+    zip: search.zip, yearMin: search.year_min, yearMax: search.year_max,
+    priceMax: search.price_max, maxMileage: search.max_mileage,
+    used: search.used == null ? undefined : !!search.used,
+  });
+
+  const newMatches = [];
+  for (const l of listings) {
+    if (!l.vdp_url) continue;
+    const result = await env.DB.prepare(`
+      INSERT INTO saved_search_matches (saved_search_id, vin, vdp_url, year, make, model, trim, price, mileage, dealer_name, dealer_city, dealer_state)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(saved_search_id, vdp_url) DO NOTHING
+    `).bind(
+      search.id, l.vin || null, l.vdp_url, l.year ?? null, l.make || null, l.model || null, l.trim || null,
+      l.price ?? null, l.mileage ?? null, l.dealer_name || null, l.dealer_city || null, l.dealer_state || null
+    ).run();
+    if (result.meta.changes > 0) newMatches.push(l);
+  }
+
+  await env.DB.prepare(`UPDATE saved_searches SET last_checked_at = datetime('now') WHERE id = ?`).bind(search.id).run();
+
+  if (newMatches.length) {
+    await sendSavedSearchAlertEmail(env, search, newMatches);
+    await env.DB.prepare(`
+      UPDATE saved_search_matches SET notified_at = datetime('now')
+      WHERE saved_search_id = ? AND vdp_url IN (${newMatches.map(() => '?').join(',')}) AND notified_at IS NULL
+    `).bind(search.id, ...newMatches.map(l => l.vdp_url)).run();
+  }
+
+  return newMatches;
+}
+
+async function sendSavedSearchAlertEmail(env, search, newMatches) {
+  const rows = newMatches.slice(0, 5).map(l => `
+    <li>
+      <strong>${escapeHtml([l.year, l.make, l.model, l.trim].filter(Boolean).join(' '))}</strong>
+      ${l.price ? ` — $${Number(l.price).toLocaleString()}` : ''}${l.mileage ? ` — ${Number(l.mileage).toLocaleString()} mi` : ''}<br/>
+      ${escapeHtml([l.dealer_name, l.dealer_city, l.dealer_state].filter(Boolean).join(', '))}
+      ${l.vdp_url ? ` — <a href="${escapeHtml(l.vdp_url)}">View listing</a>` : ''}
+    </li>`).join('');
+  const more = newMatches.length > 5 ? `<p>+ ${newMatches.length - 5} more in the portal.</p>` : '';
+
+  await sendBrevoEmail(env, {
+    to: search.alert_email || MARKET_ADMIN_EMAIL,
+    subject: `${newMatches.length} new match${newMatches.length === 1 ? '' : 'es'}: ${search.label}`,
+    html: brandedEmailHtml(`
+      <p style="font-size:1.05rem;"><strong>${escapeHtml(search.label)}</strong> — ${newMatches.length} new match${newMatches.length === 1 ? '' : 'es'}</p>
+      <ul>${rows}</ul>
+      ${more}
+      <p style="text-align:center;margin-top:1.5rem;">
+        <a href="https://theexactmatch.com/Dealerportal.html?ss=${search.id}" style="display:inline-block;padding:.85rem 2rem;background:#0C1C33;color:#F5F0E8;text-decoration:none;border-radius:2px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-size:.8rem;">View Matches</a>
+      </p>
+    `),
+  });
+}
+
+// Runs on the daily 0 13 * * * UTC cron.
+async function checkSavedSearches(env) {
+  const { results: searches } = await env.DB.prepare(`SELECT * FROM saved_searches WHERE active = 1`).all();
+  for (const search of searches) {
+    try {
+      await checkOneSavedSearch(env, search);
+    } catch (err) {
+      console.error('[saved-search] check failed', search.id, search.label, err);
+    }
+  }
+}
+
+async function adminListSavedSearches(request, env) {
+  const { results } = await env.DB.prepare(`
+    SELECT s.*, (SELECT COUNT(*) FROM saved_search_matches m WHERE m.saved_search_id = s.id) AS match_count
+    FROM saved_searches s ORDER BY s.created_at DESC
+  `).all();
+  return json({ searches: results });
+}
+
+async function adminCreateSavedSearch(request, env) {
+  const body = await request.json().catch(() => ({}));
+  if (!body.label || !body.label.trim()) return json({ error: 'label is required.' }, 400);
+  if (!body.make && !body.model) return json({ error: 'At least make or model is required.' }, 400);
+
+  const result = await env.DB.prepare(`
+    INSERT INTO saved_searches (label, make, model, trim, year_min, year_max, price_max, max_mileage, zip, used, alert_email, active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+  `).bind(
+    body.label.trim(),
+    body.make?.trim() || null, body.model?.trim() || null, body.trim_level?.trim() || null,
+    body.year_min != null && body.year_min !== '' ? parseInt(body.year_min, 10) : null,
+    body.year_max != null && body.year_max !== '' ? parseInt(body.year_max, 10) : null,
+    body.price_max != null && body.price_max !== '' ? parseInt(body.price_max, 10) : null,
+    body.max_mileage != null && body.max_mileage !== '' ? parseInt(body.max_mileage, 10) : null,
+    body.zip?.trim() || null,
+    body.used === true ? 1 : (body.used === false ? 0 : null),
+    body.alert_email?.trim() || MARKET_ADMIN_EMAIL
+  ).run();
+
+  return json({ success: true, id: result.meta.last_row_id });
+}
+
+async function adminUpdateSavedSearch(request, env, params) {
+  const id = params.id;
+  const body = await request.json().catch(() => ({}));
+  const existing = await env.DB.prepare(`SELECT * FROM saved_searches WHERE id = ?`).bind(id).first();
+  if (!existing) return json({ error: 'Saved search not found.' }, 404);
+
+  await env.DB.prepare(`
+    UPDATE saved_searches SET
+      label = ?, make = ?, model = ?, trim = ?, year_min = ?, year_max = ?, price_max = ?, max_mileage = ?, zip = ?, used = ?, alert_email = ?, active = ?
+    WHERE id = ?
+  `).bind(
+    body.label !== undefined ? body.label.trim() : existing.label,
+    body.make !== undefined ? (body.make?.trim() || null) : existing.make,
+    body.model !== undefined ? (body.model?.trim() || null) : existing.model,
+    body.trim_level !== undefined ? (body.trim_level?.trim() || null) : existing.trim,
+    body.year_min !== undefined ? (body.year_min !== '' && body.year_min != null ? parseInt(body.year_min, 10) : null) : existing.year_min,
+    body.year_max !== undefined ? (body.year_max !== '' && body.year_max != null ? parseInt(body.year_max, 10) : null) : existing.year_max,
+    body.price_max !== undefined ? (body.price_max !== '' && body.price_max != null ? parseInt(body.price_max, 10) : null) : existing.price_max,
+    body.max_mileage !== undefined ? (body.max_mileage !== '' && body.max_mileage != null ? parseInt(body.max_mileage, 10) : null) : existing.max_mileage,
+    body.zip !== undefined ? (body.zip?.trim() || null) : existing.zip,
+    body.used !== undefined ? (body.used === true ? 1 : (body.used === false ? 0 : null)) : existing.used,
+    body.alert_email !== undefined ? (body.alert_email?.trim() || MARKET_ADMIN_EMAIL) : existing.alert_email,
+    body.active != null ? (body.active ? 1 : 0) : existing.active,
+    id
+  ).run();
+
+  return json({ success: true });
+}
+
+async function adminDeleteSavedSearch(request, env, params) {
+  const existing = await env.DB.prepare(`SELECT id FROM saved_searches WHERE id = ?`).bind(params.id).first();
+  if (!existing) return json({ error: 'Saved search not found.' }, 404);
+  await env.DB.prepare(`DELETE FROM saved_searches WHERE id = ?`).bind(params.id).run();
+  return json({ success: true });
+}
+
+async function adminListSavedSearchMatches(request, env, params) {
+  const existing = await env.DB.prepare(`SELECT id FROM saved_searches WHERE id = ?`).bind(params.id).first();
+  if (!existing) return json({ error: 'Saved search not found.' }, 404);
+  const { results } = await env.DB.prepare(
+    `SELECT * FROM saved_search_matches WHERE saved_search_id = ? ORDER BY first_seen DESC`
+  ).bind(params.id).all();
+  return json({ matches: results });
+}
+
+// On-demand check, for testing a new search or not waiting for the daily cron.
+async function adminCheckSavedSearchNow(request, env, params) {
+  const search = await env.DB.prepare(`SELECT * FROM saved_searches WHERE id = ?`).bind(params.id).first();
+  if (!search) return json({ error: 'Saved search not found.' }, 404);
+  const newMatches = await checkOneSavedSearch(env, search);
+  return json({ success: true, new_match_count: newMatches.length });
+}
+
 // ── Exotic watchlist admin (market/watchlist.html) ──────────────────
 // Runtime CRUD — no deploy/migration needed to add, edit, or retire a
 // watchlist entry (spec: self-service watchlist management). Deactivate
@@ -8451,6 +8674,14 @@ const ROUTES = [
   { method: 'PATCH',  pattern: '/api/admin/market/watchlist/:id',     handler: adminUpdateWatchlistEntry, auth: true, admin: true },
   { method: 'GET',    pattern: '/api/admin/market/watchlist/brands',  handler: adminWatchlistBrands, auth: true, admin: true },
 
+  // ── Saved Searches admin (Dealerportal.html) ──
+  { method: 'GET',    pattern: '/api/admin/saved-searches',              handler: adminListSavedSearches, auth: true, admin: true },
+  { method: 'POST',   pattern: '/api/admin/saved-searches',              handler: adminCreateSavedSearch, auth: true, admin: true },
+  { method: 'PATCH',  pattern: '/api/admin/saved-searches/:id',          handler: adminUpdateSavedSearch, auth: true, admin: true },
+  { method: 'DELETE', pattern: '/api/admin/saved-searches/:id',          handler: adminDeleteSavedSearch, auth: true, admin: true },
+  { method: 'GET',    pattern: '/api/admin/saved-searches/:id/matches',  handler: adminListSavedSearchMatches, auth: true, admin: true },
+  { method: 'POST',   pattern: '/api/admin/saved-searches/:id/check-now', handler: adminCheckSavedSearchNow, auth: true, admin: true },
+
   // ── Exotic-car comp search (on-demand, not part of The Tape) ──
   { method: 'POST',  pattern: '/api/admin/comps/search',              handler: adminCompSearch, auth: true, admin: true },
 ];
@@ -8565,6 +8796,8 @@ export default {
       ctx.waitUntil(cleanupStaleRecords(env));
     } else if (event.cron === '0 11 * * *') {
       ctx.waitUntil(runMarketIngestion(env).catch(err => console.error('[market] runMarketIngestion failed', err)));
+    } else if (event.cron === '0 13 * * *') {
+      ctx.waitUntil(checkSavedSearches(env).catch(err => console.error('[saved-search] checkSavedSearches failed', err)));
     } else {
       ctx.waitUntil(sweepPartnerTimers(env).catch(err => console.error('sweepPartnerTimers failed', err)));
     }
