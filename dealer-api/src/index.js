@@ -6425,6 +6425,41 @@ function computeBelowMileageThreshold(row, mileage) {
   return mileage <= row.max_mileage ? 1 : 0;
 }
 
+async function loadVehicleReference(env) {
+  const { results } = await env.DB.prepare(`SELECT * FROM vehicle_reference`).all();
+  return results;
+}
+
+// Broader gate than the watchlist: is this even an exotic/supercar/
+// hypercar/luxury/sports-brand vehicle at all, independent of Jeff's
+// curated tiers? Used as the hard ingestion filter for auction sources —
+// see the skip-if-neither-matches check in ingestAuctionResults et al.
+//
+// Short/common model tokens (e.g. Ford "GT", BMW "M3") are ambiguous as a
+// bare substring — "Ford Mustang GT" would otherwise false-match the "Ford
+// GT" supercar row just because both words appear somewhere in the title.
+// Multi-word model strings (e.g. "Continental GT", "Challenger Hellcat")
+// already enforce adjacency via substring matching, so only single-token
+// models need the explicit brand+model-adjacent-phrase guard.
+function matchVehicleReference(refRows, { title, brand, model }) {
+  const haystackNorm = normalizeMatchText([brand, model, title].filter(Boolean).join(' '));
+  for (const row of refRows) {
+    const brandNorm = normalizeMatchText(row.brand);
+    if (!haystackNorm.includes(brandNorm)) continue;
+    const modelNorm = normalizeMatchText(row.model);
+    if (!modelNorm) continue;
+
+    if (!modelNorm.includes(' ') && modelNorm.length <= 3) {
+      const phrase = `${brandNorm} ${modelNorm}`;
+      if (haystackNorm.includes(phrase)) return row;
+      continue;
+    }
+
+    if (haystackNorm.includes(modelNorm)) return row;
+  }
+  return null;
+}
+
 function extractYearFromTitle(title) {
   const m = /\b(19[5-9]\d|20[0-4]\d)\b/.exec(title || '');
   return m ? parseInt(m[0], 10) : null;
@@ -6471,8 +6506,9 @@ async function ingestAuctionResults(env) {
   if (!match) throw new Error('Could not find BaT results data blob');
   const items = JSON.parse(match[1])?.items || [];
   const watchlistRows = await loadActiveWatchlist(env);
+  const referenceRows = await loadVehicleReference(env);
 
-  let inserted = 0;
+  let inserted = 0, skipped = 0;
   for (const item of items.slice(0, 20)) {
     const soldMatch = /Sold for ([A-Z]+ \$[\d,]+)/.exec(item.sold_text || '');
     if (!soldMatch) continue; // reserve-not-met / bid-to-only — not a completed sale
@@ -6498,6 +6534,14 @@ async function ingestAuctionResults(env) {
     const finalBrand = brandEntry || wlMatch?.brand || null;
     const finalModel = model || wlMatch?.model || null;
 
+    // Hard filter: BaT sells everything from trucks to motorcycles to
+    // project-car chassis alongside genuine exotics — a listing matching
+    // neither the curated watchlist nor the broader reference table is
+    // discarded outright, not stored and down-ranked. (To tighten this to
+    // watchlist-only matches, drop the `|| refMatch` below.)
+    const refMatch = wlMatch ? null : matchVehicleReference(referenceRows, { title: item.title, brand: finalBrand, model: finalModel });
+    if (!wlMatch && !refMatch) { skipped++; continue; }
+
     const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = 'bat' AND source_url = ?`).bind(item.url).first();
     if (existing) continue;
 
@@ -6511,7 +6555,7 @@ async function ingestAuctionResults(env) {
     ).run();
     inserted++;
   }
-  console.log(`[market] auctions: ${inserted} BaT sales inserted`);
+  console.log(`[market] auctions: ${inserted} BaT sales inserted, ${skipped} non-exotic listings filtered out`);
 }
 
 // Balanced-bracket scan for a JSON array embedded at "key":[ ... ] inside a
@@ -6551,14 +6595,11 @@ async function ingestPCarMarketResults(env) {
   const data = await res.json();
   const items = data?.results || [];
   const watchlistRows = await loadActiveWatchlist(env);
+  const referenceRows = await loadVehicleReference(env);
 
-  let inserted = 0;
+  let inserted = 0, skipped = 0;
   for (const item of items) {
     if (item.status_class !== 'sold' || !item.high_bid) continue; // active/reserve-not-met — not a completed sale
-    const url = `https://www.pcarmarket.com/auction/${item.slug}`;
-
-    const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = 'pcarmarket' AND source_url = ?`).bind(url).first();
-    if (existing) continue;
 
     const brand = item.vehicle?.make || null;
     const model = item.vehicle?.model || null;
@@ -6569,6 +6610,14 @@ async function ingestPCarMarketResults(env) {
     const taxonomy = taxonomyLookup(brand, model);
     const wlMatch = matchExoticWatchlistRow(watchlistRows, { title: item.title, brand, model, year });
     const belowThreshold = wlMatch ? computeBelowMileageThreshold(wlMatch, mileage) : null;
+
+    // Hard filter — see the matching comment in ingestAuctionResults.
+    const refMatch = wlMatch ? null : matchVehicleReference(referenceRows, { title: item.title, brand, model });
+    if (!wlMatch && !refMatch) { skipped++; continue; }
+
+    const url = `https://www.pcarmarket.com/auction/${item.slug}`;
+    const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = 'pcarmarket' AND source_url = ?`).bind(url).first();
+    if (existing) continue;
 
     await env.DB.prepare(`
       INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, direction, magnitude, ingested_at, expires_at, mileage, watchlist_id, watchlist_tier, below_mileage_threshold)
@@ -6581,7 +6630,7 @@ async function ingestPCarMarketResults(env) {
     ).run();
     inserted++;
   }
-  console.log(`[market] auctions: ${inserted} PCarMarket sales inserted`);
+  console.log(`[market] auctions: ${inserted} PCarMarket sales inserted, ${skipped} non-exotic listings filtered out`);
 }
 
 async function ingestCollectingCarsResults(env) {
@@ -6593,14 +6642,11 @@ async function ingestCollectingCarsResults(env) {
   const hits = extractJsonArrayAfterKey(html, 'hits');
   if (!hits) throw new Error('Could not find Collecting Cars hits data blob');
   const watchlistRows = await loadActiveWatchlist(env);
+  const referenceRows = await loadVehicleReference(env);
 
-  let inserted = 0;
+  let inserted = 0, skipped = 0;
   for (const hit of hits.slice(0, 20)) {
     if (hit.listingStage !== 'sold' || hit.isSoldPriceHidden || !hit.priceSold) continue;
-    const url = `https://collectingcars.com/for-sale/${hit.slug}`;
-
-    const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = 'collectingcars' AND source_url = ?`).bind(url).first();
-    if (existing) continue;
 
     const brand = hit.productMake || hit.vehicleMake || null;
     const model = hit.modelName || null;
@@ -6617,6 +6663,14 @@ async function ingestCollectingCarsResults(env) {
     const wlMatch = matchExoticWatchlistRow(watchlistRows, { title: hit.title, brand, model, year });
     const belowThreshold = wlMatch ? computeBelowMileageThreshold(wlMatch, mileage) : null;
 
+    // Hard filter — see the matching comment in ingestAuctionResults.
+    const refMatch = wlMatch ? null : matchVehicleReference(referenceRows, { title: hit.title, brand, model });
+    if (!wlMatch && !refMatch) { skipped++; continue; }
+
+    const url = `https://collectingcars.com/for-sale/${hit.slug}`;
+    const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = 'collectingcars' AND source_url = ?`).bind(url).first();
+    if (existing) continue;
+
     await env.DB.prepare(`
       INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, direction, magnitude, ingested_at, expires_at, mileage, watchlist_id, watchlist_tier, below_mileage_threshold)
       VALUES ('auction', ?, ?, 'collectingcars', ?, ?, ?, ?, ?, ?, 'none', 'national', 'neutral', ?, datetime('now'), datetime('now', '+14 days'), ?, ?, ?, ?)
@@ -6628,7 +6682,7 @@ async function ingestCollectingCarsResults(env) {
     ).run();
     inserted++;
   }
-  console.log(`[market] auctions: ${inserted} Collecting Cars sales inserted`);
+  console.log(`[market] auctions: ${inserted} Collecting Cars sales inserted, ${skipped} non-exotic listings filtered out`);
 }
 
 // ── News ─────────────────────────────────────────────────────────────
@@ -7128,13 +7182,21 @@ async function adminUpdateWatchlistEntry(request, env, params) {
 // Distinct brand/model pairs already entered, for the admin form's
 // autocomplete (free-text fields, not a locked dropdown — new brands/models
 // should stay addable on the fly).
+// Suggestions only, never blocking — the add-entry form's autocomplete is
+// seeded from both what's already on the watchlist and the broader
+// vehicle_reference table (spec: Update 2), but any typed brand/model can
+// still be saved even if it's in neither.
 async function adminWatchlistBrands(request, env) {
-  const { results } = await env.DB.prepare(
+  const { results: watchlistPairs } = await env.DB.prepare(
     `SELECT DISTINCT brand, model FROM exotic_watchlist ORDER BY brand, model`
   ).all();
-  const brands = [...new Set(results.map(r => r.brand))];
-  const models = [...new Set(results.map(r => r.model))];
-  return json({ brands, models, pairs: results });
+  const { results: referencePairs } = await env.DB.prepare(
+    `SELECT DISTINCT brand, model FROM vehicle_reference ORDER BY brand, model`
+  ).all();
+  const pairs = [...watchlistPairs, ...referencePairs];
+  const brands = [...new Set(pairs.map(r => r.brand))].sort();
+  const models = [...new Set(pairs.map(r => r.model))].sort();
+  return json({ brands, models, pairs: watchlistPairs });
 }
 
 // Grouped-by-tier view for the /market exotic corner panel — joins matched
@@ -7157,6 +7219,13 @@ async function adminMarketExotic(request, env) {
     entries: matched.filter(m => m.watchlist_tier === tier),
   }));
 
+  // Since ingestion now hard-filters to watchlist-or-vehicle_reference
+  // matches only, everything reaching this table with no watchlist_id is
+  // by construction a vehicle_reference-only match — the "broader net"
+  // default per spec. To tighten this to watchlist matches only, change the
+  // hard filter at ingestion time (drop `|| refMatch` in each ingest*
+  // function) rather than this query — nothing not already stored can show
+  // up here regardless of what this SELECT does.
   const { results: unmatched } = await env.DB.prepare(`
     SELECT id, title, detail, source, source_url, brand, model, mileage, ingested_at
     FROM market_items
@@ -7165,6 +7234,34 @@ async function adminMarketExotic(request, env) {
   `).all();
 
   return json({ tiers, unmatched });
+}
+
+// One-time (re-runnable) cleanup for auction junk stored before the hard
+// ingestion filter existed — re-checks every stored auction item against
+// the same watchlist-or-vehicle_reference filter now applied at ingestion
+// time, and deletes anything that matches neither, so the exotic corner
+// clears immediately instead of waiting out the 14-day expiry.
+async function adminMarketCleanupJunkAuctions(request, env) {
+  const watchlistRows = await loadActiveWatchlist(env);
+  const referenceRows = await loadVehicleReference(env);
+
+  const { results: items } = await env.DB.prepare(
+    `SELECT id, title, brand, model FROM market_items WHERE type = 'auction'`
+  ).all();
+
+  let deleted = 0;
+  const removedTitles = [];
+  for (const item of items) {
+    const wlMatch = matchExoticWatchlistRow(watchlistRows, { title: item.title, brand: item.brand, model: item.model });
+    const refMatch = wlMatch ? null : matchVehicleReference(referenceRows, { title: item.title, brand: item.brand, model: item.model });
+    if (wlMatch || refMatch) continue;
+
+    await env.DB.prepare(`DELETE FROM market_items WHERE id = ?`).bind(item.id).run();
+    deleted++;
+    if (removedTitles.length < 25) removedTitles.push(item.title);
+  }
+
+  return json({ checked: items.length, deleted, kept: items.length - deleted, removed_titles: removedTitles });
 }
 
 // Manual "run it now" trigger, same debug-route convention as
@@ -7375,6 +7472,7 @@ const ROUTES = [
   { method: 'PATCH', pattern: '/api/admin/market/unmapped',           handler: adminMapMarketTaxonomy, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/market/sources',            handler: adminMarketSources, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/market/exotic',              handler: adminMarketExotic, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/market/cleanup-junk-auctions', handler: adminMarketCleanupJunkAuctions, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/debug/market-test',         handler: debugMarketTest, auth: true, admin: true },
 
   // ── Exotic watchlist admin ──
