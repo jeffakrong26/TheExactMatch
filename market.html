@@ -263,6 +263,7 @@ h1.tape-title{font-family:'Archivo',sans-serif;font-size:2rem;font-weight:800;le
             <a class="watchlist-link" href="/market/watchlist">Manage watchlist &rarr;</a>
             <a class="watchlist-link" href="/market/listings">Active listings &rarr;</a>
             <a class="watchlist-link" href="/market/exclusions">Exclusion rules &rarr;</a>
+            <a class="watchlist-link" href="/market/calls">Calls log &rarr;</a>
           </h3>
           <div id="panel-exotic-tiers"><span class="empty">No results to report.</span></div>
         </div>
@@ -389,6 +390,12 @@ function domColor(dom) {
 
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function carDetailUrl(brand, model, trim) {
+  const p = new URLSearchParams({ brand: brand || '', model: model || '' });
+  if (trim) p.set('trim', trim);
+  return `/market/cars?${p}`;
 }
 
 // ── Ticker ──
@@ -520,6 +527,7 @@ function renderExoticCorner(data) {
                 <a href="${escapeHtml(e.source_url || '#')}" target="_blank" rel="noopener">
                   <span class="rt">${escapeHtml(title)}</span>
                 </a>${clean ? '<span class="clean-badge">Clean example</span>' : ''}
+                <a class="watchlist-link" href="${carDetailUrl(e.brand, e.model, e.watchlist_trim)}">Car detail &rarr;</a>
                 <div class="rd">${escapeHtml(e.detail || '')}${e.mileage ? ` &middot; ${Number(e.mileage).toLocaleString()} mi` : ''}</div>
                 ${flagActionHtml(e.id)}
               </div>
@@ -535,6 +543,7 @@ function renderExoticCorner(data) {
     ? unmatched.map(e => `
         <div class="row-item" data-item-id="${e.id}">
           <a href="${escapeHtml(e.source_url || '#')}" target="_blank" rel="noopener"><span class="rt">${escapeHtml(e.title)}</span></a>
+          ${e.brand && e.model ? `<a class="watchlist-link" href="${carDetailUrl(e.brand, e.model, null)}">Car detail &rarr;</a>` : ''}
           <div class="rd">${escapeHtml(e.detail || '')}${e.mileage ? ` &middot; ${Number(e.mileage).toLocaleString()} mi` : ''}</div>
           ${flagActionHtml(e.id)}
         </div>

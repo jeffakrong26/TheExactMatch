@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="robots" content="noindex, nofollow"/>
+<title>Calls Log — The Tape</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0c1420; --bg2:#121b2b; --bg3:#182238;
+  --text:#e8edf5; --text-dim:#8a97ab;
+  --accent:#d4b26a; --border:#24314a;
+  --green:#3ecf8e; --amber:#e0a940; --red:#e46862;
+  --shadow:0 8px 24px rgba(0,0,0,.35);
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#f5f2ea; --bg2:#ffffff; --bg3:#efeadf;
+    --text:#1a2233; --text-dim:#6b7280;
+    --accent:#8a6a12; --border:#ddd8cc;
+    --green:#1a7a4f; --amber:#8a5a10; --red:#a83a35;
+    --shadow:0 4px 16px rgba(20,20,10,.08);
+  }
+}
+html{background:var(--bg)}
+body{font-family:'IBM Plex Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh}
+.display{font-family:'Archivo',sans-serif}
+a{color:var(--accent)}
+button,input,select,textarea{font-family:inherit}
+
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+.login-card{width:100%;max-width:340px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:2rem;box-shadow:var(--shadow)}
+.login-card h1{font-family:'Archivo',sans-serif;font-size:1.3rem;font-weight:800;margin-bottom:.25rem}
+.login-card .sub{color:var(--text-dim);font-size:.78rem;margin-bottom:1.5rem}
+.login-card input{width:100%;padding:.7rem .85rem;margin-bottom:.75rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.85rem;outline:none}
+.login-card button{width:100%;padding:.75rem;background:var(--accent);color:var(--bg);border:none;border-radius:4px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:.75rem;cursor:pointer;margin-top:.25rem}
+.login-err{color:var(--red);font-size:.78rem;margin-top:.6rem;min-height:1em}
+
+#app{display:none}
+.wrap{max-width:1000px;margin:0 auto;padding:1.25rem 1.25rem 3rem}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1.5rem}
+.eyebrow{font-size:.65rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.35rem}
+.back-link{font-size:.72rem;text-decoration:none;color:var(--text-dim)}
+.back-link:hover{color:var(--accent)}
+h1.title{font-family:'Archivo',sans-serif;font-size:1.7rem;font-weight:800;letter-spacing:-.01em}
+.count-sub{color:var(--text-dim);font-size:.85rem;margin-top:.2rem}
+.logout-link{font-size:.7rem;color:var(--text-dim);text-decoration:underline;cursor:pointer;background:none;border:none}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1.1rem;margin-bottom:1.25rem}
+.card h2{font-family:'Archivo',sans-serif;font-size:.95rem;font-weight:700;margin-bottom:.9rem}
+
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem .75rem}
+@media(min-width:640px){.form-grid{grid-template-columns:repeat(4,1fr)}}
+.form-grid label{display:flex;flex-direction:column;gap:.3rem;font-size:.68rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em}
+.form-grid input,.form-grid select,.form-grid textarea{padding:.55rem .65rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.82rem;outline:none;font-family:inherit}
+.span-2{grid-column:span 2}.span-full{grid-column:1/-1}
+.form-actions{margin-top:.9rem;display:flex;gap:.6rem;align-items:center}
+.btn{padding:.6rem 1.1rem;background:var(--accent);color:var(--bg);border:none;border-radius:4px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:.72rem;cursor:pointer}
+.btn.secondary{background:transparent;color:var(--text-dim);border:1px solid var(--border)}
+.btn.small{padding:.4rem .7rem;font-size:.65rem}
+.btn:disabled{opacity:.5;cursor:default}
+.form-err{color:var(--red);font-size:.75rem}
+.form-ok{color:var(--green);font-size:.75rem}
+
+.filters{display:flex;gap:.6rem;margin-bottom:.9rem}
+.filters select{padding:.5rem .6rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.78rem}
+
+.call-row{border-bottom:1px solid var(--border);padding:.7rem 0}
+.call-row:last-child{border-bottom:none}
+.call-head{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;cursor:pointer}
+.call-title{font-weight:600;font-size:.85rem}
+.call-meta{color:var(--text-dim);font-size:.74rem;margin-top:.15rem}
+.call-text{font-size:.82rem;line-height:1.5;margin-top:.4rem}
+.status-badge{display:inline-block;font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;font-weight:700;padding:.15rem .45rem;border-radius:10px;margin-left:.5rem}
+.status-badge.pending{background:var(--text-dim);color:var(--bg)}
+.status-badge.correct{background:var(--green);color:var(--bg)}
+.status-badge.incorrect{background:var(--red);color:var(--bg)}
+.status-badge.early,.status-badge.unclear{background:var(--amber);color:var(--bg)}
+
+.evidence{display:none;margin-top:.8rem;background:var(--bg3);border-radius:4px;padding:.9rem}
+.evidence.open{display:block}
+.evidence h3{font-family:'Archivo',sans-serif;font-size:.8rem;font-weight:700;margin-bottom:.5rem}
+.evidence-cols{display:grid;grid-template-columns:1fr;gap:.9rem}
+@media(min-width:700px){.evidence-cols{grid-template-columns:1fr 1fr}}
+.ev-col h4{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);margin-bottom:.4rem}
+.ev-stats{font-size:.75rem;color:var(--text-dim);margin-bottom:.5rem}
+.ev-sale{font-size:.78rem;padding:.35rem 0;border-bottom:1px solid var(--border)}
+.ev-sale:last-child{border-bottom:none}
+.resolve-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.9rem;padding-top:.8rem;border-top:1px solid var(--border)}
+.resolve-row input[type="text"]{padding:.45rem .6rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.75rem;width:220px}
+.chart-wrap{margin-top:.6rem}
+.chart-wrap svg{width:100%;height:auto;display:block}
+.empty{color:var(--text-dim);font-size:.8rem;font-style:italic}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <h1 class="display">Calls Log</h1>
+    <div class="sub">THE EXACT MATCH &middot; INTERNAL</div>
+    <form id="login-form">
+      <input type="email" id="login-email" placeholder="Email" autocomplete="username" required/>
+      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required/>
+      <button type="submit" id="login-btn">Sign in</button>
+      <div class="login-err" id="login-err"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app">
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <div class="eyebrow">THE EXACT MATCH &middot; INTERNAL</div>
+        <a class="back-link" href="/market">&larr; Back to The Tape</a>
+        <h1 class="title display">Calls Log</h1>
+        <div class="count-sub" id="pending-count">—</div>
+      </div>
+      <button class="logout-link" id="logout-btn">Sign out</button>
+    </header>
+
+    <div class="card">
+      <h2>Log a new call</h2>
+      <form id="add-form">
+        <div class="form-grid">
+          <label>Make<input type="text" id="f-brand" list="brand-list" required/></label>
+          <label>Model<input type="text" id="f-model" list="model-list" required/></label>
+          <label>Trim (optional)<input type="text" id="f-trim"/></label>
+          <label>Review date (optional)<input type="date" id="f-review-date"/></label>
+          <label class="span-full">The call<textarea id="f-call-text" rows="2" required placeholder="e.g. I think 997.1 GT3 prices firm up over the next quarter"></textarea></label>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn" id="add-btn">Log call</button>
+          <span class="form-err" id="add-err"></span>
+          <span class="form-ok" id="add-ok"></span>
+        </div>
+      </form>
+      <datalist id="brand-list"></datalist>
+      <datalist id="model-list"></datalist>
+    </div>
+
+    <div class="card">
+      <h2>Calls</h2>
+      <div class="filters">
+        <select id="filter-pending">
+          <option value="">All calls</option>
+          <option value="1">Pending only</option>
+        </select>
+      </div>
+      <div id="calls-list"><span class="empty">Loading&hellip;</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';
+let authToken = localStorage.getItem('tem_dealer_token') || null;
+let allCalls = [];
+let allBrandModelPairs = [];
+const evidenceCache = {};
+
+async function apiFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  const res = await fetch(`${API}${path}`, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  return { res, data };
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function carDetailUrl(brand, model, trim) {
+  const p = new URLSearchParams({ brand: brand || '', model: model || '' });
+  if (trim) p.set('trim', trim);
+  return `/market/cars?${p}`;
+}
+
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  document.getElementById('login-btn').disabled = true;
+  const { res, data } = await apiFetch('/dealer/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+  document.getElementById('login-btn').disabled = false;
+  if (!res.ok) { errEl.textContent = data.error || 'Sign-in failed.'; return; }
+  if (data.dealer?.role !== 'admin') { errEl.textContent = 'This page is admin-only.'; return; }
+  authToken = data.token;
+  localStorage.setItem('tem_dealer_token', authToken);
+  enterApp();
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await apiFetch('/dealer/logout', { method: 'POST' }).catch(() => {});
+  authToken = null;
+  localStorage.removeItem('tem_dealer_token');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+});
+
+async function restoreSession() {
+  if (!authToken) return false;
+  const { res, data } = await apiFetch('/dealer/me').catch(() => ({ res: { ok: false }, data: {} }));
+  if (res.ok && data.role === 'admin') return true;
+  authToken = null;
+  localStorage.removeItem('tem_dealer_token');
+  return false;
+}
+
+function updateModelOptions(brandFilter) {
+  const brandLower = brandFilter.toLowerCase();
+  const matches = brandFilter ? allBrandModelPairs.filter(p => p.brand.toLowerCase() === brandLower) : allBrandModelPairs;
+  const pool = matches.length ? matches : allBrandModelPairs;
+  const models = [...new Set(pool.map(p => p.model))].sort();
+  document.getElementById('model-list').innerHTML = models.map(m => `<option value="${escapeHtml(m)}">`).join('');
+}
+document.getElementById('f-brand').addEventListener('input', e => updateModelOptions(e.target.value.trim()));
+
+document.getElementById('add-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const errEl = document.getElementById('add-err');
+  const okEl = document.getElementById('add-ok');
+  errEl.textContent = ''; okEl.textContent = '';
+
+  const payload = {
+    brand: document.getElementById('f-brand').value.trim(),
+    model: document.getElementById('f-model').value.trim(),
+    trim_level: document.getElementById('f-trim').value.trim(),
+    review_date: document.getElementById('f-review-date').value,
+    call_text: document.getElementById('f-call-text').value.trim(),
+  };
+  document.getElementById('add-btn').disabled = true;
+  const { res, data } = await apiFetch('/admin/market/calls', { method: 'POST', body: JSON.stringify(payload) });
+  document.getElementById('add-btn').disabled = false;
+  if (!res.ok) { errEl.textContent = data.error || 'Could not log call.'; return; }
+  okEl.textContent = 'Logged.';
+  setTimeout(() => { okEl.textContent = ''; }, 2000);
+  document.getElementById('add-form').reset();
+  await loadCalls();
+});
+
+document.getElementById('filter-pending').addEventListener('change', loadCalls);
+
+function renderChart(salesBefore, salesAfter, calledAt) {
+  const all = [...salesBefore.map(s => ({ ...s, phase: 'before' })), ...salesAfter.map(s => ({ ...s, phase: 'after' }))]
+    .filter(s => s.sold_price != null && s.resolved_at)
+    .sort((a, b) => a.resolved_at.localeCompare(b.resolved_at));
+  if (all.length < 2) return '<span class="empty">Not enough sales yet to chart.</span>';
+
+  const w = 460, h = 140, pad = 24;
+  const prices = all.map(s => s.sold_price);
+  const min = Math.min(...prices), max = Math.max(...prices);
+  const range = (max - min) || 1;
+  const times = all.map(s => new Date(s.resolved_at.replace(' ', 'T') + 'Z').getTime());
+  const tMin = Math.min(...times), tMax = Math.max(...times);
+  const tRange = (tMax - tMin) || 1;
+
+  const points = all.map((s, i) => {
+    const t = new Date(s.resolved_at.replace(' ', 'T') + 'Z').getTime();
+    const x = pad + ((t - tMin) / tRange) * (w - pad * 2);
+    const y = pad + (h - pad * 2) * (1 - (s.sold_price - min) / range);
+    return { x, y, phase: s.phase };
+  });
+
+  const dots = points.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${p.phase === 'before' ? 'var(--text-dim)' : 'var(--accent)'}"></circle>`).join('');
+  return `
+    <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      <text x="${pad}" y="14" fill="var(--text-dim)" font-size="10">$${Math.round(max).toLocaleString()}</text>
+      <text x="${pad}" y="${h - 6}" fill="var(--text-dim)" font-size="10">$${Math.round(min).toLocaleString()}</text>
+      ${dots}
+    </svg>
+    <div style="font-size:.68rem;color:var(--text-dim);margin-top:.3rem;">
+      <span style="color:var(--text-dim);">&#9679;</span> before the call &nbsp; <span style="color:var(--accent);">&#9679;</span> after the call
+    </div>
+  `;
+}
+
+function statsLine(stats) {
+  if (!stats.n) return 'No sales.';
+  const trend = stats.trend ? ` — trend: ${stats.trend}` : (stats.n < 5 ? ' (not enough sales yet for a trend)' : '');
+  return `n=${stats.n}, avg $${stats.avg?.toLocaleString() ?? '—'}, range $${stats.min?.toLocaleString() ?? '—'}–$${stats.max?.toLocaleString() ?? '—'}${trend}`;
+}
+
+function saleLine(s) {
+  return `<div class="ev-sale"><a href="${escapeHtml(s.external_url)}" target="_blank" rel="noopener">${(s.resolved_at || '').slice(0, 10)}</a> — $${s.sold_price ? Number(s.sold_price).toLocaleString() : '—'}${s.mileage ? `, ${Number(s.mileage).toLocaleString()} mi` : ''} (${escapeHtml(s.source)})</div>`;
+}
+
+async function toggleEvidence(callId) {
+  const el = document.getElementById(`evidence-${callId}`);
+  const isOpening = !el.classList.contains('open');
+  el.classList.toggle('open');
+  if (!isOpening || evidenceCache[callId]) return;
+
+  el.innerHTML = '<span class="empty">Loading evidence&hellip;</span>';
+  const { res, data } = await apiFetch(`/admin/market/calls/${callId}`);
+  if (!res.ok) { el.innerHTML = '<span class="empty">Could not load evidence.</span>'; return; }
+  evidenceCache[callId] = data;
+
+  const { call, evidence } = data;
+  el.innerHTML = `
+    <h3>Evidence</h3>
+    <div class="evidence-cols">
+      <div class="ev-col">
+        <h4>Before the call (${(call.called_at || '').slice(0, 10)})</h4>
+        <div class="ev-stats">${statsLine(evidence.stats_before)}</div>
+        ${evidence.sales_before.length ? evidence.sales_before.map(saleLine).join('') : '<span class="empty">No prior sales tracked.</span>'}
+      </div>
+      <div class="ev-col">
+        <h4>After the call</h4>
+        <div class="ev-stats">${statsLine(evidence.stats_after)}</div>
+        ${evidence.sales_after.length ? evidence.sales_after.map(saleLine).join('') : '<span class="empty">No sales since the call yet.</span>'}
+      </div>
+    </div>
+    <div class="chart-wrap">${renderChart(evidence.sales_before, evidence.sales_after, call.called_at)}</div>
+    ${call.resolution ? '' : `
+      <div class="resolve-row">
+        <select data-resolve-select="${callId}">
+          <option value="correct">Correct</option>
+          <option value="incorrect">Incorrect</option>
+          <option value="early">Too early to tell</option>
+          <option value="unclear">Unclear</option>
+        </select>
+        <input type="text" data-resolve-note="${callId}" placeholder="note (optional)"/>
+        <button class="btn small" data-action="resolve" data-id="${callId}">Resolve</button>
+      </div>
+    `}
+  `;
+}
+
+document.getElementById('calls-list').addEventListener('click', async ev => {
+  if (ev.target.closest('.car-detail-link')) return; // let it navigate, don't also toggle evidence
+
+  const head = ev.target.closest('[data-toggle-id]');
+  if (head) { toggleEvidence(head.dataset.toggleId); return; }
+
+  const resolveBtn = ev.target.closest('[data-action="resolve"]');
+  if (resolveBtn) {
+    const id = resolveBtn.dataset.id;
+    const resolution = document.querySelector(`[data-resolve-select="${id}"]`).value;
+    const note = document.querySelector(`[data-resolve-note="${id}"]`).value.trim();
+    resolveBtn.disabled = true;
+    const { res } = await apiFetch(`/admin/market/calls/${id}`, { method: 'PATCH', body: JSON.stringify({ resolution, resolution_note: note || null }) });
+    if (res.ok) {
+      delete evidenceCache[id];
+      await loadCalls();
+    } else {
+      resolveBtn.disabled = false;
+    }
+  }
+});
+
+function renderCalls() {
+  const el = document.getElementById('calls-list');
+  if (!allCalls.length) { el.innerHTML = '<span class="empty">No calls logged yet.</span>'; return; }
+
+  el.innerHTML = allCalls.map(c => {
+    const title = [c.brand, c.model, c.trim].filter(Boolean).join(' ');
+    const status = c.resolution || 'pending';
+    return `
+      <div class="call-row">
+        <div class="call-head" data-toggle-id="${c.id}">
+          <div>
+            <div class="call-title"><a class="car-detail-link" href="${carDetailUrl(c.brand, c.model, c.trim)}">${escapeHtml(title)}</a><span class="status-badge ${status}">${status}</span></div>
+            <div class="call-meta">Called ${(c.called_at || '').slice(0, 10)}${c.review_date ? ` &middot; review by ${c.review_date}` : ''}</div>
+            <div class="call-text">${escapeHtml(c.call_text)}</div>
+            ${c.resolution_note ? `<div class="call-meta">Resolution note: ${escapeHtml(c.resolution_note)}</div>` : ''}
+          </div>
+        </div>
+        <div class="evidence" id="evidence-${c.id}"></div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadCalls() {
+  const pending = document.getElementById('filter-pending').value;
+  const params = pending ? `?pending=${pending}` : '';
+  const { res, data } = await apiFetch(`/admin/market/calls${params}`);
+  if (res.ok) {
+    allCalls = data.calls || [];
+    const pendingCount = allCalls.filter(c => !c.resolution).length;
+    document.getElementById('pending-count').textContent = `${pendingCount} pending, ${allCalls.length} total`;
+    renderCalls();
+  }
+
+  const { res: brandsRes, data: brandsData } = await apiFetch('/admin/market/watchlist/brands');
+  if (brandsRes.ok) {
+    allBrandModelPairs = brandsData.pairs || [];
+    document.getElementById('brand-list').innerHTML = (brandsData.brands || []).map(b => `<option value="${escapeHtml(b)}">`).join('');
+    updateModelOptions('');
+  }
+}
+
+async function enterApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  await loadCalls();
+}
+
+(async function init() {
+  const ok = await restoreSession();
+  if (ok) await enterApp();
+  else document.getElementById('login-screen').style.display = 'flex';
+})();
+</script>
+</body>
+</html>

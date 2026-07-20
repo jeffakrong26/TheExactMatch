@@ -79,6 +79,15 @@ h1.title{font-family:'Archivo',sans-serif;font-size:1.7rem;font-weight:800;lette
 .empty{color:var(--text-dim);font-size:.8rem;font-style:italic}
 
 .edit-form{background:var(--bg3);border-radius:4px;padding:.8rem;margin-top:.5rem}
+
+/* ── Price history panel (Update 5) ── */
+.history-panel{background:var(--bg3);border-radius:4px;padding:.8rem;margin-top:.5rem}
+.history-stats{font-size:.78rem;color:var(--text-dim);margin-bottom:.5rem}
+.history-toggle{display:flex;gap:.5rem;align-items:center;font-size:.72rem;color:var(--text-dim);margin-bottom:.5rem}
+.history-toggle input{margin:0}
+.hist-chart svg{width:100%;height:auto;display:block}
+.hist-sale{font-size:.78rem;padding:.3rem 0;border-bottom:1px solid var(--border)}
+.hist-sale:last-child{border-bottom:none}
 </style>
 </head>
 <body>
@@ -203,6 +212,12 @@ const TIER_LABELS = {
   3: ['Tier 3', 'Ultra-luxury, lighter tracking'],
 };
 
+function carDetailUrl(brand, model, trim) {
+  const p = new URLSearchParams({ brand: brand || '', model: model || '' });
+  if (trim) p.set('trim', trim);
+  return `/market/cars?${p}`;
+}
+
 function entryLine(e) {
   const yearRange = e.year_start && e.year_end ? `${e.year_start}–${e.year_end}`
     : e.year_start ? `${e.year_start}+`
@@ -230,15 +245,17 @@ function renderList() {
           return `
             <div class="wl-row ${e.active ? '' : 'inactive'}" data-id="${e.id}">
               <div class="wl-main">
-                <div class="wl-title">${escapeHtml(title)}${e.active ? '' : ' (inactive)'}</div>
+                <div class="wl-title"><a href="${carDetailUrl(e.brand, e.model, e.trim)}">${escapeHtml(title)}</a>${e.active ? '' : ' (inactive)'}</div>
                 <div class="wl-meta">${escapeHtml(meta)}</div>
               </div>
               <div class="wl-actions">
+                <button class="btn secondary small" data-action="history" data-id="${e.id}">Price history</button>
                 <button class="btn secondary small" data-action="edit" data-id="${e.id}">Edit</button>
                 <button class="btn secondary small" data-action="toggle" data-id="${e.id}">${e.active ? 'Deactivate' : 'Reactivate'}</button>
               </div>
             </div>
             <div class="edit-slot" data-edit-slot="${e.id}"></div>
+            <div class="history-slot" data-history-slot="${e.id}"></div>
           `;
         }).join('')}
       </div>
@@ -309,8 +326,93 @@ document.getElementById('tier-list').addEventListener('click', async ev => {
       return;
     }
     await loadWatchlist();
+    return;
+  }
+  if (action === 'history') {
+    const histSlot = document.querySelector(`[data-history-slot="${id}"]`);
+    if (histSlot.innerHTML.trim()) { histSlot.innerHTML = ''; return; } // toggle closed
+    histSlot.innerHTML = '<div class="history-panel"><span class="empty">Loading&hellip;</span></div>';
+    const entry = allEntries.find(e => String(e.id) === String(id));
+    const data = await loadPriceHistory(entry);
+    renderHistoryPanel(histSlot, entry, data);
   }
 });
+
+// ── Price history (Update 5) ──
+async function loadPriceHistory(entry) {
+  const params = new URLSearchParams({ brand: entry.brand, model: entry.model });
+  if (entry.trim) params.set('trim', entry.trim);
+  if (entry.year_start) params.set('year_start', entry.year_start);
+  if (entry.year_end) params.set('year_end', entry.year_end);
+  const { res, data } = await apiFetch(`/admin/market/history-by-car?${params}`);
+  return res.ok ? data : { sales: [], stats: { n: 0 } };
+}
+
+// Mileage shown as a color gradient (green=low, amber=mid, red=high,
+// relative to this car's own sold-comp range) rather than a separate
+// filter toggle — simpler and still satisfies the "mileage as a secondary
+// dimension" ask.
+function renderHistoryChart(sales) {
+  const priced = sales.filter(s => s.sold_price != null && s.resolved_at).sort((a, b) => a.resolved_at.localeCompare(b.resolved_at));
+  if (priced.length < 3) return null; // caller falls back to the raw sales list
+
+  const w = 460, h = 140, pad = 24;
+  const prices = priced.map(s => s.sold_price);
+  const min = Math.min(...prices), max = Math.max(...prices);
+  const range = (max - min) || 1;
+  const mileages = priced.map(s => s.mileage).filter(m => m != null);
+  const mMin = mileages.length ? Math.min(...mileages) : 0;
+  const mMax = mileages.length ? Math.max(...mileages) : 1;
+  const mRange = (mMax - mMin) || 1;
+  const times = priced.map(s => new Date(s.resolved_at.replace(' ', 'T') + 'Z').getTime());
+  const tMin = Math.min(...times), tMax = Math.max(...times);
+  const tRange = (tMax - tMin) || 1;
+
+  const dots = priced.map(s => {
+    const t = new Date(s.resolved_at.replace(' ', 'T') + 'Z').getTime();
+    const x = pad + ((t - tMin) / tRange) * (w - pad * 2);
+    const y = pad + (h - pad * 2) * (1 - (s.sold_price - min) / range);
+    let color = 'var(--accent)';
+    if (s.mileage != null) {
+      const frac = (s.mileage - mMin) / mRange;
+      color = frac < 0.33 ? 'var(--green)' : frac < 0.66 ? 'var(--amber)' : 'var(--red)';
+    }
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${color}"></circle>`;
+  }).join('');
+
+  return `
+    <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      <text x="${pad}" y="14" fill="var(--text-dim)" font-size="10">$${Math.round(max).toLocaleString()}</text>
+      <text x="${pad}" y="${h - 6}" fill="var(--text-dim)" font-size="10">$${Math.round(min).toLocaleString()}</text>
+      ${dots}
+    </svg>
+    <div style="font-size:.65rem;color:var(--text-dim);margin-top:.3rem;">
+      <span style="color:var(--green)">&#9679;</span> low mileage &nbsp;
+      <span style="color:var(--amber)">&#9679;</span> mid &nbsp;
+      <span style="color:var(--red)">&#9679;</span> high mileage
+    </div>
+  `;
+}
+
+function renderHistoryPanel(slotEl, entry, data) {
+  const { sales, stats } = data;
+  let body;
+  if (stats.n < 3) {
+    body = `
+      <div class="history-stats">Not enough sales yet to show a trend (n=${stats.n}). Showing individual sales below.</div>
+      ${sales.length
+        ? sales.map(s => `<div class="hist-sale">${(s.resolved_at || '').slice(0, 10)} — $${s.sold_price ? Number(s.sold_price).toLocaleString() : '—'}${s.mileage ? `, ${Number(s.mileage).toLocaleString()} mi` : ''} (${escapeHtml(s.source)})</div>`).join('')
+        : '<span class="empty">No sales tracked yet.</span>'}
+    `;
+  } else {
+    const chartHtml = renderHistoryChart(sales);
+    body = `
+      <div class="history-stats">n=${stats.n}, avg $${stats.avg?.toLocaleString() ?? '—'}, range $${stats.min?.toLocaleString() ?? '—'}–$${stats.max?.toLocaleString() ?? '—'}${stats.trend ? `, trend: ${stats.trend}` : ' (not enough sales for a trend)'}</div>
+      ${chartHtml ? `<div class="hist-chart">${chartHtml}</div>` : '<span class="empty">Not enough priced/dated sales to chart.</span>'}
+    `;
+  }
+  slotEl.innerHTML = `<div class="history-panel">${body}</div>`;
+}
 
 document.getElementById('add-form').addEventListener('submit', async e => {
   e.preventDefault();

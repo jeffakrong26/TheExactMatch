@@ -7869,6 +7869,356 @@ async function adminActiveListingsReport(request, env) {
   return json({ sold_this_week: soldThisWeek, disappeared_needs_review: disappeared });
 }
 
+// ── Price history by car (Update 5) — shared between the watchlist page's
+// expandable history panel and the calls-log auto-link evidence ─────────
+async function getConfirmedSoldSalesForCar(env, { brand, model, trim, yearStart, yearEnd }) {
+  const clauses = [`al.status = 'confirmed_sold'`, `LOWER(al.brand) = LOWER(?)`, `LOWER(al.model) = LOWER(?)`];
+  const binds = [brand, model];
+  if (trim) { clauses.push(`LOWER(al.trim) = LOWER(?)`); binds.push(trim); }
+  if (yearStart != null) { clauses.push(`(al.year IS NULL OR al.year >= ?)`); binds.push(yearStart); }
+  if (yearEnd != null) { clauses.push(`(al.year IS NULL OR al.year <= ?)`); binds.push(yearEnd); }
+
+  const { results } = await env.DB.prepare(`
+    SELECT al.* FROM active_listings al WHERE ${clauses.join(' AND ')} ORDER BY al.resolved_at ASC
+  `).bind(...binds).all();
+  return results;
+}
+
+function average(arr) {
+  const nums = arr.filter(p => p != null);
+  return nums.length ? nums.reduce((a, c) => a + c, 0) / nums.length : null;
+}
+
+// Per-car sold-comp datasets are inherently small (a handful of sales a
+// year even for actively-traded Tier 1 cars), so this is a lower bar than
+// the DOM fix's 15/8 segment-wide thresholds — but the same principle:
+// don't say "up" or "down" off 2-3 data points. First-half-vs-second-half
+// average (chronological) is a simple, honest trend signal that doesn't
+// overreact to one noisy outlier sale.
+const CAR_TREND_MIN_N = 5;
+function computeSalesStats(sales) {
+  const n = sales.length;
+  const prices = sales.map(s => s.sold_price).filter(p => p != null);
+  if (!n || !prices.length) return { n, avg: null, min: null, max: null, trend: null };
+
+  const avg = Math.round(average(prices));
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+
+  let trend = null;
+  if (n >= CAR_TREND_MIN_N) {
+    const mid = Math.floor(n / 2);
+    const firstHalfAvg = average(sales.slice(0, mid).map(s => s.sold_price));
+    const secondHalfAvg = average(sales.slice(mid).map(s => s.sold_price));
+    if (firstHalfAvg != null && secondHalfAvg != null) {
+      const pctChange = (secondHalfAvg - firstHalfAvg) / firstHalfAvg;
+      trend = Math.abs(pctChange) < 0.03 ? 'flat' : (pctChange > 0 ? 'up' : 'down');
+    }
+  }
+  return { n, avg, min, max, trend };
+}
+
+async function adminMarketHistoryByCar(request, env) {
+  const url = new URL(request.url);
+  const brand = url.searchParams.get('brand');
+  const model = url.searchParams.get('model');
+  const trim = url.searchParams.get('trim') || null;
+  const yearStart = url.searchParams.get('year_start') ? parseInt(url.searchParams.get('year_start'), 10) : null;
+  const yearEnd = url.searchParams.get('year_end') ? parseInt(url.searchParams.get('year_end'), 10) : null;
+  if (!brand || !model) return json({ error: 'brand and model are required.' }, 400);
+
+  const sales = await getConfirmedSoldSalesForCar(env, { brand, model, trim, yearStart, yearEnd });
+  const stats = computeSalesStats(sales);
+  return json({ sales, stats });
+}
+
+// ── Calls log (market/calls.html) ───────────────────────────────────
+async function adminListMarketCalls(request, env) {
+  const url = new URL(request.url);
+  const pending = url.searchParams.get('pending');
+  const where = pending === '1' ? 'WHERE resolution IS NULL' : '';
+  const { results } = await env.DB.prepare(
+    `SELECT * FROM market_calls ${where} ORDER BY called_at DESC`
+  ).all();
+  return json({ calls: results });
+}
+
+async function adminCreateMarketCall(request, env) {
+  const body = await request.json().catch(() => ({}));
+  if (!body.brand || !body.model || !body.call_text) return json({ error: 'brand, model, and call_text are required.' }, 400);
+
+  const result = await env.DB.prepare(`
+    INSERT INTO market_calls (brand, model, trim, year_start, year_end, call_text, called_at, review_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    body.brand.trim(), body.model.trim(), body.trim_level?.trim() || null,
+    body.year_start != null && body.year_start !== '' ? parseInt(body.year_start, 10) : null,
+    body.year_end != null && body.year_end !== '' ? parseInt(body.year_end, 10) : null,
+    body.call_text.trim(),
+    body.called_at || toSqliteDatetime(new Date()),
+    body.review_date || null
+  ).run();
+
+  return json({ success: true, id: result.meta.last_row_id });
+}
+
+// Single-call detail, WITH the auto-linked evidence (Update 5) — confirmed
+// sales for this call's brand/model/trim that happened after called_at, so
+// resolving a call is "look at the real data" instead of manual digging.
+// Never auto-resolves anything; correct/incorrect/early/unclear stays
+// Jeff's judgment call via adminResolveMarketCall.
+async function adminGetMarketCall(request, env, params) {
+  const call = await env.DB.prepare(`SELECT * FROM market_calls WHERE id = ?`).bind(params.id).first();
+  if (!call) return json({ error: 'Call not found.' }, 404);
+
+  const allSales = await getConfirmedSoldSalesForCar(env, {
+    brand: call.brand, model: call.model, trim: call.trim, yearStart: call.year_start, yearEnd: call.year_end,
+  });
+  const calledAtMs = new Date(call.called_at.replace(' ', 'T') + 'Z').getTime();
+  const salesAfterCall = allSales.filter(s => new Date(s.resolved_at.replace(' ', 'T') + 'Z').getTime() >= calledAtMs);
+  const salesBeforeCall = allSales.filter(s => new Date(s.resolved_at.replace(' ', 'T') + 'Z').getTime() < calledAtMs);
+
+  return json({
+    call,
+    evidence: {
+      sales_before: salesBeforeCall,
+      sales_after: salesAfterCall,
+      stats_before: computeSalesStats(salesBeforeCall),
+      stats_after: computeSalesStats(salesAfterCall),
+    },
+  });
+}
+
+async function adminResolveMarketCall(request, env, params) {
+  const id = params.id;
+  const body = await request.json().catch(() => ({}));
+  const existing = await env.DB.prepare(`SELECT * FROM market_calls WHERE id = ?`).bind(id).first();
+  if (!existing) return json({ error: 'Call not found.' }, 404);
+
+  if (body.resolution != null) {
+    const validResolutions = ['correct', 'incorrect', 'early', 'unclear'];
+    if (!validResolutions.includes(body.resolution)) return json({ error: 'resolution must be one of correct/incorrect/early/unclear.' }, 400);
+    await env.DB.prepare(`
+      UPDATE market_calls SET resolution = ?, resolution_note = ?, resolved_at = datetime('now') WHERE id = ?
+    `).bind(body.resolution, body.resolution_note || null, id).run();
+  } else {
+    await env.DB.prepare(`
+      UPDATE market_calls SET
+        brand = COALESCE(?, brand), model = COALESCE(?, model), trim = ?, review_date = ?, call_text = COALESCE(?, call_text)
+      WHERE id = ?
+    `).bind(
+      body.brand?.trim() || null, body.model?.trim() || null,
+      body.trim_level !== undefined ? (body.trim_level?.trim() || null) : existing.trim,
+      body.review_date !== undefined ? (body.review_date || null) : existing.review_date,
+      body.call_text?.trim() || null, id
+    ).run();
+  }
+
+  return json({ success: true });
+}
+
+// ── Car detail pages (Update 6) — /market/cars/:brand/:model/:trim? ────
+// Scoped per model (brand+model+trim), not per watchlist row, so every
+// watchlist entry sharing the same car shares one page.
+async function getOrCreateCarProfile(env, brand, model, trim) {
+  const trimKey = trim || ''; // never store NULL — see migration comment
+  let row = await env.DB.prepare(
+    `SELECT * FROM car_profiles WHERE LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?) AND trim = ?`
+  ).bind(brand, model, trimKey).first();
+  if (!row) {
+    const result = await env.DB.prepare(`INSERT INTO car_profiles (brand, model, trim) VALUES (?, ?, ?)`).bind(brand, model, trimKey).run();
+    row = await env.DB.prepare(`SELECT * FROM car_profiles WHERE id = ?`).bind(result.meta.last_row_id).first();
+  }
+  return row;
+}
+
+async function getMarketItemsSalesForCar(env, { brand, model }) {
+  const { results } = await env.DB.prepare(`
+    SELECT title, detail, source, source_url, magnitude AS sold_price, mileage, ingested_at AS resolved_at
+    FROM market_items WHERE type = 'auction' AND LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?)
+  `).bind(brand, model).all();
+  return results;
+}
+
+async function adminGetCarProfile(request, env) {
+  const url = new URL(request.url);
+  const brand = url.searchParams.get('brand');
+  const model = url.searchParams.get('model');
+  const trim = url.searchParams.get('trim') || '';
+  if (!brand || !model) return json({ error: 'brand and model are required.' }, 400);
+
+  const profile = await getOrCreateCarProfile(env, brand, model, trim);
+  const activeListingsSales = await getConfirmedSoldSalesForCar(env, { brand, model, trim: trim || null });
+  const marketItemSales = await getMarketItemsSalesForCar(env, { brand, model });
+
+  return json({
+    profile: {
+      ...profile,
+      about_sources: profile.about_sources ? JSON.parse(profile.about_sources) : [],
+      msrp_by_year: profile.msrp_by_year ? JSON.parse(profile.msrp_by_year) : [],
+      published_price_points: profile.published_price_points ? JSON.parse(profile.published_price_points) : [],
+    },
+    internal_data: { active_listings_sales: activeListingsSales, market_item_sales: marketItemSales },
+  });
+}
+
+// Shared streaming helper for a single Claude call that can use the
+// server-side web_search tool and then report structured findings via a
+// second tool — same pattern as ingestWebSearchActiveListings's sweep,
+// factored out since car-profile refreshes need it twice more.
+async function callClaudeWebSearchTool(env, { prompt, tool, maxUses = 10, maxTokens = 4000 }) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6', max_tokens: maxTokens,
+      tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxUses }, tool],
+      tool_choice: { type: 'auto' },
+      messages: [{ role: 'user', content: prompt }],
+      stream: true,
+    }),
+  });
+  if (!res.ok) throw new Error(`Claude web-search call HTTP ${res.status}`);
+
+  const blocks = [];
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      let evt;
+      try { evt = JSON.parse(line.slice(6)); } catch { continue; }
+      if (evt.type === 'content_block_start') {
+        blocks[evt.index] = { type: evt.content_block.type, text: '', json: '', name: evt.content_block.name };
+      } else if (evt.type === 'content_block_delta') {
+        if (evt.delta?.type === 'text_delta' && blocks[evt.index]) blocks[evt.index].text += evt.delta.text;
+        else if (evt.delta?.type === 'input_json_delta' && blocks[evt.index]) blocks[evt.index].json += evt.delta.partial_json;
+      }
+    }
+  }
+
+  const toolBlock = blocks.filter(b => b?.type === 'tool_use' && b.name === tool.name).pop();
+  if (!toolBlock) return null;
+  try { return JSON.parse(toolBlock.json); } catch { return null; }
+}
+
+const CAR_ABOUT_TOOL = {
+  name: 'record_car_about',
+  description: 'Record a paraphrased summary of what this car is and what reviewers/enthusiasts say about it.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      about_text: { type: 'string', description: '3-5 sentences, entirely in your own words — no quoted text from any source, no close paraphrase of a specific source\'s sentence structure.' },
+      sources: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: { title: { type: 'string' }, url: { type: 'string' }, publisher: { type: 'string' } },
+          required: ['title', 'url', 'publisher'], additionalProperties: false,
+        },
+      },
+      thin_results: { type: 'boolean', description: 'true if search results were too thin/sparse to write a confident summary' },
+    },
+    required: ['about_text', 'sources', 'thin_results'],
+    additionalProperties: false,
+  },
+};
+
+// Refresh-on-demand only, per Jeff's stated preference — never auto-run.
+// Copyright discipline here is stricter than the one-off comp-search tool:
+// this is a STORED, reusable page, so the prompt explicitly forbids
+// quoting or closely mirroring any source's wording/structure, not just
+// "don't copy-paste."
+async function adminRefreshCarAbout(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const { brand, model } = body;
+  const trim = body.trim || '';
+  if (!brand || !model) return json({ error: 'brand and model are required.' }, 400);
+
+  const vehicleDesc = `${brand} ${model}${trim ? ' ' + trim : ''}`;
+  const prompt = `Research this vehicle: ${vehicleDesc}.
+
+Search enthusiast and editorial sources — Car and Driver, Road & Track, Motor Trend, and model-specific forums where relevant (Rennlist for Porsche, FerrariChat, LamborghiniTalk, etc.) — for what this car is and what reviewers/enthusiasts say about it: driving character, reliability notes, known issues, why it's collectible (or not).
+
+Write a short (3-5 sentence) plain-language summary ENTIRELY IN YOUR OWN WORDS. Do not quote or closely paraphrase any source's specific sentences or structure — this is a stored, reusable summary, not a one-off answer, so paraphrase discipline matters even more than usual. If search results are thin for this model, say so plainly in the summary rather than padding it out with generic filler.
+
+Record your findings with the record_car_about tool, including a source list (title/publisher/url) so the reader can click through to the original if they want the full read.`;
+
+  const result = await callClaudeWebSearchTool(env, { prompt, tool: CAR_ABOUT_TOOL, maxUses: 10 });
+  if (!result) return json({ error: 'No summary returned — try again.' }, 502);
+
+  const profile = await getOrCreateCarProfile(env, brand, model, trim);
+  await env.DB.prepare(`
+    UPDATE car_profiles SET about_text = ?, about_sources = ?, about_refreshed_at = datetime('now') WHERE id = ?
+  `).bind(result.about_text, JSON.stringify(result.sources || []), profile.id).run();
+
+  return json({ success: true });
+}
+
+const CAR_PRICE_CURVE_TOOL = {
+  name: 'record_price_curve',
+  description: 'Record MSRP-by-year and historical resale price data found for this vehicle.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      msrp_by_year: {
+        type: 'array',
+        items: { type: 'object', properties: { year: { type: 'number' }, msrp: { type: 'number' } }, required: ['year', 'msrp'], additionalProperties: false },
+      },
+      resale_price_points: {
+        type: 'array',
+        description: 'Historical resale/auction price data by year from Classic.com, Hagerty Valuation Tools, or similar.',
+        items: {
+          type: 'object',
+          properties: { year: { type: 'number' }, avg_price: { type: 'number' }, source: { type: 'string' } },
+          required: ['year', 'avg_price', 'source'], additionalProperties: false,
+        },
+      },
+    },
+    required: ['msrp_by_year', 'resale_price_points'],
+    additionalProperties: false,
+  },
+};
+
+// Also refresh-on-demand only. Most Tier 1 watchlist cars already have
+// years of published sale-price history on Classic.com/Hagerty — direct
+// scraping of those sites is confirmed blocked (Classic.com sits behind an
+// active Cloudflare challenge widget even on 200-status responses; Hagerty
+// redirect-loops) so this uses the same web_search route as the Update 4
+// sweep instead of trying to fetch them directly.
+async function adminRefreshCarPriceCurve(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const { brand, model } = body;
+  const trim = body.trim || '';
+  if (!brand || !model) return json({ error: 'brand and model are required.' }, 400);
+
+  const vehicleDesc = `${brand} ${model}${trim ? ' ' + trim : ''}`;
+  const prompt = `Research pricing history for this vehicle: ${vehicleDesc}.
+
+1. Original MSRP by model year — source from manufacturer archives, KBB historical pricing, or period reviews stating list price.
+2. Historical resale/auction price data by year — Classic.com's per-model market pages are the PRIMARY source (they publish average/high/low sale prices by year for most established collector/exotic models); Hagerty's Valuation Tools is a secondary/cross-check source, useful where Classic.com is thin for an older or rarer model.
+
+For any model year where you can't find real data from either source, just omit that year entirely — do not estimate or interpolate a value.
+
+Record findings with the record_price_curve tool.`;
+
+  const result = await callClaudeWebSearchTool(env, { prompt, tool: CAR_PRICE_CURVE_TOOL, maxUses: 12 });
+  if (!result) return json({ error: 'No pricing data returned — try again.' }, 502);
+
+  const profile = await getOrCreateCarProfile(env, brand, model, trim);
+  await env.DB.prepare(`
+    UPDATE car_profiles SET msrp_by_year = ?, published_price_points = ?, price_curve_refreshed_at = datetime('now') WHERE id = ?
+  `).bind(JSON.stringify(result.msrp_by_year || []), JSON.stringify(result.resale_price_points || []), profile.id).run();
+
+  return json({ success: true });
+}
+
 // Manual "run it now" trigger, same debug-route convention as
 // debugAutodevTest — lets ingestion/synthesis be verified end-to-end
 // without waiting for the 11:00 UTC cron.
@@ -8085,6 +8435,14 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/admin/market/listings/search',     handler: adminMarketListingsSearch, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/market/listings/report',     handler: adminActiveListingsReport, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/market/listings/:id',        handler: adminResolveActiveListing, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/market/history-by-car',      handler: adminMarketHistoryByCar, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/market/calls',               handler: adminListMarketCalls, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/market/calls',               handler: adminCreateMarketCall, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/market/calls/:id',           handler: adminGetMarketCall, auth: true, admin: true },
+  { method: 'PATCH', pattern: '/api/admin/market/calls/:id',           handler: adminResolveMarketCall, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/market/cars/profile',        handler: adminGetCarProfile, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/market/cars/refresh-about',      handler: adminRefreshCarAbout, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/market/cars/refresh-price-curve', handler: adminRefreshCarPriceCurve, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/debug/market-test',         handler: debugMarketTest, auth: true, admin: true },
 
   // ── Exotic watchlist admin ──

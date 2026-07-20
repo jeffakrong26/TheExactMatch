@@ -197,6 +197,14 @@ async function restoreSession() {
 function listingTitle(l) {
   return [l.brand, l.model, l.watchlist_trim || l.trim].filter(Boolean).join(' ') + (l.year ? ` (${l.year})` : '');
 }
+function carDetailUrl(brand, model, trim) {
+  const p = new URLSearchParams({ brand: brand || '', model: model || '' });
+  if (trim) p.set('trim', trim);
+  return `/market/cars?${p}`;
+}
+function carDetailLink(l) {
+  return `<a href="${carDetailUrl(l.brand, l.model, l.watchlist_trim || l.trim)}" style="font-size:.7rem;margin-left:.5rem;">Car detail &rarr;</a>`;
+}
 function listingMeta(l) {
   const parts = [];
   if (l.mileage) parts.push(`${Number(l.mileage).toLocaleString()} mi`);
@@ -214,7 +222,7 @@ function renderSoldWeek(rows) {
     ? rows.map(l => `
         <div class="listing-row">
           <div>
-            <div class="lr-title"><a href="${escapeHtml(l.external_url)}" target="_blank" rel="noopener">${escapeHtml(listingTitle(l))}</a></div>
+            <div class="lr-title"><a href="${escapeHtml(l.external_url)}" target="_blank" rel="noopener">${escapeHtml(listingTitle(l))}</a>${carDetailLink(l)}</div>
             <div class="lr-meta">${listingMeta(l)}</div>
           </div>
         </div>
@@ -228,7 +236,7 @@ function renderDisappeared(rows) {
     ? rows.map(l => `
         <div class="listing-row" data-listing-id="${l.id}">
           <div>
-            <div class="lr-title"><a href="${escapeHtml(l.external_url)}" target="_blank" rel="noopener">${escapeHtml(listingTitle(l))}</a></div>
+            <div class="lr-title"><a href="${escapeHtml(l.external_url)}" target="_blank" rel="noopener">${escapeHtml(listingTitle(l))}</a>${carDetailLink(l)}</div>
             <div class="lr-meta">${listingMeta(l)}</div>
             <div class="resolve-form" id="resolve-${l.id}">
               <select data-f="status">
@@ -276,7 +284,7 @@ function renderAllListings(rows) {
         <div class="listing-row">
           <div>
             <div class="lr-title">
-              <a href="${escapeHtml(l.external_url)}" target="_blank" rel="noopener">${escapeHtml(listingTitle(l))}</a>
+              <a href="${escapeHtml(l.external_url)}" target="_blank" rel="noopener">${escapeHtml(listingTitle(l))}</a>${carDetailLink(l)}
               <span class="status-badge ${l.status}">${STATUS_LABELS[l.status] || l.status}</span>
             </div>
             <div class="lr-meta">${listingMeta(l)}</div>
