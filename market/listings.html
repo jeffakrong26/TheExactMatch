@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="robots" content="noindex, nofollow"/>
+<title>Active Listings — The Tape</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0c1420; --bg2:#121b2b; --bg3:#182238;
+  --text:#e8edf5; --text-dim:#8a97ab;
+  --accent:#d4b26a; --border:#24314a;
+  --green:#3ecf8e; --amber:#e0a940; --red:#e46862;
+  --shadow:0 8px 24px rgba(0,0,0,.35);
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#f5f2ea; --bg2:#ffffff; --bg3:#efeadf;
+    --text:#1a2233; --text-dim:#6b7280;
+    --accent:#8a6a12; --border:#ddd8cc;
+    --green:#1a7a4f; --amber:#8a5a10; --red:#a83a35;
+    --shadow:0 4px 16px rgba(20,20,10,.08);
+  }
+}
+html{background:var(--bg)}
+body{font-family:'IBM Plex Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh}
+.display{font-family:'Archivo',sans-serif}
+a{color:var(--accent)}
+button,input,select{font-family:inherit}
+
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+.login-card{width:100%;max-width:340px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:2rem;box-shadow:var(--shadow)}
+.login-card h1{font-family:'Archivo',sans-serif;font-size:1.3rem;font-weight:800;margin-bottom:.25rem}
+.login-card .sub{color:var(--text-dim);font-size:.78rem;margin-bottom:1.5rem}
+.login-card input{width:100%;padding:.7rem .85rem;margin-bottom:.75rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.85rem;outline:none}
+.login-card button{width:100%;padding:.75rem;background:var(--accent);color:var(--bg);border:none;border-radius:4px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:.75rem;cursor:pointer;margin-top:.25rem}
+.login-err{color:var(--red);font-size:.78rem;margin-top:.6rem;min-height:1em}
+
+#app{display:none}
+.wrap{max-width:1000px;margin:0 auto;padding:1.25rem 1.25rem 3rem}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1.5rem}
+.eyebrow{font-size:.65rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.35rem}
+.back-link{font-size:.72rem;text-decoration:none;color:var(--text-dim)}
+.back-link:hover{color:var(--accent)}
+h1.title{font-family:'Archivo',sans-serif;font-size:1.7rem;font-weight:800;letter-spacing:-.01em}
+.count-sub{color:var(--text-dim);font-size:.85rem;margin-top:.2rem}
+.logout-link{font-size:.7rem;color:var(--text-dim);text-decoration:underline;cursor:pointer;background:none;border:none}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1.1rem;margin-bottom:1.25rem}
+.card h2{font-family:'Archivo',sans-serif;font-size:.95rem;font-weight:700;margin-bottom:.9rem;display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}
+
+.btn{padding:.6rem 1.1rem;background:var(--accent);color:var(--bg);border:none;border-radius:4px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:.72rem;cursor:pointer}
+.btn.secondary{background:transparent;color:var(--text-dim);border:1px solid var(--border)}
+.btn.small{padding:.4rem .7rem;font-size:.65rem}
+.btn:disabled{opacity:.5;cursor:default}
+.search-status{font-size:.75rem;color:var(--text-dim);margin-top:.6rem}
+
+.filters{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.9rem}
+.filters select{padding:.5rem .6rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.78rem}
+
+.listing-row{display:grid;grid-template-columns:1fr auto;gap:.75rem;align-items:center;padding:.65rem 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.listing-row:last-child{border-bottom:none}
+.lr-title{font-weight:600}
+.lr-meta{color:var(--text-dim);font-size:.74rem;margin-top:.15rem}
+.status-badge{display:inline-block;font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;font-weight:700;padding:.15rem .45rem;border-radius:10px;margin-left:.5rem}
+.status-badge.active{background:var(--green);color:var(--bg)}
+.status-badge.confirmed_sold{background:var(--accent);color:var(--bg)}
+.status-badge.disappeared_unconfirmed{background:var(--red);color:var(--bg)}
+.status-badge.manual_resolved{background:var(--text-dim);color:var(--bg)}
+
+.resolve-form{background:var(--bg3);border-radius:4px;padding:.7rem;margin-top:.5rem;display:none;gap:.5rem;flex-wrap:wrap;align-items:center}
+.resolve-form.open{display:flex}
+.resolve-form select,.resolve-form input{padding:.4rem .55rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.75rem}
+.resolve-form input[type="number"]{width:110px}
+.resolve-form input[type="text"]{width:180px}
+
+.empty{color:var(--text-dim);font-size:.8rem;font-style:italic}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <h1 class="display">Active Listings</h1>
+    <div class="sub">THE EXACT MATCH &middot; INTERNAL</div>
+    <form id="login-form">
+      <input type="email" id="login-email" placeholder="Email" autocomplete="username" required/>
+      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required/>
+      <button type="submit" id="login-btn">Sign in</button>
+      <div class="login-err" id="login-err"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app">
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <div class="eyebrow">THE EXACT MATCH &middot; INTERNAL</div>
+        <a class="back-link" href="/market">&larr; Back to The Tape</a>
+        <h1 class="title display">Active Listings</h1>
+        <div class="count-sub" id="total-count">—</div>
+      </div>
+      <button class="logout-link" id="logout-btn">Sign out</button>
+    </header>
+
+    <div class="card">
+      <h2>Search the market <button class="btn" id="search-btn">Search now</button></h2>
+      <div class="search-status" id="search-status">Runs BaT/PCarMarket/Collecting Cars live listings plus a Classic.com/Autotrader/Cars.com web search sweep for Tier 1 cars, then re-checks anything already stale.</div>
+    </div>
+
+    <div class="card">
+      <h2>Confirmed sold this week</h2>
+      <div id="sold-week-list"><span class="empty">Loading&hellip;</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Disappeared — needs your review</h2>
+      <div id="disappeared-list"><span class="empty">Loading&hellip;</span></div>
+    </div>
+
+    <div class="card">
+      <h2>All tracked listings</h2>
+      <div class="filters">
+        <select id="filter-status">
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="confirmed_sold">Confirmed sold</option>
+          <option value="disappeared_unconfirmed">Disappeared (unconfirmed)</option>
+          <option value="manual_resolved">Manually resolved</option>
+        </select>
+        <select id="filter-source">
+          <option value="">All sources</option>
+          <option value="bat">Bring a Trailer</option>
+          <option value="pcarmarket">PCarMarket</option>
+          <option value="collectingcars">Collecting Cars</option>
+          <option value="web_search">Web search sweep</option>
+        </select>
+      </div>
+      <div id="all-listings"><span class="empty">Loading&hellip;</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';
+let authToken = localStorage.getItem('tem_dealer_token') || null;
+
+async function apiFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  const res = await fetch(`${API}${path}`, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  return { res, data };
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  document.getElementById('login-btn').disabled = true;
+  const { res, data } = await apiFetch('/dealer/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+  document.getElementById('login-btn').disabled = false;
+  if (!res.ok) { errEl.textContent = data.error || 'Sign-in failed.'; return; }
+  if (data.dealer?.role !== 'admin') { errEl.textContent = 'This page is admin-only.'; return; }
+  authToken = data.token;
+  localStorage.setItem('tem_dealer_token', authToken);
+  enterApp();
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await apiFetch('/dealer/logout', { method: 'POST' }).catch(() => {});
+  authToken = null;
+  localStorage.removeItem('tem_dealer_token');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+});
+
+async function restoreSession() {
+  if (!authToken) return false;
+  const { res, data } = await apiFetch('/dealer/me').catch(() => ({ res: { ok: false }, data: {} }));
+  if (res.ok && data.role === 'admin') return true;
+  authToken = null;
+  localStorage.removeItem('tem_dealer_token');
+  return false;
+}
+
+function listingTitle(l) {
+  return [l.brand, l.model, l.watchlist_trim || l.trim].filter(Boolean).join(' ') + (l.year ? ` (${l.year})` : '');
+}
+function listingMeta(l) {
+  const parts = [];
+  if (l.mileage) parts.push(`${Number(l.mileage).toLocaleString()} mi`);
+  if (l.price_asking) parts.push(`asking $${Number(l.price_asking).toLocaleString()}`);
+  if (l.sold_price) parts.push(`sold $${Number(l.sold_price).toLocaleString()}`);
+  parts.push(l.source);
+  parts.push(`last seen ${(l.last_seen || '').slice(0, 10)}`);
+  return parts.join(' &middot; ');
+}
+const STATUS_LABELS = { active: 'Active', confirmed_sold: 'Confirmed sold', disappeared_unconfirmed: 'Disappeared', manual_resolved: 'Resolved' };
+
+function renderSoldWeek(rows) {
+  const el = document.getElementById('sold-week-list');
+  el.innerHTML = rows.length
+    ? rows.map(l => `
+        <div class="listing-row">
+          <div>
+            <div class="lr-title"><a href="${escapeHtml(l.external_url)}" target="_blank" rel="noopener">${escapeHtml(listingTitle(l))}</a></div>
+            <div class="lr-meta">${listingMeta(l)}</div>
+          </div>
+        </div>
+      `).join('')
+    : '<span class="empty">Nothing confirmed sold this week yet.</span>';
+}
+
+function renderDisappeared(rows) {
+  const el = document.getElementById('disappeared-list');
+  el.innerHTML = rows.length
+    ? rows.map(l => `
+        <div class="listing-row" data-listing-id="${l.id}">
+          <div>
+            <div class="lr-title"><a href="${escapeHtml(l.external_url)}" target="_blank" rel="noopener">${escapeHtml(listingTitle(l))}</a></div>
+            <div class="lr-meta">${listingMeta(l)}</div>
+            <div class="resolve-form" id="resolve-${l.id}">
+              <select data-f="status">
+                <option value="confirmed_sold">Sold</option>
+                <option value="manual_resolved">Relisted/pulled/unknown</option>
+              </select>
+              <input type="number" data-f="sold_price" placeholder="sold price (if known)"/>
+              <input type="text" data-f="resolution_note" placeholder="note (optional)"/>
+              <button class="btn small" data-action="save-resolve" data-id="${l.id}">Save</button>
+            </div>
+          </div>
+          <button class="btn secondary small" data-action="toggle-resolve" data-id="${l.id}">Resolve</button>
+        </div>
+      `).join('')
+    : '<span class="empty">Nothing needs review right now.</span>';
+}
+
+document.getElementById('disappeared-list').addEventListener('click', async ev => {
+  const toggleBtn = ev.target.closest('[data-action="toggle-resolve"]');
+  if (toggleBtn) {
+    document.getElementById(`resolve-${toggleBtn.dataset.id}`).classList.toggle('open');
+    return;
+  }
+  const saveBtn = ev.target.closest('[data-action="save-resolve"]');
+  if (saveBtn) {
+    const id = saveBtn.dataset.id;
+    const form = document.getElementById(`resolve-${id}`);
+    const fields = {};
+    form.querySelectorAll('[data-f]').forEach(input => { fields[input.dataset.f] = input.value; });
+    saveBtn.disabled = true;
+    const { res } = await apiFetch(`/admin/market/listings/${id}`, { method: 'PATCH', body: JSON.stringify(fields) });
+    if (res.ok) {
+      await loadReport();
+      await loadAllListings();
+    } else {
+      saveBtn.disabled = false;
+    }
+  }
+});
+
+function renderAllListings(rows) {
+  const el = document.getElementById('all-listings');
+  el.innerHTML = rows.length
+    ? rows.map(l => `
+        <div class="listing-row">
+          <div>
+            <div class="lr-title">
+              <a href="${escapeHtml(l.external_url)}" target="_blank" rel="noopener">${escapeHtml(listingTitle(l))}</a>
+              <span class="status-badge ${l.status}">${STATUS_LABELS[l.status] || l.status}</span>
+            </div>
+            <div class="lr-meta">${listingMeta(l)}</div>
+          </div>
+        </div>
+      `).join('')
+    : '<span class="empty">No tracked listings yet.</span>';
+}
+
+document.getElementById('search-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('search-btn');
+  const statusEl = document.getElementById('search-status');
+  btn.disabled = true;
+  statusEl.textContent = 'Searching — this can take a minute (the web search sweep runs a live research call)...';
+  const { res, data } = await apiFetch('/admin/market/listings/search', { method: 'POST' });
+  btn.disabled = false;
+  if (!res.ok) { statusEl.textContent = 'Search failed — check ingestion logs.'; return; }
+  const counts = (data.status_counts || []).map(c => `${c.count} ${STATUS_LABELS[c.status] || c.status}`).join(', ');
+  statusEl.textContent = `Done. ${counts || 'No listings tracked yet.'}${data.web_search ? ` (${data.web_search.tracked} from web search sweep)` : ''}`;
+  await loadReport();
+  await loadAllListings();
+});
+
+document.getElementById('filter-status').addEventListener('change', loadAllListings);
+document.getElementById('filter-source').addEventListener('change', loadAllListings);
+
+async function loadReport() {
+  const { res, data } = await apiFetch('/admin/market/listings/report');
+  if (!res.ok) return;
+  renderSoldWeek(data.sold_this_week || []);
+  renderDisappeared(data.disappeared_needs_review || []);
+}
+
+async function loadAllListings() {
+  const status = document.getElementById('filter-status').value;
+  const source = document.getElementById('filter-source').value;
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (source) params.set('source', source);
+  const { res, data } = await apiFetch(`/admin/market/listings?${params}`);
+  if (!res.ok) return;
+  const rows = data.listings || [];
+  renderAllListings(rows);
+  document.getElementById('total-count').textContent = `Tracked listings: ${rows.length}`;
+}
+
+async function enterApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  await Promise.all([loadReport(), loadAllListings()]);
+}
+
+(async function init() {
+  const ok = await restoreSession();
+  if (ok) await enterApp();
+  else document.getElementById('login-screen').style.display = 'flex';
+})();
+</script>
+</body>
+</html>

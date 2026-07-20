@@ -6743,6 +6743,351 @@ async function ingestCollectingCarsResults(env) {
   console.log(`[market] auctions: ${inserted} Collecting Cars sales inserted, ${skipped} non-exotic listings filtered out`);
 }
 
+// ── Active listing tracker (Jeff's watchlist, for-sale right now) ──────
+// Same three sources as the sold-results ingestion above (BaT/PCarMarket/
+// Collecting Cars all confirmed fetchable; Cars & Bids/Classic.com remain
+// blocked for the same reasons already documented there) — just pointed at
+// each site's live/current listings instead of completed sales. Matches
+// strictly against exotic_watchlist, not the broader vehicle_reference net
+// — this table exists to track specific cars Jeff is watching for, not a
+// general activity feed — with market_exclusions still applied on top
+// since a watchlist match can still be a parts/project listing.
+async function upsertActiveListing(env, { watchlistId, source, url, externalId, brand, model, trim, year, mileage, priceAsking }) {
+  await env.DB.prepare(`
+    INSERT INTO active_listings (watchlist_id, source, external_url, external_id, brand, model, trim, year, mileage, price_asking, first_seen, last_seen, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 'active')
+    ON CONFLICT(external_url) DO UPDATE SET
+      last_seen = datetime('now'),
+      price_asking = excluded.price_asking,
+      mileage = excluded.mileage,
+      status = CASE WHEN active_listings.status = 'manual_resolved' THEN active_listings.status ELSE 'active' END
+  `).bind(watchlistId, source, url, externalId, brand, model, trim, year, mileage, priceAsking).run();
+}
+
+async function ingestBatActiveListings(env) {
+  const res = await fetch('https://bringatrailer.com/auctions/', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)' },
+  });
+  if (!res.ok) throw new Error(`BaT live-auctions HTTP ${res.status}`);
+  const html = await res.text();
+  const match = html.match(/var auctionsCurrentInitialData = (\{.*?\});\s*\n/s);
+  if (!match) throw new Error('Could not find BaT live-auctions data blob');
+  const items = JSON.parse(match[1])?.items || [];
+  const watchlistRows = await loadActiveWatchlist(env);
+  const exclusionRows = await loadActiveExclusions(env);
+
+  let tracked = 0;
+  for (const item of items) {
+    if (item.sold_text) continue; // already ended — belongs to ingestAuctionResults, not here
+    const year = item.year || extractYearFromTitle(item.title);
+    const wlMatch = matchExoticWatchlistRow(watchlistRows, { title: item.title, year });
+    if (!wlMatch) continue;
+    if (isExcludedByRules(exclusionRows, { title: item.title, brand: wlMatch.brand, model: wlMatch.model })) continue;
+
+    const mileage = extractMileageFromTitle(item.title);
+    await upsertActiveListing(env, {
+      watchlistId: wlMatch.id, source: 'bat', url: item.url, externalId: item.id != null ? String(item.id) : null,
+      brand: wlMatch.brand, model: wlMatch.model, trim: wlMatch.trim, year,
+      mileage, priceAsking: item.current_bid ?? null,
+    });
+    tracked++;
+  }
+  console.log(`[market] active listings: ${tracked} BaT watchlist matches tracked`);
+}
+
+async function ingestPCarMarketActiveListings(env) {
+  const res = await fetch('https://www.pcarmarket.com/api/auctions/?limit=30&sort_by=ending_soon&status=live&type=cars', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)', 'Accept': 'application/json' },
+  });
+  if (!res.ok) throw new Error(`PCarMarket live API HTTP ${res.status}`);
+  const data = await res.json();
+  const items = data?.results || [];
+  const watchlistRows = await loadActiveWatchlist(env);
+  const exclusionRows = await loadActiveExclusions(env);
+
+  let tracked = 0;
+  for (const item of items) {
+    if (item.status !== 'Active') continue;
+    const brand = item.vehicle?.make || null;
+    const model = item.vehicle?.model || null;
+    const year = item.vehicle?.year || extractYearFromTitle(item.title);
+    const wlMatch = matchExoticWatchlistRow(watchlistRows, { title: item.title, brand, model, year });
+    if (!wlMatch) continue;
+    if (isExcludedByRules(exclusionRows, { title: item.title, brand, model })) continue;
+
+    let mileage = item.mileage_body != null ? Number(item.mileage_body) : extractMileageFromTitle(item.title);
+    if (mileage != null && item.odometer_type === 'km') mileage = Math.round(mileage * 0.621371);
+
+    await upsertActiveListing(env, {
+      watchlistId: wlMatch.id, source: 'pcarmarket', url: `https://www.pcarmarket.com/auction/${item.slug}`,
+      externalId: item.slug, brand: brand || wlMatch.brand, model: model || wlMatch.model, trim: wlMatch.trim, year,
+      mileage, priceAsking: item.high_bid ?? null,
+    });
+    tracked++;
+  }
+  console.log(`[market] active listings: ${tracked} PCarMarket watchlist matches tracked`);
+}
+
+async function ingestCollectingCarsActiveListings(env) {
+  const res = await fetch('https://collectingcars.com/buy', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)' },
+  });
+  if (!res.ok) throw new Error(`Collecting Cars HTTP ${res.status}`);
+  const html = await res.text();
+  const hits = extractJsonArrayAfterKey(html, 'hits');
+  if (!hits) throw new Error('Could not find Collecting Cars hits data blob');
+  const watchlistRows = await loadActiveWatchlist(env);
+  const exclusionRows = await loadActiveExclusions(env);
+
+  let tracked = 0;
+  for (const hit of hits) {
+    if (hit.listingStage !== 'live') continue;
+    const brand = hit.productMake || hit.vehicleMake || null;
+    const model = hit.modelName || null;
+    const year = hit.productYear ? parseInt(hit.productYear, 10) : (hit.features?.modelYear ? parseInt(hit.features.modelYear, 10) : null);
+    const wlMatch = matchExoticWatchlistRow(watchlistRows, { title: hit.title, brand, model, year });
+    if (!wlMatch) continue;
+    if (isExcludedByRules(exclusionRows, { title: hit.title, brand, model })) continue;
+
+    let mileage = null;
+    const mileageMatch = /([\d,]+)\s*(km|mi)/i.exec(hit.features?.mileage || '');
+    if (mileageMatch) {
+      const n = parseInt(mileageMatch[1].replace(/,/g, ''), 10);
+      mileage = /km/i.test(mileageMatch[2]) ? Math.round(n * 0.621371) : n;
+    }
+
+    await upsertActiveListing(env, {
+      watchlistId: wlMatch.id, source: 'collectingcars', url: `https://collectingcars.com/for-sale/${hit.slug}`,
+      externalId: hit.id != null ? String(hit.id) : null, brand: brand || wlMatch.brand, model: model || wlMatch.model, trim: wlMatch.trim, year,
+      mileage, priceAsking: hit.currentBid ?? null,
+    });
+    tracked++;
+  }
+  console.log(`[market] active listings: ${tracked} Collecting Cars watchlist matches tracked`);
+}
+
+// ── Weekly resolution: confirmed sold vs. disappeared ───────────────
+// Per-source "is this specific listing still around, and did it sell"
+// checks, used once a tracked listing has gone quiet for a week. Auction
+// sources always publish a sold price once ended, so those resolve
+// automatically; anything else (dealer sites, general marketplaces reached
+// via the web_search sweep) never publishes one, so those listings only
+// ever resolve via Jeff's manual action.
+async function checkBatListingSold(url) {
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)' } });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const m = /Sold for ([A-Z]+ \$[\d,]+)/.exec(html);
+    if (!m) return null;
+    return { price: Number((m[1].match(/[\d,]+/) || ['0'])[0].replace(/,/g, '')) };
+  } catch { return null; }
+}
+
+async function checkPCarMarketListingSold(externalId) {
+  if (!externalId) return null;
+  try {
+    const res = await fetch(`https://www.pcarmarket.com/api/auctions/${externalId}/`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)', 'Accept': 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data?.status_class !== 'sold' || !data?.high_bid) return null;
+    return { price: data.high_bid };
+  } catch { return null; }
+}
+
+async function checkCollectingCarsListingSold(externalId) {
+  if (!externalId) return null;
+  try {
+    const res = await fetch('https://collectingcars.com/sold', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchTape/1.0)' },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const hits = extractJsonArrayAfterKey(html, 'hits');
+    if (!hits) return null;
+    // Recent-results feed only (site doesn't expose deep pagination easily)
+    // — a sale from further back than that just falls through to
+    // disappeared_unconfirmed like any other unverifiable source.
+    const match = hits.find(h => String(h.id) === String(externalId) || String(h.auctionId) === String(externalId));
+    if (!match || match.listingStage !== 'sold' || !match.priceSold) return null;
+    return { price: match.priceSold };
+  } catch { return null; }
+}
+
+async function resolveStaleActiveListings(env) {
+  const { results: stale } = await env.DB.prepare(
+    `SELECT * FROM active_listings WHERE status = 'active' AND last_seen < datetime('now', '-7 days')`
+  ).all();
+
+  let confirmedSold = 0, disappeared = 0;
+  for (const listing of stale) {
+    let soldInfo = null;
+    if (listing.source === 'bat') soldInfo = await checkBatListingSold(listing.external_url);
+    else if (listing.source === 'pcarmarket') soldInfo = await checkPCarMarketListingSold(listing.external_id);
+    else if (listing.source === 'collectingcars') soldInfo = await checkCollectingCarsListingSold(listing.external_id);
+
+    if (!soldInfo) {
+      await env.DB.prepare(`UPDATE active_listings SET status = 'disappeared_unconfirmed' WHERE id = ?`).bind(listing.id).run();
+      disappeared++;
+      continue;
+    }
+
+    await env.DB.prepare(`
+      UPDATE active_listings SET status = 'confirmed_sold', sold_price = ?, resolved_at = datetime('now') WHERE id = ?
+    `).bind(soldInfo.price, listing.id).run();
+    confirmedSold++;
+
+    // Feed the confirmed sale back into market_items so it counts toward
+    // the exotic corner / scoring like any other completed sale.
+    const existing = await env.DB.prepare(`SELECT id FROM market_items WHERE source = ? AND source_url = ?`).bind(listing.source, listing.external_url).first();
+    if (existing) continue;
+
+    const wl = await env.DB.prepare(`SELECT tier, max_mileage FROM exotic_watchlist WHERE id = ?`).bind(listing.watchlist_id).first();
+    const taxonomy = taxonomyLookup(listing.brand, listing.model);
+    const belowThreshold = wl ? computeBelowMileageThreshold(wl, listing.mileage) : null;
+    const daysListed = Math.max(0, Math.round((Date.now() - new Date(listing.first_seen.replace(' ', 'T') + 'Z').getTime()) / 86400000));
+
+    await env.DB.prepare(`
+      INSERT INTO market_items (type, title, detail, source, source_url, brand, model, body_style, size, tier, electrified, region, direction, magnitude, ingested_at, expires_at, mileage, watchlist_id, watchlist_tier, below_mileage_threshold)
+      VALUES ('auction', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'none', 'national', 'neutral', ?, datetime('now'), datetime('now', '+14 days'), ?, ?, ?, ?)
+    `).bind(
+      [listing.brand, listing.model, listing.trim].filter(Boolean).join(' '),
+      `Sold for $${Number(soldInfo.price).toLocaleString()} after ${daysListed} days listed (tracked via watchlist).`,
+      listing.source, listing.external_url, listing.brand, listing.model,
+      taxonomy?.body_style ?? null, taxonomy?.size ?? null, taxonomy?.tier ?? 'exotic',
+      soldInfo.price, listing.mileage, listing.watchlist_id, wl?.tier ?? null, belowThreshold
+    ).run();
+  }
+  console.log(`[market] active-listing resolution: ${confirmedSold} confirmed sold, ${disappeared} disappeared unconfirmed`);
+}
+
+// ── Web-search sweep (Classic.com / Autotrader / Cars.com / dealer sites) ──
+// These three sites all bot-block direct scraping (Classic.com sits behind
+// a Cloudflare challenge; Autotrader/Cars.com return blocked/soft-error
+// pages to non-browser requests — confirmed live, same conclusion as the
+// exotic comp-search research above). Anthropic's server-side web_search
+// tool sidesteps that entirely, the same trick adminCompSearch already
+// uses. On-demand only (triggered by "Search the market"), not the daily
+// cron — cost scales per click, not per day, and it's a single consolidated
+// call across every Tier 1 car rather than one call per watchlist entry.
+// Tier 1 only: those are the cars most likely to trade off the major
+// auction sites already covered by direct scraping.
+const RECORD_ACTIVE_LISTINGS_TOOL = {
+  name: 'record_active_listings',
+  description: 'Record currently-for-sale vehicle listings found matching the requested watchlist cars.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      listings: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            brand: { type: 'string' },
+            model: { type: 'string' },
+            trim: { type: 'string', description: 'Empty string if not applicable/unknown' },
+            year: { type: 'number', description: '0 if unknown' },
+            mileage: { type: 'number', description: '0 if unknown' },
+            price_asking: { type: 'number', description: '0 if not listed' },
+            url: { type: 'string' },
+            source_site: { type: 'string', description: 'e.g. "Classic.com", "Autotrader", "Cars.com", or the dealer site name' },
+          },
+          required: ['brand', 'model', 'trim', 'year', 'mileage', 'price_asking', 'url', 'source_site'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['listings'],
+    additionalProperties: false,
+  },
+};
+
+async function ingestWebSearchActiveListings(env) {
+  const { results: tier1 } = await env.DB.prepare(`SELECT * FROM exotic_watchlist WHERE active = 1 AND tier = 1`).all();
+  if (!tier1.length) return { tracked: 0 };
+
+  const carList = tier1.map(w => {
+    const yearRange = w.year_start && w.year_end ? `${w.year_start}-${w.year_end}` : w.year_start ? `${w.year_start}+` : w.year_end ? `up to ${w.year_end}` : 'any year';
+    return `- ${w.brand} ${w.model}${w.trim ? ' ' + w.trim : ''} (${yearRange}${w.max_mileage ? `, under ${w.max_mileage.toLocaleString()} miles preferred` : ''})`;
+  }).join('\n');
+
+  const prompt = `Search Classic.com, Autotrader, Cars.com, and general dealer/marketplace listings for vehicles CURRENTLY FOR SALE (not sold, not auction results) matching any of these tracked cars:
+
+${carList}
+
+Only report listings that are actually currently for sale with a real listing URL. Skip anything you can't verify is still active. For each one found, record it with the record_active_listings tool.`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6', max_tokens: 4000,
+      tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 12 }, RECORD_ACTIVE_LISTINGS_TOOL],
+      tool_choice: { type: 'auto' },
+      messages: [{ role: 'user', content: prompt }],
+      stream: true,
+    }),
+  });
+  if (!res.ok) throw new Error(`Claude web-search sweep HTTP ${res.status}`);
+
+  // Same streaming-accumulation pattern as adminCompSearch (a multi-round
+  // web_search call can run past Cloudflare's idle-connection timeout on a
+  // plain blocking request), extended to also accumulate tool_use JSON
+  // deltas rather than just text.
+  const blocks = [];
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      let evt;
+      try { evt = JSON.parse(line.slice(6)); } catch { continue; }
+      if (evt.type === 'content_block_start') {
+        blocks[evt.index] = { type: evt.content_block.type, text: '', json: '', name: evt.content_block.name };
+      } else if (evt.type === 'content_block_delta') {
+        if (evt.delta?.type === 'text_delta' && blocks[evt.index]) blocks[evt.index].text += evt.delta.text;
+        else if (evt.delta?.type === 'input_json_delta' && blocks[evt.index]) blocks[evt.index].json += evt.delta.partial_json;
+      }
+    }
+  }
+
+  const toolBlock = blocks.filter(b => b?.type === 'tool_use' && b.name === 'record_active_listings').pop();
+  if (!toolBlock) { console.log('[market] web-search sweep: no listings tool call returned'); return { tracked: 0 }; }
+
+  let input;
+  try { input = JSON.parse(toolBlock.json); } catch { return { tracked: 0 }; }
+  const listings = input?.listings || [];
+
+  const exclusionRows = await loadActiveExclusions(env);
+  let tracked = 0;
+  for (const l of listings) {
+    if (!l.url || !l.brand || !l.model) continue;
+    // Re-verify against the watchlist rather than trusting Claude's
+    // brand/model reporting outright — occasionally over-reports an
+    // adjacent model.
+    const wlMatch = matchExoticWatchlistRow(tier1, { title: `${l.brand} ${l.model} ${l.trim || ''}`, brand: l.brand, model: l.model, year: l.year || null });
+    if (!wlMatch) continue;
+    if (isExcludedByRules(exclusionRows, { title: `${l.brand} ${l.model} ${l.trim || ''}`, brand: l.brand, model: l.model })) continue;
+
+    await upsertActiveListing(env, {
+      watchlistId: wlMatch.id, source: 'web_search', url: l.url, externalId: null,
+      brand: l.brand, model: l.model, trim: l.trim || wlMatch.trim, year: l.year || null,
+      mileage: l.mileage || null, priceAsking: l.price_asking || null,
+    });
+    tracked++;
+  }
+  console.log(`[market] active listings: ${tracked} web-search-sweep matches tracked (Classic.com/Autotrader/Cars.com/dealer)`);
+  return { tracked };
+}
+
 // ── News ─────────────────────────────────────────────────────────────
 // Automotive News' RSS URL now redirects to a Google-News-shaped sitemap
 // (confirmed live) — still just title/link/date per item, which is all the
@@ -7015,7 +7360,7 @@ function marketWeekdayName(date) {
   return date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Chicago' });
 }
 
-async function sendMarketReminderEmail(env, brief, hotMatches) {
+async function sendMarketReminderEmail(env, brief, hotMatches, listingsSummary) {
   const weekday = marketWeekdayName(new Date());
   const biggestMoves = (brief.movers || []).slice(0, 3);
   const nearCloseHot = hotMatches.find(m => m.nearClose);
@@ -7027,6 +7372,7 @@ async function sendMarketReminderEmail(env, brief, hotMatches) {
       <p style="font-size:1.05rem;"><strong>${escapeHtml(brief.headline)}</strong></p>
       ${biggestMoves.length ? `<ul>${biggestMoves.map(m => `<li>${escapeHtml(m.label)} — ${escapeHtml(m.why)}</li>`).join('')}</ul>` : ''}
       ${nearCloseHot ? `<p><strong>⚡ ${escapeHtml(nearCloseHot.brand)} ${escapeHtml(nearCloseHot.model)} incentive matches an active deal in negotiations/test-drive stage — check the pipeline.</strong></p>` : ''}
+      ${listingsSummary && (listingsSummary.soldCount || listingsSummary.disappearedCount) ? `<p>Watchlist: ${listingsSummary.soldCount} car${listingsSummary.soldCount === 1 ? '' : 's'} sold this week, ${listingsSummary.disappearedCount} disappeared — needs your review.</p>` : ''}
       <p style="text-align:center;margin-top:1.5rem;">
         <a href="https://theexactmatch.com/market" style="display:inline-block;padding:.85rem 2rem;background:#0C1C33;color:#F5F0E8;text-decoration:none;border-radius:2px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-size:.8rem;">Open The Tape</a>
       </p>
@@ -7056,14 +7402,32 @@ async function runMarketIngestion(env) {
   await runIngestionSource(env, 'collectingcars', () => ingestCollectingCarsResults(env));
   await runIngestionSource(env, 'news', () => ingestNews(env));
 
+  // Active-listing tracker (Update 4) — daily refresh of what's currently
+  // for sale against the watchlist, then resolve anything that's gone
+  // quiet for a week. The web_search sweep (Classic.com/Autotrader/Cars.com)
+  // is on-demand only via "Search the market" — not run on this cron, so
+  // its cost scales per click rather than per day.
+  await runIngestionSource(env, 'bat_active', () => ingestBatActiveListings(env));
+  await runIngestionSource(env, 'pcarmarket_active', () => ingestPCarMarketActiveListings(env));
+  await runIngestionSource(env, 'collectingcars_active', () => ingestCollectingCarsActiveListings(env));
+  await resolveStaleActiveListings(env).catch(err => console.error('[market] stale-listing resolution failed', err));
+
   await cleanupExpiredMarketItems(env).catch(err => console.error('[market] cleanup failed', err));
 
   const hotMatches = await crossCheckPipelineMatches(env).catch(err => { console.error('[market] safety net failed', err); return []; });
   await scoreMarketItems(env).catch(err => console.error('[market] scoring failed', err));
 
+  const soldWeekRow = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM active_listings WHERE status = 'confirmed_sold' AND resolved_at > datetime('now', '-7 days')`
+  ).first().catch(() => null);
+  const disappearedRow = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM active_listings WHERE status = 'disappeared_unconfirmed'`
+  ).first().catch(() => null);
+  const listingsSummary = { soldCount: soldWeekRow?.n ?? 0, disappearedCount: disappearedRow?.n ?? 0 };
+
   try {
     const brief = await synthesizeMarketBrief(env);
-    await sendMarketReminderEmail(env, brief, hotMatches);
+    await sendMarketReminderEmail(env, brief, hotMatches, listingsSummary);
   } catch (err) {
     console.error('[market] synthesis failed', err?.stack || err);
     const today = new Date().toISOString().slice(0, 10);
@@ -7420,6 +7784,91 @@ async function adminUpdateExclusion(request, env, params) {
   return json({ success: true });
 }
 
+// ── Active listings admin (market/listings.html) ────────────────────
+async function adminListActiveListings(request, env) {
+  const url = new URL(request.url);
+  const watchlistId = url.searchParams.get('watchlist_id');
+  const status = url.searchParams.get('status');
+  const source = url.searchParams.get('source');
+
+  const clauses = [];
+  const binds = [];
+  if (watchlistId) { clauses.push('al.watchlist_id = ?'); binds.push(watchlistId); }
+  if (status) { clauses.push('al.status = ?'); binds.push(status); }
+  if (source) { clauses.push('al.source = ?'); binds.push(source); }
+  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+
+  const { results } = await env.DB.prepare(`
+    SELECT al.*, ew.tier AS watchlist_tier, ew.trim AS watchlist_trim, ew.notes AS watchlist_notes
+    FROM active_listings al
+    JOIN exotic_watchlist ew ON al.watchlist_id = ew.id
+    ${where}
+    ORDER BY al.status ASC, al.last_seen DESC
+  `).bind(...binds).all();
+
+  return json({ listings: results });
+}
+
+// On-demand trigger for the "Search the market" button — runs the three
+// direct-scrape sources plus the web_search sweep immediately (rather than
+// waiting for the daily cron), then resolves anything already stale.
+async function adminMarketListingsSearch(request, env) {
+  const results = { bat: null, pcarmarket: null, collectingcars: null, web_search: null, resolution: null };
+
+  await runIngestionSource(env, 'bat_active', () => ingestBatActiveListings(env));
+  await runIngestionSource(env, 'pcarmarket_active', () => ingestPCarMarketActiveListings(env));
+  await runIngestionSource(env, 'collectingcars_active', () => ingestCollectingCarsActiveListings(env));
+  try {
+    results.web_search = await ingestWebSearchActiveListings(env);
+  } catch (err) {
+    console.error('[market] web-search sweep failed', err?.stack || err);
+  }
+  await resolveStaleActiveListings(env).catch(err => console.error('[market] stale-listing resolution failed', err));
+
+  const { results: counts } = await env.DB.prepare(
+    `SELECT status, COUNT(*) as count FROM active_listings GROUP BY status`
+  ).all();
+  return json({ success: true, status_counts: counts, web_search: results.web_search });
+}
+
+// Manual resolve — the form Jeff uses on a disappeared_unconfirmed row once
+// he finds out what actually happened (sold elsewhere, pulled, relisted).
+async function adminResolveActiveListing(request, env, params) {
+  const id = params.id;
+  const body = await request.json().catch(() => ({}));
+  const existing = await env.DB.prepare(`SELECT id FROM active_listings WHERE id = ?`).bind(id).first();
+  if (!existing) return json({ error: 'Listing not found.' }, 404);
+  if (!body.status) return json({ error: 'status is required.' }, 400);
+
+  await env.DB.prepare(`
+    UPDATE active_listings SET status = ?, sold_price = ?, resolution_note = ?, resolved_at = datetime('now') WHERE id = ?
+  `).bind(body.status, body.sold_price ?? null, body.resolution_note || null, id).run();
+
+  return json({ success: true });
+}
+
+// Weekly report: confirmed sales in the trailing 7 days (real comp data —
+// feed it back into the exotic corner narrative) and anything currently
+// sitting in disappeared_unconfirmed (the bucket Jeff needs to manually
+// check on).
+async function adminActiveListingsReport(request, env) {
+  const { results: soldThisWeek } = await env.DB.prepare(`
+    SELECT al.*, ew.tier AS watchlist_tier, ew.trim AS watchlist_trim
+    FROM active_listings al JOIN exotic_watchlist ew ON al.watchlist_id = ew.id
+    WHERE al.status = 'confirmed_sold' AND al.resolved_at > datetime('now', '-7 days')
+    ORDER BY al.resolved_at DESC
+  `).all();
+
+  const { results: disappeared } = await env.DB.prepare(`
+    SELECT al.*, ew.tier AS watchlist_tier, ew.trim AS watchlist_trim
+    FROM active_listings al JOIN exotic_watchlist ew ON al.watchlist_id = ew.id
+    WHERE al.status = 'disappeared_unconfirmed'
+    ORDER BY al.last_seen DESC
+  `).all();
+
+  return json({ sold_this_week: soldThisWeek, disappeared_needs_review: disappeared });
+}
+
 // Manual "run it now" trigger, same debug-route convention as
 // debugAutodevTest — lets ingestion/synthesis be verified end-to-end
 // without waiting for the 11:00 UTC cron.
@@ -7632,6 +8081,10 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/admin/market/items/:id/not-relevant', handler: adminMarketItemNotRelevant, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/market/exclusions',          handler: adminListExclusions, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/market/exclusions/:id',      handler: adminUpdateExclusion, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/market/listings',            handler: adminListActiveListings, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/market/listings/search',     handler: adminMarketListingsSearch, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/market/listings/report',     handler: adminActiveListingsReport, auth: true, admin: true },
+  { method: 'PATCH', pattern: '/api/admin/market/listings/:id',        handler: adminResolveActiveListing, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/debug/market-test',         handler: debugMarketTest, auth: true, admin: true },
 
   // ── Exotic watchlist admin ──
