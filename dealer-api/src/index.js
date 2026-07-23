@@ -1049,7 +1049,7 @@ async function submitFindCarLead(request, env, params, dealer, token, ctx) {
     // long enough to hit the hard 30s ctx.waitUntil() ceiling for HTTP-triggered
     // Workers, which silently kills the job with no trace. Queue consumers get
     // their own execution budget instead, so hand it off rather than run it inline.
-    ctx.waitUntil(env.JOB_QUEUE.send({ type: 'find_car_report', leadId }).catch(err => console.error('failed to enqueue report job for lead', leadId, err)));
+    ctx.waitUntil(enqueueJob(env, { type: 'find_car_report', leadId }));
 
     // Sequential, not two parallel waitUntil calls — the touch-log call needs the
     // deal to already exist, and parallel calls have no ordering guarantee, which
@@ -1156,6 +1156,47 @@ async function sendBrevoTemplateEmail(env, { to, templateId, params }) {
     }
   } catch (err) {
     console.error('Brevo template email failed', err);
+  }
+}
+
+// Shared with the DLQ consumer below — same alert for "never made it into
+// the queue" as for "went through the queue and exhausted its retries",
+// since either way a job silently vanished and a human needs to know.
+function sendJobFailureAlert(env, body, reason) {
+  return sendBrevoEmail(env, {
+    to: 'theexactmatch@gmail.com',
+    subject: '⚠️ Background job permanently failed',
+    html: brandedEmailHtml(`
+      <p>${escapeHtml(reason)}</p>
+      <p><strong>Type:</strong> ${escapeHtml(body?.type || 'unknown')}<br/>
+      <strong>Lead ID:</strong> ${escapeHtml(body?.leadId ?? 'unknown')}</p>
+      <p>Check the Cloudflare dashboard's Workers Logs for theexactmatch-dealer-api around this time for the actual error, then re-trigger manually if needed.</p>
+    `),
+  });
+}
+
+// Enqueuing itself can fail (a transient Cloudflare Queues error, not a bug
+// in the job) — the same "silent, zero-trace" failure mode the dead-letter
+// alert exists to catch, just one step earlier, before the message is even
+// in the queue to retry or dead-letter. Confirmed live: two real leads
+// (find_car_report jobs) vanished this way with no report and no alert.
+// A couple of quick retries absorb the transient case; if it still won't
+// enqueue, alert immediately instead of leaving it to a console.error
+// nobody's watching.
+async function enqueueJob(env, body, options) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await env.JOB_QUEUE.send(body, options);
+      return;
+    } catch (err) {
+      console.error(`enqueue attempt ${attempt} failed`, body, err);
+      if (attempt === 3) {
+        await sendJobFailureAlert(env, body, 'Failed to enqueue after 3 attempts — this job never started and will not retry on its own.')
+          .catch(alertErr => console.error('enqueue-failure alert email failed', body, alertErr));
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, attempt * 500));
+    }
   }
 }
 
@@ -3930,7 +3971,7 @@ async function submitSellCarLead(request, env, params, dealer, token, ctx) {
       general_condition: body.condition || '',
       accident_history, accident_notes, mechanical_status, mechanical_notes,
     };
-    ctx.waitUntil(env.JOB_QUEUE.send({ type: 'sell_car_valuation', leadId, input }).catch(err => console.error('failed to enqueue valuation job for lead', leadId, err)));
+    ctx.waitUntil(enqueueJob(env, { type: 'sell_car_valuation', leadId, input }));
 
     if (make) {
       const demandTaxonomy = taxonomyLookup(make, model);
@@ -4106,10 +4147,7 @@ async function dealerSignup(request, env, params, dealer, token2, ctx) {
   // Gated behind DEALER_WELCOME_EMAIL_ENABLED. Sent 30 minutes after signup via the job
   // queue rather than immediately, so a dealer isn't mid-onboarding-form when it lands.
   if (env.DEALER_WELCOME_EMAIL_ENABLED === 'true' && ctx) {
-    ctx.waitUntil(env.JOB_QUEUE.send(
-      { type: 'dealer_welcome_email', to: email, firstName: first_name },
-      { delaySeconds: 1800 }
-    ).catch(err => console.error('failed to enqueue welcome email for dealer', dealerId, err)));
+    ctx.waitUntil(enqueueJob(env, { type: 'dealer_welcome_email', to: email, firstName: first_name }, { delaySeconds: 1800 }));
   }
 
   return json({
@@ -8809,16 +8847,8 @@ export default {
       // to do is make sure a human finds out, since nothing else will surface it.
       for (const message of batch.messages) {
         const body = message.body;
-        await sendBrevoEmail(env, {
-          to: 'theexactmatch@gmail.com',
-          subject: '⚠️ Background job permanently failed',
-          html: brandedEmailHtml(`
-            <p>A queued job exhausted all retries and was moved to the dead-letter queue — it will <strong>not</strong> run again automatically.</p>
-            <p><strong>Type:</strong> ${escapeHtml(body?.type || 'unknown')}<br/>
-            <strong>Lead ID:</strong> ${escapeHtml(body?.leadId ?? 'unknown')}</p>
-            <p>Check the Cloudflare dashboard's Workers Logs for theexactmatch-dealer-api around this time for the actual error, then re-trigger manually if needed.</p>
-          `),
-        }).catch(err => console.error('dead-letter alert email failed', body, err));
+        await sendJobFailureAlert(env, body, 'A queued job exhausted all retries and was moved to the dead-letter queue — it will not run again automatically.')
+          .catch(err => console.error('dead-letter alert email failed', body, err));
         message.ack();
       }
       return;
