@@ -75,6 +75,49 @@ const VIEWS = [
     description:
       'Have a question, want to know more about White Glove service, or just want to talk through your situation? Reach out — we respond fast.',
   },
+  {
+    path: '/austin',
+    page: 'austin',
+    lastmod: '2026-07-31',
+    title: 'Car Buying Concierge in Austin, TX | The Exact Match',
+    description:
+      'Skip the dealership grind. The Exact Match finds, negotiates, and delivers your ideal car in Austin — private-party and dealer inventory, zero pressure.',
+    // FAQ schema is injected per-route rather than written into index.html,
+    // because index.html is the body of EVERY view — a FAQPage block sitting
+    // in that file would claim an Austin FAQ on /, /about and /contact too.
+    // Must stay worded identically to the on-page FAQ; structured data that
+    // disagrees with visible content is a manual-action risk, not a boost.
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'How much does it cost?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "Nothing. There's no fee, no subscription, and no charge for the search or the report. We're paid a commission by the selling dealer when a purchase closes, the same way a salesperson would be — it just comes out of their side rather than being added to yours. If you don't buy, nobody pays anything.",
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Do you only source from dealerships, or private sellers too?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "Both. Dealer inventory is where most matches come from, because our partner network gives us access to cars before they're publicly listed. But when the right car is a private-party listing, we'll pursue it and handle the inspection and paperwork coordination. Restricting the search to dealers only would mean passing over good cars for no reason.",
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'How long does it usually take?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "You'll have your first set of three matched options within 24 hours of submitting the form. From there, timing depends on how specific your requirements are. A common configuration in a common color often closes within a few days. A narrow spec — particular trim, particular color combination, low mileage — can take a couple of weeks of watching the market. We'd rather wait for the right car than push you toward a near-miss.",
+          },
+        },
+      ],
+    },
+  },
 ];
 
 // Standalone HTML files that are already their own real URL. They need no
@@ -141,7 +184,9 @@ function urlEntry(path, lastmod) {
 
 function sitemapXml(issues) {
   const entries = [
-    ...VIEWS.map(v => urlEntry(v.path, LASTMOD)),
+    // A view may pin its own lastmod (a landing page added long after the
+    // core site shouldn't inherit the site-wide date).
+    ...VIEWS.map(v => urlEntry(v.path, v.lastmod || LASTMOD)),
     ...STATIC_PAGES.map(p => urlEntry(p.path, LASTMOD)),
     // Each issue carries its own lastmod: an archive page's real value is that
     // it *doesn't* change, so stamping it with the site-wide date would be a
@@ -192,6 +237,15 @@ function renderView(assetResponse, view) {
       .on('link[rel="canonical"]', {
         element(el) {
           el.setAttribute('href', canonical);
+        },
+      })
+      // Route-scoped structured data. `</` is escaped so a future answer
+      // containing that sequence can't terminate the script element early.
+      .on('head', {
+        element(el) {
+          if (!view.jsonLd) return;
+          const json = JSON.stringify(view.jsonLd).replace(/<\//g, '<\\/');
+          el.append(`<script type="application/ld+json">${json}</script>`, { html: true });
         },
       })
       // Move the `active` class off page-find (index.html's default) and onto

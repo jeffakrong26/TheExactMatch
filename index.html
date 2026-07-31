@@ -633,6 +633,22 @@
     </div>
   </section>
 
+  <!-- Service areas. Austin links to its own landing page; Houston is named
+       but not linked because /houston does not exist yet — a live link to a
+       404 would cost more in crawl trust than the anchor text is worth. Add
+       the link here the moment that page ships. -->
+  <section style="background:var(--beige2);padding:3.5rem var(--side-pad);text-align:center">
+    <div style="max-width:640px;margin:0 auto">
+      <div class="eyebrow center">Where We Work</div>
+      <h2 class="display" style="font-size:clamp(1.5rem,2.5vw,2rem);margin-bottom:1rem">Austin &amp; Houston — <em>and nationwide.</em></h2>
+      <p style="font-size:.9rem;font-weight:300;color:var(--gray);line-height:1.8">
+        We're deepest in Texas, with dedicated coverage across the
+        <a href="/austin" onclick="return showPage('austin')" style="color:var(--navy);font-weight:500;border-bottom:1px solid var(--gold);text-decoration:none">Austin metro</a>
+        and Houston — but our dealer network reaches the whole country, and we ship cars anywhere.
+      </p>
+    </div>
+  </section>
+
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
@@ -1317,6 +1333,201 @@
   </footer>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: AUSTIN  (local landing page — /austin)
+     Zone coverage below mirrors the three Austin zones seeded in
+     dealer-api/seed-partners.sql (partner_zone_maps). If those zones are
+     ever re-cut, update this copy to match — it is a public claim about
+     where we actually operate.
+═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-austin">
+
+  <!-- Hero -->
+  <section style="background:var(--navy);padding:5rem var(--side-pad) 4rem;text-align:center">
+    <div class="eyebrow light center">Austin, Texas</div>
+    <h1 class="display light" style="font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,2.9rem);font-weight:500;line-height:1.15;margin-bottom:1.25rem">Austin's <em>Car Buying Concierge</em></h1>
+    <p style="font-size:.95rem;font-weight:300;color:rgba(255,255,255,.55);max-width:600px;margin:0 auto 2rem;line-height:1.8">
+      Tell us what you want. We find it, negotiate it, and deliver it — from dealer and private-party inventory across the Austin metro. Free to you, with no dealership visit required.
+    </p>
+    <button class="submit-btn" style="width:auto;padding:.85rem 2.5rem" onclick="showPage('find')">Find My Car — Free</button>
+  </section>
+
+  <!-- What we do: answer-first definition -->
+  <section style="padding:5rem var(--side-pad);background:var(--beige)">
+    <div style="max-width:760px;margin:0 auto">
+      <div class="eyebrow left">What We Do</div>
+      <h2 class="display" style="margin-bottom:1.5rem">What is a car buying concierge?</h2>
+      <p style="font-size:1rem;font-weight:300;line-height:1.85;color:#333;margin-bottom:1.25rem">
+        A car buying concierge is someone who handles the entire process of finding and buying a vehicle on your behalf — the searching, the price negotiation, the paperwork coordination, and the delivery. You describe the car you want; we do the rest and hand you the keys.
+      </p>
+      <p style="font-size:1rem;font-weight:300;line-height:1.85;color:#333;margin-bottom:1.25rem">
+        In practice that means you never sit in a dealership finance office, never field follow-up calls from four different salespeople, and never wonder whether the number on the window sticker was negotiable. For Austin buyers, we search dealer inventory across the metro plus private-party listings, then bring back a short list of vehicles that actually match what you asked for.
+      </p>
+      <p style="font-size:1rem;font-weight:300;line-height:1.85;color:#333">
+        The service is free to the buyer. We're paid by the selling dealer when a deal closes, which is also why we'll tell you plainly when a car isn't worth buying.
+      </p>
+    </div>
+  </section>
+
+  <!-- Why Austin -->
+  <section style="padding:5rem var(--side-pad);background:var(--white)">
+    <div style="max-width:1100px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:3rem">
+        <div class="eyebrow center">Why Austin</div>
+        <h2 class="display">We know this <em>market.</em></h2>
+        <p style="font-size:.9rem;font-weight:300;color:var(--gray);max-width:560px;margin:1rem auto 0;line-height:1.8">
+          This isn't a national call center with an Austin landing page. Our founder sold cars on Austin showroom floors before starting this.
+        </p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:var(--grid-3);gap:1.5rem;margin-bottom:3rem">
+        <div class="feat-box reveal">
+          <div class="feat-icon">📍</div>
+          <div class="feat-title">North</div>
+          <div class="feat-desc">Round Rock, Cedar Park, Pflugerville, Georgetown and Leander — the corridor where a lot of the metro's newer inventory sits.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">📍</div>
+          <div class="feat-title">Central</div>
+          <div class="feat-desc">Core Austin, from downtown through the UT corridor and the near-east and west side neighborhoods.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">📍</div>
+          <div class="feat-title">South</div>
+          <div class="feat-desc">South Austin out through Buda, Kyle and the San Marcos edge — including sellers most Austin-only searches miss.</div>
+        </div>
+      </div>
+
+      <div style="max-width:760px;margin:0 auto;text-align:center">
+        <p style="font-size:.95rem;font-weight:300;line-height:1.85;color:#333">
+          Jeff Akrong spent years on Austin-area showroom floors — Mercedes-Benz of South Austin, an Audi brand specialist role at a leading Austin luxury dealership, and Georgetown Infiniti. That's the difference between guessing at a dealer's flexibility and knowing it.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works, brief -->
+  <section style="padding:5rem var(--side-pad);background:var(--beige2)">
+    <div style="max-width:900px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:2.5rem">
+        <div class="eyebrow center">How It Works</div>
+        <h2 class="display">Four steps. <em>About 24 hours.</em></h2>
+      </div>
+      <div class="how-grid">
+        <div>
+          <div class="how-num">01</div>
+          <div class="how-title">Tell Us What You Want</div>
+          <div class="how-desc">Make, model, budget, timeline. Two minutes.</div>
+        </div>
+        <div>
+          <div class="how-num">02</div>
+          <div class="how-title">We Search Austin & Beyond</div>
+          <div class="how-desc">Dealer network plus private-party inventory, including cars not yet listed publicly.</div>
+        </div>
+        <div>
+          <div class="how-num">03</div>
+          <div class="how-title">You Get 3 Options</div>
+          <div class="how-desc">A curated report within 24 hours — priced, vetted, no filler.</div>
+        </div>
+        <div>
+          <div class="how-num">04</div>
+          <div class="how-title">We Handle The Rest</div>
+          <div class="how-desc">Negotiation, paperwork, and delivery to your driveway.</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:2.5rem">
+        <a href="/how-it-works" onclick="return showPage('how')" style="font-size:.82rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);border-bottom:1px solid var(--gold);padding-bottom:.2rem;text-decoration:none">See the full process →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- What makes us different -->
+  <section style="padding:5rem var(--side-pad);background:var(--beige)">
+    <div style="max-width:1100px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:3rem">
+        <div class="eyebrow center">The Difference</div>
+        <h2 class="display">Not a broker. <em>Not a lead form.</em></h2>
+      </div>
+      <div style="display:grid;grid-template-columns:var(--grid-2);gap:1.5rem">
+        <div class="feat-box reveal">
+          <div class="feat-icon">🚫</div>
+          <div class="feat-title">Your Number Isn't Sold</div>
+          <div class="feat-desc">Fill out a form on most car sites and five dealerships call you within the hour. Here, one person works your request. Nobody else gets your contact information.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🔍</div>
+          <div class="feat-title">Both Sides of the Market</div>
+          <div class="feat-desc">We source from dealer inventory and private-party listings. Most concierge services only do one, which quietly cuts your options roughly in half.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🤝</div>
+          <div class="feat-title">Real Dealer Relationships</div>
+          <div class="feat-desc">A warm call to a sales manager reaches inventory that public search never surfaces — including cars still in reconditioning.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🚗</div>
+          <div class="feat-title">Delivered To You</div>
+          <div class="feat-desc">Test drive in your own driveway. If it isn't right, it goes back and we keep looking. No showroom, no pressure, no finance office.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section style="padding:5rem var(--side-pad);background:var(--white)">
+    <div style="max-width:760px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:3rem">
+        <div class="eyebrow center">Questions</div>
+        <h2 class="display">Straight <em>answers.</em></h2>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding:2rem 0">
+        <h3 style="font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:500;color:var(--navy);margin-bottom:.75rem">How much does it cost?</h3>
+        <p style="font-size:.95rem;font-weight:300;line-height:1.85;color:#333">
+          Nothing. There's no fee, no subscription, and no charge for the search or the report. We're paid a commission by the selling dealer when a purchase closes, the same way a salesperson would be — it just comes out of their side rather than being added to yours. If you don't buy, nobody pays anything.
+        </p>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding:2rem 0">
+        <h3 style="font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:500;color:var(--navy);margin-bottom:.75rem">Do you only source from dealerships, or private sellers too?</h3>
+        <p style="font-size:.95rem;font-weight:300;line-height:1.85;color:#333">
+          Both. Dealer inventory is where most matches come from, because our partner network gives us access to cars before they're publicly listed. But when the right car is a private-party listing, we'll pursue it and handle the inspection and paperwork coordination. Restricting the search to dealers only would mean passing over good cars for no reason.
+        </p>
+      </div>
+
+      <div style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:2rem 0">
+        <h3 style="font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:500;color:var(--navy);margin-bottom:.75rem">How long does it usually take?</h3>
+        <p style="font-size:.95rem;font-weight:300;line-height:1.85;color:#333">
+          You'll have your first set of three matched options within 24 hours of submitting the form. From there, timing depends on how specific your requirements are. A common configuration in a common color often closes within a few days. A narrow spec — particular trim, particular color combination, low mileage — can take a couple of weeks of watching the market. We'd rather wait for the right car than push you toward a near-miss.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section style="padding:4rem var(--side-pad);background:var(--navy);text-align:center">
+    <div class="eyebrow light center">Ready?</div>
+    <h2 class="display light" style="margin-bottom:1.5rem">Let's find your <em>exact match</em> in Austin.</h2>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+      <button class="submit-btn" style="width:auto;padding:.85rem 2.5rem" onclick="showPage('find')">Find My Car — Free</button>
+      <button class="sell-submit" style="width:auto;padding:.85rem 2.5rem;background:rgba(255,255,255,.1);color:var(--white);border:1px solid rgba(255,255,255,.2)" onclick="showPage('sell')">Sell My Car — Free</button>
+    </div>
+  </section>
+
+  <footer>
+    <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
+    <ul class="footer-nav">
+      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
+      <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
+      <li><a href="/about" onclick="return showPage('about')">About</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
+    </ul>
+    <div class="footer-copy">© 2026 TheExactMatch.com</div>
+  </footer>
+</div>
+
 <script>
 // ── Page routing ─────────────────────────────────────────────
 // Each view has a real URL. src/index.js serves the correct already-rendered
@@ -1330,6 +1541,7 @@ const PAGE_PATHS = {
   about:   '/about',
   weekly:  '/weekly-finds',
   contact: '/contact',
+  austin:  '/austin',
 };
 
 // The DOM half of a page change, with no history side effect — so popstate can
