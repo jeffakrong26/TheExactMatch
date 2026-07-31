@@ -14,6 +14,15 @@
   <meta property="og:description" content="Tell us what you want and we'll find it. We search our nationwide dealer network and send you 3 curated options within 24 hours. Free, no obligation."/>
   <meta property="og:url" content="https://theexactmatch.com/"/>
   <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
+  <!-- Site-wide Organization identity for Google's Knowledge Graph. Lives here
+       (not injected by src/index.js) because `/` is served as this static file
+       and never reaches the worker — see the routing note above. Every other
+       route also serves this same index.html (rewritten per-view by the
+       worker), so this script ships unchanged on all of them too. Distinct
+       from, and compatible with, the per-page FAQPage JSON-LD the worker
+       appends on the city and negotiation-guide routes — different @type,
+       no overlap. -->
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"The Exact Match","url":"https://theexactmatch.com","sameAs":["https://facebook.com/theexactmatch","https://instagram.com/theexactmatch"]}</script>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
