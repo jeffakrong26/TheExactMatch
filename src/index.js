@@ -75,50 +75,65 @@ const VIEWS = [
     description:
       'Have a question, want to know more about White Glove service, or just want to talk through your situation? Reach out — we respond fast.',
   },
-  {
-    path: '/austin',
-    page: 'austin',
-    lastmod: '2026-07-31',
-    title: 'Car Buying Concierge in Austin, TX | The Exact Match',
-    description:
-      'Skip the dealership grind. The Exact Match finds, negotiates, and delivers your ideal car in Austin — private-party and dealer inventory, zero pressure.',
-    // FAQ schema is injected per-route rather than written into index.html,
-    // because index.html is the body of EVERY view — a FAQPage block sitting
-    // in that file would claim an Austin FAQ on /, /about and /contact too.
-    // Must stay worded identically to the on-page FAQ; structured data that
-    // disagrees with visible content is a manual-action risk, not a boost.
+];
+
+// ── City landing pages ────────────────────────────────────────────────
+// All five share the single #page-city div in index.html. Only the name
+// changes, so they're generated from this list rather than written out five
+// times — both here and in the markup, which would otherwise ship five
+// near-identical copies inside the document every view already loads.
+//
+// `possessive` is explicit rather than derived: "Dallas's" vs "Dallas'" is a
+// style call, not something to leave to string concatenation.
+const CITY_LASTMOD = '2026-07-31';
+const CITIES = [
+  { slug: 'austin',      name: 'Austin',      possessive: "Austin's" },
+  { slug: 'houston',     name: 'Houston',     possessive: "Houston's" },
+  { slug: 'san-antonio', name: 'San Antonio', possessive: "San Antonio's" },
+  { slug: 'dallas',      name: 'Dallas',      possessive: "Dallas's" },
+  { slug: 'el-paso',     name: 'El Paso',     possessive: "El Paso's" },
+];
+
+// Worded identically to the on-page FAQ. Structured data that disagrees with
+// visible content is a manual-action risk, not a boost — if the copy in
+// index.html changes, this must change with it.
+const CITY_FAQ = [
+  [
+    'How much does it cost?',
+    "Nothing. There's no fee, no subscription, and no charge for the search. We're paid a commission by the selling dealer when a purchase closes — it comes out of their side rather than being added to yours. If you don't buy, nobody pays anything.",
+  ],
+  [
+    'Do you only source from dealerships, or private sellers too?',
+    "Both. Dealer inventory is where most matches come from, but when the right car is a private-party listing we'll pursue it and handle the inspection and paperwork coordination. Restricting the search to dealers only would mean passing over good cars for no reason.",
+  ],
+  [
+    'How long does it usually take?',
+    "You'll have your first set of matched options within 24 hours of submitting the form. From there it depends on how specific your requirements are. A common configuration often closes within a few days; a narrow spec — particular trim, particular color combination, low mileage — can take a couple of weeks of watching the market. We'd rather wait for the right car than push you toward a near-miss.",
+  ],
+];
+
+for (const city of CITIES) {
+  VIEWS.push({
+    path: `/${city.slug}`,
+    page: 'city',
+    city,
+    lastmod: CITY_LASTMOD,
+    title: `Car Buying Concierge in ${city.name}, TX | The Exact Match`,
+    description: `Tell us what you want. We find it, negotiate it, and deliver it — anywhere in ${city.name}. The Exact Match handles your entire car search.`,
+    // Injected per-route rather than written into index.html, because that
+    // file is the body of EVERY view — a FAQPage block living there would
+    // claim this FAQ on /, /about and /contact too.
     jsonLd: {
       '@context': 'https://schema.org',
       '@type': 'FAQPage',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'How much does it cost?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: "Nothing. There's no fee, no subscription, and no charge for the search or the report. We're paid a commission by the selling dealer when a purchase closes, the same way a salesperson would be — it just comes out of their side rather than being added to yours. If you don't buy, nobody pays anything.",
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Do you only source from dealerships, or private sellers too?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: "Both. Dealer inventory is where most matches come from, because our partner network gives us access to cars before they're publicly listed. But when the right car is a private-party listing, we'll pursue it and handle the inspection and paperwork coordination. Restricting the search to dealers only would mean passing over good cars for no reason.",
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'How long does it usually take?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: "You'll have your first set of three matched options within 24 hours of submitting the form. From there, timing depends on how specific your requirements are. A common configuration in a common color often closes within a few days. A narrow spec — particular trim, particular color combination, low mileage — can take a couple of weeks of watching the market. We'd rather wait for the right car than push you toward a near-miss.",
-          },
-        },
-      ],
+      mainEntity: CITY_FAQ.map(([name, text]) => ({
+        '@type': 'Question',
+        name,
+        acceptedAnswer: { '@type': 'Answer', text },
+      })),
     },
-  },
-];
+  });
+}
 
 // Standalone HTML files that are already their own real URL. They need no
 // rewriting, but they do belong in the sitemap, so they live here rather than
@@ -237,6 +252,26 @@ function renderView(assetResponse, view) {
       .on('link[rel="canonical"]', {
         element(el) {
           el.setAttribute('href', canonical);
+        },
+      })
+      // City substitution for the shared #page-city template. Done on
+      // dedicated spans rather than by find-and-replacing text: HTMLRewriter
+      // delivers text in arbitrary chunks, so a placeholder token could be
+      // split across two callbacks and never match.
+      .on('.city-name', {
+        element(el) {
+          if (view.city) el.setInnerContent(view.city.name);
+        },
+      })
+      .on('.city-possessive', {
+        element(el) {
+          if (view.city) el.setInnerContent(view.city.possessive);
+        },
+      })
+      // Drop the current city from its own "Also Serving" list.
+      .on('.city-crosslinks li', {
+        element(el) {
+          if (view.city && el.getAttribute('data-city') === view.city.slug) el.remove();
         },
       })
       // Route-scoped structured data. `</` is escaped so a future answer
