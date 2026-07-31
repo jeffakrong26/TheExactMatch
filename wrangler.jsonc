@@ -1,12 +1,16 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "theexactmatch",
+  "main": "src/index.js",
   "compatibility_date": "2026-06-02",
   "observability": {
     "enabled": true
   },
   "assets": {
-    "directory": "."
+    "directory": ".",
+    // Lets the worker reach index.html to rewrite it per-route, and to fall
+    // back to normal asset serving for everything it doesn't handle.
+    "binding": "ASSETS"
   },
   "compatibility_flags": [
     "nodejs_compat"

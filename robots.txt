@@ -1,0 +1,215 @@
+# theexactmatch.com
+#
+# This file is authoritative ONLY while Cloudflare's managed robots.txt is
+# turned OFF (Security > Bots > "Instruct bot traffic with robots.txt").
+# That feature does not replace this file — it PREPENDS its own block, which
+# produced duplicate ClaudeBot/GPTBot/Google-Extended groups with conflicting
+# Allow and Disallow rules. It is a single combined toggle: its Content-Signal
+# line and its AI-crawler "Disallow: /" rules cannot be separated, so the only
+# way to both allow AI crawlers and declare ai-train=no is to own this file.
+#
+# The Content Signals preamble below is carried over verbatim from that
+# managed file (published under CC0). It is kept deliberately: the closing
+# paragraph is what makes ai-train=no an express reservation of rights under
+# Article 4 of EU Directive 2019/790, and turning off managed robots.txt
+# would otherwise silently drop that legal footing.
+#
+# Note on structure: a named User-agent group REPLACES the "*" group for that
+# crawler rather than adding to it, so both the Disallow rules AND the
+# Content-Signal line are repeated in full for every named crawler. Omitting
+# Content-Signal from a named group would mean that crawler is subject to no
+# signal at all (see rule (c) below) — exactly the crawlers ai-train=no most
+# needs to reach. robots.txt has no include mechanism; the repetition is
+# mandatory, not an oversight.
+
+# As a condition of accessing this website, you agree to abide by the following
+# content signals:
+
+# (a)  If a Content-Signal = yes, you may collect content for the corresponding
+#      use.
+# (b)  If a Content-Signal = no, you may not collect content for the
+#      corresponding use.
+# (c)  If the website operator does not include a Content-Signal for a
+#      corresponding use, the website operator neither grants nor restricts
+#      permission via Content-Signal with respect to the corresponding use.
+
+# The content signals and their meanings are:
+
+# search:   building a search index and providing search results (e.g., returning
+#           hyperlinks and short excerpts from your website's contents). Search does not
+#           include providing AI-generated search summaries.
+# ai-input: inputting content into one or more AI models (e.g., retrieval
+#           augmented generation, grounding, or other real-time taking of content for
+#           generative AI search answers).
+# ai-train: training or fine-tuning AI models.
+# use:      how AI systems may consume the content (immediate, reference, or full).
+
+# ANY RESTRICTIONS EXPRESSED VIA CONTENT SIGNALS ARE EXPRESS RESERVATIONS OF
+# RIGHTS UNDER ARTICLE 4 OF THE EUROPEAN UNION DIRECTIVE 2019/790 ON COPYRIGHT
+# AND RELATED RIGHTS IN THE DIGITAL SINGLE MARKET.
+
+# ai-input=yes is set explicitly rather than left unstated. Cloudflare's
+# default omitted it, which under rule (c) neither grants nor restricts —
+# leaving the one use we actually want (being cited in AI answers) ambiguous.
+
+User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
+Allow: /
+Disallow: /admin/
+Disallow: /Dealerportal
+Disallow: /market
+Disallow: /reports/
+Disallow: /internal-reports/
+Disallow: /submissions/
+# Trailing slash is load-bearing: /sell/ is the private tokenized valuation
+# flow, while /sell-my-car is a public page that must stay crawlable.
+Disallow: /sell/
+
+# ── OpenAI ────────────────────────────────────────────────────────────
+User-agent: GPTBot
+Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
+Allow: /
+Disallow: /admin/
+Disallow: /Dealerportal
+Disallow: /market
+Disallow: /reports/
+Disallow: /internal-reports/
+Disallow: /submissions/
+Disallow: /sell/
+
+User-agent: OAI-SearchBot
+Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
+Allow: /
+Disallow: /admin/
+Disallow: /Dealerportal
+Disallow: /market
+Disallow: /reports/
+Disallow: /internal-reports/
+Disallow: /submissions/
+Disallow: /sell/
+
+User-agent: ChatGPT-User
+Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
+Allow: /
+Disallow: /admin/
+Disallow: /Dealerportal
+Disallow: /market
+Disallow: /reports/
+Disallow: /internal-reports/
+Disallow: /submissions/
+Disallow: /sell/
+
+# ── Anthropic ─────────────────────────────────────────────────────────
+User-agent: ClaudeBot
+Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
+Allow: /
+Disallow: /admin/
+Disallow: /Dealerportal
+Disallow: /market
+Disallow: /reports/
+Disallow: /internal-reports/
+Disallow: /submissions/
+Disallow: /sell/
+
+User-agent: Claude-SearchBot
+Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
+Allow: /
+Disallow: /admin/
+Disallow: /Dealerportal
+Disallow: /market
+Disallow: /reports/
+Disallow: /internal-reports/
+Disallow: /submissions/
+Disallow: /sell/
+
+User-agent: Claude-User
+Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
+Allow: /
+Disallow: /admin/
+Disallow: /Dealerportal
+Disallow: /market
+Disallow: /reports/
+Disallow: /internal-reports/
+Disallow: /submissions/
+Disallow: /sell/
+
+# ── Perplexity ────────────────────────────────────────────────────────
+User-agent: PerplexityBot
+Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
+Allow: /
+Disallow: /admin/
+Disallow: /Dealerportal
+Disallow: /market
+Disallow: /reports/
+Disallow: /internal-reports/
+Disallow: /submissions/
+Disallow: /sell/
+
+User-agent: Perplexity-User
+Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
+Allow: /
+Disallow: /admin/
+Disallow: /Dealerportal
+Disallow: /market
+Disallow: /reports/
+Disallow: /internal-reports/
+Disallow: /submissions/
+Disallow: /sell/
+
+# ── Google ────────────────────────────────────────────────────────────
+# Not a crawler — this token controls whether content already fetched by
+# Googlebot may be used for Gemini grounding and training. Allowing it is
+# what keeps us eligible for citation in AI Overviews; ai-train=no above is
+# the signal that we still don't want it used as training data.
+User-agent: Google-Extended
+Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
+Allow: /
+Disallow: /admin/
+Disallow: /Dealerportal
+Disallow: /market
+Disallow: /reports/
+Disallow: /internal-reports/
+Disallow: /submissions/
+Disallow: /sell/
+
+# ── Training-corpus collectors and bulk scrapers: blocked ─────────────
+# These are not citation engines — crawling IS the training-data collection
+# for them, so allowing the crawl while asking for ai-train=no would be
+# opt-in to training in all but name. Cloudflare's managed robots.txt blocked
+# these by default; keeping them blocked here preserves that posture once the
+# managed file is switched off.
+#
+# Content-Signal is still stated (ai-train=no only — we grant nothing else to
+# a crawler we aren't admitting). Disallow is a request that can be ignored;
+# the signal is the express reservation of rights that survives if it is.
+
+User-agent: CCBot
+Content-Signal: ai-train=no
+Disallow: /
+
+User-agent: Bytespider
+Content-Signal: ai-train=no
+Disallow: /
+
+User-agent: Applebot-Extended
+Content-Signal: ai-train=no
+Disallow: /
+
+User-agent: Amazonbot
+Content-Signal: ai-train=no
+Disallow: /
+
+User-agent: meta-externalagent
+Content-Signal: ai-train=no
+Disallow: /
+
+# Not a training crawler like the five above — this is the agent behind
+# Cloudflare's Browser Rendering API, which any third party can point at this
+# site to render and scrape it. Grouped here because the outcome is the same:
+# bulk extraction with no citation or referral value back to us. Cloudflare's
+# managed robots.txt blocked it by default, so this keeps that in place.
+User-agent: CloudflareBrowserRenderingCrawler
+Content-Signal: ai-train=no
+Disallow: /
+
+Sitemap: https://theexactmatch.com/sitemap.xml

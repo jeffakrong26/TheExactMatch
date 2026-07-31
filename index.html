@@ -3,9 +3,16 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <!-- These defaults are the home / Find My Car values. Requests to `/` are
+       served straight from this file without the worker running, so they must
+       stay in sync with VIEWS[0] in src/index.js; every other view has these
+       five tags rewritten per-route on the way out. -->
   <title>TheExactMatch — Find Your Car. Sell Your Car. Free.</title>
-  <meta property="og:title" content="The Exact Match"/>
-  <meta property="og:description" content="Car concierge service. We find your perfect car."/>
+  <meta name="description" content="Tell us what you want and we'll find it. We search our nationwide dealer network and send you 3 curated options within 24 hours. Free, no obligation."/>
+  <link rel="canonical" href="https://theexactmatch.com/"/>
+  <meta property="og:title" content="TheExactMatch — Find Your Car. Sell Your Car. Free."/>
+  <meta property="og:description" content="Tell us what you want and we'll find it. We search our nationwide dealer network and send you 3 curated options within 24 hours. Free, no obligation."/>
+  <meta property="og:url" content="https://theexactmatch.com/"/>
   <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <style>
@@ -345,15 +352,15 @@
 <!-- ── NAV ── -->
 <nav id="nav">
   <div class="nav-inner">
-    <a class="logo" href="#" onclick="showPage('find')">The<span>Exact</span>Match</a>
+    <a class="logo" href="/" onclick="return showPage('find')">The<span>Exact</span>Match</a>
     <ul class="nav-links">
-      <li><a href="#" onclick="showPage('find')" id="nav-find" class="active">Find My Car</a></li>
-      <li><a href="#" onclick="showPage('sell')" id="nav-sell">Sell My Car</a></li>
-      <li><a href="#" onclick="showPage('how')" id="nav-how">How It Works</a></li>
-      <li><a href="#" onclick="showPage('about')" id="nav-about">About</a></li>
-      <li><a href="#" onclick="showPage('weekly')" id="nav-weekly">Weekly Finds</a></li>
+      <li><a href="/" onclick="return showPage('find')" id="nav-find" class="active">Find My Car</a></li>
+      <li><a href="/sell-my-car" onclick="return showPage('sell')" id="nav-sell">Sell My Car</a></li>
+      <li><a href="/how-it-works" onclick="return showPage('how')" id="nav-how">How It Works</a></li>
+      <li><a href="/about" onclick="return showPage('about')" id="nav-about">About</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')" id="nav-weekly">Weekly Finds</a></li>
       <a href="Dealerportal.html">Dealer Portal</a>
-    <li><a href="#" onclick="showPage('contact')" id="nav-contact" class="nav-cta">Contact</a></li>
+    <li><a href="/contact" onclick="return showPage('contact')" id="nav-contact" class="nav-cta">Contact</a></li>
     </ul>
     <div class="hamburger" id="hamburger" onclick="toggleMenu()">
       <span></span><span></span><span></span>
@@ -363,13 +370,13 @@
 
 <!-- Mobile Menu -->
 <div class="mobile-menu" id="mobile-menu">
-  <a href="#" onclick="showPage('find');toggleMenu()">Find My Car</a>
-  <a href="#" onclick="showPage('sell');toggleMenu()">Sell My Car</a>
-  <a href="#" onclick="showPage('how');toggleMenu()">How It Works</a>
-  <a href="#" onclick="showPage('about');toggleMenu()">About</a>
-  <a href="#" onclick="showPage('weekly');toggleMenu()">Weekly Finds</a>
+  <a href="/" onclick="toggleMenu();return showPage('find')">Find My Car</a>
+  <a href="/sell-my-car" onclick="toggleMenu();return showPage('sell')">Sell My Car</a>
+  <a href="/how-it-works" onclick="toggleMenu();return showPage('how')">How It Works</a>
+  <a href="/about" onclick="toggleMenu();return showPage('about')">About</a>
+  <a href="/weekly-finds" onclick="toggleMenu();return showPage('weekly')">Weekly Finds</a>
   <a href="Dealerportal.html">Dealer Portal</a>
-  <a href="#" onclick="showPage('contact');toggleMenu()">Contact</a>
+  <a href="/contact" onclick="toggleMenu();return showPage('contact')">Contact</a>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════
@@ -629,12 +636,12 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="#" onclick="showPage('find')">Find My Car</a></li>
-      <li><a href="#" onclick="showPage('sell')">Sell My Car</a></li>
-      <li><a href="#" onclick="showPage('how')">How It Works</a></li>
-      <li><a href="#" onclick="showPage('about')">About</a></li>
-      <li><a href="#" onclick="showPage('weekly')">Weekly Finds</a></li>
-      <li><a href="#" onclick="showPage('contact')">Contact</a></li>
+      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
+      <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
+      <li><a href="/about" onclick="return showPage('about')">About</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
     <div class="footer-copy">© 2026 TheExactMatch.com</div>
   </footer>
@@ -901,12 +908,12 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="#" onclick="showPage('find')">Find My Car</a></li>
-      <li><a href="#" onclick="showPage('sell')">Sell My Car</a></li>
-      <li><a href="#" onclick="showPage('how')">How It Works</a></li>
-      <li><a href="#" onclick="showPage('about')">About</a></li>
-      <li><a href="#" onclick="showPage('weekly')">Weekly Finds</a></li>
-      <li><a href="#" onclick="showPage('contact')">Contact</a></li>
+      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
+      <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
+      <li><a href="/about" onclick="return showPage('about')">About</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
     <div class="footer-copy">© 2026 TheExactMatch.com</div>
   </footer>
@@ -1021,12 +1028,12 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="#" onclick="showPage('find')">Find My Car</a></li>
-      <li><a href="#" onclick="showPage('sell')">Sell My Car</a></li>
-      <li><a href="#" onclick="showPage('how')">How It Works</a></li>
-      <li><a href="#" onclick="showPage('about')">About</a></li>
-      <li><a href="#" onclick="showPage('weekly')">Weekly Finds</a></li>
-      <li><a href="#" onclick="showPage('contact')">Contact</a></li>
+      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
+      <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
+      <li><a href="/about" onclick="return showPage('about')">About</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
     <div class="footer-copy">© 2026 TheExactMatch.com</div>
   </footer>
@@ -1104,12 +1111,12 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="#" onclick="showPage('find')">Find My Car</a></li>
-      <li><a href="#" onclick="showPage('sell')">Sell My Car</a></li>
-      <li><a href="#" onclick="showPage('how')">How It Works</a></li>
-      <li><a href="#" onclick="showPage('about')">About</a></li>
-      <li><a href="#" onclick="showPage('weekly')">Weekly Finds</a></li>
-      <li><a href="#" onclick="showPage('contact')">Contact</a></li>
+      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
+      <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
+      <li><a href="/about" onclick="return showPage('about')">About</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
     <div class="footer-copy">© 2026 TheExactMatch.com</div>
   </footer>
@@ -1183,12 +1190,12 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="#" onclick="showPage('find')">Find My Car</a></li>
-      <li><a href="#" onclick="showPage('sell')">Sell My Car</a></li>
-      <li><a href="#" onclick="showPage('how')">How It Works</a></li>
-      <li><a href="#" onclick="showPage('about')">About</a></li>
-      <li><a href="#" onclick="showPage('weekly')">Weekly Finds</a></li>
-      <li><a href="#" onclick="showPage('contact')">Contact</a></li>
+      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
+      <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
+      <li><a href="/about" onclick="return showPage('about')">About</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
     <div class="footer-copy">© 2026 TheExactMatch.com</div>
   </footer>
@@ -1250,7 +1257,7 @@
         current market trends, rarity, value, and enthusiast appeal.
     </p>
 
-    <a href="/weeklyfinds"
+    <a href="/weekly-finds/issue-1"
        style="display:inline-block; background:#D4AF37; color:#000000; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:700;">
         Read Issue #1 →
     </a>
@@ -1299,12 +1306,12 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="#" onclick="showPage('find')">Find My Car</a></li>
-      <li><a href="#" onclick="showPage('sell')">Sell My Car</a></li>
-      <li><a href="#" onclick="showPage('how')">How It Works</a></li>
-      <li><a href="#" onclick="showPage('about')">About</a></li>
-      <li><a href="#" onclick="showPage('weekly')">Weekly Finds</a></li>
-      <li><a href="#" onclick="showPage('contact')">Contact</a></li>
+      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
+      <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
+      <li><a href="/about" onclick="return showPage('about')">About</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
     <div class="footer-copy">© 2026 TheExactMatch.com</div>
   </footer>
@@ -1312,21 +1319,59 @@
 
 <script>
 // ── Page routing ─────────────────────────────────────────────
-function showPage(id) {
+// Each view has a real URL. src/index.js serves the correct already-rendered
+// HTML for a cold load of any of these paths; the map here keeps client-side
+// navigation in step with the address bar. Keep both in sync — this map and
+// VIEWS in src/index.js describe the same six routes.
+const PAGE_PATHS = {
+  find:    '/',
+  sell:    '/sell-my-car',
+  how:     '/how-it-works',
+  about:   '/about',
+  weekly:  '/weekly-finds',
+  contact: '/contact',
+};
+
+// The DOM half of a page change, with no history side effect — so popstate can
+// reuse it without pushing a new entry and trapping the back button.
+function renderPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
   const navEl = document.getElementById('nav-' + id);
   if (navEl) navEl.classList.add('active');
-  window.scrollTo(0, 0);
   // Re-trigger reveals
   setTimeout(() => {
     document.querySelectorAll('#page-' + id + ' .reveal').forEach(el => {
       if (!el.classList.contains('on')) io.observe(el);
     });
   }, 50);
-  return false;
 }
+
+function showPage(id) {
+  renderPage(id);
+  const path = PAGE_PATHS[id];
+  if (path && location.pathname !== path) {
+    history.pushState({ page: id }, '', path);
+  }
+  window.scrollTo(0, 0);
+  return false;  // callers use `return showPage(...)`, so the <a href> is not followed
+}
+
+window.addEventListener('popstate', () => {
+  const id = Object.keys(PAGE_PATHS).find(k => PAGE_PATHS[k] === location.pathname);
+  if (id) renderPage(id);
+});
+
+// A cold load already arrives with the right page active (the worker rewrote
+// it). This only matters when that didn't happen — `wrangler dev` against raw
+// assets, or a stale cached index.html — and is a no-op otherwise.
+(function syncPageToUrl() {
+  const id = Object.keys(PAGE_PATHS).find(k => PAGE_PATHS[k] === location.pathname);
+  if (id && !document.getElementById('page-' + id).classList.contains('active')) {
+    renderPage(id);
+  }
+})();
 
 // ── Mobile menu ──────────────────────────────────────────────
 function toggleMenu() {

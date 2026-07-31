@@ -4,3 +4,9 @@ node_modules
 .git
 .wrangler
 .claude
+# The worker's own source lives inside the assets directory ("." is the whole
+# repo), so without this it would be uploaded and served at /src/index.js.
+src
+# Not secret, but no reason to serve the deploy config to the public either.
+wrangler.jsonc
+.assetsignore
