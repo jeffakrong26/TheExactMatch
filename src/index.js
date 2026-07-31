@@ -75,6 +75,55 @@ const VIEWS = [
     description:
       'Have a question, want to know more about White Glove service, or just want to talk through your situation? Reach out — we respond fast.',
   },
+  {
+    path: '/how-to-negotiate-car-price',
+    page: 'guide-negotiate',
+    lastmod: '2026-07-31',
+    title: 'How to Negotiate a Car Price: The Complete Guide | The Exact Match',
+    description:
+      'Real negotiation tactics from a car buying concierge — what actually works at the dealership, what to say, and the mistakes that cost you thousands.',
+    // Worded identically to the on-page FAQ — see #page-guide-negotiate in
+    // index.html. Keep both in sync; mismatched structured data is a
+    // manual-action risk, not a boost.
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'Should I tell the dealer my budget?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "Not as a monthly payment — that number is exactly what lets a dealer stretch your loan term to hit it while the total cost climbs. If you share anything, share it as an out-the-door price ceiling. Even then, you're under no obligation to volunteer it before you've heard their number first.",
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Is it better to negotiate in person or over email/phone?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Email or phone, when you can manage it. It removes the in-person pressure tactics, gives you time to think instead of answering on the spot, and lets you get a written out-the-door number from more than one dealer before you ever walk onto a lot. Save the in-person visit for once the price is essentially settled.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: "How much can you realistically negotiate off a car's price?",
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "It varies more than most people expect — by model, by season, and by how long that specific car has sat on the lot. A popular new model in high demand may have very little room. An aged-inventory unit near the end of the model year, or a used car that's been sitting for months, can have a great deal more. There's no honest universal percentage; the car's own sales history is the real answer.",
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Should I negotiate the trade-in and new car price together or separately?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Separately, always. Agree on what you\'re paying for the car you\'re buying first. Only after that number is settled should the trade-in become its own conversation. Combining them gives the dealer two numbers to move against each other instead of one you can hold them to.',
+          },
+        },
+      ],
+    },
+  },
 ];
 
 // ── City landing pages ────────────────────────────────────────────────
