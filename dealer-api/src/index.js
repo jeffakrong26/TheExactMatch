@@ -27,6 +27,18 @@ function haversineMiles([lat1, lng1], [lat2, lng2]) {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DEALER_WELCOME_TEMPLATE_ID = 7; // Brevo "Dealer Welcome — Portal Invite Accepted"
 
+// ── Password reset ────────────────────────────────────────────────
+const PASSWORD_RESET_TOKEN_TTL_MINUTES = 30;
+const PASSWORD_RESET_RATE_LIMIT_PER_HOUR = 3;
+const PASSWORD_RESET_MIN_LENGTH = 12;
+// Not exhaustive — just catches the handful of things people type when a
+// form merely enforces a length minimum. Checked case-insensitively.
+const COMMON_PASSWORD_BLOCKLIST = new Set([
+  'password123', 'password1234', 'passw0rd123', 'letmein123', 'qwerty123456',
+  '123456789012', 'admin12345678', 'welcome123456', 'changeme12345',
+  'iloveyou12345', 'password!123', 'p@ssw0rd123', 'trustno112345',
+]);
+
 // Accepts "smithmotors.com" or "https://smithmotors.com" and normalizes to a
 // full URL. Returns { url: null, error } if the input isn't a plausible website.
 function normalizeWebsiteUrl(input) {
@@ -80,6 +92,25 @@ function randomHex(byteLen) {
   const bytes = new Uint8Array(byteLen);
   crypto.getRandomValues(bytes);
   return bytesToHex(bytes);
+}
+
+// Base64url, no padding — used for reset tokens that go in a URL query string.
+function randomTokenBase64Url(byteLen) {
+  const bytes = new Uint8Array(byteLen);
+  crypto.getRandomValues(bytes);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// One-way digest for values (reset tokens) we need to look up by exact match
+// but never want recoverable from a DB read — unlike hashPassword, this
+// isn't defending against offline brute force (the input is already 256 bits
+// of randomness), so a plain fast digest is the right tool, not PBKDF2.
+async function sha256Hex(str) {
+  const enc = new TextEncoder();
+  const digest = await crypto.subtle.digest('SHA-256', enc.encode(str));
+  return bytesToHex(new Uint8Array(digest));
 }
 
 async function hashPassword(password, saltHex) {
@@ -247,28 +278,52 @@ async function resolveZoneForZip(env, zip, city, state) {
 // authenticate() above). No separate partner auth. This is the one new
 // dealer-facing auth capability the partner-network build actually added:
 // password reset (dealers never had one before).
+async function logAdminAudit(env, event, { dealerId = null, dealerEmail = null, ip = null, detail = null } = {}) {
+  await env.DB.prepare(
+    `INSERT INTO admin_audit_log (event, dealer_id, dealer_email, ip, detail) VALUES (?, ?, ?, ?, ?)`
+  ).bind(event, dealerId, dealerEmail, ip, detail).run().catch(err => console.error('audit log insert failed', event, err));
+}
+
 async function dealerRequestPasswordReset(request, env) {
   const body  = await request.json().catch(() => ({}));
   const email = (body.email || '').trim().toLowerCase();
   if (!email) return json({ error: 'Email is required.' }, 400);
 
+  const ip = getClientIp(request);
+  const { count } = await env.DB.prepare(
+    `SELECT COUNT(*) as count FROM password_reset_attempts WHERE email = ? AND created_at > datetime('now', '-1 hour')`
+  ).bind(email).first();
+  if (count >= PASSWORD_RESET_RATE_LIMIT_PER_HOUR) {
+    return json({ error: 'Too many reset requests for this email recently. Please try again later.' }, 429);
+  }
+  await env.DB.prepare('INSERT INTO password_reset_attempts (email, ip) VALUES (?, ?)').bind(email, ip).run();
+
   const dealer = await env.DB.prepare('SELECT * FROM dealers WHERE email = ?').bind(email).first();
   // Always report success — never confirm/deny whether an email is registered.
   if (!dealer) return json({ success: true });
 
-  const token = randomHex(24);
+  // A fresh request supersedes any reset link still sitting in an old email.
   await env.DB.prepare(
-    `INSERT INTO dealer_password_resets (token, dealer_id, expires_at) VALUES (?, ?, datetime('now', '+2 hours'))`
-  ).bind(token, dealer.id).run();
+    `UPDATE dealer_password_resets SET used_at = datetime('now') WHERE dealer_id = ? AND used_at IS NULL`
+  ).bind(dealer.id).run();
+
+  const token     = randomTokenBase64Url(32);
+  const tokenHash = await sha256Hex(token);
+  await env.DB.prepare(
+    `INSERT INTO dealer_password_resets (dealer_id, token_hash, expires_at)
+     VALUES (?, ?, datetime('now', '+${PASSWORD_RESET_TOKEN_TTL_MINUTES} minutes'))`
+  ).bind(dealer.id, tokenHash).run();
+
+  await logAdminAudit(env, 'password_reset_requested', { dealerId: dealer.id, dealerEmail: dealer.email, ip });
 
   await sendBrevoEmail(env, {
     to: dealer.email,
     subject: 'Reset your TheExactMatch Dealer Portal password',
     html: brandedEmailHtml(`
       <p>Hey ${escapeHtml(dealer.name)},</p>
-      <p>Click below to reset your Dealer Portal password. This link expires in 2 hours.</p>
+      <p>Click below to reset your Dealer Portal password. This link expires in ${PASSWORD_RESET_TOKEN_TTL_MINUTES} minutes.</p>
       <p><a href="https://theexactmatch.com/Dealerportal.html?reset=${encodeURIComponent(token)}" style="color:#C09A5B">Reset your password</a></p>
-      <p>If you didn't request this, you can safely ignore this email.</p>
+      <p>If you didn't request this, you can safely ignore this email — your password hasn't changed.</p>
     `),
   });
 
@@ -280,18 +335,34 @@ async function dealerResetPassword(request, env) {
   const token    = (body.token || '').trim();
   const password = body.password || '';
   if (!token || !password) return json({ error: 'Token and new password are required.' }, 400);
-  if (password.length < 8) return json({ error: 'Password must be at least 8 characters.' }, 400);
+  if (password.length < PASSWORD_RESET_MIN_LENGTH) {
+    return json({ error: `Password must be at least ${PASSWORD_RESET_MIN_LENGTH} characters.` }, 400);
+  }
+  if (COMMON_PASSWORD_BLOCKLIST.has(password.toLowerCase())) {
+    return json({ error: 'That password is too common. Please choose something less guessable.' }, 400);
+  }
 
+  const tokenHash = await sha256Hex(token);
   const reset = await env.DB.prepare(
-    `SELECT * FROM dealer_password_resets WHERE token = ? AND expires_at > datetime('now') AND used_at IS NULL`
-  ).bind(token).first();
+    `SELECT * FROM dealer_password_resets WHERE token_hash = ? AND expires_at > datetime('now') AND used_at IS NULL`
+  ).bind(tokenHash).first();
   if (!reset) return json({ error: 'This reset link is invalid or has expired.' }, 400);
 
   const salt = randomHex(16);
   const hash = await hashPassword(password, salt);
   await env.DB.prepare('UPDATE dealers SET password_hash = ?, password_salt = ? WHERE id = ?')
     .bind(hash, salt, reset.dealer_id).run();
-  await env.DB.prepare('UPDATE dealer_password_resets SET used_at = datetime(\'now\') WHERE token = ?').bind(token).run();
+
+  await env.DB.prepare('UPDATE dealer_password_resets SET used_at = datetime(\'now\') WHERE id = ?').bind(reset.id).run();
+  // Any other outstanding reset link for this dealer is now stale — kill it too.
+  await env.DB.prepare(
+    `UPDATE dealer_password_resets SET used_at = datetime('now') WHERE dealer_id = ? AND used_at IS NULL`
+  ).bind(reset.dealer_id).run();
+  // A password change invalidates every existing session — force re-login
+  // everywhere, including whatever session an attacker may have open.
+  await env.DB.prepare('DELETE FROM dealer_sessions WHERE dealer_id = ?').bind(reset.dealer_id).run();
+
+  await logAdminAudit(env, 'password_reset_completed', { dealerId: reset.dealer_id, ip: getClientIp(request) });
 
   return json({ success: true });
 }

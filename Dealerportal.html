@@ -340,9 +340,12 @@
           <label>Email Address</label>
           <input type="email" id="login-email" placeholder="you@dealership.com" autocomplete="email"/>
         </div>
-        <div class="dp-form-group" style="margin-bottom:1.5rem">
+        <div class="dp-form-group" style="margin-bottom:.5rem">
           <label>Password</label>
           <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
+        </div>
+        <div style="text-align:right;margin-bottom:1.25rem">
+          <a href="javascript:void(0)" onclick="showView('view-forgot-password')" style="color:var(--gold);font-size:.75rem;text-decoration:none;font-weight:500">Forgot password?</a>
         </div>
         <button class="btn-primary" id="login-btn" onclick="doLogin()">Login</button>
 
@@ -354,6 +357,99 @@
 
   </div>
 </div><!-- /view-login -->
+
+<!-- ════════════════════════════════════════════════════════
+     VIEW: FORGOT PASSWORD
+═════════════════════════════════════════════════════════ -->
+<div class="view" id="view-forgot-password">
+  <div class="login-hero">
+
+    <div class="login-left">
+      <div class="login-left-content">
+        <div class="invite-badge"><span class="invite-dot"></span>Account Recovery</div>
+        <br/>
+        <h1>Reset Your<br/><em>Password</em></h1>
+        <p>Enter the email on your Dealer Portal account and we'll send you a link to set a new password.</p>
+      </div>
+    </div>
+
+    <div class="login-right">
+      <div class="login-card">
+        <div id="fp-form-wrap">
+          <div class="login-card-title">Forgot Password</div>
+          <div class="login-card-sub">We'll email you a reset link if that address has an account.</div>
+
+          <div class="dp-alert dp-alert-err" id="fp-error"></div>
+
+          <div class="dp-form-group" style="margin-bottom:1.5rem">
+            <label>Email Address</label>
+            <input type="email" id="fp-email" placeholder="you@dealership.com" autocomplete="email"/>
+          </div>
+          <button class="btn-primary" id="fp-btn" onclick="doRequestPasswordReset()">Send Reset Link</button>
+        </div>
+
+        <div id="fp-sent" style="display:none;text-align:center;padding:1rem 0">
+          <div style="font-size:2rem;margin-bottom:1rem;color:var(--gold)">✓</div>
+          <div class="login-card-title">Check Your Email</div>
+          <div class="login-card-sub">If that email has an account, a reset link is on its way. It expires in 30 minutes.</div>
+        </div>
+
+        <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border);text-align:center;font-size:.75rem;color:var(--gray)">
+          <a href="javascript:void(0)" onclick="showView('view-login')" style="color:var(--gold);text-decoration:none;font-weight:500">← Back to Sign In</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /view-forgot-password -->
+
+<!-- ════════════════════════════════════════════════════════
+     VIEW: RESET PASSWORD (via emailed ?reset= link, or the emergency CLI's link)
+═════════════════════════════════════════════════════════ -->
+<div class="view" id="view-reset-password">
+  <div class="login-hero">
+
+    <div class="login-left">
+      <div class="login-left-content">
+        <div class="invite-badge"><span class="invite-dot"></span>Account Recovery</div>
+        <br/>
+        <h1>Set a New<br/><em>Password</em></h1>
+        <p>Choose a new password for your Dealer Portal account.</p>
+      </div>
+    </div>
+
+    <div class="login-right">
+      <div class="login-card">
+
+        <div id="rp-invalid" style="display:none;text-align:center;padding:1rem 0">
+          <div style="font-size:2rem;margin-bottom:1rem">⚠</div>
+          <div class="login-card-title">Link Invalid or Expired</div>
+          <div class="login-card-sub">This reset link is no longer valid. Request a new one below.</div>
+          <a href="javascript:void(0)" onclick="showView('view-forgot-password')" style="color:var(--gold);font-size:.8rem;font-weight:500;text-decoration:none">Request a new link →</a>
+        </div>
+
+        <div id="rp-form-wrap">
+          <div class="login-card-title">New Password</div>
+          <div class="login-card-sub">Must be at least 12 characters.</div>
+
+          <div class="dp-alert dp-alert-err" id="rp-error"></div>
+
+          <div class="dp-form-group">
+            <label>New Password</label>
+            <input type="password" id="rp-password" placeholder="••••••••••••" autocomplete="new-password"/>
+          </div>
+          <div class="dp-form-group" style="margin-bottom:1.5rem">
+            <label>Confirm New Password</label>
+            <input type="password" id="rp-password-confirm" placeholder="••••••••••••" autocomplete="new-password"/>
+          </div>
+          <button class="btn-primary" id="rp-btn" onclick="doConfirmPasswordReset()">Reset Password</button>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div><!-- /view-reset-password -->
 
 <!-- ════════════════════════════════════════════════════════
      VIEW: DEALER DASHBOARD
@@ -1054,6 +1150,91 @@ async function doLogin() {
   localStorage.setItem('tem_dealer_token', authToken);
   currentDealer = data.dealer;
   routeAfterAuth();
+}
+
+// ── Forgot / reset password ─────────────────────────────────────
+async function doRequestPasswordReset() {
+  const email = document.getElementById('fp-email').value.trim();
+  document.getElementById('fp-error').classList.remove('show');
+
+  if (!email) {
+    showAlert('fp-error', 'Please enter your email address.');
+    return;
+  }
+
+  setLoading('fp-btn', true, 'Sending…');
+
+  const { res, data } = await apiFetch('/dealer/password-reset/request', {
+    method: 'POST',
+    body: JSON.stringify({ email })
+  }).catch(() => ({ res: { ok: false }, data: { error: 'Connection error. Please try again.' } }));
+
+  setLoading('fp-btn', false, null, 'Send Reset Link');
+
+  // A 429 (rate limited) is the one case worth surfacing distinctly — every
+  // other outcome (email exists or not) shows the same generic confirmation
+  // so the form never reveals whether an address has an account.
+  if (res.status === 429) {
+    showAlert('fp-error', data.error || 'Too many requests. Please try again later.');
+    return;
+  }
+
+  document.getElementById('fp-form-wrap').style.display = 'none';
+  document.getElementById('fp-sent').style.display = 'block';
+}
+
+let resetToken = null;
+
+async function checkForPasswordReset() {
+  const params = new URLSearchParams(window.location.search);
+  const token  = params.get('reset');
+  if (!token) return false;
+
+  resetToken = token;
+  showView('view-reset-password');
+  return true;
+}
+
+async function doConfirmPasswordReset() {
+  const password        = document.getElementById('rp-password').value;
+  const passwordConfirm  = document.getElementById('rp-password-confirm').value;
+  document.getElementById('rp-error').classList.remove('show');
+
+  if (!password || !passwordConfirm) {
+    showAlert('rp-error', 'Please fill out both password fields.');
+    return;
+  }
+  if (password.length < 12) {
+    showAlert('rp-error', 'Password must be at least 12 characters.');
+    return;
+  }
+  if (password !== passwordConfirm) {
+    showAlert('rp-error', 'Passwords do not match.');
+    return;
+  }
+
+  setLoading('rp-btn', true, 'Resetting…');
+
+  const { res, data } = await apiFetch('/dealer/password-reset/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ token: resetToken, password })
+  }).catch(() => ({ res: { ok: false }, data: { error: 'Connection error. Please try again.' } }));
+
+  setLoading('rp-btn', false, null, 'Reset Password');
+
+  if (!res.ok) {
+    if (res.status === 400) {
+      document.getElementById('rp-form-wrap').style.display = 'none';
+      document.getElementById('rp-invalid').style.display   = 'block';
+    } else {
+      showAlert('rp-error', data.error || 'Something went wrong. Please try again.');
+    }
+    return;
+  }
+
+  window.history.replaceState({}, '', window.location.pathname);
+  showAlert('login-error', 'Password reset. Please sign in with your new password.', 'ok');
+  showView('view-login');
 }
 
 document.addEventListener('keydown', function(e) {
@@ -3901,7 +4082,8 @@ async function doRejectPartner(id) {
 // ── Init ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   const hasInvite = await checkForInvite();
-  if (!hasInvite) restoreSession();
+  const hasReset  = hasInvite ? false : await checkForPasswordReset();
+  if (!hasInvite && !hasReset) restoreSession();
 });
 </script>
 </body>

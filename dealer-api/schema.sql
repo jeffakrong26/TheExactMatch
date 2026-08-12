@@ -25,6 +25,43 @@ CREATE TABLE dealer_sessions (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Added in migrate-merge-dealers-partners.sql, reshaped in
+-- migrate-password-reset-hardening.sql. token_hash is SHA-256(token) — the
+-- raw token is never stored, only ever held in memory and emailed once.
+CREATE TABLE dealer_password_resets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  dealer_id INTEGER NOT NULL REFERENCES dealers(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_dealer_password_resets_dealer_id ON dealer_password_resets(dealer_id);
+
+-- Rate limiting for POST /api/dealer/password-reset/request.
+CREATE TABLE password_reset_attempts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL,
+  ip TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_password_reset_attempts_email ON password_reset_attempts(email);
+CREATE INDEX idx_password_reset_attempts_created_at ON password_reset_attempts(created_at);
+
+-- General admin-visibility audit trail (password-reset events today; shape
+-- is generic enough to log other sensitive admin actions later).
+CREATE TABLE admin_audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event TEXT NOT NULL,
+  dealer_id INTEGER REFERENCES dealers(id) ON DELETE SET NULL,
+  dealer_email TEXT,
+  ip TEXT,
+  detail TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_admin_audit_log_dealer_id ON admin_audit_log(dealer_id);
+CREATE INDEX idx_admin_audit_log_created_at ON admin_audit_log(created_at);
+
 CREATE TABLE inventory_submissions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   dealer_id INTEGER NOT NULL REFERENCES dealers(id) ON DELETE CASCADE,
