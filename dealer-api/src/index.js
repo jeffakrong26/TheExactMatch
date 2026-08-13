@@ -1055,6 +1055,38 @@ async function adminContactMessages(request, env) {
   return json({ messages: results.map(m => ({ ...m, seen: !!m.seen })) });
 }
 
+const REFERRAL_STATUSES = ['new', 'contacted', 'matched', 'closed'];
+
+async function adminReferrals(request, env) {
+  const { results } = await env.DB.prepare(`
+    SELECT buyer_referrals.*,
+      EXISTS(SELECT 1 FROM admin_seen_items WHERE section = 'referrals' AND item_id = buyer_referrals.id) as seen
+    FROM buyer_referrals ORDER BY created_at DESC
+  `).all();
+  return json({ referrals: results.map(r => ({ ...r, seen: !!r.seen })) });
+}
+
+async function adminUpdateReferral(request, env, params) {
+  const id = params.id;
+  const body = await request.json().catch(() => ({}));
+  const existing = await env.DB.prepare(`SELECT id FROM buyer_referrals WHERE id = ?`).bind(id).first();
+  if (!existing) return json({ error: 'Referral not found.' }, 404);
+
+  if (body.status !== undefined && !REFERRAL_STATUSES.includes(body.status)) {
+    return json({ error: 'Invalid status.' }, 400);
+  }
+
+  const sets = [];
+  const values = [];
+  if (body.status !== undefined) { sets.push('status = ?'); values.push(body.status); }
+  if (body.admin_notes !== undefined) { sets.push('admin_notes = ?'); values.push((body.admin_notes || '').trim() || null); }
+  if (!sets.length) return json({ error: 'Nothing to update.' }, 400);
+
+  values.push(id);
+  await env.DB.prepare(`UPDATE buyer_referrals SET ${sets.join(', ')} WHERE id = ?`).bind(...values).run();
+  return json({ success: true });
+}
+
 // ── Public marketing-site form submissions ───────────────────────
 async function submitFindCarLead(request, env, params, dealer, token, ctx) {
   const body        = await request.json().catch(() => ({}));
@@ -4084,6 +4116,61 @@ async function submitContactMessage(request, env) {
   return json({ success: true });
 }
 
+// Max's exotic/luxury buyer referral network (theexactmatch.com/referral).
+// Writes to its own table rather than find_car_leads — this is a curated,
+// referral-based list Max works personally, separate from the nationwide
+// Find My Car matching pipeline.
+async function submitReferral(request, env) {
+  const body        = await request.json().catch(() => ({}));
+  // Honeypot — hidden from real submitters, bots fill every field.
+  if ((body.company_website || '').trim()) return json({ success: true });
+
+  const first_name  = (body.first_name || '').trim();
+  const last_name   = (body.last_name || '').trim();
+  const email       = (body.email || '').trim().toLowerCase();
+  const phone       = (body.phone || '').trim();
+
+  if (!first_name || !last_name || !email) return json({ error: 'Name and email are required.' }, 400);
+  if (!EMAIL_RE.test(email)) return json({ error: 'Invalid email address.' }, 400);
+
+  const yearMinParsed = parseInt(body.year_min, 10);
+  const yearMaxParsed = parseInt(body.year_max, 10);
+
+  const result = await env.DB.prepare(`
+    INSERT INTO buyer_referrals (
+      first_name, last_name, email, phone, referred_by, zip,
+      preferred_make, preferred_model, year_min, year_max,
+      budget_min, budget_max, timeline, anything_else
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    first_name, last_name, email, phone,
+    (body.referred_by || '').trim() || null,
+    (body.zip || '').trim() || null,
+    (body.preferred_make || '').trim() || null,
+    (body.preferred_model || '').trim() || null,
+    Number.isFinite(yearMinParsed) ? yearMinParsed : null,
+    Number.isFinite(yearMaxParsed) ? yearMaxParsed : null,
+    (body.budget_min || '').toString().trim() || null,
+    (body.budget_max || '').toString().trim() || null,
+    (body.timeline || '').trim() || null,
+    (body.anything_else || '').trim() || null
+  ).run();
+
+  const referralId = result.meta.last_row_id;
+
+  await sendBrevoEmail(env, {
+    to: 'theexactmatch@gmail.com',
+    subject: `New buyer referral: ${first_name} ${last_name}`,
+    html: brandedEmailHtml(`
+      <p><strong>${escapeHtml(first_name)} ${escapeHtml(last_name)}</strong> (${escapeHtml(email)}${phone ? ' · ' + escapeHtml(phone) : ''}) was referred into the exotic/luxury buyer network.</p>
+      ${body.referred_by ? `<p>Referred by: ${escapeHtml(body.referred_by)}</p>` : ''}
+      <p><a href="https://theexactmatch.com/Dealerportal.html">Review in dashboard →</a></p>
+    `),
+  }).catch(err => console.error('referral admin email failed', referralId, err));
+
+  return json({ success: true });
+}
+
 async function adminDealers(request, env) {
   const { results } = await env.DB.prepare(`
     SELECT dealers.id, dealers.name, dealers.dealership_name, dealers.email, dealers.role, dealers.status, dealers.created_at,
@@ -4106,6 +4193,7 @@ const NOTIFICATION_SECTION_TABLES = {
   sell_car:   'sell_my_car_leads',
   messages:   'contact_messages',
   dealers:    'dealers',
+  referrals:  'buyer_referrals',
 };
 const NOTIFICATION_SECTIONS = Object.keys(NOTIFICATION_SECTION_TABLES);
 
@@ -8701,12 +8789,15 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/admin/leads/:id/save-valuation',   handler: adminSaveValuationEdits, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/find-leads',             handler: adminFindLeads, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/contact-messages',       handler: adminContactMessages, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/referrals',               handler: adminReferrals, auth: true, admin: true },
+  { method: 'PATCH', pattern: '/api/admin/referrals/:id',           handler: adminUpdateReferral, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/public/find-car-lead',         handler: submitFindCarLead },
   { method: 'POST',  pattern: '/api/public/sell-car-lead',         handler: submitSellCarLead },
   { method: 'POST',  pattern: '/api/public/sell/:token/photo/:slot', handler: uploadSellPhoto },
   { method: 'POST',  pattern: '/api/public/sell/:token/complete',    handler: completeSellPhotos },
   { method: 'POST',  pattern: '/api/public/sell/:token/ready',       handler: publicMarkReadyToSell },
   { method: 'POST',  pattern: '/api/public/contact-message',       handler: submitContactMessage },
+  { method: 'POST',  pattern: '/api/public/referral',               handler: submitReferral },
   { method: 'GET',   pattern: '/api/admin/dealers',               handler: adminDealers, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/notification-counts',                              handler: adminNotificationCounts, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/notification-counts/:section/items/:itemId/seen',  handler: adminMarkItemSeen, auth: true, admin: true },

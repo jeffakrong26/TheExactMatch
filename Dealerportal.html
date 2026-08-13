@@ -749,6 +749,7 @@
       <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers<span class="tab-badge" data-section="dealers"></span><span class="tab-badge" data-section="partner_applications"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-submissions')">Weekly Finds Submissions<span class="tab-badge" data-section="newsletter"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-messages')">Messages<span class="tab-badge" data-section="messages"></span></button>
+      <button class="tab-btn" onclick="switchTab('tab-referrals')">Referrals<span class="tab-badge" data-section="referrals"></span></button>
     </div>
 
     <!-- Tab: Submissions -->
@@ -907,6 +908,13 @@
       <div class="section-label">Contact Messages</div>
       <div id="admin-messages-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
       <div id="admin-messages-list"></div>
+    </div>
+
+    <!-- Tab: Referrals (Max's exotic/luxury buyer network, /referral) -->
+    <div class="tab-panel" id="tab-referrals">
+      <div class="section-label">Buyer Referrals</div>
+      <div id="admin-referrals-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+      <div id="admin-referrals-list"></div>
     </div>
 
   </div>
@@ -1072,6 +1080,7 @@ function showView(id) {
     loadSavedSearches();
     loadAdminLeads();
     loadAdminMessages();
+    loadAdminReferrals();
     loadAdminDealers();
     loadAdminInvites();
     loadAdminPartnerApplications();
@@ -1925,7 +1934,7 @@ function switchTab(tabId) {
     b.classList.remove('active');
     if (panels[i]) panels[i].classList.remove('active');
   });
-  const tabIndex = ['tab-find-leads','tab-leads','tab-reports','tab-saved-searches','tab-dealers','tab-submissions','tab-messages'].indexOf(tabId);
+  const tabIndex = ['tab-find-leads','tab-leads','tab-reports','tab-saved-searches','tab-dealers','tab-submissions','tab-messages','tab-referrals'].indexOf(tabId);
   document.querySelectorAll('.tab-btn')[tabIndex]?.classList.add('active');
   document.getElementById(tabId)?.classList.add('active');
   // Note: switching tabs never clears a badge — only reviewing/approving/
@@ -3038,6 +3047,75 @@ async function loadAdminMessages() {
 function markMessageRead(id, btn) {
   markItemSeen('messages', id);
   btn.outerHTML = `<span style="font-size:.75rem;color:var(--green)">✓ Read</span>`;
+}
+
+const REFERRAL_STATUS_META = {
+  new:       { label: 'New',       cls: 'status-pending' },
+  contacted: { label: 'Contacted', cls: 'status-pending' },
+  matched:   { label: 'Matched',   cls: 'status-approved' },
+  closed:    { label: 'Closed',    cls: 'status-published' },
+};
+
+async function loadAdminReferrals() {
+  document.getElementById('admin-referrals-loading').style.display = 'block';
+  document.getElementById('admin-referrals-list').innerHTML         = '';
+
+  const { res, data } = await apiFetch('/admin/referrals')
+    .catch(() => ({res:{ok:false},data:{}}));
+
+  document.getElementById('admin-referrals-loading').style.display = 'none';
+
+  if (!res.ok) return;
+
+  const referrals = data.referrals || [];
+  if (!referrals.length) {
+    document.getElementById('admin-referrals-list').innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">🤝</div><div class="empty-state-text">No buyer referrals yet.</div></div>';
+    return;
+  }
+
+  document.getElementById('admin-referrals-list').innerHTML = referrals.map(r => {
+    const meta = REFERRAL_STATUS_META[r.status] || REFERRAL_STATUS_META.new;
+    const prefs = [r.preferred_make, r.preferred_model].filter(Boolean).join(' ');
+    const years = (r.year_min || r.year_max) ? `${r.year_min || ''}${r.year_min && r.year_max ? '–' : ''}${r.year_max || ''}` : '';
+    const budget = (r.budget_min || r.budget_max) ? `${r.budget_min || '?'}–${r.budget_max || '?'}` : '';
+    return `
+    <div class="item-card">
+      <div>
+        <div class="item-card-title">${escapeHtmlJs(r.first_name)} ${escapeHtmlJs(r.last_name)}</div>
+        <div class="item-card-sub">${escapeHtmlJs(r.email)}${r.phone ? ' · '+escapeHtmlJs(r.phone) : ''}${r.referred_by ? ' · Referred by ' + escapeHtmlJs(r.referred_by) : ''}</div>
+        <div class="item-card-meta">
+          ${prefs ? `<span class="meta-pill">${escapeHtmlJs(prefs)}</span>` : ''}
+          ${years ? `<span class="meta-pill">${escapeHtmlJs(years)}</span>` : ''}
+          ${budget ? `<span class="meta-pill">${escapeHtmlJs(budget)}</span>` : ''}
+          ${r.timeline ? `<span class="meta-pill">${escapeHtmlJs(r.timeline)}</span>` : ''}
+          ${r.zip ? `<span class="meta-pill">${escapeHtmlJs(r.zip)}</span>` : ''}
+          <span class="status-badge ${meta.cls}">${meta.label}</span>
+          <span class="meta-pill" style="opacity:.6">${formatDate(r.created_at)}</span>
+        </div>
+        ${r.anything_else ? `<div style="font-size:.82rem;color:var(--gray);margin-top:.6rem;line-height:1.6">${escapeHtmlJs(r.anything_else)}</div>` : ''}
+      </div>
+      <div class="item-card-actions">
+        <select class="dp-form-group" style="width:auto;padding:.4rem .6rem;border:1px solid var(--border);border-radius:2px;font-size:.78rem" onchange="updateReferralStatus(${r.id}, this.value)">
+          ${REFERRAL_STATUSES_JS.map(s => `<option value="${s}" ${r.status === s ? 'selected' : ''}>${REFERRAL_STATUS_META[s].label}</option>`).join('')}
+        </select>
+        ${r.seen
+          ? `<span style="font-size:.75rem;color:var(--green)">✓ Reviewed</span>`
+          : `<button class="btn-primary btn-sm" onclick="markReferralSeen(${r.id}, this)">Mark Reviewed</button>`}
+      </div>
+    </div>
+  `; }).join('');
+}
+
+const REFERRAL_STATUSES_JS = ['new', 'contacted', 'matched', 'closed'];
+
+async function updateReferralStatus(id, status) {
+  await apiFetch(`/admin/referrals/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).catch(() => {});
+}
+
+function markReferralSeen(id, btn) {
+  markItemSeen('referrals', id);
+  btn.outerHTML = `<span style="font-size:.75rem;color:var(--green)">✓ Reviewed</span>`;
 }
 
 let ADMIN_DEALERS_CACHE = [];

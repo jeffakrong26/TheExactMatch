@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Refer a Buyer — TheExactMatch</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0C1C33;--navy2:#152a4a;
+  --beige:#F5F0E8;--beige2:#EDE7D9;
+  --gold:#C09A5B;--gold2:#D4B47A;
+  --bronze:#8a6a12;
+  --white:#fff;--gray:#4A5568;--border:#DDD8CC;
+  --green:#1A4731;--red:#9B2335;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy);min-height:100vh}
+.wrap{max-width:640px;margin:0 auto;padding:3rem 1.5rem 5rem}
+.eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--bronze);display:flex;align-items:center;gap:.65rem;margin-bottom:.9rem}
+.eyebrow::before,.eyebrow::after{content:'';display:block;height:1px;width:22px;background:var(--bronze)}
+h1{font-family:'Playfair Display',serif;font-size:clamp(1.9rem,5vw,2.6rem);font-weight:500;line-height:1.15;color:var(--navy);margin-bottom:.75rem}
+h1 em{font-style:italic;color:var(--gold)}
+.intro{font-size:.92rem;line-height:1.7;color:var(--gray);margin-bottom:2.5rem}
+.card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:2rem 1.75rem}
+.section-title{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--navy);border-bottom:1px solid var(--border);padding-bottom:.6rem;margin:2rem 0 1.25rem}
+.section-title:first-child{margin-top:0}
+.group{margin-bottom:1.1rem}
+.group label{display:block;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gray);margin-bottom:.4rem}
+.group .hint{font-weight:400;text-transform:none;letter-spacing:0;font-size:.75rem;color:var(--gray);display:block;margin-top:.3rem}
+.group input,.group select,.group textarea{width:100%;padding:.8rem 1rem;background:var(--beige);border:1px solid var(--border);border-radius:2px;font-family:'Jost',sans-serif;font-size:.88rem;color:var(--navy);outline:none;transition:border-color .2s}
+.group input:focus,.group select:focus,.group textarea:focus{border-color:var(--gold)}
+.group textarea{resize:vertical;min-height:80px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media (max-width:520px){.row2{grid-template-columns:1fr}}
+.honeypot{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.submit-btn{width:100%;padding:1rem;background:var(--navy);color:var(--beige);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:1.5rem;transition:background .2s}
+.submit-btn:hover{background:var(--navy2)}
+.submit-btn:disabled{opacity:.55;cursor:not-allowed}
+.alert{padding:.8rem 1rem;border-radius:2px;font-size:.85rem;margin-bottom:1.25rem;display:none}
+.alert.show{display:block}
+.alert-err{background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.2);color:var(--red)}
+.success-screen{text-align:center;padding:3rem 1rem}
+.success-screen h2{font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--navy);margin-bottom:1rem}
+.success-screen p{color:var(--gray);font-size:.9rem;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">Exotic &amp; Luxury Buyer Network</div>
+  <h1>Refer a <em>Buyer</em></h1>
+  <p class="intro">Know someone shopping for an exotic or luxury car? Tell us about them and we'll add them to Max's curated buyer network — a personally-worked list, separate from our general Find My Car search. We reach out directly once we have a fitting car.</p>
+
+  <div class="card" id="form-card">
+    <div class="alert alert-err" id="form-error"></div>
+    <form id="referral-form" onsubmit="return false">
+
+      <!-- Honeypot — hidden from real submitters, bots fill every field -->
+      <div class="honeypot" aria-hidden="true">
+        <label for="company_website">Company Website</label>
+        <input type="text" id="company_website" name="company_website" tabindex="-1" autocomplete="off"/>
+      </div>
+
+      <div class="section-title">Buyer's Info</div>
+      <div class="row2">
+        <div class="group"><label>First Name *</label><input type="text" id="first_name" required/></div>
+        <div class="group"><label>Last Name *</label><input type="text" id="last_name" required/></div>
+      </div>
+      <div class="row2">
+        <div class="group"><label>Email *</label><input type="email" id="email" required placeholder="buyer@email.com"/></div>
+        <div class="group"><label>Phone</label><input type="tel" id="phone" placeholder="(555) 000-0000"/></div>
+      </div>
+      <div class="group"><label>ZIP Code</label><input type="text" id="zip" placeholder="78701" maxlength="10"/></div>
+      <div class="group"><label>Referred By</label><input type="text" id="referred_by" placeholder="Your name, or how they heard about us"/></div>
+
+      <div class="section-title">What They're Looking For</div>
+      <div class="row2">
+        <div class="group"><label>Preferred Make</label><input type="text" id="preferred_make" placeholder="e.g. Porsche"/></div>
+        <div class="group"><label>Preferred Model</label><input type="text" id="preferred_model" placeholder="e.g. 911"/></div>
+      </div>
+      <div class="row2">
+        <div class="group"><label>Year — From</label><input type="number" id="year_min" placeholder="2020"/></div>
+        <div class="group"><label>Year — To</label><input type="number" id="year_max" placeholder="2024"/></div>
+      </div>
+      <div class="row2">
+        <div class="group"><label>Budget — Min</label><input type="number" id="budget_min" placeholder="100000" min="0"/></div>
+        <div class="group"><label>Budget — Max</label><input type="number" id="budget_max" placeholder="200000" min="0"/></div>
+      </div>
+      <div class="group">
+        <label>Timeline</label>
+        <select id="timeline">
+          <option value="">Select...</option>
+          <option>This Week</option><option>This Month</option><option>1–3 Months</option><option>Just Exploring</option>
+        </select>
+      </div>
+      <div class="group"><label>Anything Else? (optional)</label><textarea id="anything_else" placeholder="Trim, color, must-haves — anything that helps Max find the right car"></textarea></div>
+
+      <button class="submit-btn" id="submit-btn" onclick="submitReferral()">Submit Referral</button>
+    </form>
+  </div>
+
+  <div class="card success-screen" id="success-card" style="display:none">
+    <h2>Referral Received</h2>
+    <p>Thanks — we've added them to Max's buyer network. We'll reach out directly once we have a fitting car.</p>
+  </div>
+
+</div>
+
+<script>
+const API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';
+
+function showFormError(msg) {
+  const el = document.getElementById('form-error');
+  el.textContent = msg;
+  el.classList.add('show');
+  window.scrollTo(0, 0);
+}
+
+async function submitReferral() {
+  document.getElementById('form-error').classList.remove('show');
+
+  const first_name = document.getElementById('first_name').value.trim();
+  const last_name  = document.getElementById('last_name').value.trim();
+  const email      = document.getElementById('email').value.trim();
+  if (!first_name || !last_name || !email) { showFormError('First name, last name, and email are required.'); return; }
+
+  const body = {
+    company_website: document.getElementById('company_website').value, // honeypot
+    first_name, last_name, email,
+    phone: document.getElementById('phone').value.trim(),
+    zip: document.getElementById('zip').value.trim(),
+    referred_by: document.getElementById('referred_by').value.trim(),
+    preferred_make: document.getElementById('preferred_make').value.trim(),
+    preferred_model: document.getElementById('preferred_model').value.trim(),
+    year_min: document.getElementById('year_min').value.trim(),
+    year_max: document.getElementById('year_max').value.trim(),
+    budget_min: document.getElementById('budget_min').value.trim(),
+    budget_max: document.getElementById('budget_max').value.trim(),
+    timeline: document.getElementById('timeline').value,
+    anything_else: document.getElementById('anything_else').value.trim(),
+  };
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+
+  let res, data;
+  try {
+    res = await fetch(`${API}/public/referral`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    data = await res.json().catch(() => ({}));
+  } catch {
+    btn.disabled = false; btn.textContent = 'Submit Referral';
+    showFormError('Connection error. Please try again.');
+    return;
+  }
+
+  btn.disabled = false; btn.textContent = 'Submit Referral';
+
+  if (!res.ok) { showFormError(data.error || 'Something went wrong. Please try again.'); return; }
+
+  document.getElementById('form-card').style.display = 'none';
+  document.getElementById('success-card').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>
