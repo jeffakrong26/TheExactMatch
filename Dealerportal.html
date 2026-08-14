@@ -917,13 +917,21 @@
         <button class="btn-primary btn-sm btn-gold" style="width:auto" id="rfl-add-toggle-btn" onclick="toggleReportFromLinkForm()">+ From Listing Link</button>
       </div>
 
-      <!-- Generate a report straight from a pasted listing URL — no
+      <!-- Generate a report straight from up to 3 pasted listing URLs — no
            find_car_leads criteria to run through the search pipeline, just
-           the one vehicle at that link. See adminCreateReportFromLink. -->
+           whichever vehicles are at these links. See adminCreateReportFromLink.
+           If a listing doesn't come through cleanly, its own retry box
+           (same as the rest of the app) shows up in the report review panel
+           afterward — see the source==='admin_link' branch in
+           toggleReportDetail's rv-edit template. -->
       <div id="rfl-add-form" style="display:none;margin-bottom:2rem;padding:1.25rem;background:var(--beige);border-radius:4px">
         <div class="dp-alert dp-alert-err" id="rfl-add-error"></div>
-        <div class="dp-form-group"><label>Listing URL <span class="required-mark">*</span></label><input type="text" id="rfl-url" placeholder="https://dealer.com/inventory/..."/></div>
-        <div style="font-size:.7rem;color:var(--gray);margin:-.4rem 0 1rem">Dealer site, Cars.com, Autotrader, CarGurus, etc. — a link straight to the vehicle's own listing page.</div>
+        <div class="dp-form-group"><label>Listing URL <span class="required-mark">*</span></label><input type="text" class="rfl-url-input" placeholder="https://dealer.com/inventory/..."/></div>
+        <div id="rfl-extra-urls"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:-.4rem 0 1rem">
+          <div style="font-size:.7rem;color:var(--gray)">Dealer site, Cars.com, Autotrader, CarGurus, etc. — links straight to each vehicle's own listing page.</div>
+          <button type="button" class="btn-primary btn-sm btn-outline" style="width:auto;flex-shrink:0;margin-left:.75rem" id="rfl-add-url-btn" onclick="addReportFromLinkUrlInput()">+ Add Another Listing</button>
+        </div>
 
         <div style="font-size:.63rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gray);margin-bottom:.6rem">Tie to a Customer (Optional — can add later)</div>
         <div class="dp-form-row">
@@ -2830,51 +2838,75 @@ async function adminDeleteReport(code) {
 }
 
 // ── Generate a report from a pasted listing URL ─────────────────
+const RFL_MAX_URLS = 3;
+
 function toggleReportFromLinkForm() {
   const form = document.getElementById('rfl-add-form');
   const isHidden = form.style.display === 'none';
   form.style.display = isHidden ? 'block' : 'none';
   document.getElementById('rfl-add-toggle-btn').textContent = isHidden ? 'Cancel' : '+ From Listing Link';
   if (isHidden) document.getElementById('rfl-confirm').style.display = 'none';
+  else resetReportFromLinkForm(); // Cancel clicked — start clean next time it's opened
+}
+
+function addReportFromLinkUrlInput() {
+  const wrap = document.getElementById('rfl-extra-urls');
+  const count = 1 + wrap.querySelectorAll('.rfl-url-input').length; // +1 for the always-visible first input
+  if (count >= RFL_MAX_URLS) return;
+  const div = document.createElement('div');
+  div.className = 'dp-form-group';
+  div.innerHTML = `<input type="text" class="rfl-url-input" placeholder="https://dealer.com/inventory/..."/>`;
+  wrap.appendChild(div);
+  if (count + 1 >= RFL_MAX_URLS) document.getElementById('rfl-add-url-btn').style.display = 'none';
+}
+
+function resetReportFromLinkForm() {
+  document.getElementById('rfl-extra-urls').innerHTML = '';
+  document.getElementById('rfl-add-url-btn').style.display = '';
+  document.querySelectorAll('#rfl-add-form input').forEach(input => input.value = '');
 }
 
 async function doCreateReportFromLink() {
   const errEl = document.getElementById('rfl-add-error');
   errEl.classList.remove('show');
 
-  const url = document.getElementById('rfl-url').value.trim();
-  if (!/^https?:\/\//i.test(url)) { errEl.textContent = 'Paste a full listing URL (starting with http:// or https://).'; errEl.classList.add('show'); return; }
+  const urls = Array.from(document.querySelectorAll('.rfl-url-input')).map(el => el.value.trim()).filter(Boolean);
+  if (!urls.length) { errEl.textContent = 'Paste at least one listing URL.'; errEl.classList.add('show'); return; }
+  if (urls.some(u => !/^https?:\/\//i.test(u))) { errEl.textContent = 'Every listing URL must start with http:// or https://.'; errEl.classList.add('show'); return; }
 
   const first_name = document.getElementById('rfl-fname').value.trim();
   const body = {
-    url,
+    urls,
     first_name,
     last_name: document.getElementById('rfl-lname').value.trim(),
     email: document.getElementById('rfl-email').value.trim(),
     phone: document.getElementById('rfl-phone').value.trim(),
   };
 
-  setLoading('rfl-submit-btn', true, 'Fetching listing & generating…');
-  // Fetches the listing page, runs JSON-LD/Claude extraction, then enriches
-  // specs and writes a rationale — several sequential network/Claude calls,
-  // so this can take a while. No client-side timeout, same as the manual
-  // Find My Car entry form.
+  setLoading('rfl-submit-btn', true, urls.length > 1 ? 'Fetching listings & generating…' : 'Fetching listing & generating…');
+  // Fetches each listing page in parallel, runs JSON-LD/Claude extraction,
+  // then enriches specs and writes a rationale per vehicle — several
+  // network/Claude calls, so this can take a while. No client-side timeout,
+  // same as the manual Find My Car entry form.
   const { res, data } = await apiFetch('/admin/reports/from-link', { method: 'POST', body: JSON.stringify(body) })
     .catch(() => ({ res: { ok: false }, data: {} }));
   setLoading('rfl-submit-btn', false, null, 'Generate Report');
 
   if (!res.ok) { errEl.textContent = data.error || 'Failed to generate report.'; errEl.classList.add('show'); return; }
 
+  const vehicles = data.vehicles || [];
+  const weak = vehicles.filter(v => v.confidence === 'none' || v.confidence === 'low');
+
   const el = document.getElementById('rfl-confirm');
-  el.innerHTML = (data.extraction_confidence === 'none' || data.extraction_confidence === 'low') ? `
+  el.innerHTML = (weak.length ? `
     <div style="padding:.9rem 1.1rem;margin-bottom:.75rem;background:rgba(192,154,91,.1);border:1px solid rgba(192,154,91,.35);border-radius:4px;font-size:.82rem">
-      Couldn't fully read that listing — the report was still created so you can fill in the gaps by hand below.
-    </div>` + reportLinkConfirmHtml('rfl-confirm', data.report, first_name, data.lead_id)
-    : reportLinkConfirmHtml('rfl-confirm', data.report, first_name, data.lead_id);
+      Couldn't fully read ${weak.length === vehicles.length ? 'that listing' : `option${weak.length > 1 ? 's' : ''} ${weak.map(v => v.position).join(', ')}`}
+      — the report was still created. Open it below to fill in the gaps by hand, or paste a different link for that option to try again.
+    </div>` : '') + reportLinkConfirmHtml('rfl-confirm', data.report, first_name, data.lead_id);
 
   toggleReportFromLinkForm();
   el.style.display = 'block';
-  document.querySelectorAll('#rfl-add-form input').forEach(input => input.value = '');
+  resetReportFromLinkForm();
   loadAdminReports();
 }
 
@@ -3069,6 +3101,16 @@ async function toggleReportDetail(code, id) {
               </div>
               <div class="fetch-status" style="font-size:.75rem;margin-top:.4rem"></div>
               <button type="button" class="btn-primary btn-sm" style="margin-top:.6rem;background:var(--green)" onclick="markVehicleReady('${code}', ${v.position}, this)">Mark as Ready</button>
+            </div>
+          ` : ''}
+          ${v.source === 'admin_link' ? `
+            <div style="background:rgba(192,154,91,.08);border:1px solid rgba(192,154,91,.3);border-radius:2px;padding:.6rem .85rem;margin-bottom:.85rem;font-size:.78rem;color:#8a6a12">
+              <strong>Sourced from a pasted link.</strong> Fields below came from that page — edit them directly, or paste a different listing URL here to re-extract this option from scratch.
+              <div style="margin-top:.6rem;display:flex;gap:.5rem">
+                <input type="text" class="listing-url-input" placeholder="Paste a different listing URL…" style="flex:1;font-size:.8rem;padding:.5rem;border:1px solid var(--border);border-radius:2px"/>
+                <button type="button" class="btn-primary btn-sm" onclick="fetchListingForVehicle('${code}', ${v.position}, this)">Fetch Listing</button>
+              </div>
+              <div class="fetch-status" style="font-size:.75rem;margin-top:.4rem"></div>
             </div>
           ` : ''}
           <div class="photo-upload-wrap" data-position="${v.position}" style="margin-bottom:1rem">

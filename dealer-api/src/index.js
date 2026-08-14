@@ -2447,13 +2447,71 @@ async function enrichVehicleSpecs(env, vehicle, known) {
   return toolUse ? toolUse.input : {};
 }
 
-// ── Admin: generate a report directly from a pasted listing URL ─────────
+// Fetches one listing URL and runs it through the exact JSON-LD/OG/Claude
+// extraction pipeline adminScrapeListingUrl uses to fill one slot of an
+// existing report — factored out so adminCreateReportFromLink can run it
+// per-URL for up to REPORT_FROM_LINK_MAX_VEHICLES listings. Never throws on
+// a bad/unparseable page; a failed fetch or empty extraction just comes back
+// as an all-null entry with confidence: 'none', for the caller to still
+// persist and let the admin fix up by hand or retry with a different URL.
+async function scrapeListingIntoEntry(env, url) {
+  let html = null;
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchBot/1.0)' } });
+    if (res.ok) html = await res.text();
+  } catch {}
+
+  if (!html) {
+    return {
+      year: null, make: null, model: null, trim: null, price: null, mileage: null,
+      dealer_name: null, dealer_city: null, dealer_state: null, exterior_color: null,
+      engine: null, transmission: null, drivetrain: null, vin: null,
+      photo_url: null, photo_urls: '[]', confidence: 'none', fetched: false,
+    };
+  }
+
+  const structuredData = extractJsonLdVehicle(html);
+  const ogData = extractOgTags(html);
+  let photos = extractPhotosFromPage(structuredData, ogData);
+  if (!photos.length) photos = extractGenericImageGallery(html, url);
+  const structuredFields = extractStructuredVehicleFields(structuredData);
+  const extracted = await extractListingWithClaude(env, html, structuredFields, ogData);
+  const genericSpecs = extractGenericSpecLabelValues(cleanHtmlText(html));
+
+  return {
+    year: structuredFields.year ?? extracted.year ?? null,
+    make: structuredFields.make || extracted.make || null,
+    model: structuredFields.model || extracted.model || null,
+    trim: extracted.trim || null,
+    price: structuredFields.price ?? extracted.price ?? null,
+    mileage: structuredFields.mileage ?? extracted.mileage ?? null,
+    dealer_name: structuredFields.dealer_name || extracted.dealer_name || null,
+    dealer_city: structuredFields.dealer_city || extracted.dealer_city || null,
+    dealer_state: structuredFields.dealer_state || extracted.dealer_state || null,
+    exterior_color: structuredFields.color || genericSpecs.exterior_color || extracted.color || null,
+    engine: structuredFields.engine || genericSpecs.engine || extracted.engine || null,
+    transmission: structuredFields.transmission || genericSpecs.transmission || extracted.transmission || null,
+    drivetrain: structuredFields.drivetrain || genericSpecs.drivetrain || extracted.drivetrain || null,
+    vin: structuredFields.vin || genericSpecs.vin || extracted.vin || null,
+    photo_url: photos[0] || null,
+    photo_urls: JSON.stringify(photos),
+    confidence: extracted.found_confidence || (Object.values(structuredFields).some(v => v != null) ? 'high' : 'none'),
+    fetched: true,
+  };
+}
+
+const REPORT_FROM_LINK_MAX_VEHICLES = 3;
+
+// ── Admin: generate a report directly from up to 3 pasted listing URLs ──
 // Same JSON-LD/OG/Claude-fallback extraction pipeline as adminScrapeListingUrl
-// (which fills one slot of an EXISTING report) — this creates the report and
-// its one report_vehicles row from scratch instead. Never hard-fails on a bad
-// or unparseable page: whatever comes back (even nothing) still lands in a
-// real report_vehicles row, so the admin ends up in the exact same per-vehicle
-// edit panel used everywhere else in the Reports tab to fill any gaps by hand.
+// (which fills one slot of an EXISTING report, and is also what the "Fetch
+// Listing" retry box in the report review panel calls per-position for a
+// listing that came out wrong) — this creates the report and its
+// report_vehicles rows from scratch instead, one row per URL given. Never
+// hard-fails on a bad/unparseable page: whatever comes back (even nothing)
+// still lands in a real report_vehicles row, so the admin ends up in the
+// same per-vehicle edit panel used everywhere else in the Reports tab to fix
+// gaps by hand or retry that position with a different link.
 //
 // find_car_reports.find_lead_id is NOT NULL, so a report always needs a lead
 // row to hang off of — customer contact is optional here (can be attached
@@ -2461,8 +2519,12 @@ async function enrichVehicleSpecs(env, vehicle, known) {
 // gets a placeholder lead instead of a real one.
 async function adminCreateReportFromLink(request, env, params, dealer) {
   const body = await request.json().catch(() => ({}));
-  const url  = (body.url || '').trim();
-  if (!/^https?:\/\//i.test(url)) return json({ error: 'Please paste a full listing URL.' }, 400);
+  const urls = (Array.isArray(body.urls) ? body.urls : [body.url])
+    .map(u => (u || '').trim())
+    .filter(Boolean)
+    .slice(0, REPORT_FROM_LINK_MAX_VEHICLES);
+  if (!urls.length) return json({ error: 'Paste at least one listing URL.' }, 400);
+  if (urls.some(u => !/^https?:\/\//i.test(u))) return json({ error: 'Every listing URL must be a full http(s) link.' }, 400);
 
   const first_name = (body.first_name || '').trim();
   const last_name  = (body.last_name || '').trim();
@@ -2482,96 +2544,69 @@ async function adminCreateReportFromLink(request, env, params, dealer) {
   const leadId = leadResult.meta.last_row_id;
   const lead = await env.DB.prepare('SELECT * FROM find_car_leads WHERE id = ?').bind(leadId).first();
 
-  let html = null;
-  try {
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchBot/1.0)' } });
-    if (res.ok) html = await res.text();
-  } catch {}
-
-  let entry = {
-    year: null, make: null, model: null, trim: null, price: null, mileage: null,
-    dealer_name: null, dealer_city: null, dealer_state: null, exterior_color: null,
-    engine: null, transmission: null, drivetrain: null, vin: null,
-    photo_url: null, photo_urls: '[]', confidence: 'none',
-  };
-
-  if (html) {
-    const structuredData = extractJsonLdVehicle(html);
-    const ogData = extractOgTags(html);
-    let photos = extractPhotosFromPage(structuredData, ogData);
-    if (!photos.length) photos = extractGenericImageGallery(html, url);
-    const structuredFields = extractStructuredVehicleFields(structuredData);
-    const extracted = await extractListingWithClaude(env, html, structuredFields, ogData);
-    const genericSpecs = extractGenericSpecLabelValues(cleanHtmlText(html));
-
-    entry = {
-      year: structuredFields.year ?? extracted.year ?? null,
-      make: structuredFields.make || extracted.make || null,
-      model: structuredFields.model || extracted.model || null,
-      trim: extracted.trim || null,
-      price: structuredFields.price ?? extracted.price ?? null,
-      mileage: structuredFields.mileage ?? extracted.mileage ?? null,
-      dealer_name: structuredFields.dealer_name || extracted.dealer_name || null,
-      dealer_city: structuredFields.dealer_city || extracted.dealer_city || null,
-      dealer_state: structuredFields.dealer_state || extracted.dealer_state || null,
-      exterior_color: structuredFields.color || genericSpecs.exterior_color || extracted.color || null,
-      engine: structuredFields.engine || genericSpecs.engine || extracted.engine || null,
-      transmission: structuredFields.transmission || genericSpecs.transmission || extracted.transmission || null,
-      drivetrain: structuredFields.drivetrain || genericSpecs.drivetrain || extracted.drivetrain || null,
-      vin: structuredFields.vin || genericSpecs.vin || extracted.vin || null,
-      photo_url: photos[0] || null,
-      photo_urls: JSON.stringify(photos),
-      confidence: extracted.found_confidence || (Object.values(structuredFields).some(v => v != null) ? 'high' : 'none'),
-    };
-  }
+  // Each URL's fetch + extraction is independent — parallelize across
+  // listings the same way generateReportForLead parallelizes its 3 picks.
+  const entries = await Promise.all(urls.map(u => scrapeListingIntoEntry(env, u)));
 
   // Factory-spec enrichment and the rationale paragraph both need a real
   // year/make/model to work from — skip them on a failed/empty extraction
   // rather than send Claude "undefined undefined undefined".
-  const hasVehicleId = !!(entry.year && entry.make && entry.model);
-  const [specs, rationale] = hasVehicleId
-    ? await Promise.all([
-        enrichVehicleSpecs(env, entry, { engine: entry.engine, transmission: entry.transmission, drivetrain: entry.drivetrain }),
-        regenerateRationale(env, lead, entry),
-      ])
-    : [{}, null];
+  await Promise.all(entries.map(async (entry) => {
+    const hasVehicleId = !!(entry.year && entry.make && entry.model);
+    const [specs, rationale] = hasVehicleId
+      ? await Promise.all([
+          enrichVehicleSpecs(env, entry, { engine: entry.engine, transmission: entry.transmission, drivetrain: entry.drivetrain }),
+          regenerateRationale(env, lead, entry),
+        ])
+      : [{}, null];
 
-  entry.engine = entry.engine || specs.engine || null;
-  entry.transmission = entry.transmission || specs.transmission || null;
-  entry.drivetrain = entry.drivetrain || specs.drivetrain || null;
-  entry.city_mpg = specs.city_mpg ?? null;
-  entry.highway_mpg = specs.highway_mpg ?? null;
-  entry.exterior_color_options = specs.exterior_color_options || null;
-  entry.safety_rating = specs.safety_rating || null;
-  entry.cargo_space = specs.cargo_space || null;
-  entry.seating_capacity = specs.seating_capacity ?? null;
-  entry.warranty = specs.warranty || null;
-  entry.notable_features = JSON.stringify(specs.notable_features || []);
-  entry.rationale = rationale;
+    entry.engine = entry.engine || specs.engine || null;
+    entry.transmission = entry.transmission || specs.transmission || null;
+    entry.drivetrain = entry.drivetrain || specs.drivetrain || null;
+    entry.city_mpg = specs.city_mpg ?? null;
+    entry.highway_mpg = specs.highway_mpg ?? null;
+    entry.exterior_color_options = specs.exterior_color_options || null;
+    entry.safety_rating = specs.safety_rating || null;
+    entry.cargo_space = specs.cargo_space || null;
+    entry.seating_capacity = specs.seating_capacity ?? null;
+    entry.warranty = specs.warranty || null;
+    entry.notable_features = JSON.stringify(specs.notable_features || []);
+    entry.rationale = rationale;
+    entry.hasVehicleId = hasVehicleId;
+  }));
 
+  const anyIncomplete = entries.some(e => !e.hasVehicleId);
   const reportResult = await env.DB.prepare(
     `INSERT INTO find_car_reports (report_code, find_lead_id, status, flagged_for_review) VALUES ('', ?, 'pending_approval', ?)`
-  ).bind(leadId, hasVehicleId ? 0 : 1).run();
+  ).bind(leadId, anyIncomplete ? 1 : 0).run();
   const reportId = reportResult.meta.last_row_id;
   const reportCode = `TEM-${new Date().getFullYear()}-${String(reportId).padStart(4, '0')}`;
   await env.DB.prepare('UPDATE find_car_reports SET report_code = ? WHERE id = ?').bind(reportCode, reportId).run();
 
-  await env.DB.prepare(`
-    INSERT INTO report_vehicles (
-      report_id, position, year, make, model, trim, rationale, price, mileage, dealer_name, dealer_city, dealer_state, vdp_url, source, verified,
-      engine, transmission, drivetrain, city_mpg, highway_mpg, exterior_color, exterior_color_options,
-      safety_rating, cargo_space, seating_capacity, warranty, notable_features, photo_url, photo_urls, photos_missing, search_log, matched_partner_id, vin
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    reportId, 1, entry.year, entry.make, entry.model, entry.trim, entry.rationale,
-    entry.price, entry.mileage, entry.dealer_name, entry.dealer_city, entry.dealer_state, url, 'admin_link', html ? 'verified' : 'unverified',
-    entry.engine, entry.transmission, entry.drivetrain, entry.city_mpg, entry.highway_mpg, entry.exterior_color, entry.exterior_color_options,
-    entry.safety_rating, entry.cargo_space, entry.seating_capacity, entry.warranty, entry.notable_features, entry.photo_url, entry.photo_urls,
-    entry.photo_url ? 0 : 1, JSON.stringify({ source: 'admin_link', confidence: entry.confidence }), null, entry.vin
-  ).run();
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    await env.DB.prepare(`
+      INSERT INTO report_vehicles (
+        report_id, position, year, make, model, trim, rationale, price, mileage, dealer_name, dealer_city, dealer_state, vdp_url, source, verified,
+        engine, transmission, drivetrain, city_mpg, highway_mpg, exterior_color, exterior_color_options,
+        safety_rating, cargo_space, seating_capacity, warranty, notable_features, photo_url, photo_urls, photos_missing, search_log, matched_partner_id, vin
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      reportId, i + 1, entry.year, entry.make, entry.model, entry.trim, entry.rationale,
+      entry.price, entry.mileage, entry.dealer_name, entry.dealer_city, entry.dealer_state, urls[i], 'admin_link', entry.fetched ? 'verified' : 'unverified',
+      entry.engine, entry.transmission, entry.drivetrain, entry.city_mpg, entry.highway_mpg, entry.exterior_color, entry.exterior_color_options,
+      entry.safety_rating, entry.cargo_space, entry.seating_capacity, entry.warranty, entry.notable_features, entry.photo_url, entry.photo_urls,
+      entry.photo_url ? 0 : 1, JSON.stringify({ source: 'admin_link', confidence: entry.confidence }), null, entry.vin
+    ).run();
+  }
 
-  return json({ success: true, lead_id: leadId, report: { report_code: reportCode, status: 'pending_approval' }, extraction_confidence: entry.confidence });
+  return json({
+    success: true,
+    lead_id: leadId,
+    report: { report_code: reportCode, status: 'pending_approval' },
+    vehicles: entries.map((e, i) => ({ position: i + 1, confidence: e.confidence })),
+  });
 }
 
 // Lets the admin attach or correct a customer's contact info on a lead after
