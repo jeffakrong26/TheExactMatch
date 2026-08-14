@@ -754,7 +754,151 @@
     <!-- Tab: Submissions -->
     <!-- Tab: Find My Car -->
     <div class="tab-panel active" id="tab-find-leads">
-      <div class="section-label">Find My Car Leads</div>
+      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;border-bottom:none;padding-bottom:0;margin-bottom:1.5rem">
+        <span>Find My Car Leads</span>
+        <button class="btn-primary btn-sm btn-gold" style="width:auto" id="fcl-add-toggle-btn" onclick="toggleAdminFindLeadForm()">+ New Report</button>
+      </div>
+
+      <!-- Manual entry: same fields/logic as the public intake form (index.html
+           #ff-*) so the report it generates is identical downstream — this is
+           just an alternate way to create the find_car_leads row, for calls/
+           emails/referrals that came in outside the form. See
+           adminCreateFindCarLead in the worker. -->
+      <div id="fcl-add-form" style="display:none;margin-bottom:2rem;padding:1.25rem;background:var(--beige);border-radius:4px">
+        <div class="dp-alert dp-alert-err" id="fcl-add-error"></div>
+
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>First Name <span class="required-mark">*</span></label><input type="text" id="fcl-fname" placeholder="John"/></div>
+          <div class="dp-form-group"><label>Last Name <span class="required-mark">*</span></label><input type="text" id="fcl-lname" placeholder="Smith"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Email <span class="required-mark">*</span></label><input type="email" id="fcl-email" placeholder="john@email.com"/></div>
+          <div class="dp-form-group"><label>Phone</label><input type="tel" id="fcl-phone" placeholder="(555) 000-0000"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>ZIP Code</label><input type="text" id="fcl-zip" placeholder="78701" maxlength="10"/></div>
+          <div class="dp-form-group">
+            <label>What Are They Looking For?</label>
+            <select id="fcl-knows-what" onchange="toggleFclKnowsWhat()">
+              <option value="yes">Has some ideas (structured search)</option>
+              <option value="no">Not sure yet — needs a manual consult</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="fcl-knows-yes-wrap">
+          <div class="dp-form-row">
+            <div class="dp-form-group"><label>Preferred Make</label><input type="text" id="fcl-pref-make" placeholder="Toyota"/></div>
+            <div class="dp-form-group"><label>Preferred Model</label><input type="text" id="fcl-pref-model" placeholder="RAV4"/></div>
+          </div>
+          <div class="dp-form-row">
+            <div class="dp-form-group"><label>Year — From</label><input type="number" id="fcl-year-min" placeholder="2020"/></div>
+            <div class="dp-form-group"><label>Year — To</label><input type="number" id="fcl-year-max" placeholder="2024"/></div>
+          </div>
+          <div class="dp-form-group"><label>Other Makes/Models Also Open To</label><input type="text" id="fcl-considering" placeholder="Honda CR-V, Mazda CX-5"/></div>
+        </div>
+
+        <div class="dp-form-row">
+          <div class="dp-form-group">
+            <label>Vehicle Type</label>
+            <select id="fcl-vtype">
+              <option value="">Select...</option>
+              <option>Sedan</option><option>SUV/Crossover</option><option>Truck</option>
+              <option>Minivan</option><option>Sports Car</option><option>Luxury</option>
+            </select>
+          </div>
+          <div class="dp-form-group">
+            <label>Condition</label>
+            <select id="fcl-condition">
+              <option value="">Select...</option>
+              <option>New</option><option>Pre-Owned</option><option>Either</option>
+            </select>
+          </div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group">
+            <label>Size Preference</label>
+            <select id="fcl-size">
+              <option value="">Select...</option>
+              <option>Compact</option><option>Mid-size</option><option>Full-size</option><option>No Preference</option>
+            </select>
+          </div>
+          <div class="dp-form-group">
+            <label>Timeline</label>
+            <select id="fcl-timeline">
+              <option value="">Select...</option>
+              <option>This Week</option><option>This Month</option><option>1–3 Months</option><option>Just Exploring</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Budget — Min</label><input type="number" id="fcl-budget-min" placeholder="30000"/></div>
+          <div class="dp-form-group"><label>Budget — Max</label><input type="number" id="fcl-budget-max" placeholder="60000"/></div>
+        </div>
+        <div class="dp-form-group"><label>Maximum Mileage <span class="required-mark">*</span></label><input type="number" id="fcl-max-mileage" placeholder="60000"/></div>
+
+        <div class="dp-form-row">
+          <div class="dp-form-group">
+            <label>Payment Method</label>
+            <select id="fcl-payment-method">
+              <option value="">Select...</option>
+              <option>Financing</option><option>Leasing</option><option>Cash</option>
+            </select>
+          </div>
+          <div class="dp-form-group">
+            <label>Credit Range</label>
+            <select id="fcl-credit-range">
+              <option value="">Select...</option>
+              <option>Poor</option><option>Fair</option><option>Good</option><option>Excellent</option>
+            </select>
+          </div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Desired Monthly — Min</label><input type="number" id="fcl-monthly-min" placeholder="400"/></div>
+          <div class="dp-form-group"><label>Desired Monthly — Max</label><input type="number" id="fcl-monthly-max" placeholder="600"/></div>
+        </div>
+        <div class="dp-form-group"><label>Down Payment</label><input type="number" id="fcl-down-payment" placeholder="5000"/></div>
+
+        <div class="dp-form-group">
+          <label>Priorities <span style="text-transform:none;letter-spacing:0;font-weight:400">(ctrl/cmd-click for multiple, up to 3)</span></label>
+          <select id="fcl-priorities" multiple size="5">
+            <option>Low maintenance cost</option>
+            <option>Fuel economy</option>
+            <option>Interior space/cargo</option>
+            <option>Technology and infotainment</option>
+            <option>Safety ratings</option>
+            <option>Driving feel and performance</option>
+            <option>Reliability</option>
+            <option>Resale value</option>
+            <option>Monthly payment</option>
+            <option>Towing capacity</option>
+          </select>
+        </div>
+
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Current Vehicle</label><input type="text" id="fcl-current-vehicle" placeholder="2018 Honda CR-V"/></div>
+          <div class="dp-form-group">
+            <label>Trade-In?</label>
+            <select id="fcl-tradein">
+              <option value="">Select...</option>
+              <option>Yes</option><option>No</option>
+            </select>
+          </div>
+        </div>
+        <div class="dp-form-group"><label>Likes About Current Vehicle</label><textarea id="fcl-current-like"></textarea></div>
+        <div class="dp-form-group"><label>Wants to Change</label><textarea id="fcl-current-change"></textarea></div>
+        <div class="dp-form-group"><label>Specific Needs / Requirements</label><textarea id="fcl-specific-needs"></textarea></div>
+        <div class="dp-form-group"><label>Notes / Anything Else</label><textarea id="fcl-anything-else" placeholder="Call notes, context from the customer, etc."></textarea></div>
+
+        <button class="btn-primary" id="fcl-submit-btn" onclick="doCreateAdminFindCarLead()" style="max-width:260px;margin-top:.5rem">
+          Generate Report
+        </button>
+      </div>
+
+      <div id="fcl-confirm" style="display:none;margin-bottom:2rem"></div>
+
+      <div class="section-label" style="border-bottom:none;padding-bottom:0">All Leads</div>
       <div id="admin-find-leads-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
       <div id="admin-find-leads-list"></div>
     </div>
@@ -768,7 +912,36 @@
 
     <!-- Tab: Reports -->
     <div class="tab-panel" id="tab-reports">
-      <div class="section-label">Vehicle Match Reports</div>
+      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;border-bottom:none;padding-bottom:0;margin-bottom:1.5rem">
+        <span>Vehicle Match Reports</span>
+        <button class="btn-primary btn-sm btn-gold" style="width:auto" id="rfl-add-toggle-btn" onclick="toggleReportFromLinkForm()">+ From Listing Link</button>
+      </div>
+
+      <!-- Generate a report straight from a pasted listing URL — no
+           find_car_leads criteria to run through the search pipeline, just
+           the one vehicle at that link. See adminCreateReportFromLink. -->
+      <div id="rfl-add-form" style="display:none;margin-bottom:2rem;padding:1.25rem;background:var(--beige);border-radius:4px">
+        <div class="dp-alert dp-alert-err" id="rfl-add-error"></div>
+        <div class="dp-form-group"><label>Listing URL <span class="required-mark">*</span></label><input type="text" id="rfl-url" placeholder="https://dealer.com/inventory/..."/></div>
+        <div style="font-size:.7rem;color:var(--gray);margin:-.4rem 0 1rem">Dealer site, Cars.com, Autotrader, CarGurus, etc. — a link straight to the vehicle's own listing page.</div>
+
+        <div style="font-size:.63rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gray);margin-bottom:.6rem">Tie to a Customer (Optional — can add later)</div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>First Name</label><input type="text" id="rfl-fname" placeholder="John"/></div>
+          <div class="dp-form-group"><label>Last Name</label><input type="text" id="rfl-lname" placeholder="Smith"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Email</label><input type="email" id="rfl-email" placeholder="john@email.com"/></div>
+          <div class="dp-form-group"><label>Phone</label><input type="tel" id="rfl-phone" placeholder="(555) 000-0000"/></div>
+        </div>
+
+        <button class="btn-primary" id="rfl-submit-btn" onclick="doCreateReportFromLink()" style="max-width:260px;margin-top:.5rem">
+          Generate Report
+        </button>
+      </div>
+
+      <div id="rfl-confirm" style="display:none;margin-bottom:2rem"></div>
+
       <div id="admin-reports-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
       <div id="admin-reports-list"></div>
     </div>
@@ -2434,6 +2607,7 @@ function renderAdminFindLeadCard(lead) {
         </div>
         <span class="status-badge ${stage.cls}">${stage.label}</span>
         ${(lead.undecided && lead.report_status !== 'approved') ? `<span class="status-badge" style="background:rgba(192,154,91,.18);color:#8a6a12">📞 Needs Consult Call</span>` : ''}
+        ${lead.source === 'admin_manual' ? `<span class="status-badge" style="background:rgba(12,28,51,.08);color:var(--navy)">Added by Admin</span>` : ''}
       </div>
       <div class="item-card-meta" style="margin:.4rem 0 0">
         ${(lead.budget_min || lead.budget_max) ? `<span class="meta-pill">$${lead.budget_min || '0'} – $${lead.budget_max || '?'}</span>` : ''}
@@ -2477,6 +2651,132 @@ async function loadAdminFindLeads() {
   document.getElementById('admin-find-leads-list').innerHTML = leads.map(renderAdminFindLeadCard).join('');
 }
 
+// ── Admin manual Find My Car entry (calls/emails/referrals outside the
+// public form). Mirrors index.html's #ff-* intake form field-for-field so
+// the report it produces is generated by the exact same pipeline. ──────
+function toggleAdminFindLeadForm() {
+  const form = document.getElementById('fcl-add-form');
+  const isHidden = form.style.display === 'none';
+  form.style.display = isHidden ? 'block' : 'none';
+  document.getElementById('fcl-add-toggle-btn').textContent = isHidden ? 'Cancel' : '+ New Report';
+  if (isHidden) document.getElementById('fcl-confirm').style.display = 'none';
+}
+
+function toggleFclKnowsWhat() {
+  const knows = document.getElementById('fcl-knows-what').value === 'yes';
+  document.getElementById('fcl-knows-yes-wrap').style.display = knows ? 'block' : 'none';
+}
+
+async function doCreateAdminFindCarLead() {
+  const errEl = document.getElementById('fcl-add-error');
+  errEl.classList.remove('show');
+
+  const first_name = document.getElementById('fcl-fname').value.trim();
+  const last_name  = document.getElementById('fcl-lname').value.trim();
+  const email       = document.getElementById('fcl-email').value.trim();
+  const max_mileage = document.getElementById('fcl-max-mileage').value.trim();
+  if (!first_name || !last_name || !email) { errEl.textContent = 'Name and email are required.'; errEl.classList.add('show'); return; }
+  if (!max_mileage) { errEl.textContent = 'Maximum mileage is required.'; errEl.classList.add('show'); return; }
+
+  const undecided = document.getElementById('fcl-knows-what').value === 'no';
+  const priorities = Array.from(document.getElementById('fcl-priorities').selectedOptions).map(o => o.value).join(', ');
+
+  const body = {
+    first_name, last_name, email,
+    phone: document.getElementById('fcl-phone').value.trim(),
+    zip:   document.getElementById('fcl-zip').value.trim(),
+    vehicle_type: document.getElementById('fcl-vtype').value,
+    size_preference: document.getElementById('fcl-size').value,
+    condition: document.getElementById('fcl-condition').value,
+    budget_min: document.getElementById('fcl-budget-min').value.trim(),
+    budget_max: document.getElementById('fcl-budget-max').value.trim(),
+    max_mileage,
+    timeline: document.getElementById('fcl-timeline').value,
+    payment_method: document.getElementById('fcl-payment-method').value,
+    credit_range: document.getElementById('fcl-credit-range').value,
+    desired_monthly_min: document.getElementById('fcl-monthly-min').value.trim(),
+    desired_monthly_max: document.getElementById('fcl-monthly-max').value.trim(),
+    down_payment: document.getElementById('fcl-down-payment').value.trim(),
+    priorities,
+    current_vehicle: document.getElementById('fcl-current-vehicle').value.trim(),
+    current_like: document.getElementById('fcl-current-like').value.trim(),
+    current_change: document.getElementById('fcl-current-change').value.trim(),
+    trade_in: document.getElementById('fcl-tradein').value,
+    specific_needs: document.getElementById('fcl-specific-needs').value.trim(),
+    undecided,
+    preferred_make: document.getElementById('fcl-pref-make').value.trim(),
+    preferred_model: document.getElementById('fcl-pref-model').value.trim(),
+    year_min: document.getElementById('fcl-year-min').value.trim(),
+    year_max: document.getElementById('fcl-year-max').value.trim(),
+    considering: document.getElementById('fcl-considering').value.trim(),
+    anything_else: document.getElementById('fcl-anything-else').value.trim(),
+  };
+
+  setLoading('fcl-submit-btn', true, 'Generating report…');
+  // No fixed timeout on this fetch — the automated pipeline (Claude + Auto.dev
+  // lookups) runs inline here rather than via the queue, same as
+  // adminRegenerateReport, so this can take a while for a real response.
+  const { res, data } = await apiFetch('/admin/find-leads/manual', { method: 'POST', body: JSON.stringify(body) })
+    .catch(() => ({ res: { ok: false }, data: {} }));
+  setLoading('fcl-submit-btn', false, null, 'Generate Report');
+
+  if (!res.ok) { errEl.textContent = data.error || 'Failed to generate report.'; errEl.classList.add('show'); return; }
+
+  renderFclConfirm(data, first_name);
+  toggleAdminFindLeadForm();
+  document.getElementById('fcl-confirm').style.display = 'block';
+  document.querySelectorAll('#fcl-add-form input, #fcl-add-form textarea').forEach(el => el.value = '');
+  document.getElementById('fcl-priorities').selectedIndex = -1;
+  loadAdminFindLeads();
+  loadAdminReports();
+}
+
+// Shared success panel for both admin-triggered report generation forms
+// (manual entry and from-link) — same link/message-template pattern, keyed
+// by containerId so both can be on screen without id collisions.
+function reportLinkConfirmHtml(containerId, report, firstName, leadId) {
+  const url = `https://theexactmatch.com/reports/${report.report_code}`;
+  const isPending = report.status !== 'approved';
+  const message = `Hey ${firstName || 'there'}, here's your personalized vehicle match report — take a look and let me know what you think:\n${url}`;
+  const linkId = `${containerId}-link`, msgId = `${containerId}-message`;
+
+  return `
+    <div style="padding:1.1rem 1.25rem;background:rgba(26,71,49,.06);border:1px solid rgba(26,71,49,.25);border-radius:4px">
+      <div style="font-weight:600;color:var(--navy);margin-bottom:.5rem">Report ${escapeHtmlJs(report.report_code)} generated.</div>
+      ${isPending ? `
+        <div style="font-size:.82rem;color:var(--gray);margin-bottom:.75rem">
+          Still pending review — the link below won't go live for the customer until you
+          <a href="#" onclick="switchTab('tab-reports');toggleReportDetail('${report.report_code}', ${leadId});return false">review and approve it</a>.
+        </div>
+      ` : ''}
+      <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap">
+        <input readonly id="${linkId}" value="${escapeHtmlJs(url)}" style="flex:1;min-width:220px;padding:.6rem .8rem;background:var(--white);border:1px solid var(--border);border-radius:2px;font-size:.82rem" onclick="this.select()"/>
+        <button class="btn-primary btn-sm" style="width:auto" onclick="copyToClipboard(document.getElementById('${linkId}').value)">Copy Link</button>
+      </div>
+      <label style="display:block;font-size:.63rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gray);margin-bottom:.45rem">Message Template</label>
+      <textarea readonly id="${msgId}" style="width:100%;min-height:80px;padding:.7rem .9rem;background:var(--white);border:1px solid var(--border);border-radius:2px;font-size:.82rem" onclick="this.select()">${escapeHtmlJs(message)}</textarea>
+      <button class="btn-primary btn-sm" style="width:auto;margin-top:.6rem" onclick="copyToClipboard(document.getElementById('${msgId}').value)">Copy Message</button>
+    </div>`;
+}
+
+function renderFclConfirm(data, firstName) {
+  const el = document.getElementById('fcl-confirm');
+  const report = data.report;
+
+  if (!report || !report.report_code) {
+    // The "undecided" branch: no auto-generated report, a blank shell + a
+    // consult email to Jeff instead — see createManualConsultReport.
+    el.innerHTML = `
+      <div style="padding:1.1rem 1.25rem;background:rgba(192,154,91,.1);border:1px solid rgba(192,154,91,.35);border-radius:4px">
+        Lead created. Marked "not sure yet" — no report was auto-generated. A blank report shell is waiting in the
+        <a href="#" onclick="switchTab('tab-reports');return false">Reports tab</a> for you to fill in after the consult call.
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = reportLinkConfirmHtml('fcl-confirm', report, firstName, data.lead_id);
+}
+
 // ── Vehicle match reports ──────────────────────────────────────
 async function loadAdminReports() {
   document.getElementById('admin-reports-loading').style.display = 'block';
@@ -2504,7 +2804,7 @@ async function loadAdminReports() {
           <div class="item-card-sub">${r.email}</div>
           <div class="item-card-meta">
             <span class="status-badge ${r.status === 'approved' ? 'status-approved' : 'status-pending'}">${r.status === 'approved' ? 'approved' : 'pending approval'}</span>
-            ${r.flagged_for_review ? `<span class="status-badge" style="background:rgba(155,35,53,.12);color:#9B2335">⚠ mileage cap — needs review</span>` : ''}
+            ${r.flagged_for_review ? `<span class="status-badge" style="background:rgba(155,35,53,.12);color:#9B2335">⚠ needs review</span>` : ''}
             ${r.interested_count > 0 ? `<span class="status-badge status-approved" style="background:rgba(26,71,49,.12)">★ ${r.interested_count} interested</span>` : ''}
             <span class="meta-pill" style="opacity:.6">${formatDate(r.created_at)}</span>
           </div>
@@ -2527,6 +2827,55 @@ async function adminDeleteReport(code) {
   const { res } = await apiFetch(`/admin/reports/${code}`, { method: 'DELETE' }).catch(() => ({res:{ok:false}}));
   if (res.ok) loadAdminReports();
   else alert('Delete failed.');
+}
+
+// ── Generate a report from a pasted listing URL ─────────────────
+function toggleReportFromLinkForm() {
+  const form = document.getElementById('rfl-add-form');
+  const isHidden = form.style.display === 'none';
+  form.style.display = isHidden ? 'block' : 'none';
+  document.getElementById('rfl-add-toggle-btn').textContent = isHidden ? 'Cancel' : '+ From Listing Link';
+  if (isHidden) document.getElementById('rfl-confirm').style.display = 'none';
+}
+
+async function doCreateReportFromLink() {
+  const errEl = document.getElementById('rfl-add-error');
+  errEl.classList.remove('show');
+
+  const url = document.getElementById('rfl-url').value.trim();
+  if (!/^https?:\/\//i.test(url)) { errEl.textContent = 'Paste a full listing URL (starting with http:// or https://).'; errEl.classList.add('show'); return; }
+
+  const first_name = document.getElementById('rfl-fname').value.trim();
+  const body = {
+    url,
+    first_name,
+    last_name: document.getElementById('rfl-lname').value.trim(),
+    email: document.getElementById('rfl-email').value.trim(),
+    phone: document.getElementById('rfl-phone').value.trim(),
+  };
+
+  setLoading('rfl-submit-btn', true, 'Fetching listing & generating…');
+  // Fetches the listing page, runs JSON-LD/Claude extraction, then enriches
+  // specs and writes a rationale — several sequential network/Claude calls,
+  // so this can take a while. No client-side timeout, same as the manual
+  // Find My Car entry form.
+  const { res, data } = await apiFetch('/admin/reports/from-link', { method: 'POST', body: JSON.stringify(body) })
+    .catch(() => ({ res: { ok: false }, data: {} }));
+  setLoading('rfl-submit-btn', false, null, 'Generate Report');
+
+  if (!res.ok) { errEl.textContent = data.error || 'Failed to generate report.'; errEl.classList.add('show'); return; }
+
+  const el = document.getElementById('rfl-confirm');
+  el.innerHTML = (data.extraction_confidence === 'none' || data.extraction_confidence === 'low') ? `
+    <div style="padding:.9rem 1.1rem;margin-bottom:.75rem;background:rgba(192,154,91,.1);border:1px solid rgba(192,154,91,.35);border-radius:4px;font-size:.82rem">
+      Couldn't fully read that listing — the report was still created so you can fill in the gaps by hand below.
+    </div>` + reportLinkConfirmHtml('rfl-confirm', data.report, first_name, data.lead_id)
+    : reportLinkConfirmHtml('rfl-confirm', data.report, first_name, data.lead_id);
+
+  toggleReportFromLinkForm();
+  el.style.display = 'block';
+  document.querySelectorAll('#rfl-add-form input').forEach(input => input.value = '');
+  loadAdminReports();
 }
 
 // ── Saved Searches (save criteria, get emailed on new matches) ──────
@@ -2747,7 +3096,11 @@ async function toggleReportDetail(code, id) {
             <div class="dp-form-group"><label>Dealer Name</label><input type="text" value="${v.dealer_name ?? ''}" data-field="dealer_name"/></div>
             <div class="dp-form-group"><label>Dealer City</label><input type="text" value="${v.dealer_city ?? ''}" data-field="dealer_city"/></div>
           </div>
-          <div class="dp-form-group" style="max-width:160px"><label>Dealer State</label><input type="text" value="${v.dealer_state ?? ''}" data-field="dealer_state"/></div>
+          <div class="dp-form-row">
+            <div class="dp-form-group" style="max-width:160px"><label>Dealer State</label><input type="text" value="${v.dealer_state ?? ''}" data-field="dealer_state"/></div>
+            <div class="dp-form-group"><label>VIN</label><input type="text" value="${v.vin ?? ''}" data-field="vin"/></div>
+          </div>
+          <div class="dp-form-group"><label>Listing URL</label><input type="text" value="${v.vdp_url ?? ''}" data-field="vdp_url"/></div>
           <details style="margin-top:.85rem;border-top:1px solid var(--border);padding-top:.85rem">
             <summary style="cursor:pointer;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gray)">Full Specs</summary>
             <div style="margin-top:.85rem">

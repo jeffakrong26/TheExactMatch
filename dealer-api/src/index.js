@@ -1046,6 +1046,70 @@ async function adminFindLeads(request, env) {
   return json({ leads: results });
 }
 
+// Admin-only manual entry point for Find My Car: same find_car_leads insert
+// and generateReportForLead pipeline the customer-facing form/queue consumer
+// uses (submitFindCarLead below), so the resulting report is indistinguishable
+// downstream — just tagged source='admin_manual' so it can be told apart from
+// organic form submissions in reporting. Deliberately skips the public form's
+// side effects (client confirmation email, CRM lead-created/log-touch hooks,
+// demand_signals logging): those assume a stranger who just filled out a web
+// form, not a lead the admin is already handling personally.
+//
+// Runs generateReportForLead inline (like adminRegenerateReport does) rather
+// than via the queue submitFindCarLead uses, so the admin gets the report
+// code back in this response instead of having to poll the dashboard.
+async function adminCreateFindCarLead(request, env, params, dealer) {
+  const body        = await request.json().catch(() => ({}));
+  const first_name  = (body.first_name || '').trim();
+  const last_name   = (body.last_name || '').trim();
+  const email       = (body.email || '').trim().toLowerCase();
+  const phone       = (body.phone || '').trim();
+
+  if (!first_name || !last_name || !email) return json({ error: 'Name and email are required.' }, 400);
+  if (!EMAIL_RE.test(email)) return json({ error: 'Invalid email address.' }, 400);
+
+  const maxMileage = parseInt(body.max_mileage, 10);
+  if (!Number.isFinite(maxMileage) || maxMileage <= 0) return json({ error: 'Maximum mileage is required.' }, 400);
+
+  const undecided = !!body.undecided;
+  const preferred_make  = undecided ? null : (body.preferred_make || '').trim() || null;
+  const preferred_model = undecided ? null : (body.preferred_model || '').trim() || null;
+  const yearMinParsed = parseInt(body.year_min, 10);
+  const yearMaxParsed = parseInt(body.year_max, 10);
+  const year_min = !undecided && Number.isFinite(yearMinParsed) ? yearMinParsed : null;
+  const year_max = !undecided && Number.isFinite(yearMaxParsed) ? yearMaxParsed : null;
+
+  const result = await env.DB.prepare(`
+    INSERT INTO find_car_leads (
+      first_name, last_name, email, phone, zip, vehicle_type, size_preference, condition,
+      budget_min, budget_max, max_mileage, timeline, payment_method, credit_range, desired_monthly_min, desired_monthly_max, down_payment,
+      priorities, current_vehicle, current_like, current_change,
+      trade_in, specific_needs, considering, anything_else,
+      preferred_make, preferred_model, year_min, year_max, undecided, source
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'admin_manual')
+  `).bind(
+    first_name, last_name, email, phone,
+    (body.zip || '').trim(), body.vehicle_type || '', body.size_preference || '', body.condition || '',
+    (body.budget_min || '').toString().trim(), (body.budget_max || '').toString().trim(), maxMileage, body.timeline || '',
+    body.payment_method || '', body.credit_range || '',
+    (body.desired_monthly_min || '').toString().trim(), (body.desired_monthly_max || '').toString().trim(), (body.down_payment || '').toString().trim(),
+    body.priorities || '',
+    (body.current_vehicle || '').trim(), (body.current_like || '').trim(), (body.current_change || '').trim(),
+    body.trade_in || '', (body.specific_needs || '').trim(), (undecided ? '' : (body.considering || '')).trim(), (body.anything_else || '').trim(),
+    preferred_make, preferred_model, year_min, year_max, undecided ? 1 : 0
+  ).run();
+
+  const leadId = result.meta.last_row_id;
+
+  await generateReportForLead(env, leadId);
+
+  const report = await env.DB.prepare(
+    'SELECT report_code, status FROM find_car_reports WHERE find_lead_id = ? ORDER BY id DESC LIMIT 1'
+  ).bind(leadId).first();
+
+  return json({ success: true, lead_id: leadId, report });
+}
+
 async function adminContactMessages(request, env) {
   const { results } = await env.DB.prepare(`
     SELECT contact_messages.*,
@@ -2063,6 +2127,8 @@ function extractStructuredVehicleFields(structuredData) {
   const year = parseInt(structuredData.vehicleModelDate || structuredData.productionDate, 10);
   const price = offers?.price != null ? Math.round(Number(offers.price)) : null;
   const mileage = structuredData.mileageFromOdometer?.value != null ? Math.round(Number(structuredData.mileageFromOdometer.value)) : null;
+  const seller = offers?.seller || structuredData.seller;
+  const sellerAddress = seller?.address;
   return {
     year: Number.isFinite(year) ? year : null,
     make: structuredData.manufacturer?.name || structuredData.brand?.name || null,
@@ -2074,6 +2140,9 @@ function extractStructuredVehicleFields(structuredData) {
     transmission: structuredData.vehicleTransmission || null,
     drivetrain: structuredData.driveWheelConfiguration || null,
     vin: structuredData.vehicleIdentificationNumber || null,
+    dealer_name: seller?.name || null,
+    dealer_city: sellerAddress?.addressLocality || null,
+    dealer_state: sellerAddress?.addressRegion || null,
   };
 }
 
@@ -2185,6 +2254,9 @@ async function extractListingWithClaude(env, html, structuredFields, ogData) {
         price: { type: 'integer' }, mileage: { type: 'integer' }, color: { type: 'string' },
         engine: { type: 'string' }, transmission: { type: 'string' }, drivetrain: { type: 'string' },
         vin: { type: 'string', description: '17-character VIN if shown anywhere on the page. Empty string if not stated.' },
+        dealer_name: { type: 'string', description: 'The dealership or seller name, if shown on the page. Empty string if not stated.' },
+        dealer_city: { type: 'string', description: "The dealer's city, if shown. Empty string if not stated." },
+        dealer_state: { type: 'string', description: "The dealer's two-letter state code, if shown. Empty string if not stated." },
         found_confidence: { type: 'string', enum: ['high', 'low', 'none'], description: 'none if this page does not look like a vehicle listing at all' },
       },
       // year/make/model are required (not just optional-but-hoped-for):
@@ -2310,15 +2382,20 @@ async function adminScrapeListingUrl(request, env, params) {
     engine: structuredFields.engine || genericSpecs.engine || extracted.engine || existing.engine,
     transmission: structuredFields.transmission || genericSpecs.transmission || extracted.transmission || existing.transmission,
     drivetrain: structuredFields.drivetrain || genericSpecs.drivetrain || extracted.drivetrain || existing.drivetrain,
+    vin: structuredFields.vin || genericSpecs.vin || extracted.vin || existing.vin,
+    dealer_name: structuredFields.dealer_name || extracted.dealer_name || existing.dealer_name,
+    dealer_city: structuredFields.dealer_city || extracted.dealer_city || existing.dealer_city,
+    dealer_state: structuredFields.dealer_state || extracted.dealer_state || existing.dealer_state,
     photo_url: photos[0] || existing.photo_url,
     photo_urls: JSON.stringify(photos.length ? photos : JSON.parse(existing.photo_urls || '[]')),
   };
 
   await env.DB.prepare(`
     UPDATE report_vehicles SET year=?, make=?, model=?, trim=?, price=?, mileage=?, exterior_color=?,
-      engine=?, transmission=?, drivetrain=?, photo_url=?, photo_urls=?, vdp_url=? WHERE id=?
+      engine=?, transmission=?, drivetrain=?, vin=?, dealer_name=?, dealer_city=?, dealer_state=?, photo_url=?, photo_urls=?, vdp_url=? WHERE id=?
   `).bind(merged.year, merged.make, merged.model, merged.trim, merged.price, merged.mileage, merged.exterior_color,
-    merged.engine, merged.transmission, merged.drivetrain, merged.photo_url, merged.photo_urls, url, existing.id).run();
+    merged.engine, merged.transmission, merged.drivetrain, merged.vin, merged.dealer_name, merged.dealer_city, merged.dealer_state,
+    merged.photo_url, merged.photo_urls, url, existing.id).run();
 
   return json({ success: true, confidence: extracted.found_confidence });
 }
@@ -2368,6 +2445,167 @@ async function enrichVehicleSpecs(env, vehicle, known) {
   if (data.stop_reason === 'refusal') return {};
   const toolUse = (data.content || []).find(b => b.type === 'tool_use');
   return toolUse ? toolUse.input : {};
+}
+
+// ── Admin: generate a report directly from a pasted listing URL ─────────
+// Same JSON-LD/OG/Claude-fallback extraction pipeline as adminScrapeListingUrl
+// (which fills one slot of an EXISTING report) — this creates the report and
+// its one report_vehicles row from scratch instead. Never hard-fails on a bad
+// or unparseable page: whatever comes back (even nothing) still lands in a
+// real report_vehicles row, so the admin ends up in the exact same per-vehicle
+// edit panel used everywhere else in the Reports tab to fill any gaps by hand.
+//
+// find_car_reports.find_lead_id is NOT NULL, so a report always needs a lead
+// row to hang off of — customer contact is optional here (can be attached
+// after the fact via adminUpdateFindCarLeadContact), so a lead-less report
+// gets a placeholder lead instead of a real one.
+async function adminCreateReportFromLink(request, env, params, dealer) {
+  const body = await request.json().catch(() => ({}));
+  const url  = (body.url || '').trim();
+  if (!/^https?:\/\//i.test(url)) return json({ error: 'Please paste a full listing URL.' }, 400);
+
+  const first_name = (body.first_name || '').trim();
+  const last_name  = (body.last_name || '').trim();
+  const email      = (body.email || '').trim().toLowerCase();
+  const phone      = (body.phone || '').trim();
+  const hasContact = !!(first_name && last_name && email);
+  if (hasContact && !EMAIL_RE.test(email)) return json({ error: 'Invalid email address.' }, 400);
+
+  const leadResult = await env.DB.prepare(`
+    INSERT INTO find_car_leads (first_name, last_name, email, phone, source) VALUES (?, ?, ?, ?, 'admin_manual')
+  `).bind(
+    hasContact ? first_name : 'Draft',
+    hasContact ? last_name : 'Report',
+    hasContact ? email : `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@theexactmatch.internal`,
+    hasContact ? phone : ''
+  ).run();
+  const leadId = leadResult.meta.last_row_id;
+  const lead = await env.DB.prepare('SELECT * FROM find_car_leads WHERE id = ?').bind(leadId).first();
+
+  let html = null;
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TheExactMatchBot/1.0)' } });
+    if (res.ok) html = await res.text();
+  } catch {}
+
+  let entry = {
+    year: null, make: null, model: null, trim: null, price: null, mileage: null,
+    dealer_name: null, dealer_city: null, dealer_state: null, exterior_color: null,
+    engine: null, transmission: null, drivetrain: null, vin: null,
+    photo_url: null, photo_urls: '[]', confidence: 'none',
+  };
+
+  if (html) {
+    const structuredData = extractJsonLdVehicle(html);
+    const ogData = extractOgTags(html);
+    let photos = extractPhotosFromPage(structuredData, ogData);
+    if (!photos.length) photos = extractGenericImageGallery(html, url);
+    const structuredFields = extractStructuredVehicleFields(structuredData);
+    const extracted = await extractListingWithClaude(env, html, structuredFields, ogData);
+    const genericSpecs = extractGenericSpecLabelValues(cleanHtmlText(html));
+
+    entry = {
+      year: structuredFields.year ?? extracted.year ?? null,
+      make: structuredFields.make || extracted.make || null,
+      model: structuredFields.model || extracted.model || null,
+      trim: extracted.trim || null,
+      price: structuredFields.price ?? extracted.price ?? null,
+      mileage: structuredFields.mileage ?? extracted.mileage ?? null,
+      dealer_name: structuredFields.dealer_name || extracted.dealer_name || null,
+      dealer_city: structuredFields.dealer_city || extracted.dealer_city || null,
+      dealer_state: structuredFields.dealer_state || extracted.dealer_state || null,
+      exterior_color: structuredFields.color || genericSpecs.exterior_color || extracted.color || null,
+      engine: structuredFields.engine || genericSpecs.engine || extracted.engine || null,
+      transmission: structuredFields.transmission || genericSpecs.transmission || extracted.transmission || null,
+      drivetrain: structuredFields.drivetrain || genericSpecs.drivetrain || extracted.drivetrain || null,
+      vin: structuredFields.vin || genericSpecs.vin || extracted.vin || null,
+      photo_url: photos[0] || null,
+      photo_urls: JSON.stringify(photos),
+      confidence: extracted.found_confidence || (Object.values(structuredFields).some(v => v != null) ? 'high' : 'none'),
+    };
+  }
+
+  // Factory-spec enrichment and the rationale paragraph both need a real
+  // year/make/model to work from — skip them on a failed/empty extraction
+  // rather than send Claude "undefined undefined undefined".
+  const hasVehicleId = !!(entry.year && entry.make && entry.model);
+  const [specs, rationale] = hasVehicleId
+    ? await Promise.all([
+        enrichVehicleSpecs(env, entry, { engine: entry.engine, transmission: entry.transmission, drivetrain: entry.drivetrain }),
+        regenerateRationale(env, lead, entry),
+      ])
+    : [{}, null];
+
+  entry.engine = entry.engine || specs.engine || null;
+  entry.transmission = entry.transmission || specs.transmission || null;
+  entry.drivetrain = entry.drivetrain || specs.drivetrain || null;
+  entry.city_mpg = specs.city_mpg ?? null;
+  entry.highway_mpg = specs.highway_mpg ?? null;
+  entry.exterior_color_options = specs.exterior_color_options || null;
+  entry.safety_rating = specs.safety_rating || null;
+  entry.cargo_space = specs.cargo_space || null;
+  entry.seating_capacity = specs.seating_capacity ?? null;
+  entry.warranty = specs.warranty || null;
+  entry.notable_features = JSON.stringify(specs.notable_features || []);
+  entry.rationale = rationale;
+
+  const reportResult = await env.DB.prepare(
+    `INSERT INTO find_car_reports (report_code, find_lead_id, status, flagged_for_review) VALUES ('', ?, 'pending_approval', ?)`
+  ).bind(leadId, hasVehicleId ? 0 : 1).run();
+  const reportId = reportResult.meta.last_row_id;
+  const reportCode = `TEM-${new Date().getFullYear()}-${String(reportId).padStart(4, '0')}`;
+  await env.DB.prepare('UPDATE find_car_reports SET report_code = ? WHERE id = ?').bind(reportCode, reportId).run();
+
+  await env.DB.prepare(`
+    INSERT INTO report_vehicles (
+      report_id, position, year, make, model, trim, rationale, price, mileage, dealer_name, dealer_city, dealer_state, vdp_url, source, verified,
+      engine, transmission, drivetrain, city_mpg, highway_mpg, exterior_color, exterior_color_options,
+      safety_rating, cargo_space, seating_capacity, warranty, notable_features, photo_url, photo_urls, photos_missing, search_log, matched_partner_id, vin
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    reportId, 1, entry.year, entry.make, entry.model, entry.trim, entry.rationale,
+    entry.price, entry.mileage, entry.dealer_name, entry.dealer_city, entry.dealer_state, url, 'admin_link', html ? 'verified' : 'unverified',
+    entry.engine, entry.transmission, entry.drivetrain, entry.city_mpg, entry.highway_mpg, entry.exterior_color, entry.exterior_color_options,
+    entry.safety_rating, entry.cargo_space, entry.seating_capacity, entry.warranty, entry.notable_features, entry.photo_url, entry.photo_urls,
+    entry.photo_url ? 0 : 1, JSON.stringify({ source: 'admin_link', confidence: entry.confidence }), null, entry.vin
+  ).run();
+
+  return json({ success: true, lead_id: leadId, report: { report_code: reportCode, status: 'pending_approval' }, extraction_confidence: entry.confidence });
+}
+
+// Lets the admin attach or correct a customer's contact info on a lead after
+// the fact — mainly for adminCreateReportFromLink's placeholder leads (a
+// report can be generated from a listing URL alone, with the real customer
+// tied on afterward once known).
+async function adminUpdateFindCarLeadContact(request, env, params) {
+  const lead = await env.DB.prepare('SELECT id FROM find_car_leads WHERE id = ?').bind(+params.id).first();
+  if (!lead) return json({ error: 'Lead not found.' }, 404);
+
+  const body = await request.json().catch(() => ({}));
+  const sets = [];
+  const values = [];
+  if ('first_name' in body) {
+    const v = (body.first_name || '').trim();
+    if (!v) return json({ error: 'First name is required.' }, 400);
+    sets.push('first_name = ?'); values.push(v);
+  }
+  if ('last_name' in body) {
+    const v = (body.last_name || '').trim();
+    if (!v) return json({ error: 'Last name is required.' }, 400);
+    sets.push('last_name = ?'); values.push(v);
+  }
+  if ('email' in body) {
+    const v = (body.email || '').trim().toLowerCase();
+    if (!v || !EMAIL_RE.test(v)) return json({ error: 'Invalid email address.' }, 400);
+    sets.push('email = ?'); values.push(v);
+  }
+  if ('phone' in body) { sets.push('phone = ?'); values.push((body.phone || '').trim()); }
+  if (!sets.length) return json({ error: 'No fields provided.' }, 400);
+
+  values.push(+params.id);
+  await env.DB.prepare(`UPDATE find_car_leads SET ${sets.join(', ')} WHERE id = ?`).bind(...values).run();
+  return json({ success: true });
 }
 
 // Only filters on used/new when the lead's free-text condition field is
@@ -4387,7 +4625,7 @@ const REPORT_VEHICLE_EDITABLE_FIELDS = [
   'year', 'make', 'model', 'trim', 'rationale', 'price', 'mileage', 'dealer_name', 'dealer_city', 'dealer_state',
   'engine', 'transmission', 'drivetrain', 'city_mpg', 'highway_mpg', 'exterior_color', 'exterior_color_options',
   'safety_rating', 'cargo_space', 'seating_capacity', 'warranty', 'notable_features',
-  'source', 'verified',
+  'source', 'verified', 'vin', 'vdp_url',
 ];
 
 async function adminUpdateReportVehicle(request, env, params) {
@@ -4429,11 +4667,19 @@ async function adminApproveReport(request, env, params, dealer, token, ctx) {
 
   await env.DB.prepare(`UPDATE find_car_reports SET status = 'approved', approved_at = datetime('now') WHERE id = ?`).bind(report.id).run();
 
+  // Vehicle count varies now (manual-consult and from-link reports are
+  // routinely 1, not the automated pipeline's fixed 3) — same singular/plural
+  // split the public report page itself uses (see reportPageHtml's `multi`).
+  const { count: vehicleCount } = await env.DB.prepare(
+    'SELECT COUNT(*) as count FROM report_vehicles WHERE report_id = ?'
+  ).bind(report.id).first();
+  const multi = vehicleCount > 1;
+
   await sendBrevoEmail(env, {
     to: report.email,
-    subject: 'Your 3 matched vehicles are ready',
-    html: `<p>Hi ${escapeHtml(report.first_name)},</p><p>Your curated vehicle options are ready to view:</p>
-           <p><a href="https://theexactmatch.com/reports/${escapeHtml(report.report_code)}">View your matches →</a></p>
+    subject: multi ? `Your ${vehicleCount} matched vehicles are ready` : 'Your matched vehicle is ready',
+    html: `<p>Hi ${escapeHtml(report.first_name)},</p><p>Your ${multi ? 'curated vehicle options are' : 'vehicle match is'} ready to view:</p>
+           <p><a href="https://theexactmatch.com/reports/${escapeHtml(report.report_code)}">View ${multi ? 'your matches' : 'your match'} →</a></p>
            <p>Questions? Text Jeff directly at (512) 650-9328.</p>`,
   });
 
@@ -8700,6 +8946,9 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/admin/leads/:id/send-valuation',   handler: adminSendValuationEmail, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/leads/:id/save-valuation',   handler: adminSaveValuationEdits, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/find-leads',             handler: adminFindLeads, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/find-leads/manual',      handler: adminCreateFindCarLead, auth: true, admin: true },
+  { method: 'PATCH', pattern: '/api/admin/find-leads/:id/contact', handler: adminUpdateFindCarLeadContact, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/reports/from-link',      handler: adminCreateReportFromLink, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/contact-messages',       handler: adminContactMessages, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/public/find-car-lead',         handler: submitFindCarLead },
   { method: 'POST',  pattern: '/api/public/sell-car-lead',         handler: submitSellCarLead },

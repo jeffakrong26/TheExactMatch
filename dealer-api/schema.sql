@@ -156,7 +156,8 @@ CREATE TABLE find_car_leads (
   preferred_model TEXT,
   year_min INTEGER,
   year_max INTEGER,
-  undecided INTEGER NOT NULL DEFAULT 0
+  undecided INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'customer_form'
 );
 
 CREATE TABLE contact_messages (
