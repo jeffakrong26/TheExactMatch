@@ -408,8 +408,7 @@ async function submitVehicle(request, env, params, dealer) {
 
   const structuredData = extractJsonLdVehicle(html);
   const ogData = extractOgTags(html);
-  let photos = extractPhotosFromPage(structuredData, ogData);
-  if (!photos.length) photos = extractGenericImageGallery(html, listingUrl);
+  const photos = extractAllListingPhotos(structuredData, ogData, html, listingUrl);
   const structuredFields = extractStructuredVehicleFields(structuredData);
   const extracted = await extractListingWithClaude(env, html, structuredFields, ogData);
   const genericSpecs = extractGenericSpecLabelValues(cleanHtmlText(html));
@@ -893,8 +892,7 @@ async function adminScrapeSubmissionListing(request, env, params) {
 
   const structuredData = extractJsonLdVehicle(html);
   const ogData = extractOgTags(html);
-  let photos = extractPhotosFromPage(structuredData, ogData);
-  if (!photos.length) photos = extractGenericImageGallery(html, url);
+  const photos = extractAllListingPhotos(structuredData, ogData, html, url);
   const structuredFields = extractStructuredVehicleFields(structuredData);
   const extracted = await extractListingWithClaude(env, html, structuredFields, ogData);
   const genericSpecs = extractGenericSpecLabelValues(cleanHtmlText(html));
@@ -2188,7 +2186,32 @@ function extractGenericImageGallery(html, baseUrl) {
     if (!existing || bestWidth > existing.width) candidates.set(key, { url: absolute, width: bestWidth });
   }
 
-  return [...candidates.values()].sort((a, b) => b.width - a.width).map(c => c.url).slice(0, 12);
+  // 40 comfortably covers a real listing's full gallery (dealer sites
+  // typically run 15-30 photos) while still bounding a pathological page
+  // that stuffs hundreds of unrelated <img> tags into the DOM.
+  return [...candidates.values()].sort((a, b) => b.width - a.width).map(c => c.url).slice(0, 40);
+}
+
+// Structured data (JSON-LD/og:image) is reliable but is usually just the one
+// hero shot, not the full gallery — so the <img>-tag gallery scan runs
+// unconditionally here too, rather than only as a last resort when
+// structured data comes back completely empty. Merged and deduped (by
+// filename, ignoring query string and WordPress-style "-300x200" size
+// suffixes) so admin gets every distinct photo the page has, not just the
+// first one, while still leading with the structured-data photo when there
+// is one (it's the listing's own choice of primary/cover image).
+function extractAllListingPhotos(structuredData, ogData, html, baseUrl) {
+  const structuredPhotos = extractPhotosFromPage(structuredData, ogData);
+  const galleryPhotos = extractGenericImageGallery(html, baseUrl);
+  const seen = new Set();
+  const merged = [];
+  for (const url of [...structuredPhotos, ...galleryPhotos]) {
+    const key = url.split('?')[0].replace(/-\d+x\d+(?=\.\w+$)/, '');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(url);
+  }
+  return merged;
 }
 
 // Fallback for fields Claude sometimes skips despite them being present in
@@ -2360,8 +2383,7 @@ async function adminScrapeListingUrl(request, env, params) {
 
   const structuredData = extractJsonLdVehicle(html);
   const ogData = extractOgTags(html);
-  let photos = extractPhotosFromPage(structuredData, ogData);
-  if (!photos.length) photos = extractGenericImageGallery(html, url);
+  const photos = extractAllListingPhotos(structuredData, ogData, html, url);
   const structuredFields = extractStructuredVehicleFields(structuredData);
   const extracted = await extractListingWithClaude(env, html, structuredFields, ogData);
   const genericSpecs = extractGenericSpecLabelValues(cleanHtmlText(html));
@@ -2472,8 +2494,7 @@ async function scrapeListingIntoEntry(env, url) {
 
   const structuredData = extractJsonLdVehicle(html);
   const ogData = extractOgTags(html);
-  let photos = extractPhotosFromPage(structuredData, ogData);
-  if (!photos.length) photos = extractGenericImageGallery(html, url);
+  const photos = extractAllListingPhotos(structuredData, ogData, html, url);
   const structuredFields = extractStructuredVehicleFields(structuredData);
   const extracted = await extractListingWithClaude(env, html, structuredFields, ogData);
   const genericSpecs = extractGenericSpecLabelValues(cleanHtmlText(html));
