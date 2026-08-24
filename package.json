@@ -1,12 +1,12 @@
 {
-  "name": "theexactmatch-dealer-api",
+  "name": "theexactmatch",
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
-    "predeploy": "node ../scripts/require-clean-tree.js",
+    "predeploy": "node scripts/require-clean-tree.js",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.125.0"
   }
 }
