@@ -172,6 +172,26 @@ CREATE TABLE contact_messages (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE referral_leads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT,
+  zip TEXT,
+  referred_by TEXT,
+  preferred_make TEXT,
+  preferred_model TEXT,
+  year_min INTEGER,
+  year_max INTEGER,
+  budget_min INTEGER,
+  budget_max INTEGER,
+  timeline TEXT,
+  anything_else TEXT,
+  status TEXT NOT NULL DEFAULT 'new',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE lead_interest (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   lead_id INTEGER NOT NULL REFERENCES sell_my_car_leads(id) ON DELETE CASCADE,

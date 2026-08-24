@@ -4378,6 +4378,39 @@ async function submitContactMessage(request, env) {
   return json({ success: true });
 }
 
+async function submitReferral(request, env) {
+  const body = await request.json().catch(() => ({}));
+
+  // Honeypot: a real submitter never fills this hidden field.
+  if (body.company_website) return json({ success: true });
+
+  const first_name = (body.first_name || '').trim();
+  const last_name  = (body.last_name || '').trim();
+  const email      = (body.email || '').trim().toLowerCase();
+
+  if (!first_name || !last_name || !email) return json({ error: 'First name, last name, and email are required.' }, 400);
+  if (!EMAIL_RE.test(email)) return json({ error: 'Invalid email address.' }, 400);
+
+  const toIntOrNull = v => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; };
+
+  await env.DB.prepare(`
+    INSERT INTO referral_leads (
+      first_name, last_name, email, phone, zip, referred_by,
+      preferred_make, preferred_model, year_min, year_max, budget_min, budget_max,
+      timeline, anything_else
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    first_name, last_name, email,
+    (body.phone || '').trim(), (body.zip || '').trim(), (body.referred_by || '').trim(),
+    (body.preferred_make || '').trim(), (body.preferred_model || '').trim(),
+    toIntOrNull(body.year_min), toIntOrNull(body.year_max),
+    toIntOrNull(body.budget_min), toIntOrNull(body.budget_max),
+    body.timeline || '', (body.anything_else || '').trim(),
+  ).run();
+
+  return json({ success: true });
+}
+
 async function adminDealers(request, env) {
   const { results } = await env.DB.prepare(`
     SELECT dealers.id, dealers.name, dealers.dealership_name, dealers.email, dealers.role, dealers.status, dealers.created_at,
@@ -9012,6 +9045,7 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/public/sell/:token/complete',    handler: completeSellPhotos },
   { method: 'POST',  pattern: '/api/public/sell/:token/ready',       handler: publicMarkReadyToSell },
   { method: 'POST',  pattern: '/api/public/contact-message',       handler: submitContactMessage },
+  { method: 'POST',  pattern: '/api/public/referral',               handler: submitReferral },
   { method: 'GET',   pattern: '/api/admin/dealers',               handler: adminDealers, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/notification-counts',                              handler: adminNotificationCounts, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/notification-counts/:section/items/:itemId/seen',  handler: adminMarkItemSeen, auth: true, admin: true },
