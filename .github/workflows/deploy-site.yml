@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       # wrangler.jsonc needs the wrangler version pinned in package.json —
       # wrangler-action falls back to a much older default (which can't
       # even parse .jsonc config) when it can't find a local install.
