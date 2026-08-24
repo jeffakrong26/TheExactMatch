@@ -219,9 +219,14 @@ const ISSUE_BASE = '/weekly-finds';
 // same content at both paths would be duplicate content. /weeklyfinds is the
 // pre-existing flat URL for Issue No. 1, kept alive as a 301 so shared links
 // and any accumulated ranking survive the move to the per-issue path.
+// /public/contact-message was never a page — it's the dealer-api endpoint
+// path used by the contact form's client-side fetch (see index.html), on a
+// different host entirely. Google indexed it anyway pre-migration; redirect
+// it here instead of 404ing so crawlers land somewhere real.
 const REDIRECTS = new Map([
   ['/find-my-car', '/'],
   ['/weeklyfinds', `${ISSUE_BASE}/issue-1`],
+  ['/public/contact-message', '/contact'],
 ]);
 
 const VIEWS_BY_PATH = new Map(VIEWS.map(v => [v.path, v]));
