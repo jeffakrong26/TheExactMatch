@@ -20,6 +20,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # wrangler.jsonc needs the wrangler version pinned in package.json —
+      # wrangler-action falls back to a much older default (which can't
+      # even parse .jsonc config) when it can't find a local install.
+      - run: npm ci
+        working-directory: dealer-api
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
