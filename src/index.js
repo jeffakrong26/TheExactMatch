@@ -124,6 +124,63 @@ const VIEWS = [
       ],
     },
   },
+  {
+    path: '/guides',
+    page: 'guides',
+    lastmod: '2026-08-23',
+    title: 'Car Buying Guides | The Exact Match',
+    description:
+      "In-depth model guides — trims, pricing trends, and what actually matters when you're shopping for a specific car.",
+  },
+  {
+    path: '/guides/audi-r8',
+    page: 'guide-audi-r8',
+    lastmod: '2026-08-23',
+    title: 'Audi R8 Buying Guide: All Trims & Pricing Trends | The Exact Match',
+    description:
+      'Every Audi R8 trim explained — V8, V10, Performante, manual vs S-tronic — with real market positioning and what to look for.',
+    // Worded identically to the on-page FAQ — see #page-guide-audi-r8 in
+    // index.html. Keep both in sync; mismatched structured data is a
+    // manual-action risk, not a boost.
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'Which R8 trim holds value best?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "The V10 Plus / V10 Performance halo trim has generally held its value best, simply because Audi built far fewer of them than the standard V8 and V10. Manual examples of any R8 add a further layer of value retention on top of that, since manual was only ever offered on Gen 1 cars and demand for it has only grown since Audi dropped it. The base V8 is the softest holder of value — it's the most common R8 on the road and the one enthusiasts chase last.",
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Is the manual worth the premium?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "For resale and collector value, yes — manual R8s (Gen 1 only, 2008–2015) are scarcer than the S tronic and R tronic cars that make up most of the used market, and that scarcity has only become more pronounced since Audi went S-tronic-only for Gen 2. For everyday usability it's a trade-off: you give up some smoothness in traffic and some resale liquidity, since the buyer pool for a 3-pedal exotic is smaller. If you're buying to drive and eventually sell, the manual premium has generally been worth paying; if you just want the easiest ownership experience, S tronic is the more practical choice.",
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'V8 vs. V10 — what\'s the real difference?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'More than just horsepower. The V10 is the same basic Lamborghini-derived architecture as the V8 but bored out, and it brings a noticeably different soundtrack, a real step up in outright performance, and more prestige within the R8 lineup — most enthusiasts consider the V10 the "real" R8. That comes with higher running costs (tires, brakes, insurance) and a higher purchase price. The V8 is the more attainable, still-quick way into R8 ownership — and it\'s Gen 1 only, since Audi never brought it back for the second generation.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Gen 1 or Gen 2 — which should I buy?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "It depends what you're optimizing for. Gen 1 (2008–2015) is the only place to find a manual, has a more analog driving character, and is generally the cheaper way into ownership. Gen 2 (2017–2023) is quicker across the board, with a sharper chassis and modern interior tech, but it's S tronic only — there's no manual Gen 2 R8. If the manual gearbox matters to you, that decision is effectively made for you.",
+          },
+        },
+      ],
+    },
+  },
 ];
 
 // ── City landing pages ────────────────────────────────────────────────
