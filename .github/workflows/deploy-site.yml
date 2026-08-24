@@ -1,0 +1,29 @@
+name: Deploy site worker
+
+# Deploys the theexactmatch Worker only from a commit that has actually
+# landed on main. This is the CI-enforced version of the predeploy guard
+# in package.json: that guard stops a *local* `npm run deploy` with
+# uncommitted changes, this stops anyone from deploying anything that
+# hasn't been pushed and reviewed at all. See scripts/require-clean-tree.js
+# for the incident this is closing.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'dealer-api/**'
+      - 'crm/**'
+      - 'market/**'
+      - '.github/workflows/deploy-dealer-api.yml'
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

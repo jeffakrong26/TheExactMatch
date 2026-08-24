@@ -1,0 +1,26 @@
+name: Deploy dealer-api worker
+
+# Same rationale as deploy-site.yml: only a pushed, reviewed commit on main
+# can ever reach production. D1 migrations (migrate-*.sql) stay manual —
+# they're one-shot and order-sensitive, not something to auto-apply on
+# every push — so this only runs `wrangler deploy` for the script itself.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dealer-api/**'
+      - '.github/workflows/deploy-dealer-api.yml'
+
+concurrency:
+  group: deploy-dealer-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: dealer-api
