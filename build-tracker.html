@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow">
+<title>TEM — Daily Build Checklist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Jost', sans-serif; background: #F3EDE1; color: #182642;
+    min-height: 100vh; padding: 20px 16px 100px;
+  }
+  .header { margin-bottom: 20px; }
+  h1 { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 600; }
+  h1 .accent { font-style: italic; color: #A87F4A; }
+  .date { font-size: 13px; color: #6b6555; margin-top: 4px; }
+  .progress-wrap { margin: 16px 0 20px; }
+  .progress-track { height: 8px; background: #EAE2CF; border-radius: 5px; overflow: hidden; }
+  .progress-fill { height: 100%; background: #A87F4A; border-radius: 5px; transition: width 0.3s; }
+  .progress-label { font-size: 12px; color: #6b6555; margin-top: 6px; }
+  .list { display: flex; flex-direction: column; gap: 8px; }
+  .task {
+    display: flex; align-items: flex-start; gap: 12px; background: #fff; border: 1px solid #EAE2CF;
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .task.done { background: #F9F6EF; }
+  .checkbox {
+    width: 22px; height: 22px; border-radius: 5px; border: 2px solid #182642; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; margin-top: 1px;
+  }
+  .checkbox.checked { background: #182642; }
+  .checkbox svg { width: 13px; height: 13px; display: none; }
+  .checkbox.checked svg { display: block; }
+  .task-text { font-size: 14px; line-height: 1.4; flex: 1; }
+  .task.done .task-text { text-decoration: line-through; color: #9b9484; }
+  .task-note { font-size: 11px; color: #A87F4A; margin-top: 3px; }
+  .delete-btn {
+    font-size: 11px; color: #b9b2a0; background: none; border: none; cursor: pointer; padding: 4px;
+  }
+  .add-row { display: flex; gap: 8px; margin-top: 16px; }
+  .add-row input {
+    flex: 1; padding: 10px 12px; border: 1px solid #EAE2CF; border-radius: 8px;
+    font-family: 'Jost', sans-serif; font-size: 14px;
+  }
+  .add-row button {
+    padding: 10px 16px; background: #182642; color: #fff; border: none; border-radius: 8px;
+    font-family: 'Jost', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  .storage-note {
+    font-size: 11px; color: #A87F4A; margin-top: 14px; display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Today's <span class="accent">Build Checklist</span></h1>
+  <div class="date" id="dateLabel"></div>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  <div class="progress-label" id="progressLabel">0 of 0 done</div>
+</div>
+
+<div class="list" id="list"></div>
+
+<div class="add-row">
+  <input type="text" id="newTask" placeholder="Add a task...">
+  <button onclick="addTask()">Add</button>
+</div>
+
+<div class="storage-note" id="storageNote">Couldn't reach the server — changes aren't saving right now.</div>
+
+<script>
+  // Local calendar date, not UTC — a task list that flips over at 7pm local
+  // time because toISOString() jumped to UTC midnight would be confusing.
+  function localDateStr(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  const today = localDateStr(new Date());
+  let tasks = [];
+  let apiOk = true;
+
+  function formatDate() {
+    const d = new Date();
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  }
+
+  function setApiOk(ok) {
+    apiOk = ok;
+    document.getElementById('storageNote').style.display = ok ? 'none' : 'block';
+  }
+
+  async function api(path, options) {
+    const res = await fetch(path, options);
+    if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+    return res.json();
+  }
+
+  async function load() {
+    document.getElementById('dateLabel').textContent = formatDate();
+    try {
+      const log = await api(`/api/tasks/today?date=${today}`);
+      tasks = log.items;
+      setApiOk(true);
+    } catch (e) {
+      setApiOk(false);
+      tasks = [];
+    }
+    render();
+  }
+
+  function render() {
+    const list = document.getElementById('list');
+    list.innerHTML = '';
+    tasks.forEach((t) => {
+      const row = document.createElement('div');
+      row.className = 'task' + (t.done ? ' done' : '');
+      row.innerHTML = `
+        <div class="checkbox ${t.done ? 'checked' : ''}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg>
+        </div>
+        <div style="flex:1">
+          <div class="task-text">${t.text}</div>
+          ${t.note ? `<div class="task-note">${t.note}</div>` : ''}
+        </div>
+        <button class="delete-btn">remove</button>
+      `;
+      row.querySelector('.checkbox').addEventListener('click', () => toggle(t.id));
+      row.querySelector('.delete-btn').addEventListener('click', () => remove(t.id));
+      list.appendChild(row);
+    });
+    const doneCount = tasks.filter(t => t.done).length;
+    const pct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent = doneCount + ' of ' + tasks.length + ' done';
+  }
+
+  async function toggle(id) {
+    try {
+      const log = await api('/api/tasks/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: today, id }),
+      });
+      tasks = log.items;
+      setApiOk(true);
+    } catch (e) {
+      setApiOk(false);
+    }
+    render();
+  }
+
+  async function remove(id) {
+    try {
+      const log = await api(`/api/tasks/${encodeURIComponent(id)}?date=${today}`, { method: 'DELETE' });
+      tasks = log.items;
+      setApiOk(true);
+    } catch (e) {
+      setApiOk(false);
+    }
+    render();
+  }
+
+  async function addTask() {
+    const input = document.getElementById('newTask');
+    const val = input.value.trim();
+    if (!val) return;
+    try {
+      const log = await api('/api/tasks/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: today, text: val }),
+      });
+      tasks = log.items;
+      setApiOk(true);
+      input.value = '';
+    } catch (e) {
+      setApiOk(false);
+    }
+    render();
+  }
+
+  document.getElementById('newTask').addEventListener('keypress', e => {
+    if (e.key === 'Enter') addTask();
+  });
+
+  load();
+</script>
+</body>
+</html>

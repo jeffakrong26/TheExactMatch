@@ -18,6 +18,10 @@
 // worker — index.html's own <head> is already the homepage's metadata, which
 // is why the defaults there must stay in sync with VIEWS[0] below.
 
+// Personal daily build-tracker at /build-tracker (a static asset — see
+// build-tracker.html). Its fetch() calls hit these endpoints for state.
+import { handleTasksRequest } from './tasks.js';
+
 // Apex, not www. The Worker's custom domain is bound to the apex only —
 // www.theexactmatch.com resolves to Cloudflare but has no origin behind it and
 // returns 522, so canonicalizing there would point every URL at a dead host.
@@ -452,6 +456,10 @@ export default {
     const redirectTo = REDIRECTS.get(pathname);
     if (redirectTo) {
       return Response.redirect(`${url.origin}${redirectTo}${url.search}`, 301);
+    }
+
+    if (pathname.startsWith('/api/tasks/')) {
+      return handleTasksRequest(request, env, url);
     }
 
     if (pathname === '/sitemap.xml') {

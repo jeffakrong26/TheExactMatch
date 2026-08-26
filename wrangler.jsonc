@@ -12,6 +12,11 @@
     // back to normal asset serving for everything it doesn't handle.
     "binding": "ASSETS"
   },
+  "kv_namespaces": [
+    // Backs the personal /build-tracker page (src/tasks.js). Not user data —
+    // just one person's task state, hence KV over D1.
+    { "binding": "TEM_TASKS", "id": "94e9c04eaa384a139c57096301d3c5c1" }
+  ],
   "compatibility_flags": [
     "nodejs_compat"
   ]
