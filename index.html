@@ -72,6 +72,14 @@
     .nav-links a.active{opacity:1;color:var(--gold)}
     .nav-cta{background:var(--navy)!important;color:var(--beige)!important;opacity:1!important;padding:.55rem 1.4rem!important;border-radius:2px;margin-left:.5rem}
     .nav-cta:hover{background:var(--navy2)!important}
+    .nav-more{position:relative}
+    .nav-more-toggle{display:flex!important;align-items:center;gap:.35rem}
+    .nav-more-toggle::after{content:'';width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;opacity:.6;transition:transform .2s}
+    .nav-more.open .nav-more-toggle::after{transform:rotate(180deg)}
+    .nav-more-menu{display:none;position:absolute;top:100%;left:0;flex-direction:column;gap:0;list-style:none;margin:.4rem 0 0;padding:.4rem;min-width:180px;background:var(--beige);border:1px solid var(--border);border-radius:2px;box-shadow:0 12px 32px rgba(0,0,0,.1)}
+    .nav-more.open .nav-more-menu{display:flex}
+    .nav-more-menu a{display:block;padding:.65rem .9rem;white-space:nowrap}
+    .nav-more:has(.nav-more-menu a.active) .nav-more-toggle{opacity:1;color:var(--gold)}
     .hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:.5rem}
     .hamburger span{width:22px;height:1.5px;background:var(--navy);transition:all .3s}
     .mobile-menu{display:none;position:fixed;inset:0;top:64px;background:var(--beige);z-index:200;padding:2rem;flex-direction:column;gap:0}
@@ -431,11 +439,10 @@
     .home-guide-row .g-right{font-family:'General Sans',sans-serif;font-weight:600;font-size:12px;color:var(--home-slate);display:flex;align-items:center;gap:8px}
     .home-guide-row:hover .g-right{color:var(--home-brass)}
 
-    .home-footer-cta{background:var(--home-brass);padding:80px 0;text-align:center}
+    .home-footer-cta{background:var(--home-ivory);padding:80px 0;text-align:center}
     .home-footer-cta h2{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(30px,4vw,44px);color:var(--home-navy);margin:0 0 28px;letter-spacing:-.01em}
     .home-ticket{position:relative;display:inline-flex;align-items:center;gap:14px;background:var(--home-navy);color:var(--home-ivory);padding:16px 24px 16px 20px;text-decoration:none;font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;clip-path:polygon(0% 0%,100% 0%,100% 100%,0% 100%,0% 62%,3% 62%,3% 58%,0% 58%,0% 46%,3% 46%,3% 42%,0% 42%)}
-    .home-ticket .serial{font-family:'General Sans',sans-serif;font-weight:600;font-size:11px;color:var(--home-brass-light);letter-spacing:.08em;text-transform:uppercase}
-    .home-ticket-row{display:flex;flex-direction:column;gap:2px}
+    .home-ticket:hover{background:var(--home-charcoal)}
 
     @media(max-width:800px){
       .home-featured{grid-template-columns:1fr}
@@ -535,14 +542,20 @@
   <div class="nav-inner">
     <a class="logo" href="/" onclick="return showPage('home')">The<span>Exact</span>Match</a>
     <ul class="nav-links">
+      <li><a href="/" onclick="return showPage('home')" id="nav-home">Home</a></li>
       <li><a href="/find-my-car" onclick="return showPage('find')" id="nav-find">Find My Car</a></li>
       <li><a href="/sell-my-car" onclick="return showPage('sell')" id="nav-sell">Sell My Car</a></li>
-      <li><a href="/how-it-works" onclick="return showPage('how')" id="nav-how">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')" id="nav-about">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')" id="nav-weekly">Weekly Finds</a></li>
-      <li><a href="/guides" onclick="return showPage('guides')" id="nav-guides">Guides</a></li>
-      <a href="Dealerportal.html">Dealer Portal</a>
-    <li><a href="/contact" onclick="return showPage('contact')" id="nav-contact" class="nav-cta">Contact</a></li>
+      <li class="nav-more" id="nav-more">
+        <a href="#" class="nav-more-toggle" onclick="return toggleNavMore()">More</a>
+        <ul class="nav-more-menu">
+          <li><a href="/how-it-works" onclick="return showPage('how')" id="nav-how">How It Works</a></li>
+          <li><a href="/weekly-finds" onclick="return showPage('weekly')" id="nav-weekly">Weekly Finds</a></li>
+          <li><a href="/guides" onclick="return showPage('guides')" id="nav-guides">Guides</a></li>
+          <li><a href="Dealerportal.html">Dealer Portal</a></li>
+        </ul>
+      </li>
+      <li><a href="/contact" onclick="return showPage('contact')" id="nav-contact" class="nav-cta">Contact</a></li>
     </ul>
     <div class="hamburger" id="hamburger" onclick="toggleMenu()">
       <span></span><span></span><span></span>
@@ -552,10 +565,11 @@
 
 <!-- Mobile Menu -->
 <div class="mobile-menu" id="mobile-menu">
+  <a href="/" onclick="toggleMenu();return showPage('home')">Home</a>
   <a href="/find-my-car" onclick="toggleMenu();return showPage('find')">Find My Car</a>
   <a href="/sell-my-car" onclick="toggleMenu();return showPage('sell')">Sell My Car</a>
-  <a href="/how-it-works" onclick="toggleMenu();return showPage('how')">How It Works</a>
   <a href="/about" onclick="toggleMenu();return showPage('about')">About</a>
+  <a href="/how-it-works" onclick="toggleMenu();return showPage('how')">How It Works</a>
   <a href="/weekly-finds" onclick="toggleMenu();return showPage('weekly')">Weekly Finds</a>
   <a href="/guides" onclick="toggleMenu();return showPage('guides')">Guides</a>
   <a href="Dealerportal.html">Dealer Portal</a>
@@ -698,10 +712,7 @@
     <div class="home-wrap">
       <h2>Ready to start your match?</h2>
       <a class="home-ticket" href="/find-my-car" onclick="return showPage('find')">
-        <div class="home-ticket-row">
-          <span>Start your match</span>
-          <span class="serial">FREE · NO OBLIGATION</span>
-        </div>
+        <span>Start a free search</span>
       </a>
     </div>
   </div>
@@ -2541,6 +2552,18 @@ window.addEventListener('popstate', () => {
 function toggleMenu() {
   document.getElementById('mobile-menu').classList.toggle('open');
 }
+
+// ── Desktop nav "More" dropdown ─────────────────────────────
+function toggleNavMore() {
+  document.getElementById('nav-more').classList.toggle('open');
+  return false;
+}
+document.addEventListener('click', (e) => {
+  const navMore = document.getElementById('nav-more');
+  if (navMore && navMore.classList.contains('open') && !navMore.contains(e.target)) {
+    navMore.classList.remove('open');
+  }
+});
 
 // ── Scroll reveal ────────────────────────────────────────────
 const io = new IntersectionObserver((entries) => {
