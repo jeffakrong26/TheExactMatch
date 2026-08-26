@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <!-- These defaults are the home / Find My Car values. Requests to `/` are
-       served straight from this file without the worker running, so they must
-       stay in sync with VIEWS[0] in src/index.js; every other view has these
-       five tags rewritten per-route on the way out. -->
-  <title>TheExactMatch — Find Your Car. Sell Your Car. Free.</title>
-  <meta name="description" content="Tell us what you want and we'll find it. We search our nationwide dealer network and send you 3 curated options within 24 hours. Free, no obligation."/>
+  <!-- These defaults are the homepage's values. Requests to `/` are served
+       straight from this file without the worker running, so they must stay
+       in sync with VIEWS[0] in src/index.js; every other view (including
+       /find-my-car) has these five tags rewritten per-route on the way out. -->
+  <title>TheExactMatch — We Don't List Cars. We Find Yours.</title>
+  <meta name="description" content="Tell us what you want — we search our dealer network, negotiate the price, and deliver your exact match. Free, no obligation."/>
   <link rel="canonical" href="https://theexactmatch.com/"/>
-  <meta property="og:title" content="TheExactMatch — Find Your Car. Sell Your Car. Free."/>
-  <meta property="og:description" content="Tell us what you want and we'll find it. We search our nationwide dealer network and send you 3 curated options within 24 hours. Free, no obligation."/>
+  <meta property="og:title" content="TheExactMatch — We Don't List Cars. We Find Yours."/>
+  <meta property="og:description" content="Tell us what you want — we search our dealer network, negotiate the price, and deliver your exact match. Free, no obligation."/>
   <meta property="og:url" content="https://theexactmatch.com/"/>
   <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
   <!-- Site-wide Organization identity for Google's Knowledge Graph. Lives here
@@ -24,6 +24,10 @@
        no overlap. -->
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"The Exact Match","url":"https://theexactmatch.com","sameAs":["https://facebook.com/theexactmatch","https://instagram.com/theexactmatch"]}</script>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <!-- Homepage-only typefaces (#page-home). Distinct family names from the
+       Google Fonts above, on a different host — additive, not a duplicate. -->
+  <link rel="preconnect" href="https://api.fontshare.com"/>
+  <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{
@@ -369,6 +373,81 @@
     .price-bar-fill::after{content:'';position:absolute;top:0;right:0;bottom:0;width:2px;background:var(--navy-tint)}
     .chart-disclaimer{font-size:.75rem;font-weight:300;line-height:1.7;color:rgba(230,236,233,.45);border-top:1px solid rgba(123,155,201,.12);padding-top:1.25rem;margin-top:.5rem}
 
+    /* ── HOME (hero → buyer's guides, ported from the demo) ──
+       Its own visual identity, same treatment as #page-guides above: a
+       dedicated token set and a `home-` class prefix so nothing here can
+       collide with the site-wide styles used by every other page. Nav and
+       footer stay the shared, site-wide chrome above/below it. */
+    :root{
+      --home-navy:#0F1B2D;--home-ivory:#EDE6D6;
+      --home-brass:#A67C3D;--home-brass-light:#C79A5A;
+      --home-charcoal:#1C2530;--home-slate:#5C6670;
+      --home-hairline:rgba(15,27,45,0.14);
+    }
+    #page-home{background:var(--home-ivory);color:var(--home-charcoal);font-family:'General Sans',sans-serif;-webkit-font-smoothing:antialiased}
+    .home-wrap{max-width:1200px;margin:0 auto;padding:0 32px}
+    .home-mono{font-family:'General Sans',sans-serif;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:12px}
+
+    .home-hero{position:relative;min-height:82vh;display:flex;align-items:flex-end;overflow:hidden}
+    .home-hero-photo{position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,27,45,.05) 0%,rgba(15,27,45,.35) 60%,var(--home-navy) 98%),url('hero-car.jpeg');background-size:cover;background-position:center center;background-repeat:no-repeat}
+    .home-hero-content{position:relative;width:100%;padding:0 32px 88px;color:var(--home-ivory)}
+    .home-hero-content h1{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-optical-sizing:auto;font-size:clamp(40px,5.5vw,72px);line-height:1.02;letter-spacing:-.01em;margin:0 0 28px;max-width:820px}
+    .home-hero-content h1 strong{font-weight:700}
+    .home-lede{font-size:18px;line-height:1.6;color:rgba(237,230,214,.8);max-width:440px;margin:0 0 36px}
+    .home-hero-cta{display:inline-flex;align-items:center;gap:10px;background:var(--home-brass);color:var(--home-navy);font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;padding:16px 26px;text-decoration:none}
+    .home-hero-cta:hover{background:var(--home-brass-light)}
+
+    .home-section{padding:90px 0}
+    .home-section-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:48px;gap:24px;flex-wrap:wrap;border-bottom:1px solid var(--home-hairline);padding-bottom:24px}
+    .home-section-head h2{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(28px,3.5vw,40px);margin:0;letter-spacing:-.01em}
+    .home-section-head p{color:var(--home-slate);font-size:15px;max-width:340px;margin:0}
+
+    .home-reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+    .home-review-card{border-top:2px solid var(--home-brass);padding-top:20px}
+    .home-review-card p{font-family:'Cabinet Grotesk',sans-serif;font-weight:400;font-size:17px;line-height:1.6;color:var(--home-charcoal);margin:0 0 16px}
+    .home-review-card .home-mono{color:var(--home-slate)}
+
+    .home-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--home-hairline);border:1px solid var(--home-hairline)}
+    .home-step{background:var(--home-ivory);padding:36px 32px;position:relative}
+    .home-step .stub-num{font-family:'General Sans',sans-serif;font-weight:600;font-size:12px;color:var(--home-brass);letter-spacing:.08em;text-transform:uppercase;margin-bottom:20px;display:block}
+    .home-step h3{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:22px;margin:0 0 12px}
+    .home-step p{color:var(--home-slate);font-size:15px;line-height:1.6;margin:0}
+
+    .home-featured{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
+    .home-photo-block{width:100%;aspect-ratio:4/5;background:linear-gradient(160deg,rgba(15,27,45,.06),rgba(15,27,45,.02)),repeating-linear-gradient(45deg,rgba(15,27,45,.05) 0 2px,transparent 2px 14px);border:1px solid var(--home-hairline);display:flex;align-items:flex-end;position:relative;overflow:hidden}
+    .home-featured-info h3{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:30px;margin:0 0 10px}
+    .home-featured-info .price{font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;color:var(--home-brass);margin-bottom:24px}
+    .home-featured-info p{color:var(--home-slate);font-size:15px;line-height:1.6}
+    .home-spec-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;margin:24px 0 32px;padding-top:24px;border-top:1px solid var(--home-hairline)}
+    .home-spec-grid div .label{font-family:'General Sans',sans-serif;font-weight:600;font-size:11px;color:var(--home-slate);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px}
+    .home-spec-grid div .val{font-size:15px;font-weight:600}
+    .home-text-cta{font-family:'General Sans',sans-serif;font-weight:600;font-size:13px;text-decoration:none;color:var(--home-navy);border-bottom:1px solid var(--home-navy);padding-bottom:2px}
+
+    .home-guides-list{border-top:1px solid var(--home-hairline)}
+    .home-guide-row{display:flex;justify-content:space-between;align-items:center;padding:24px 0;border-bottom:1px solid var(--home-hairline);text-decoration:none;color:var(--home-charcoal)}
+    .home-guide-row .g-left{display:flex;align-items:baseline;gap:20px}
+    .home-guide-row .g-num{font-family:'General Sans',sans-serif;font-weight:600;font-size:12px;color:var(--home-slate)}
+    .home-guide-row h4{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:20px;margin:0}
+    .home-guide-row .g-right{font-family:'General Sans',sans-serif;font-weight:600;font-size:12px;color:var(--home-slate);display:flex;align-items:center;gap:8px}
+    .home-guide-row:hover .g-right{color:var(--home-brass)}
+
+    .home-footer-cta{background:var(--home-brass);padding:80px 0;text-align:center}
+    .home-footer-cta h2{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(30px,4vw,44px);color:var(--home-navy);margin:0 0 28px;letter-spacing:-.01em}
+    .home-ticket{position:relative;display:inline-flex;align-items:center;gap:14px;background:var(--home-navy);color:var(--home-ivory);padding:16px 24px 16px 20px;text-decoration:none;font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;clip-path:polygon(0% 0%,100% 0%,100% 100%,0% 100%,0% 62%,3% 62%,3% 58%,0% 58%,0% 46%,3% 46%,3% 42%,0% 42%)}
+    .home-ticket .serial{font-family:'General Sans',sans-serif;font-weight:600;font-size:11px;color:var(--home-brass-light);letter-spacing:.08em;text-transform:uppercase}
+    .home-ticket-row{display:flex;flex-direction:column;gap:2px}
+
+    @media(max-width:800px){
+      .home-featured{grid-template-columns:1fr}
+      .home-steps{grid-template-columns:1fr}
+      .home-reviews-grid{grid-template-columns:1fr}
+    }
+    @media(max-width:700px){
+      .home-wrap{padding:0 20px}
+      .home-hero{min-height:74vh}
+      .home-hero-content{padding:0 20px 60px}
+    }
+
     /* ── RESPONSIVE ── */
     @media(max-width:900px){
       :root{--side-pad:1.75rem;--grid-3:1fr;--grid-2:1fr}
@@ -454,9 +533,9 @@
 <!-- ── NAV ── -->
 <nav id="nav">
   <div class="nav-inner">
-    <a class="logo" href="/" onclick="return showPage('find')">The<span>Exact</span>Match</a>
+    <a class="logo" href="/" onclick="return showPage('home')">The<span>Exact</span>Match</a>
     <ul class="nav-links">
-      <li><a href="/" onclick="return showPage('find')" id="nav-find" class="active">Find My Car</a></li>
+      <li><a href="/find-my-car" onclick="return showPage('find')" id="nav-find">Find My Car</a></li>
       <li><a href="/sell-my-car" onclick="return showPage('sell')" id="nav-sell">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')" id="nav-how">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')" id="nav-about">About</a></li>
@@ -473,7 +552,7 @@
 
 <!-- Mobile Menu -->
 <div class="mobile-menu" id="mobile-menu">
-  <a href="/" onclick="toggleMenu();return showPage('find')">Find My Car</a>
+  <a href="/find-my-car" onclick="toggleMenu();return showPage('find')">Find My Car</a>
   <a href="/sell-my-car" onclick="toggleMenu();return showPage('sell')">Sell My Car</a>
   <a href="/how-it-works" onclick="toggleMenu();return showPage('how')">How It Works</a>
   <a href="/about" onclick="toggleMenu();return showPage('about')">About</a>
@@ -484,9 +563,179 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════
+     PAGE: HOME
+     Ported from the exact-match-demo.html design pass — hero through
+     Buyer's Guides. Find My Car used to live at this URL; it now has its
+     own route at /find-my-car (see PAGE_PATHS / VIEWS in src/index.js).
+═══════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-home">
+
+  <!-- Hero — full-bleed photo fading to navy -->
+  <section class="home-hero">
+    <div class="home-hero-photo"></div>
+    <div class="home-hero-content">
+      <div class="home-wrap" style="padding:0">
+        <h1>We don't list cars.<br/>We find <strong>yours</strong>.</h1>
+        <p class="home-lede">Tell us what you want — we search dealer networks across the country so you don't have to sit through another sales pitch.</p>
+        <a class="home-hero-cta" href="/find-my-car" onclick="return showPage('find')">Get started</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="home-wrap">
+    <!-- Dealer-network trust line + brand strip -->
+    <section style="padding:56px 0 48px;text-align:center">
+      <p style="font-family:'General Sans',sans-serif;font-weight:500;font-size:15px;color:var(--home-slate);margin:0 0 28px">Sourced from dealer networks carrying the world's finest brands</p>
+      <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:center;justify-content:center;opacity:.55">
+        <span class="home-mono">PORSCHE</span>
+        <span class="home-mono">FERRARI</span>
+        <span class="home-mono">LAMBORGHINI</span>
+        <span class="home-mono">MERCEDES-BENZ</span>
+        <span class="home-mono">AUDI</span>
+        <span class="home-mono">BMW</span>
+      </div>
+    </section>
+  </div>
+
+  <div class="home-wrap">
+    <!-- Client reviews -->
+    <section class="home-section" style="padding:20px 0 80px">
+      <div class="home-reviews-grid">
+        <div class="home-review-card">
+          <p>&ldquo;I told them what I wanted on a Tuesday. By the following Friday I was signing paperwork on the exact car.&rdquo;</p>
+          <div class="home-mono">CLIENT, AUSTIN TX</div>
+        </div>
+        <div class="home-review-card">
+          <p>&ldquo;No dealership visits, no back and forth. They handled the whole negotiation and I just showed up to sign.&rdquo;</p>
+          <div class="home-mono">CLIENT, HOUSTON TX</div>
+        </div>
+        <div class="home-review-card">
+          <p>&ldquo;They found a car I'd been searching for on my own for months, at a better price than I'd found anywhere.&rdquo;</p>
+          <div class="home-mono">CLIENT, AUSTIN TX</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="home-wrap">
+    <!-- How it works -->
+    <section class="home-section">
+      <div class="home-section-head">
+        <h2>How it works</h2>
+        <p>Three steps, start to keys-in-hand. No dealership visits required until you're ready.</p>
+      </div>
+      <div class="home-steps">
+        <div class="home-step">
+          <span class="stub-num">STEP · 01</span>
+          <h3>Tell us the brief</h3>
+          <p>Make, model, budget, must-haves. Five minutes, no obligation.</p>
+        </div>
+        <div class="home-step">
+          <span class="stub-num">STEP · 02</span>
+          <h3>We search &amp; negotiate</h3>
+          <p>We work our dealer network for the exact car — and the right price.</p>
+        </div>
+        <div class="home-step">
+          <span class="stub-num">STEP · 03</span>
+          <h3>You review &amp; decide</h3>
+          <p>A clear comparison report. You choose. We handle the rest.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- A recent match -->
+    <section class="home-section">
+      <div class="home-section-head">
+        <h2>A recent match</h2>
+        <p>Real search, real numbers — this is what a match report looks like.</p>
+      </div>
+      <div class="home-featured">
+        <div class="home-photo-block" style="aspect-ratio:4/3;background-image:url('aston-martin-vantage.jpg');background-size:cover;background-position:center"></div>
+        <div class="home-featured-info">
+          <h3>2019 Aston Martin Vantage S</h3>
+          <div class="price">$92,999 — down from $99,999 asking</div>
+          <p>Matched and negotiated in four days, with the deal closed well under the original asking price.</p>
+          <div class="home-spec-grid">
+            <div><span class="label">Mileage</span><span class="val">13,000 mi</span></div>
+            <div><span class="label">Days to match</span><span class="val">4</span></div>
+            <div><span class="label">Saved vs. asking</span><span class="val">$7,000</span></div>
+            <div><span class="label">Off asking</span><span class="val">7%</span></div>
+          </div>
+          <!-- TODO: no public per-report page exists yet (find_car_reports is
+               dealer-api/admin-only). Point this at a real report URL once
+               one ships. -->
+          <a class="home-text-cta" href="#">View the full report →</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="home-wrap">
+    <!-- Buyer's guides teaser -->
+    <section class="home-section">
+      <div class="home-section-head">
+        <h2>Buyer's guides</h2>
+        <p>What we actually tell clients before they buy.</p>
+      </div>
+      <div class="home-guides-list">
+        <a class="home-guide-row" href="/guides/audi-r8" onclick="return showPage('guide-audi-r8')">
+          <div class="g-left"><span class="g-num">01</span><h4>Audi R8: what to check before you buy</h4></div>
+          <div class="g-right">Read guide →</div>
+        </a>
+        <a class="home-guide-row" href="/how-to-negotiate-car-price" onclick="return showPage('guide-negotiate')">
+          <div class="g-left"><span class="g-num">02</span><h4>How to negotiate with a dealer, honestly</h4></div>
+          <div class="g-right">Read guide →</div>
+        </a>
+        <a class="home-guide-row" href="/guides" onclick="return showPage('guides')">
+          <div class="g-left"><span class="g-num">03</span><h4>Browse all buyer's guides</h4></div>
+          <div class="g-right">See all guides →</div>
+        </a>
+      </div>
+    </section>
+  </div>
+
+  <div class="home-footer-cta">
+    <div class="home-wrap">
+      <h2>Ready to start your match?</h2>
+      <a class="home-ticket" href="/find-my-car" onclick="return showPage('find')">
+        <div class="home-ticket-row">
+          <span>Start your match</span>
+          <span class="serial">FREE · NO OBLIGATION</span>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <footer>
+    <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
+    <ul class="footer-nav">
+      <li><a href="/find-my-car" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
+      <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
+      <li><a href="/about" onclick="return showPage('about')">About</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
+      <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
+    </ul>
+    <div style="display:flex;align-items:center;gap:1.5rem">
+      <div class="footer-copy">© 2026 TheExactMatch.com</div>
+      <!-- Placeholder URLs — confirm the real handles before this goes live. -->
+      <div class="footer-social">
+        <a href="https://facebook.com/theexactmatch" target="_blank" rel="noopener noreferrer" aria-label="TheExactMatch on Facebook">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.675 0h-21.35C.595 0 0 .593 0 1.325v21.351C0 23.407.595 24 1.325 24H12.82v-9.294H9.692v-3.622h3.128V8.413c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24h-1.918c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12V24h6.115C23.407 24 24 23.407 24 22.676V1.325C24 .593 23.407 0 22.675 0z"/></svg>
+        </a>
+        <a href="https://instagram.com/theexactmatch" target="_blank" rel="noopener noreferrer" aria-label="TheExactMatch on Instagram">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.332 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.332 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
+        </a>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
      PAGE: FIND MY CAR
 ═══════════════════════════════════════════════════════════ -->
-<div class="page active" id="page-find">
+<div class="page" id="page-find">
 
   <!-- Hero with inline form -->
   <section class="hero-find">
@@ -768,7 +1017,7 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/find-my-car" onclick="return showPage('find')">Find My Car</a></li>
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
@@ -1058,7 +1307,7 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/find-my-car" onclick="return showPage('find')">Find My Car</a></li>
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
@@ -1196,7 +1445,7 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/find-my-car" onclick="return showPage('find')">Find My Car</a></li>
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
@@ -1307,7 +1556,7 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/find-my-car" onclick="return showPage('find')">Find My Car</a></li>
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
@@ -1404,7 +1653,7 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/find-my-car" onclick="return showPage('find')">Find My Car</a></li>
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
@@ -1538,7 +1787,7 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/find-my-car" onclick="return showPage('find')">Find My Car</a></li>
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
@@ -1697,7 +1946,7 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/find-my-car" onclick="return showPage('find')">Find My Car</a></li>
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
@@ -1870,7 +2119,7 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/find-my-car" onclick="return showPage('find')">Find My Car</a></li>
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
@@ -1948,7 +2197,7 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/find-my-car" onclick="return showPage('find')">Find My Car</a></li>
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
@@ -2199,7 +2448,7 @@
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
     <ul class="footer-nav">
-      <li><a href="/" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/find-my-car" onclick="return showPage('find')">Find My Car</a></li>
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
@@ -2226,9 +2475,10 @@
 // Each view has a real URL. src/index.js serves the correct already-rendered
 // HTML for a cold load of any of these paths; the map here keeps client-side
 // navigation in step with the address bar. Keep both in sync — this map and
-// VIEWS in src/index.js describe the same six routes.
+// VIEWS in src/index.js describe the same routes.
 const PAGE_PATHS = {
-  find:    '/',
+  home:    '/',
+  find:    '/find-my-car',
   sell:    '/sell-my-car',
   how:     '/how-it-works',
   about:   '/about',

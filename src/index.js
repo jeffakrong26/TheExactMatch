@@ -1,11 +1,12 @@
 // Site worker for theexactmatch.com.
 //
-// index.html is a single-page app: it holds six `.page` divs and showPage()
-// toggles which one is `active`. That reads fine for humans but gives every
-// view the same URL, so a crawler only ever sees the default Find My Car view
-// — and the AI crawlers we explicitly invite in robots.txt (GPTBot,
-// PerplexityBot, ClaudeBot) generally don't run JS at all, so client-side
-// routing alone would still serve them the wrong content on every path.
+// index.html is a single-page app: it holds a `.page` div per view and
+// showPage() toggles which one is `active`. That reads fine for humans but
+// gives every view the same URL, so a crawler only ever sees the default
+// Home view — and the AI crawlers we explicitly invite in robots.txt
+// (GPTBot, PerplexityBot, ClaudeBot) generally don't run JS at all, so
+// client-side routing alone would still serve them the wrong content on
+// every path.
 //
 // This worker gives each view a real URL and rewrites the HTML per path, so
 // the correct page div is already active and the title/description/canonical
@@ -14,8 +15,8 @@
 //
 // Static assets are served before this worker runs (the Wrangler default), so
 // only paths with no matching file reach us. `/` therefore never hits the
-// worker — index.html's own <head> is already the home/Find My Car metadata,
-// which is why the defaults there must stay in sync with VIEWS[0] below.
+// worker — index.html's own <head> is already the homepage's metadata, which
+// is why the defaults there must stay in sync with VIEWS[0] below.
 
 // Apex, not www. The Worker's custom domain is bound to the apex only —
 // www.theexactmatch.com resolves to Cloudflare but has no origin behind it and
@@ -35,8 +36,20 @@ const LASTMOD = '2026-07-31';
 const VIEWS = [
   {
     path: '/',
+    page: 'home',
+    lastmod: '2026-08-25',
+    title: "TheExactMatch — We Don't List Cars. We Find Yours.",
+    description:
+      "Tell us what you want — we search our dealer network, negotiate the price, and deliver your exact match. Free, no obligation.",
+  },
+  {
+    // Find My Car used to live at `/` — see index.html's own <head>, which
+    // this view's title/description otherwise mirror. It moved here when the
+    // homepage became its own dedicated landing page.
+    path: '/find-my-car',
     page: 'find',
-    title: 'TheExactMatch — Find Your Car. Sell Your Car. Free.',
+    lastmod: '2026-08-25',
+    title: 'Find My Car — Search, Negotiate & Deliver | TheExactMatch',
     description:
       "Tell us what you want and we'll find it. We search our nationwide dealer network and send you 3 curated options within 24 hours. Free, no obligation.",
   },
@@ -272,16 +285,14 @@ const STATIC_PAGES = [
 const ISSUES_MANIFEST = '/weekly-finds/issues.json';
 const ISSUE_BASE = '/weekly-finds';
 
-// /find-my-car is the URL people will guess for the home view; serving the
-// same content at both paths would be duplicate content. /weeklyfinds is the
-// pre-existing flat URL for Issue No. 1, kept alive as a 301 so shared links
-// and any accumulated ranking survive the move to the per-issue path.
-// /public/contact-message was never a page — it's the dealer-api endpoint
-// path used by the contact form's client-side fetch (see index.html), on a
-// different host entirely. Google indexed it anyway pre-migration; redirect
-// it here instead of 404ing so crawlers land somewhere real.
+// /weeklyfinds is the pre-existing flat URL for Issue No. 1, kept alive as a
+// 301 so shared links and any accumulated ranking survive the move to the
+// per-issue path. /public/contact-message was never a page — it's the
+// dealer-api endpoint path used by the contact form's client-side fetch (see
+// index.html), on a different host entirely. Google indexed it anyway
+// pre-migration; redirect it here instead of 404ing so crawlers land
+// somewhere real.
 const REDIRECTS = new Map([
-  ['/find-my-car', '/'],
   ['/weeklyfinds', `${ISSUE_BASE}/issue-1`],
   ['/public/contact-message', '/contact'],
 ]);
