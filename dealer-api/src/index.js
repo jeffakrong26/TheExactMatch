@@ -4843,6 +4843,40 @@ async function adminUpdateReportVehicle(request, env, params) {
   return json({ success: true });
 }
 
+// Manual White Glove quote entry for hard-to-find vehicles — the only case
+// computeWhiteGloveFee() can't price on its own (see its comment: the
+// 1-5%-of-final-price math needs a negotiated price that doesn't exist at
+// request time). Deliberately its own endpoint rather than one more field
+// on REPORT_VEHICLE_EDITABLE_FIELDS/adminUpdateReportVehicle — that PATCH
+// is a raw passthrough with no validation, and the $7,000 cap given on
+// /white-glove has to actually be enforced somewhere, not just asserted in
+// marketing copy. `fee: null` clears a previously entered quote.
+async function adminSetWhiteGloveFee(request, env, params) {
+  const body = await request.json().catch(() => ({}));
+  if (!('fee' in body)) return json({ error: 'fee is required.' }, 400);
+
+  let fee = body.fee;
+  if (fee !== null) {
+    fee = Number(fee);
+    if (!Number.isInteger(fee) || fee <= 0) {
+      return json({ error: 'fee must be a whole-dollar amount greater than $0, or null to clear it.' }, 400);
+    }
+    if (fee > 7000) {
+      return json({ error: 'White Glove fee cannot exceed $7,000.' }, 400);
+    }
+  }
+
+  const report = await env.DB.prepare('SELECT id FROM find_car_reports WHERE report_code = ?').bind(params.code).first();
+  if (!report) return json({ error: 'Report not found.' }, 404);
+
+  const result = await env.DB.prepare(
+    'UPDATE report_vehicles SET white_glove_fee = ? WHERE report_id = ? AND position = ?'
+  ).bind(fee, report.id, +params.position).run();
+  if (!result.meta.changes) return json({ error: 'Vehicle not found.' }, 404);
+
+  return json({ success: true, fee });
+}
+
 // report_vehicles cascades off find_car_reports, and partner_leads/partner_fees
 // cascade off report_vehicles in turn (same cascade adminRegenerateReport
 // already relies on) — deleting a report can take an in-flight partner deal
@@ -9349,6 +9383,7 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/admin/reports/:code',                handler: adminGetReport, auth: true, admin: true },
   { method: 'DELETE', pattern: '/api/admin/reports/:code',               handler: adminDeleteReport, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/reports/:code/vehicles/:position', handler: adminUpdateReportVehicle, auth: true, admin: true },
+  { method: 'PATCH', pattern: '/api/admin/reports/:code/vehicles/:position/white-glove-fee', handler: adminSetWhiteGloveFee, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/reports/:code/approve',        handler: adminApproveReport, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/reports/:code/regenerate',     handler: adminRegenerateReport, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/reports/:code/vehicles/:position/photo', handler: adminUploadReportVehiclePhoto, auth: true, admin: true },

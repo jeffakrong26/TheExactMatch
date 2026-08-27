@@ -3489,6 +3489,17 @@ async function toggleReportDetail(code, id) {
           <div style="font-size:.7rem;color:var(--gray);margin-top:.5rem">
             Source: ${v.source || '—'} · Listing: ${v.verified || '—'}${v.interested ? ' · <strong style="color:var(--green)">✓ Client interested</strong>' : ''}
           </div>
+          <div class="wg-fee-edit" style="margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)">
+            <div style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gray);margin-bottom:.5rem">
+              White Glove${v.white_glove_requested ? ' — <strong style="color:var(--gold);text-transform:none;letter-spacing:normal">requested</strong>' : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem">
+              <div class="dp-form-group" style="flex:0 0 140px;margin:0"><input type="number" min="1" max="7000" step="1" placeholder="Fee ($)" value="${v.white_glove_fee ?? ''}" data-wg-fee/></div>
+              <button type="button" class="btn-primary btn-sm" onclick="saveWhiteGloveFee('${code}', ${v.position}, this)">Save Quote</button>
+              <span class="wg-fee-msg" style="font-size:.75rem"></span>
+            </div>
+            <div style="font-size:.68rem;color:var(--gray);margin-top:.4rem">Manual quote for hard-to-find vehicles only — capped at $7,000. Leave blank and save to clear it.</div>
+          </div>
           ${v.source !== 'sourcing_in_progress' ? `
           <div style="margin-top:.4rem">
             ${v.vdp_url
@@ -3632,6 +3643,32 @@ async function saveReportEdits(code) {
       .catch(() => ({res:{ok:false}}));
     if (!res.ok) { msg.textContent = 'Failed to save one or more vehicles.'; msg.style.color = 'var(--red)'; return; }
   }
+  msg.textContent = '✓ Saved.'; msg.style.color = 'var(--green)';
+}
+
+async function saveWhiteGloveFee(code, position, btn) {
+  const wrap = btn.closest('.wg-fee-edit');
+  const input = wrap.querySelector('[data-wg-fee]');
+  const msg = wrap.querySelector('.wg-fee-msg');
+  const raw = input.value.trim();
+
+  let fee = null;
+  if (raw !== '') {
+    fee = Number(raw);
+    if (!Number.isInteger(fee) || fee <= 0) {
+      msg.textContent = 'Enter a whole-dollar amount greater than $0.'; msg.style.color = 'var(--red)'; return;
+    }
+    if (fee > 7000) {
+      msg.textContent = 'Cannot exceed $7,000.'; msg.style.color = 'var(--red)'; return;
+    }
+  }
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const { res, data } = await apiFetch(`/admin/reports/${code}/vehicles/${position}/white-glove-fee`, { method: 'PATCH', body: JSON.stringify({ fee }) })
+    .catch(() => ({res:{ok:false},data:{}}));
+  btn.disabled = false; btn.textContent = 'Save Quote';
+
+  if (!res.ok) { msg.textContent = data.error || 'Failed to save.'; msg.style.color = 'var(--red)'; return; }
   msg.textContent = '✓ Saved.'; msg.style.color = 'var(--green)';
 }
 
