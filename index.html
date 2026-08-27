@@ -1183,7 +1183,10 @@
               <label>VIN (Optional)</label>
               <input type="text" placeholder="17-character VIN" id="sf-vin" maxlength="17" style="text-transform:uppercase"/>
             </div>
-            <div class="form-group"><label>Exterior Color</label><input type="text" placeholder="Jet Black" id="sf-color"/></div>
+            <div class="form-row">
+              <div class="form-group"><label>Exterior Color</label><input type="text" placeholder="Jet Black" id="sf-color"/></div>
+              <div class="form-group"><label>Interior Color</label><input type="text" placeholder="Cognac" id="sf-interior-color"/></div>
+            </div>
             <div class="form-group">
               <label>Title Status <span style="color:var(--gold)">*</span></label>
               <select id="sf-title">
@@ -1346,26 +1349,17 @@
        (see #page-sell-brand) — not a listing page, just links out. -->
   <section style="padding:0 var(--side-pad) 3.5rem;background:var(--beige);text-align:center">
     <p style="font-size:.85rem;font-weight:300;color:var(--gray);margin-bottom:1.25rem">
-      Selling something higher-value — exotic, collector, ultra-luxury? Same process, same 24-hour turnaround, tailored to your brand.
+      Selling something higher-value — exotic or ultra-luxury? We tailor the process to your brand.
     </p>
     <ul style="list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:.6rem 1.25rem;padding:0;max-width:800px;margin:0 auto">
-      <li><a href="/sell-my-car/mercedes-benz" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Mercedes-Benz</a></li>
-      <li><a href="/sell-my-car/audi" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Audi</a></li>
       <li><a href="/sell-my-car/bentley" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Bentley</a></li>
       <li><a href="/sell-my-car/porsche" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Porsche</a></li>
       <li><a href="/sell-my-car/ferrari" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Ferrari</a></li>
       <li><a href="/sell-my-car/lamborghini" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Lamborghini</a></li>
-      <li><a href="/sell-my-car/bmw" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">BMW</a></li>
       <li><a href="/sell-my-car/rolls-royce" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Rolls-Royce</a></li>
       <li><a href="/sell-my-car/mclaren" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">McLaren</a></li>
       <li><a href="/sell-my-car/aston-martin" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Aston Martin</a></li>
       <li><a href="/sell-my-car/maserati" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Maserati</a></li>
-      <li><a href="/sell-my-car/land-rover" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Land Rover</a></li>
-      <li><a href="/sell-my-car/lexus" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Lexus</a></li>
-      <li><a href="/sell-my-car/infiniti" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Infiniti</a></li>
-      <li><a href="/sell-my-car/cadillac" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Cadillac</a></li>
-      <li><a href="/sell-my-car/genesis" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Genesis</a></li>
-      <li><a href="/sell-my-car/alfa-romeo" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Alfa Romeo</a></li>
     </ul>
   </section>
 
@@ -1494,7 +1488,7 @@
     <div class="sell-right">
       <div class="sell-form-card" style="text-align:center">
         <div class="sell-form-title">Start Your <span class="brand-name">Ferrari</span> Sale</div>
-        <div class="sell-form-sub">Same process, same 24-hour turnaround — just tell us about your <span class="brand-name">Ferrari</span> and we'll take it from there.</div>
+        <div class="sell-form-sub">Same trusted process — just tell us about your <span class="brand-name">Ferrari</span> and we'll take it from there.</div>
         <a class="sell-submit" id="brand-cta" href="/sell-my-car" style="display:block;text-decoration:none">Get My Free Offers</a>
         <div class="sell-note">Free to submit. No obligation to accept. <strong>Real dealer offers.</strong></div>
       </div>
@@ -1530,23 +1524,14 @@
   <section style="padding:0 var(--side-pad) 3.5rem;background:var(--beige);text-align:center">
     <p style="font-size:.85rem;font-weight:300;color:var(--gray);margin-bottom:1.25rem">Selling something else?</p>
     <ul class="brand-crosslinks" style="list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:.6rem 1.25rem;padding:0;max-width:800px;margin:0 auto">
-      <li data-brand="mercedes-benz"><a href="/sell-my-car/mercedes-benz" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Mercedes-Benz</a></li>
-      <li data-brand="audi"><a href="/sell-my-car/audi" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Audi</a></li>
       <li data-brand="bentley"><a href="/sell-my-car/bentley" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Bentley</a></li>
       <li data-brand="porsche"><a href="/sell-my-car/porsche" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Porsche</a></li>
       <li data-brand="ferrari"><a href="/sell-my-car/ferrari" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Ferrari</a></li>
       <li data-brand="lamborghini"><a href="/sell-my-car/lamborghini" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Lamborghini</a></li>
-      <li data-brand="bmw"><a href="/sell-my-car/bmw" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">BMW</a></li>
       <li data-brand="rolls-royce"><a href="/sell-my-car/rolls-royce" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Rolls-Royce</a></li>
       <li data-brand="mclaren"><a href="/sell-my-car/mclaren" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">McLaren</a></li>
       <li data-brand="aston-martin"><a href="/sell-my-car/aston-martin" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Aston Martin</a></li>
       <li data-brand="maserati"><a href="/sell-my-car/maserati" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Maserati</a></li>
-      <li data-brand="land-rover"><a href="/sell-my-car/land-rover" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Land Rover</a></li>
-      <li data-brand="lexus"><a href="/sell-my-car/lexus" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Lexus</a></li>
-      <li data-brand="infiniti"><a href="/sell-my-car/infiniti" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Infiniti</a></li>
-      <li data-brand="cadillac"><a href="/sell-my-car/cadillac" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Cadillac</a></li>
-      <li data-brand="genesis"><a href="/sell-my-car/genesis" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Genesis</a></li>
-      <li data-brand="alfa-romeo"><a href="/sell-my-car/alfa-romeo" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Alfa Romeo</a></li>
     </ul>
   </section>
 
@@ -3277,6 +3262,7 @@ function submitSellForm() {
     vin:        document.getElementById('sf-vin').value.trim(),
     mileage:    document.getElementById('sf-mileage').value.trim(),
     exterior_color: document.getElementById('sf-color').value.trim(),
+    interior_color: document.getElementById('sf-interior-color').value.trim(),
     title_status: document.getElementById('sf-title').value,
     remaining_balance: document.getElementById('sf-payoff-yn').value,
     payoff_amount: document.getElementById('sf-payoff-amount').value.trim(),

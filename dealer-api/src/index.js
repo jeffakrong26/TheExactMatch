@@ -4331,15 +4331,15 @@ async function submitSellCarLead(request, env, params, dealer, token, ctx) {
 
   const result = await env.DB.prepare(`
     INSERT INTO sell_my_car_leads (
-      first_name, last_name, email, phone, zip, year, make, model, trim, mileage, exterior_color,
+      first_name, last_name, email, phone, zip, year, make, model, trim, mileage, exterior_color, interior_color,
       title_status, remaining_balance, payoff_amount, condition, accidents, accidents_count, accidents_damage,
       mechanical_issues, mechanical_desc, warning_lights, windshield, tires, modifications, modifications_desc,
       keys, timeline, notes, feature_consent, photo_token
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     first_name, last_name, email, phone, zip,
     year, make, model, trim,
-    mileage, (body.exterior_color || '').trim(),
+    mileage, (body.exterior_color || '').trim(), (body.interior_color || '').trim(),
     title_status, body.remaining_balance || '', (body.payoff_amount || '').trim(), body.condition || '',
     body.accidents || '', (body.accidents_count || '').trim(), (body.accidents_damage || '').trim(),
     body.mechanical_issues || '', (body.mechanical_desc || '').trim(), body.warning_lights || '',

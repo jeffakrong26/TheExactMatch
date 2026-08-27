@@ -277,28 +277,24 @@ for (const city of CITIES) {
 // this worker at all. Nesting under /sell-my-car/ instead mirrors how
 // /guides/audi-r8 already nests under /guides.
 //
-// The list is the same set already shown (and visually split into a "hero"
-// row) in the Find My Car "Our Dealer Network" brand grid — not a new
-// roster invented for this feature.
+// Narrowed to exotic/ultra-luxury only — mainstream-luxury brands (Audi,
+// BMW, Mercedes-Benz, Lexus, Infiniti, Cadillac, Genesis, Land Rover, Alfa
+// Romeo) are exactly what the general Sell My Car flow already handles
+// well, so a dedicated page for them wasn't earning its keep. This is the
+// same "hero" tier already visually distinguished in the Find My Car
+// dealer-network brand grid, plus McLaren/Rolls-Royce/Aston Martin/
+// Maserati, which read as exotic/ultra-luxury for the same reason even
+// though that grid doesn't call them out separately.
 const SELL_BRAND_LASTMOD = '2026-08-27';
 const SELL_BRANDS = [
-  { slug: 'mercedes-benz', name: 'Mercedes-Benz' },
-  { slug: 'audi',          name: 'Audi' },
   { slug: 'bentley',       name: 'Bentley' },
   { slug: 'porsche',       name: 'Porsche' },
   { slug: 'ferrari',       name: 'Ferrari' },
   { slug: 'lamborghini',   name: 'Lamborghini' },
-  { slug: 'bmw',           name: 'BMW' },
   { slug: 'rolls-royce',   name: 'Rolls-Royce' },
   { slug: 'mclaren',       name: 'McLaren' },
   { slug: 'aston-martin',  name: 'Aston Martin' },
   { slug: 'maserati',      name: 'Maserati' },
-  { slug: 'land-rover',    name: 'Land Rover' },
-  { slug: 'lexus',         name: 'Lexus' },
-  { slug: 'infiniti',      name: 'Infiniti' },
-  { slug: 'cadillac',      name: 'Cadillac' },
-  { slug: 'genesis',       name: 'Genesis' },
-  { slug: 'alfa-romeo',    name: 'Alfa Romeo' },
 ];
 
 for (const brand of SELL_BRANDS) {

@@ -2586,6 +2586,7 @@ function sellLeadFieldsHtml(lead) {
   if (lead.vin) rows.push(['VIN', lead.vin]);
   if (lead.mileage) rows.push(['Mileage', Number(lead.mileage).toLocaleString()]);
   if (lead.exterior_color) rows.push(['Exterior Color', lead.exterior_color]);
+  if (lead.interior_color) rows.push(['Interior Color', lead.interior_color]);
   if (lead.condition) rows.push(['Condition', lead.condition]);
   if (lead.title_status) rows.push(['Title Status', lead.title_status]);
   if (lead.remaining_balance) rows.push(['Remaining Balance', lead.remaining_balance]);
