@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Contact</title>
+  <meta name="description" content=""/>
+  <link rel="canonical" href="https://theexactmatch.com/contact"/>
+  <meta property="og:title" content=""/>
+  <meta property="og:description" content=""/>
+  <meta property="og:url" content=""/>
+  <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://api.fontshare.com"/>
+  <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/css/site.css"/>
+</head>
+<body>
+
+<div id="nl-slot"></div>
+<div id="nav-slot"></div>
+<div id="mobile-menu-slot"></div>
+
+<div class="page" id="page-contact">
+  <div class="contact-grid">
+    <div class="contact-left-panel">
+      <div class="eyebrow light left">Contact</div>
+      <h1 class="display light" style="margin-bottom:1rem">Let's talk<br/><em>cars.</em></h1>
+      <p>Whether you have a question, want to know more about White Glove service, or just want to talk through your situation — reach out. We respond fast.</p>
+      <div class="contact-detail">
+        <div class="detail-icon">📞</div>
+        <div><div class="detail-label">Phone / Text</div><a href="tel:5126509328" class="detail-value">(512) 650-9328</a></div>
+      </div>
+      <div class="contact-detail">
+        <div class="detail-icon">✉️</div>
+        <div><div class="detail-label">Email</div><a href="mailto:info@theexactmatch.com" class="detail-value">info@theexactmatch.com</a></div>
+      </div>
+      <div class="contact-detail">
+        <div class="detail-icon">🌎</div>
+        <div><div class="detail-label">Coverage</div><span class="detail-value">Serving Clients Nationwide</span></div>
+      </div>
+      <div style="margin-top:2.5rem;padding:1.5rem;background:rgba(192,154,91,.08);border:1px solid rgba(192,154,91,.2);border-radius:3px">
+        <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--gold2);margin-bottom:.75rem">Response Time</div>
+        <div style="font-size:.85rem;color:rgba(255,255,255,.6);line-height:1.7;font-weight:300">We respond to all inquiries within <span style="color:var(--white);font-weight:500">1 business day</span>. For fastest response, text us directly.</div>
+      </div>
+    </div>
+
+    <div class="contact-right-panel">
+      <div class="form-title" style="color:var(--navy);font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:500;margin-bottom:.4rem">Send Us a Message</div>
+      <div style="font-size:.8rem;color:var(--gray);margin-bottom:1.75rem;line-height:1.6">Questions about White Glove, dealer partnerships, or anything else — we're here.</div>
+
+      <div id="contact-form-wrap">
+        <div class="form-row">
+          <div class="form-group"><label style="color:var(--gray)">First Name</label><input type="text" placeholder="John" style="background:var(--beige);border:1px solid var(--border);color:var(--navy)" id="cf-fname"/></div>
+          <div class="form-group"><label style="color:var(--gray)">Last Name</label><input type="text" placeholder="Smith" style="background:var(--beige);border:1px solid var(--border);color:var(--navy)" id="cf-lname"/></div>
+        </div>
+        <div class="form-group"><label style="color:var(--gray)">Email</label><input type="email" placeholder="john@email.com" style="background:var(--beige);border:1px solid var(--border);color:var(--navy)" id="cf-email"/></div>
+        <div class="form-group"><label style="color:var(--gray)">Phone</label><input type="tel" placeholder="(555) 000-0000" style="background:var(--beige);border:1px solid var(--border);color:var(--navy)" id="cf-phone"/></div>
+        <div class="form-group">
+          <label style="color:var(--gray)">What's this about?</label>
+          <select style="background:var(--beige);border:1px solid var(--border);color:var(--navy)" id="cf-topic">
+            <option value="">Select...</option>
+            <option>Find My Car question</option>
+            <option>Sell My Car question</option>
+            <option>White Glove service inquiry</option>
+            <option>Dealer partnership inquiry</option>
+            <option>Press / Media inquiry</option>
+            <option>Something else</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label style="color:var(--gray)">Message</label>
+          <textarea placeholder="Tell us what's on your mind..." style="background:var(--beige);border:1px solid var(--border);color:var(--navy);min-height:110px" id="cf-message"></textarea>
+        </div>
+        <button class="sell-submit" onclick="submitContactForm()">Send Message</button>
+      </div>
+
+      <div class="success-state" id="contact-success" style="color:var(--navy)">
+        <div class="check" style="color:var(--gold)">✦</div>
+        <h3 style="color:var(--navy)">Message received.</h3>
+        <p style="color:var(--gray)">We'll be back to you within 1 business day.<br/>Or text us directly at <strong style="color:var(--navy)">(512) 650-9328</strong>.</p>
+      </div>
+      <div id="contact-error" style="display:none;margin-top:.75rem;padding:.75rem 1rem;background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.25);border-radius:2px;font-size:.8rem;color:#9B2335;text-align:center;"></div>
+    </div>
+  </div>
+
+  <section style="padding:0 var(--side-pad) 3.5rem;background:var(--white);text-align:center">
+    <p style="font-size:.85rem;font-weight:300;color:var(--gray)">
+      Not ready to reach out yet? See <a href="/howitworks" style="color:var(--navy);font-weight:500;border-bottom:1px solid var(--gold);text-decoration:none">how it works</a>, read more <a href="/about" style="color:var(--navy);font-weight:500;border-bottom:1px solid var(--gold);text-decoration:none">about Jeff</a>, or if you'd rather handle it yourself, our <a href="/advice/howtonegotiatecarprice" style="color:var(--navy);font-weight:500;border-bottom:1px solid var(--gold);text-decoration:none">negotiation guide</a>.
+    </p>
+  </section>
+
+  <div id="footer-slot"></div>
+</div>
+
+<script src="/js/site.js"></script>
+<script>
+function submitContactForm() {
+  const btn = document.querySelector('#contact-form-wrap .sell-submit');
+  submitToApi(btn, '/public/contact-message', 'contact-form-wrap', 'contact-success', 'contact-error', {
+    first_name: document.getElementById('cf-fname').value.trim(),
+    last_name:  document.getElementById('cf-lname').value.trim(),
+    email:      document.getElementById('cf-email').value.trim(),
+    phone:      document.getElementById('cf-phone').value.trim(),
+    topic:      document.getElementById('cf-topic').value,
+    message:    document.getElementById('cf-message').value.trim()
+  });
+}
+</script>
+</body>
+</html>

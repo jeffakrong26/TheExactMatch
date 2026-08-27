@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Find My Car</title>
+  <meta name="description" content=""/>
+  <link rel="canonical" href="https://theexactmatch.com/findmycar"/>
+  <meta property="og:title" content=""/>
+  <meta property="og:description" content=""/>
+  <meta property="og:url" content=""/>
+  <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://api.fontshare.com"/>
+  <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/css/site.css"/>
+</head>
+<body>
+
+<div id="nl-slot"></div>
+<div id="nav-slot"></div>
+<div id="mobile-menu-slot"></div>
+
+<div class="page" id="page-find">
+
+  <!-- Hero with inline form -->
+  <section class="hero-find">
+    <div class="hero-left">
+      <h1 class="hero-title">Tell us what<br/>you want.<br/><strong>We'll find it.</strong></h1>
+      <p class="hero-sub">Fill out the form — we search our nationwide dealer network and send you 3 curated options within 24 hours. Search and matching are free, always.</p>
+      <div class="trust-item" style="margin-top:.5rem">
+        <span>✓</span> New & Pre-Owned &nbsp;·&nbsp;
+        <span>✓</span> Buy or Lease &nbsp;·&nbsp;
+        <span>✓</span> Nationwide
+      </div>
+      <div class="founder-card-slot" style="margin-top:2rem"></div>
+    </div>
+
+    <div class="hero-right">
+      <div class="form-card" id="find-form-wrap">
+        <div class="form-title">Start Your Search</div>
+        <div class="form-sub">We'll send you <strong>3 matched options</strong> within 24 hours — free, always.</div>
+
+        <div class="ms-progress"><div class="ms-progress-bar" id="ff-progress-bar" style="width:20%"></div></div>
+        <div class="ms-step-label" id="ff-step-label">Step <strong>1</strong> of 5</div>
+
+        <!-- Step 1 — What are you looking for -->
+        <div class="ms-step active" data-step="1">
+          <div class="form-group">
+            <label>Vehicle Type</label>
+            <select id="ff-vtype">
+              <option value="">Select...</option>
+              <option>Sedan</option><option>SUV/Crossover</option><option>Truck</option>
+              <option>Minivan</option><option>Sports Car</option><option>Luxury</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Size Preference</label>
+              <select id="ff-size">
+                <option value="">Select...</option>
+                <option>Compact</option><option>Mid-size</option><option>Full-size</option><option>No Preference</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Condition</label>
+              <select id="ff-condition">
+                <option value="">Select...</option>
+                <option>New</option><option>Pre-Owned</option><option>Either</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Budget — Min</label><input type="number" placeholder="30000" id="ff-budget-min" min="0"/></div>
+            <div class="form-group"><label>Budget — Max</label><input type="number" placeholder="60000" id="ff-budget-max" min="0"/></div>
+          </div>
+          <div class="form-group"><label>Maximum Mileage You're Comfortable With</label><input type="number" placeholder="60000" id="ff-max-mileage" min="0"/></div>
+          <div class="form-group">
+            <label>Timeline</label>
+            <select id="ff-timeline">
+              <option value="">Select...</option>
+              <option>This Week</option><option>This Month</option><option>1–3 Months</option><option>Just Exploring</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>How Are You Planning to Pay?</label>
+            <select id="ff-payment-method">
+              <option value="">Select...</option>
+              <option>Financing</option><option>Leasing</option><option>Cash</option>
+            </select>
+          </div>
+          <div id="ff-financing-wrap" style="display:none">
+            <div class="form-group">
+              <label>Credit Range</label>
+              <select id="ff-credit-range">
+                <option value="">Select...</option>
+                <option>Poor</option><option>Fair</option><option>Good</option><option>Excellent</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Desired Monthly Payment — Min</label><input type="number" placeholder="400" id="ff-monthly-min"/></div>
+              <div class="form-group"><label>Desired Monthly Payment — Max</label><input type="number" placeholder="600" id="ff-monthly-max"/></div>
+            </div>
+            <div class="form-group">
+              <label>Down Payment Amount</label>
+              <input type="number" placeholder="5000" id="ff-down-payment"/>
+            </div>
+            <p class="form-sub" style="margin:.25rem 0 0;font-size:.72rem">This helps us negotiate the right structure for you.</p>
+          </div>
+        </div>
+
+        <!-- Step 2 — Priorities -->
+        <div class="ms-step" data-step="2">
+          <div class="form-group" style="margin-bottom:.3rem"><label>What Matters Most?</label></div>
+          <div class="priority-hint">Pick up to 3 priorities.</div>
+          <div class="priority-grid" id="ff-priority-grid">
+            <label class="priority-item"><input type="checkbox" value="Low maintenance cost"/> Low maintenance cost</label>
+            <label class="priority-item"><input type="checkbox" value="Fuel economy"/> Fuel economy</label>
+            <label class="priority-item"><input type="checkbox" value="Interior space/cargo"/> Interior space/cargo</label>
+            <label class="priority-item"><input type="checkbox" value="Technology and infotainment"/> Tech & infotainment</label>
+            <label class="priority-item"><input type="checkbox" value="Safety ratings"/> Safety ratings</label>
+            <label class="priority-item"><input type="checkbox" value="Driving feel and performance"/> Driving feel & performance</label>
+            <label class="priority-item"><input type="checkbox" value="Reliability"/> Reliability</label>
+            <label class="priority-item"><input type="checkbox" value="Resale value"/> Resale value</label>
+            <label class="priority-item"><input type="checkbox" value="Monthly payment"/> Monthly payment</label>
+            <label class="priority-item"><input type="checkbox" value="Towing capacity"/> Towing capacity</label>
+          </div>
+        </div>
+
+        <!-- Step 3 — Your situation -->
+        <div class="ms-step" data-step="3">
+          <div class="form-group"><label>Current Vehicle (Year/Make/Model)</label><input type="text" placeholder="2018 Honda CR-V" id="ff-current-vehicle"/></div>
+          <div class="form-group"><label>What Do You Like About It?</label><textarea placeholder="Reliable, good gas mileage..." id="ff-current-like"></textarea></div>
+          <div class="form-group"><label>What Do You Want to Change?</label><textarea placeholder="Needs more cargo space, tired of repairs..." id="ff-current-change"></textarea></div>
+          <div class="form-group">
+            <label>Interested in a Trade-In?</label>
+            <select id="ff-tradein">
+              <option value="">Select...</option>
+              <option>Yes</option><option>No</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Step 4 — Anything else -->
+        <div class="ms-step" data-step="4">
+          <div class="form-group"><label>Specific Needs or Requirements</label><textarea placeholder="E.g. Third row seating, AWD required, tow package..." id="ff-specific-needs"></textarea></div>
+
+          <div class="form-group">
+            <label>Do You Know What You're Looking For?</label>
+            <select id="ff-knows-what">
+              <option value="yes">Yes, I have some ideas</option>
+              <option value="no">Not sure yet — I'd like some guidance</option>
+            </select>
+          </div>
+
+          <div id="ff-knows-yes-wrap">
+            <div class="form-row">
+              <div class="form-group"><label>Preferred Make</label><input type="text" placeholder="e.g. Toyota" id="ff-pref-make"/></div>
+              <div class="form-group"><label>Preferred Model</label><input type="text" placeholder="e.g. RAV4" id="ff-pref-model"/></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Year — From</label><input type="number" placeholder="2020" id="ff-year-min"/></div>
+              <div class="form-group"><label>Year — To</label><input type="number" placeholder="2024" id="ff-year-max"/></div>
+            </div>
+            <div class="form-group"><label>Any Other Makes or Models You're Also Open To?</label><input type="text" placeholder="e.g. Honda CR-V, Mazda CX-5" id="ff-considering"/></div>
+          </div>
+          <div id="ff-knows-no-wrap" style="display:none">
+            <p class="form-sub" style="margin-bottom:.9rem">No problem — we'll reach out personally to help narrow things down based on everything else you've told us here.</p>
+          </div>
+
+          <div class="form-group"><label>Anything Else We Should Know?</label><textarea placeholder="Anything else that would help us find your match..." id="ff-anything-else"></textarea></div>
+        </div>
+
+        <!-- Step 5 — Contact (last: where to send the 3 options) -->
+        <div class="ms-step" data-step="5">
+          <div class="form-group" style="margin-bottom:.3rem"><label>Where Should We Send Your 3 Options?</label></div>
+          <div class="priority-hint">Almost done — just need to know where to reach you.</div>
+          <div class="form-row">
+            <div class="form-group"><label>First Name</label><input type="text" placeholder="John" id="ff-fname"/></div>
+            <div class="form-group"><label>Last Name</label><input type="text" placeholder="Smith" id="ff-lname"/></div>
+          </div>
+          <div class="form-group"><label>Email</label><input type="email" placeholder="john@email.com" id="ff-email"/></div>
+          <div class="form-row">
+            <div class="form-group"><label>Phone</label><input type="tel" placeholder="(555) 000-0000" id="ff-phone"/></div>
+            <div class="form-group"><label>ZIP Code</label><input type="text" placeholder="78701" id="ff-zip" maxlength="10"/></div>
+          </div>
+          <div class="form-group">
+            <label>Preferred Contact Method</label>
+            <select id="ff-contact-method">
+              <option value="">Select...</option>
+              <option>Text</option><option>Email</option><option>Call</option>
+            </select>
+          </div>
+          <p style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:1rem;line-height:1.6">Want us to handle the entire deal for you once we find it? <a href="/whiteglove" style="color:rgba(255,255,255,.55);text-decoration:underline">Ask about White Glove.</a></p>
+        </div>
+
+        <div class="ms-nav">
+          <button type="button" class="ms-back-btn" id="ff-back-btn" onclick="ffPrevStep()" style="display:none">Back</button>
+          <button type="button" class="submit-btn" id="ff-next-btn" onclick="ffNextStep()">Next Step</button>
+        </div>
+        <div class="form-note">No spam. No sales calls. <strong>Just your options.</strong></div>
+      </div>
+
+      <div class="success-state" id="find-success">
+        <div class="check">✦</div>
+        <h3>You're on it.</h3>
+        <p>We'll have your 3 curated options ready within 24 hours.<br/>Check your email — and feel free to text us directly at<br/><strong style="color:var(--gold2)">(512) 650-9328</strong> if you have questions.</p>
+      </div>
+      <div id="find-error" style="display:none;margin-top:.75rem;padding:.75rem 1rem;background:rgba(155,35,53,.15);border:1px solid rgba(155,35,53,.4);border-radius:2px;font-size:.8rem;color:#ffaaaa;text-align:center;"></div>
+    </div>
+  </section>
+
+  <!-- Trust bar -->
+  <div class="trust-bar">
+    <div class="trust-inner">
+      <div class="trust-item">🛡️ We work for you — not the dealer</div>
+      <div class="trust-divider"></div>
+      <div class="trust-item">🔍 New & pre-owned vehicles</div>
+      <div class="trust-divider"></div>
+      <div class="trust-item">🔄 Buy or lease — we handle both</div>
+      <div class="trust-divider"></div>
+      <div class="trust-item">🚚 Nationwide delivery available</div>
+      <div class="trust-divider"></div>
+      <div class="trust-item">✦ Options in 24 hours</div>
+    </div>
+  </div>
+
+  <!-- Recent Matches teaser — cards are server-injected per request from
+       live dealer-api data (see src/index.js); this shell ships empty. -->
+  <section class="gallery-section" id="rm-teaser-section">
+    <div style="text-align:center;margin-bottom:2.5rem">
+      <div class="eyebrow center">Recent Matches</div>
+      <h2 class="display">Real deals, <em>real people.</em></h2>
+    </div>
+    <div class="rm-grid" id="rm-teaser-grid"></div>
+  </section>
+
+  <!-- Brands -->
+  <section class="brands-section">
+    <div style="text-align:center;margin-bottom:2.5rem">
+      <div class="eyebrow light center">Our Dealer Network</div>
+      <h2 class="display light">We source from the world's <em>finest brands.</em></h2>
+    </div>
+    <div class="brands-grid">
+      <div class="brand-pill hero-brand">Mercedes-Benz</div>
+      <div class="brand-pill hero-brand">Audi</div>
+      <div class="brand-pill hero-brand">Bentley</div>
+      <div class="brand-pill hero-brand">Porsche</div>
+      <div class="brand-pill hero-brand">Ferrari</div>
+      <div class="brand-pill hero-brand">Lamborghini</div>
+      <div class="brand-pill">BMW</div>
+      <div class="brand-pill">Rolls-Royce</div>
+      <div class="brand-pill">McLaren</div>
+      <div class="brand-pill">Aston Martin</div>
+      <div class="brand-pill">Maserati</div>
+      <div class="brand-pill">Land Rover</div>
+      <div class="brand-pill">Lexus</div>
+      <div class="brand-pill">Infiniti</div>
+      <div class="brand-pill">Cadillac</div>
+      <div class="brand-pill">Genesis</div>
+      <div class="brand-pill">Alfa Romeo</div>
+      <div class="brand-pill">And More...</div>
+    </div>
+  </section>
+
+  <!-- Testimonials -->
+  <section class="testi-section">
+    <div style="text-align:center;margin-bottom:3rem">
+      <div class="eyebrow center">Client Stories</div>
+      <h2 class="display">What our clients <em>say.</em></h2>
+    </div>
+    <div class="testi-grid" style="grid-template-columns:1fr;max-width:600px">
+      <div class="tcard reveal">
+        <div class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
+        <div class="tquote">We never once stepped foot in a dealership. Jeff had a 2026 Mazda CX-5 delivered right to our driveway so the kids could test drive it in the yard before we said yes. It was completely free, no pressure, and honestly the easiest car decision we've ever made as a family.</div>
+        <div class="tdivider"></div>
+        <div class="tauthor"><div class="tavatar">R</div><div><div class="tname">The R. Family</div><div class="tvehicle">2026 Mazda CX-5 — Houston, TX</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Where We Serve -->
+  <section style="background:var(--beige2);padding:3.5rem var(--side-pad);text-align:center">
+    <div style="max-width:700px;margin:0 auto">
+      <div class="eyebrow center">Where We Serve</div>
+      <h2 class="display" style="font-size:clamp(1.5rem,2.5vw,2rem);margin-bottom:1rem">Concierge service <em>across Texas.</em></h2>
+      <p style="font-size:.9rem;font-weight:300;color:var(--gray);line-height:1.8;margin-bottom:1.75rem">
+        We're deepest in Texas — but our dealer network reaches the whole country, and we ship cars anywhere.
+      </p>
+      <ul style="list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:.75rem 1.5rem;padding:0">
+        <li><a href="/austin" style="font-size:.9rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Austin</a></li>
+        <li><a href="/houston" style="font-size:.9rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Houston</a></li>
+        <li><a href="/sanantonio" style="font-size:.9rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">San Antonio</a></li>
+        <li><a href="/dallas" style="font-size:.9rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Dallas</a></li>
+        <li><a href="/elpaso" style="font-size:.9rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">El Paso</a></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Contextual link into the Guides section -->
+  <section style="padding:2.5rem var(--side-pad);text-align:center;background:var(--beige)">
+    <p style="font-size:.85rem;font-weight:300;color:var(--gray)">
+      Already have a model in mind? Browse our <a href="/guides" style="color:var(--navy);font-weight:500;border-bottom:1px solid var(--gold);text-decoration:none">car buying guides</a> for trim-by-trim breakdowns and pricing trends.
+    </p>
+  </section>
+
+  <div id="footer-slot"></div>
+</div>
+
+<script src="/js/site.js"></script>
+<script>
+// ── Find My Car multi-step ───────────────────────────────────
+const FF_TOTAL_STEPS = 5;
+let ffCurrentStep = 1;
+
+function ffUpdateProgress(){
+  document.getElementById('ff-progress-bar').style.width = (ffCurrentStep / FF_TOTAL_STEPS * 100) + '%';
+  document.getElementById('ff-step-label').innerHTML = 'Step <strong>' + ffCurrentStep + '</strong> of ' + FF_TOTAL_STEPS;
+}
+
+function ffValidateStep(step){
+  if(step === 1){
+    const maxMileage = document.getElementById('ff-max-mileage').value.trim();
+    if(!maxMileage){ alert('Please enter the maximum mileage you\'re comfortable with.'); return false; }
+  }
+  if(step === 5){
+    const fname = document.getElementById('ff-fname').value.trim();
+    const lname = document.getElementById('ff-lname').value.trim();
+    const email = document.getElementById('ff-email').value.trim();
+    const phone = document.getElementById('ff-phone').value.trim();
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if(!fname || !lname || !email || !phone){ alert('Please fill out your name, email, and phone to continue.'); return false; }
+    if(!re.test(email)){ alert('Please enter a valid email address.'); return false; }
+  }
+  return true;
+}
+
+function ffShowStep(step){
+  document.querySelectorAll('#find-form-wrap .ms-step').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.step) === step);
+  });
+  document.getElementById('ff-back-btn').style.display = step === 1 ? 'none' : 'inline-block';
+  document.getElementById('ff-next-btn').textContent = step === FF_TOTAL_STEPS ? 'Send Me My 3 Options — Free' : 'Next Step';
+  ffUpdateProgress();
+}
+
+function ffNextStep(){
+  if(!ffValidateStep(ffCurrentStep)) return;
+  if(ffCurrentStep === FF_TOTAL_STEPS){ submitFindForm(); return; }
+  ffCurrentStep++;
+  ffShowStep(ffCurrentStep);
+}
+
+function ffPrevStep(){
+  if(ffCurrentStep === 1) return;
+  ffCurrentStep--;
+  ffShowStep(ffCurrentStep);
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  const grid = document.getElementById('ff-priority-grid');
+  if(!grid) return;
+  const boxes = grid.querySelectorAll('input[type="checkbox"]');
+  function refresh(){
+    const checkedCount = grid.querySelectorAll('input[type="checkbox"]:checked').length;
+    boxes.forEach(cb => {
+      cb.closest('.priority-item').classList.toggle('checked', cb.checked);
+      if(!cb.checked){
+        cb.disabled = checkedCount >= 3;
+        cb.closest('.priority-item').classList.toggle('disabled', checkedCount >= 3);
+      }
+    });
+  }
+  boxes.forEach(cb => cb.addEventListener('change', refresh));
+});
+
+document.addEventListener('DOMContentLoaded', function(){
+  const paymentSelect = document.getElementById('ff-payment-method');
+  const wrap = document.getElementById('ff-financing-wrap');
+  if(!paymentSelect || !wrap) return;
+  paymentSelect.addEventListener('change', function(){
+    const show = paymentSelect.value === 'Financing' || paymentSelect.value === 'Leasing';
+    wrap.style.display = show ? 'block' : 'none';
+    if(!show){
+      document.getElementById('ff-credit-range').value = '';
+      document.getElementById('ff-monthly-min').value = '';
+      document.getElementById('ff-monthly-max').value = '';
+      document.getElementById('ff-down-payment').value = '';
+    }
+  });
+});
+
+document.addEventListener('DOMContentLoaded', function(){
+  const knowsSelect = document.getElementById('ff-knows-what');
+  const yesWrap = document.getElementById('ff-knows-yes-wrap');
+  const noWrap = document.getElementById('ff-knows-no-wrap');
+  if(!knowsSelect || !yesWrap || !noWrap) return;
+  knowsSelect.addEventListener('change', function(){
+    const knows = knowsSelect.value === 'yes';
+    yesWrap.style.display = knows ? 'block' : 'none';
+    noWrap.style.display = knows ? 'none' : 'block';
+    if(!knows){
+      document.getElementById('ff-pref-make').value = '';
+      document.getElementById('ff-pref-model').value = '';
+      document.getElementById('ff-year-min').value = '';
+      document.getElementById('ff-year-max').value = '';
+      document.getElementById('ff-considering').value = '';
+    }
+  });
+});
+
+// ── Find My Car submit ───────────────────────────────────────
+function submitFindForm() {
+  const btn = document.getElementById('ff-next-btn');
+  const priorities = Array.from(document.querySelectorAll('#ff-priority-grid input:checked')).map(cb => cb.value).join(', ');
+  submitToApi(btn, '/public/find-car-lead', 'find-form-wrap', 'find-success', 'find-error', {
+    first_name: document.getElementById('ff-fname').value.trim(),
+    last_name:  document.getElementById('ff-lname').value.trim(),
+    email:      document.getElementById('ff-email').value.trim(),
+    phone:      document.getElementById('ff-phone').value.trim(),
+    zip:        document.getElementById('ff-zip').value.trim(),
+    vehicle_type: document.getElementById('ff-vtype').value,
+    size_preference: document.getElementById('ff-size').value,
+    condition:  document.getElementById('ff-condition').value,
+    budget_min: document.getElementById('ff-budget-min').value.trim(),
+    budget_max: document.getElementById('ff-budget-max').value.trim(),
+    max_mileage: document.getElementById('ff-max-mileage').value.trim(),
+    timeline:   document.getElementById('ff-timeline').value,
+    payment_method: document.getElementById('ff-payment-method').value,
+    credit_range: document.getElementById('ff-credit-range').value,
+    desired_monthly_min: document.getElementById('ff-monthly-min').value.trim(),
+    desired_monthly_max: document.getElementById('ff-monthly-max').value.trim(),
+    down_payment: document.getElementById('ff-down-payment').value.trim(),
+    priorities: priorities,
+    current_vehicle: document.getElementById('ff-current-vehicle').value.trim(),
+    current_like: document.getElementById('ff-current-like').value.trim(),
+    current_change: document.getElementById('ff-current-change').value.trim(),
+    trade_in:   document.getElementById('ff-tradein').value,
+    specific_needs: document.getElementById('ff-specific-needs').value.trim(),
+    preferred_contact_method: document.getElementById('ff-contact-method').value,
+    undecided:  document.getElementById('ff-knows-what').value === 'no',
+    preferred_make: document.getElementById('ff-pref-make').value.trim(),
+    preferred_model: document.getElementById('ff-pref-model').value.trim(),
+    year_min:   document.getElementById('ff-year-min').value.trim(),
+    year_max:   document.getElementById('ff-year-max').value.trim(),
+    considering: document.getElementById('ff-considering').value.trim(),
+    anything_else: document.getElementById('ff-anything-else').value.trim()
+  });
+}
+</script>
+</body>
+</html>

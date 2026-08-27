@@ -8,8 +8,10 @@
   },
   "assets": {
     "directory": ".",
-    // Lets the worker reach index.html to rewrite it per-route, and to fall
-    // back to normal asset serving for everything it doesn't handle.
+    // Lets the worker reach each route's real file under pages/ to rewrite
+    // per-request (title/meta/canonical/JSON-LD/shared chrome — see
+    // src/index.js), and to fall back to normal asset serving for
+    // everything it doesn't handle (images, css/, js/, standalone pages).
     "binding": "ASSETS"
   },
   "kv_namespaces": [

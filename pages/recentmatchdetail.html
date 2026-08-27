@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Recent Match</title>
+  <meta name="description" content=""/>
+  <link rel="canonical" href="https://theexactmatch.com/recentmatches/"/>
+  <meta property="og:title" content=""/>
+  <meta property="og:description" content=""/>
+  <meta property="og:url" content=""/>
+  <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://api.fontshare.com"/>
+  <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/css/site.css"/>
+</head>
+<body>
+
+<div id="nl-slot"></div>
+<div id="nav-slot"></div>
+<div id="mobile-menu-slot"></div>
+
+<!-- One shared template — see pages/city.html for the same
+     one-file-many-URLs pattern. Every #rmd-* placeholder is filled
+     server-side per request from live dealer-api data (src/index.js). -->
+<div class="page" id="page-recent-match-detail">
+  <div class="home-wrap">
+    <section class="home-section" style="padding-top:96px">
+      <div class="home-section-head">
+        <h2>The Deal</h2>
+        <a class="home-text-cta" href="/recentmatches">&larr; All Matches</a>
+      </div>
+      <div class="home-featured">
+        <div class="home-photo-block" id="rmd-photo-wrap" style="aspect-ratio:4/3"></div>
+        <div class="home-featured-info">
+          <h1 id="rmd-heading" style="font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:30px;margin:0 0 4px"></h1>
+          <div class="rm-vehicle" id="rmd-vehicle" style="margin-bottom:20px"></div>
+          <div class="rm-saved" id="rmd-saved"></div>
+          <div class="rm-tags" id="rmd-tags"></div>
+          <a class="home-text-cta" href="/findmycar">Start your own search — free &rarr;</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="home-footer-cta">
+    <div class="home-wrap">
+      <h2>Ready to start your match?</h2>
+      <a class="home-ticket" href="/findmycar"><span>Start a free search</span></a>
+    </div>
+  </div>
+
+  <div id="footer-slot"></div>
+</div>
+
+<script src="/js/site.js"></script>
+</body>
+</html>

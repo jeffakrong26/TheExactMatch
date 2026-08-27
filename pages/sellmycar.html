@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sell My Car</title>
+  <meta name="description" content=""/>
+  <link rel="canonical" href="https://theexactmatch.com/sellmycar"/>
+  <meta property="og:title" content=""/>
+  <meta property="og:description" content=""/>
+  <meta property="og:url" content=""/>
+  <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://api.fontshare.com"/>
+  <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/css/site.css"/>
+</head>
+<body>
+
+<div id="nl-slot"></div>
+<div id="nav-slot"></div>
+<div id="mobile-menu-slot"></div>
+
+<div class="page" id="page-sell">
+
+  <section class="hero-sell">
+    <div class="sell-left">
+      <div class="sell-left-content">
+        <div class="hero-badge" style="margin-bottom:1.25rem"><span class="dot"></span>100% Free — No Obligation</div>
+        <h1 class="sell-left-title">Multiple real offers.<br/>Not one <strong>instant lowball.</strong></h1>
+        <p class="sell-left-sub">Instant-offer sites give you one number, take it or leave it. We send your car to multiple dealers actively buying that segment and bring back real, competing offers — you pick the best one, or walk away.</p>
+
+        <div class="sell-next-strip">
+          <div class="sell-next-eyebrow">What Happens Next</div>
+          <div class="sell-next-step"><span class="sell-next-num">1</span><span>Submit your vehicle</span></div>
+          <div class="sell-next-step"><span class="sell-next-num">2</span><span>Goes to dealers actively buying that segment</span></div>
+          <div class="sell-next-step"><span class="sell-next-num">3</span><span>Real offers within 24 hours</span></div>
+          <div class="sell-next-step"><span class="sell-next-num">4</span><span>Accept the best one, or walk away</span></div>
+        </div>
+        <div class="founder-card-slot" style="margin-top:2rem"></div>
+      </div>
+    </div>
+
+    <div class="sell-right">
+      <div class="sell-form-card">
+        <div class="sell-form-title">Get Multiple Offers</div>
+        <div class="sell-form-sub">Fill this out and we'll have real, competing dealer offers to you within <strong>24 hours</strong>. Completely free — you're under no obligation to accept anything.</div>
+
+        <div id="sell-form-wrap" class="sell-form">
+          <div class="ms-progress"><div class="ms-progress-bar" id="sf-progress-bar" style="width:25%"></div></div>
+          <div class="ms-step-label" id="sf-step-label">Step <strong>1</strong> of 4</div>
+
+          <!-- Step 1 — Your vehicle -->
+          <div class="ms-step active" data-step="1">
+            <div class="form-row">
+              <div class="form-group"><label>Year</label><input type="text" placeholder="2021" id="sf-year"/></div>
+              <div class="form-group"><label>Make</label><input type="text" placeholder="Porsche" id="sf-make"/></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Model</label><input type="text" placeholder="911 Carrera S" id="sf-model"/></div>
+              <div class="form-group"><label>Trim (Optional)</label><input type="text" placeholder="Carrera S" id="sf-trim"/></div>
+            </div>
+            <div class="form-group"><label>Mileage</label><input type="text" placeholder="18,500" id="sf-mileage"/></div>
+            <div class="form-group">
+              <label>VIN (Optional)</label>
+              <input type="text" placeholder="17-character VIN" id="sf-vin" maxlength="17" style="text-transform:uppercase"/>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Exterior Color</label><input type="text" placeholder="Jet Black" id="sf-color"/></div>
+              <div class="form-group"><label>Interior Color</label><input type="text" placeholder="Cognac" id="sf-interior-color"/></div>
+            </div>
+            <div class="form-group">
+              <label>Title Status <span style="color:var(--gold)">*</span></label>
+              <select id="sf-title">
+                <option value="">Select...</option>
+                <option value="Clean">Clean Title</option>
+                <option value="Salvage">Salvage Title</option>
+                <option value="Rebuilt">Rebuilt/Reconstructed</option>
+                <option value="Flood">Flood Damage</option>
+                <option value="Lemon Law Buyback">Lemon Law Buyback</option>
+                <option value="Not Sure">Not Sure</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Do You Have a Remaining Balance on This Vehicle?</label>
+              <select id="sf-payoff-yn">
+                <option value="">Select...</option>
+                <option>Yes</option><option>No</option>
+              </select>
+            </div>
+            <div class="form-group" id="sf-payoff-wrap" style="display:none">
+              <label>Approximate Payoff Amount</label>
+              <input type="text" placeholder="$12,000" id="sf-payoff-amount"/>
+            </div>
+          </div>
+
+          <!-- Step 2 — Condition (windshield/tire moved to a post-submission
+               follow-up — see sendSellCarReceivedEmail in dealer-api — since
+               neither changes whether a dealer bids, just added friction here) -->
+          <div class="ms-step" data-step="2">
+            <div class="form-group">
+              <label>Overall Condition</label>
+              <select id="sf-condition">
+                <option value="">Select...</option>
+                <option>Excellent</option><option>Good</option><option>Fair</option><option>Poor</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Accident History</label>
+              <select id="sf-accident-history">
+                <option value="">Select...</option>
+                <option value="none">None</option>
+                <option value="minor">Minor</option>
+                <option value="moderate">Moderate</option>
+                <option value="major">Major</option>
+              </select>
+            </div>
+            <div class="form-group" id="sf-accident-notes-wrap" style="display:none">
+              <label>Describe the Accident(s)</label>
+              <textarea placeholder="What happened, when, and any repairs made..." id="sf-accident-notes"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Mechanical Status</label>
+              <select id="sf-mechanical-status">
+                <option value="">Select...</option>
+                <option value="running well">Running Well</option>
+                <option value="needs work">Needs Work</option>
+                <option value="not running">Not Running</option>
+              </select>
+            </div>
+            <div class="form-group" id="sf-mechanical-notes-wrap" style="display:none">
+              <label>Describe the Issue</label>
+              <textarea placeholder="Check engine light, transmission slipping..." id="sf-mechanical-notes"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Any Warning Lights On?</label>
+              <select id="sf-warning-yn">
+                <option value="">Select...</option>
+                <option>Yes</option><option>No</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Step 3 — Final details -->
+          <div class="ms-step" data-step="3">
+            <div class="form-group">
+              <label>Aftermarket Modifications?</label>
+              <select id="sf-mods-yn">
+                <option value="">Select...</option>
+                <option>Yes</option><option>No</option>
+              </select>
+            </div>
+            <div class="form-group" id="sf-mods-wrap" style="display:none">
+              <label>Describe the Modifications</label>
+              <textarea placeholder="Aftermarket exhaust, lowered suspension..." id="sf-mods-desc"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Keys</label>
+              <select id="sf-keys">
+                <option value="">Select...</option>
+                <option>Two Sets</option><option>One Set</option><option>None</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Timeline</label>
+              <select id="sf-timeline">
+                <option value="">Select...</option>
+                <option>This Week</option><option>This Month</option><option>1–3 Months</option><option>Just Exploring</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Anything Else We Should Know?</label>
+              <textarea placeholder="Additional details about your vehicle..." id="sf-notes"></textarea>
+            </div>
+          </div>
+
+          <!-- Step 4 — Contact (last: your offers are almost ready) -->
+          <div class="ms-step" data-step="4">
+            <div class="form-group" style="margin-bottom:.3rem"><label>Your Offers Are Almost Ready</label></div>
+            <div style="font-size:.72rem;font-weight:300;color:var(--gray);margin:-.3rem 0 .9rem">Just need to know where to send them.</div>
+            <div class="form-row">
+              <div class="form-group"><label>First Name</label><input type="text" placeholder="John" id="sf-fname"/></div>
+              <div class="form-group"><label>Last Name</label><input type="text" placeholder="Smith" id="sf-lname"/></div>
+            </div>
+            <div class="form-group"><label>Email</label><input type="email" placeholder="john@email.com" id="sf-email"/></div>
+            <div class="form-row">
+              <div class="form-group"><label>Phone</label><input type="tel" placeholder="(555) 000-0000" id="sf-phone"/></div>
+              <div class="form-group"><label>ZIP Code</label><input type="text" placeholder="78701" id="sf-zip" maxlength="10"/></div>
+            </div>
+
+            <div class="form-group">
+              <label>Add Photos (Optional) — Stronger Offers, Faster</label>
+              <input type="file" accept="image/*" multiple id="sf-photos"/>
+              <div style="font-size:.72rem;font-weight:300;color:var(--gray);margin-top:.4rem" id="sf-photos-hint">Up to 6 photos. Skip this and we'll text/email a request for photos afterward — it won't hold up your submission either way.</div>
+            </div>
+          </div>
+
+          <div class="ms-nav">
+            <button type="button" class="ms-back-btn" id="sf-back-btn" onclick="sfPrevStep()" style="display:none">Back</button>
+            <button type="button" class="sell-submit" id="sf-next-btn" onclick="sfNextStep()">Next Step</button>
+          </div>
+          <div class="sell-note">Free to submit. No obligation to accept. <strong>Real dealer offers.</strong></div>
+        </div>
+
+        <div class="success-state" id="sell-success" style="color:var(--navy)">
+          <div class="check" style="color:var(--gold)">✦</div>
+          <h3 style="color:var(--navy)">Offers incoming.</h3>
+          <p style="color:var(--gray)">We'll have dealer offers on your vehicle within 24 hours.<br/>Check your email — and feel free to reach us at<br/><strong style="color:var(--navy)">(512) 650-9328</strong> anytime.</p>
+        </div>
+        <div id="sell-error" style="display:none;margin-top:.75rem;padding:.75rem 1rem;background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.25);border-radius:2px;font-size:.8rem;color:#9B2335;text-align:center;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Currently Sourcing Buyers For — real submissions admin has published
+       only; see #sb-grid's server-side injection in src/index.js. Never
+       hardcoded. -->
+  <section class="gallery-section">
+    <div style="text-align:center;margin-bottom:2.5rem">
+      <div class="eyebrow center">Currently Sourcing</div>
+      <h2 class="display">Buyers we're sourcing for <strong>right now.</strong></h2>
+    </div>
+    <div class="sb-grid" id="sb-grid"></div>
+  </section>
+
+  <!-- Selling something above this flow's range? Real, per-brand pages —
+       not a listing page, just links out. -->
+  <section style="padding:0 var(--side-pad) 3.5rem;background:var(--beige);text-align:center">
+    <p style="font-size:.85rem;font-weight:300;color:var(--gray);margin-bottom:1.25rem">
+      Selling something higher-value — exotic or ultra-luxury? We tailor the process to your brand.
+    </p>
+    <ul style="list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:.6rem 1.25rem;padding:0;max-width:800px;margin:0 auto">
+      <li><a href="/sell/bentley" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Bentley</a></li>
+      <li><a href="/sell/porsche" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Porsche</a></li>
+      <li><a href="/sell/ferrari" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Ferrari</a></li>
+      <li><a href="/sell/lamborghini" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Lamborghini</a></li>
+      <li><a href="/sell/rollsroyce" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Rolls-Royce</a></li>
+      <li><a href="/sell/mclaren" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">McLaren</a></li>
+      <li><a href="/sell/tesla" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Tesla</a></li>
+      <li><a href="/sell/astonmartin" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Aston Martin</a></li>
+      <li><a href="/sell/maserati" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Maserati</a></li>
+    </ul>
+  </section>
+
+  <!-- Why sell with us -->
+  <section style="padding:5rem var(--side-pad);background:var(--beige)">
+    <div style="max-width:1000px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:3rem">
+        <div class="eyebrow center">Why TheExactMatch</div>
+        <h2 class="display">A better way to <em>sell your car.</em></h2>
+      </div>
+      <div style="display:grid;grid-template-columns:var(--grid-3);gap:1.5rem">
+        <div class="feat-box reveal">
+          <div class="feat-icon">⚡</div>
+          <div class="feat-title">Offers in 24 Hours</div>
+          <div class="feat-desc">No waiting weeks. We send your vehicle to our dealer network immediately and have real offers back to you the next day.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🤝</div>
+          <div class="feat-title">Real Dealer Buyers</div>
+          <div class="feat-desc">Our partner dealers are actively buying inventory. These aren't low-ball automated estimates — they're real people ready to make a deal.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🆓</div>
+          <div class="feat-title">Completely Free</div>
+          <div class="feat-desc">Zero cost to you. We're paid by the dealer when a sale happens. You keep every dollar of the offer — nothing comes off the top.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🚫</div>
+          <div class="feat-title">No Pressure</div>
+          <div class="feat-desc">You're never obligated to accept any offer. Review what comes in, compare, and decide on your own timeline.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🔒</div>
+          <div class="feat-title">Private & Secure</div>
+          <div class="feat-desc">Your information goes to vetted dealer partners only — not posted publicly or shared with random buyers.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🚗</div>
+          <div class="feat-title">Any Luxury Vehicle</div>
+          <div class="feat-desc">Mercedes, Audi, BMW, Porsche, Ferrari, Lamborghini, and more. If you have it, our network wants to see it.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq-section" style="background:var(--beige2)">
+    <div style="text-align:center;margin-bottom:3rem">
+      <div class="eyebrow center">Questions</div>
+      <h2 class="display">Common <em>questions.</em></h2>
+    </div>
+    <div class="faq-wrap">
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Is it really free to submit? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">Yes — 100% free. There is no fee, no subscription, and no cost to get offers on your vehicle. We're compensated by the buying dealer when a transaction closes. You pay nothing.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">How do I know the offers are real? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">All offers come from vetted dealer partners in our network — not automated algorithms. Real buyers, real numbers, real conversations. We only work with dealers who have a track record of closing.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">What if I still owe money on my car? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">No problem — just let us know in the form. Dealers handle trade-ins with existing loans regularly. The process is the same; the dealer will pay off your remaining balance as part of the transaction.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">How long do I have to accept an offer? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">Offers are typically valid for 7 days from the time they're made, though this can vary by dealer. We'll communicate the timeline clearly with each offer you receive.</div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding:0 var(--side-pad) 3.5rem;background:var(--beige2);text-align:center">
+    <p style="font-size:.85rem;font-weight:300;color:var(--gray)">
+      Buying next, not just selling? See how <a href="/findmycar" style="color:var(--navy);font-weight:500;border-bottom:1px solid var(--gold);text-decoration:none">Find My Car</a> works, or read more about <a href="/about" style="color:var(--navy);font-weight:500;border-bottom:1px solid var(--gold);text-decoration:none">who's handling your deal</a>.
+    </p>
+  </section>
+
+  <div id="footer-slot"></div>
+</div>
+
+<script src="/js/site.js"></script>
+<script>
+// ── Sell My Car multi-step ───────────────────────────────────
+const SF_TOTAL_STEPS = 4;
+let sfCurrentStep = 1;
+
+function sfUpdateProgress(){
+  document.getElementById('sf-progress-bar').style.width = (sfCurrentStep / SF_TOTAL_STEPS * 100) + '%';
+  document.getElementById('sf-step-label').innerHTML = 'Step <strong>' + sfCurrentStep + '</strong> of ' + SF_TOTAL_STEPS;
+}
+
+function sfValidateStep(step){
+  if(step === 1){
+    const titleStatus = document.getElementById('sf-title').value;
+    if(!titleStatus){ alert('Please select the title status — it makes a real difference in your offer.'); return false; }
+  }
+  if(step === 4){
+    const fname = document.getElementById('sf-fname').value.trim();
+    const lname = document.getElementById('sf-lname').value.trim();
+    const email = document.getElementById('sf-email').value.trim();
+    const phone = document.getElementById('sf-phone').value.trim();
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if(!fname || !lname || !email || !phone){ alert('Please fill out your name, email, and phone to continue.'); return false; }
+    if(!re.test(email)){ alert('Please enter a valid email address.'); return false; }
+  }
+  return true;
+}
+
+function sfShowStep(step){
+  document.querySelectorAll('#sell-form-wrap .ms-step').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.step) === step);
+  });
+  document.getElementById('sf-back-btn').style.display = step === 1 ? 'none' : 'inline-block';
+  document.getElementById('sf-next-btn').textContent = step === SF_TOTAL_STEPS ? 'Get My Free Offers' : 'Next Step';
+  sfUpdateProgress();
+}
+
+function sfNextStep(){
+  if(!sfValidateStep(sfCurrentStep)) return;
+  if(sfCurrentStep === SF_TOTAL_STEPS){ submitSellForm(); return; }
+  sfCurrentStep++;
+  sfShowStep(sfCurrentStep);
+}
+
+function sfPrevStep(){
+  if(sfCurrentStep === 1) return;
+  sfCurrentStep--;
+  sfShowStep(sfCurrentStep);
+}
+
+function sfToggleConditional(selectId, wrapId, fieldIds, displayMode){
+  const sel = document.getElementById(selectId);
+  const wrap = document.getElementById(wrapId);
+  sel.addEventListener('change', function(){
+    const show = sel.value === 'Yes';
+    wrap.style.display = show ? displayMode : 'none';
+    if(!show){ fieldIds.forEach(id => document.getElementById(id).value = ''); }
+  });
+}
+
+function sfToggleConditionalUnless(selectId, wrapId, fieldIds, displayMode, hiddenValues){
+  const sel = document.getElementById(selectId);
+  const wrap = document.getElementById(wrapId);
+  sel.addEventListener('change', function(){
+    const show = !hiddenValues.includes(sel.value);
+    wrap.style.display = show ? displayMode : 'none';
+    if(!show){ fieldIds.forEach(id => document.getElementById(id).value = ''); }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  if(!document.getElementById('sell-form-wrap')) return;
+  sfToggleConditional('sf-payoff-yn', 'sf-payoff-wrap', ['sf-payoff-amount'], 'block');
+  sfToggleConditionalUnless('sf-accident-history', 'sf-accident-notes-wrap', ['sf-accident-notes'], 'block', ['', 'none']);
+  sfToggleConditionalUnless('sf-mechanical-status', 'sf-mechanical-notes-wrap', ['sf-mechanical-notes'], 'block', ['', 'running well']);
+  sfToggleConditional('sf-mods-yn', 'sf-mods-wrap', ['sf-mods-desc'], 'block');
+
+  // Arriving from a brand page's CTA (?make=Ferrari) — prefill rather than
+  // make them retype the one thing that page was already about.
+  const prefillMake = new URLSearchParams(location.search).get('make');
+  if (prefillMake) document.getElementById('sf-make').value = prefillMake;
+});
+
+// ── Sell My Car submit ────────────────────────────────────────
+function submitSellForm() {
+  const btn = document.getElementById('sf-next-btn');
+  const photoFiles = Array.from(document.getElementById('sf-photos').files || []).slice(0, 6);
+  submitToApi(btn, '/public/sell-car-lead', 'sell-form-wrap', 'sell-success', 'sell-error', {
+    first_name: document.getElementById('sf-fname').value.trim(),
+    last_name:  document.getElementById('sf-lname').value.trim(),
+    email:      document.getElementById('sf-email').value.trim(),
+    phone:      document.getElementById('sf-phone').value.trim(),
+    zip:        document.getElementById('sf-zip').value.trim(),
+    year:       document.getElementById('sf-year').value.trim(),
+    make:       document.getElementById('sf-make').value.trim(),
+    model:      document.getElementById('sf-model').value.trim(),
+    trim:       document.getElementById('sf-trim').value.trim(),
+    vin:        document.getElementById('sf-vin').value.trim(),
+    mileage:    document.getElementById('sf-mileage').value.trim(),
+    exterior_color: document.getElementById('sf-color').value.trim(),
+    interior_color: document.getElementById('sf-interior-color').value.trim(),
+    title_status: document.getElementById('sf-title').value,
+    remaining_balance: document.getElementById('sf-payoff-yn').value,
+    payoff_amount: document.getElementById('sf-payoff-amount').value.trim(),
+    condition:  document.getElementById('sf-condition').value,
+    accident_history: document.getElementById('sf-accident-history').value,
+    accident_notes: document.getElementById('sf-accident-notes').value.trim(),
+    mechanical_status: document.getElementById('sf-mechanical-status').value,
+    mechanical_notes: document.getElementById('sf-mechanical-notes').value.trim(),
+    warning_lights: document.getElementById('sf-warning-yn').value,
+    modifications: document.getElementById('sf-mods-yn').value,
+    modifications_desc: document.getElementById('sf-mods-desc').value.trim(),
+    keys:       document.getElementById('sf-keys').value,
+    timeline:   document.getElementById('sf-timeline').value,
+    notes:      document.getElementById('sf-notes').value.trim()
+  }, function(data){
+    // Best-effort, after the success screen is already showing — a photo
+    // upload failing here must never read as the submission having failed.
+    if (!photoFiles.length || !data.id || !data.photo_token) return;
+    const formData = new FormData();
+    photoFiles.forEach(f => formData.append('photos', f));
+    fetch(`${DEALER_API}/public/sell-car-lead/${data.id}/${data.photo_token}/photos`, {
+      method: 'POST', body: formData
+    }).catch(e => console.error('[sell] quick photo upload failed', e));
+  });
+}
+</script>
+</body>
+</html>

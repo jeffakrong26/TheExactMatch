@@ -1,0 +1,644 @@
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0C1C33;--navy2:#152a4a;
+  --beige:#F5F0E8;--beige2:#EDE7D9;
+  --gold:#C09A5B;--gold2:#D4B47A;
+  --white:#fff;--gray:#4A5568;--border:#DDD8CC;
+  /* Referenced by inline styles on one-off sections/grids throughout
+     the page so a single mobile override can reach them — inline
+     style values otherwise can't be touched by a class-based media
+     query without !important. */
+  --side-pad:5rem;
+  --grid-3:repeat(3,1fr);
+  --grid-2:repeat(2,1fr);
+}
+html{scroll-behavior:smooth}
+body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy);overflow-x:hidden}
+
+/* ── UTILS ── */
+.eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;gap:.65rem;margin-bottom:.9rem}
+.eyebrow::before,.eyebrow::after{content:'';display:block;height:1px;width:22px;background:var(--gold)}
+.eyebrow.left::after,.eyebrow.center::after{display:none}
+.eyebrow.center{justify-content:center}
+.eyebrow.center::before,.eyebrow.center::after{display:block}
+.eyebrow.light{color:var(--gold2)}
+.eyebrow.light::before,.eyebrow.light::after{background:var(--gold2)}
+/* h1.display added alongside h2.display during the per-URL migration: this
+   class was used sitewide for both true page headings and secondary section
+   headings with no tag distinction, which meant several pages had zero real
+   <h1> anywhere. Promoting each page's primary heading to an actual <h1>
+   (see pages/*.html) needed the same visual rule to apply regardless of
+   which tag carries it. */
+h1.display,
+h2.display{font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,2.9rem);font-weight:500;line-height:1.15;color:var(--navy)}
+h1.display em,
+h2.display em{font-style:italic;color:var(--gold)}
+h1.display.light,
+h2.display.light{color:var(--white)}
+h1.display.light em,
+h2.display.light em{color:var(--gold2)}
+.reveal{opacity:0;transform:translateY(20px);transition:opacity .65s ease,transform .65s ease}
+.reveal.on{opacity:1;transform:translateY(0)}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(245,240,232,.97);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);transition:all .3s}
+.nav-inner{max-width:1200px;margin:0 auto;padding:0 2.5rem;height:64px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:600;color:var(--navy);text-decoration:none;letter-spacing:.01em}
+.logo span{color:var(--gold)}
+.nav-links{display:flex;gap:0;list-style:none;align-items:center}
+.nav-links a{font-size:.72rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--navy);text-decoration:none;padding:.5rem 1rem;opacity:.6;transition:opacity .2s}
+.nav-links a:hover{opacity:1}
+.nav-links a.active{opacity:1;color:var(--gold)}
+.nav-cta{background:var(--navy)!important;color:var(--beige)!important;opacity:1!important;padding:.55rem 1.4rem!important;border-radius:2px;margin-left:.5rem}
+.nav-cta:hover{background:var(--navy2)!important}
+.nav-more{position:relative}
+.nav-more-toggle{display:flex!important;align-items:center;gap:.35rem}
+.nav-more-toggle::after{content:'';width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;opacity:.6;transition:transform .2s}
+.nav-more.open .nav-more-toggle::after{transform:rotate(180deg)}
+.nav-more-menu{display:none;position:absolute;top:100%;left:0;flex-direction:column;gap:0;list-style:none;margin:.4rem 0 0;padding:.4rem;min-width:180px;background:var(--beige);border:1px solid var(--border);border-radius:2px;box-shadow:0 12px 32px rgba(0,0,0,.1)}
+.nav-more.open .nav-more-menu{display:flex}
+.nav-more-menu a{display:block;padding:.65rem .9rem;white-space:nowrap}
+.nav-more:has(.nav-more-menu a.active) .nav-more-toggle{opacity:1;color:var(--gold)}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:.5rem}
+.hamburger span{width:22px;height:1.5px;background:var(--navy);transition:all .3s}
+.mobile-menu{display:none;position:fixed;inset:0;top:64px;background:var(--beige);z-index:200;padding:2rem;flex-direction:column;gap:0}
+.mobile-menu a{font-size:.85rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--navy);text-decoration:none;padding:1rem 0;border-bottom:1px solid var(--border);opacity:.7}
+.mobile-menu.open{display:flex}
+
+/* ── PAGE WRAPPER ──
+   Every route is now its own real document (no more hidden .page divs
+   toggled by client JS — see the per-URL migration this replaced), so this
+   only needs to supply the shared top padding/min-height, not visibility. */
+.page{min-height:100vh;padding-top:64px}
+
+/* ── HERO (FIND) ── */
+.hero-find{min-height:calc(100vh - 64px);display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+.hero-left{display:flex;flex-direction:column;justify-content:center;padding:5rem 4rem 5rem 5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(192,154,91,.12);border:1px solid rgba(192,154,91,.3);border-radius:20px;padding:.4rem 1rem;font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:1.5rem}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}
+.hero-title{font-family:'Playfair Display',serif;font-size:clamp(2.4rem,4.5vw,3.8rem);font-weight:500;line-height:1.1;color:var(--navy);margin-bottom:1.25rem}
+.hero-title em{font-style:italic;color:var(--gold)}
+.hero-sub{font-size:.95rem;font-weight:300;color:var(--gray);line-height:1.8;margin-bottom:2rem;max-width:440px}
+.free-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--navy);color:var(--white);padding:.6rem 1.25rem;border-radius:2px;font-size:.75rem;font-weight:600;letter-spacing:.06em;margin-bottom:2rem}
+.free-badge .star{color:var(--gold);font-size:1rem}
+
+/* ── HERO FORM ── */
+.hero-right{background:var(--navy);display:flex;align-items:center;justify-content:center;padding:3rem 3.5rem;position:relative;overflow:hidden}
+.hero-right::before{content:'';position:absolute;top:-100px;right:-100px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(192,154,91,.08) 0%,transparent 70%)}
+.form-card{width:100%;max-width:420px;position:relative;z-index:1}
+.form-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:500;color:var(--white);margin-bottom:.4rem}
+.form-sub{font-size:.8rem;font-weight:300;color:rgba(255,255,255,.5);margin-bottom:1.75rem;line-height:1.6}
+.form-sub strong{color:var(--gold2)}
+.form-group{margin-bottom:.9rem}
+.form-group label{display:block;font-size:.63rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:.4rem}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:.75rem 1rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:2px;font-family:'Jost',sans-serif;font-size:.85rem;font-weight:300;color:var(--white);outline:none;transition:border-color .2s,background .2s;appearance:none}
+.form-group input::placeholder{color:rgba(255,255,255,.3)}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--gold);background:rgba(255,255,255,.1)}
+.form-group select option{background:var(--navy);color:var(--white)}
+.form-group textarea{resize:vertical;min-height:70px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.submit-btn{width:100%;padding:.9rem;background:var(--gold);color:var(--navy);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:.5rem;transition:background .2s,transform .2s}
+.submit-btn:hover{background:var(--gold2);transform:translateY(-1px)}
+.form-note{text-align:center;font-size:.72rem;color:rgba(255,255,255,.3);margin-top:.75rem}
+.form-note strong{color:var(--gold2)}
+
+/* ── MULTI-STEP FORM (FIND) ── */
+.ms-progress{height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-bottom:.6rem;overflow:hidden}
+.ms-progress-bar{height:100%;background:var(--gold);transition:width .3s ease}
+.ms-step-label{font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:1.5rem}
+.ms-step-label strong{color:var(--gold2)}
+.ms-step{display:none}
+.ms-step.active{display:block}
+.ms-nav{display:flex;gap:.75rem;margin-top:1rem}
+.ms-nav .submit-btn{margin-top:0}
+.ms-back-btn{flex:0 0 auto;padding:.9rem 1.4rem;background:transparent;color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.18);border-radius:2px;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:border-color .2s,color .2s}
+.ms-back-btn:hover{border-color:var(--gold);color:var(--gold2)}
+.priority-hint{font-size:.72rem;font-weight:300;color:rgba(255,255,255,.4);margin:-.3rem 0 .9rem}
+.priority-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.priority-item{display:flex;align-items:center;gap:.55rem;padding:.65rem .85rem;border:1px solid rgba(255,255,255,.14);border-radius:2px;background:rgba(255,255,255,.04);cursor:pointer;transition:border-color .2s,background .2s;font-size:.76rem;font-weight:300;color:rgba(255,255,255,.75)}
+.priority-item input{accent-color:var(--gold);width:14px;height:14px;flex-shrink:0}
+.priority-item.checked{border-color:var(--gold);background:rgba(192,154,91,.1);color:var(--white)}
+.priority-item.disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
+
+/* ── MULTI-STEP FORM LIGHT VARIANT (SELL) ── */
+.sell-form .ms-progress{background:rgba(12,28,51,.08)}
+.sell-form .ms-step-label{color:var(--gray)}
+.sell-form .ms-step-label strong{color:var(--navy)}
+.sell-form .ms-back-btn{color:var(--gray);border-color:var(--border)}
+.sell-form .ms-back-btn:hover{border-color:var(--gold);color:var(--navy)}
+.ms-nav .sell-submit{margin-top:0}
+
+/* ── HOW IT WORKS ── */
+.how-section{padding:6rem 5rem;background:var(--beige)}
+.how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:3px;overflow:hidden;max-width:1100px;margin:0 auto}
+.how-box{background:var(--beige);padding:2.25rem 1.75rem;transition:background .2s;cursor:default}
+.how-box:hover{background:var(--beige2)}
+.how-num{font-family:'Playfair Display',serif;font-size:2rem;font-weight:400;color:var(--gold);opacity:.4;line-height:1;margin-bottom:1rem}
+.how-title{font-size:.85rem;font-weight:700;color:var(--navy);margin-bottom:.6rem}
+.how-desc{font-size:.78rem;font-weight:300;color:var(--gray);line-height:1.7}
+
+/* ── SPLIT SECTION ── */
+.split{display:grid;grid-template-columns:1fr 1fr}
+.split-img{min-height:500px;background-size:cover;background-position:center;position:relative}
+.split-img::after{content:'';position:absolute;inset:0;background:rgba(12,28,51,.25)}
+.split-content{padding:5rem 4.5rem;display:flex;flex-direction:column;justify-content:center}
+.split-content.navy{background:var(--navy)}
+.split-content.beige{background:var(--beige2)}
+
+/* ── BRANDS ── */
+.brands-section{background:var(--navy);padding:4rem 5rem}
+.brands-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:.65rem;max-width:900px;margin:0 auto}
+.brand-pill{padding:.55rem 1.25rem;border:1px solid rgba(192,154,91,.2);border-radius:2px;font-size:.72rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55);transition:all .2s;cursor:default}
+.brand-pill:hover{border-color:var(--gold);color:var(--gold2)}
+.brand-pill.hero-brand{border-color:rgba(192,154,91,.45);color:var(--gold2)}
+
+/* ── TESTIMONIALS ── */
+.testi-section{padding:6rem 5rem;background:var(--beige2)}
+.testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;max-width:1100px;margin:0 auto}
+.tcard{background:var(--white);border:1px solid var(--border);border-radius:3px;padding:2rem;display:flex;flex-direction:column;transition:transform .25s,box-shadow .25s}
+.tcard:hover{transform:translateY(-3px);box-shadow:0 12px 36px rgba(0,0,0,.07)}
+.stars{display:flex;gap:3px;margin-bottom:1rem}
+.star{color:var(--gold);font-size:.82rem}
+.tquote{font-family:'Playfair Display',serif;font-size:.95rem;font-style:italic;color:var(--navy);line-height:1.65;margin-bottom:1.25rem;flex:1}
+.tquote::before{content:'\201C';color:var(--gold);font-size:1.3rem;line-height:0;vertical-align:-.25em;margin-right:2px}
+.tquote::after{content:'\201D';color:var(--gold);font-size:1.3rem;line-height:0;vertical-align:-.25em;margin-left:2px}
+.tdivider{height:1px;background:var(--border);margin-bottom:1rem}
+.tauthor{display:flex;align-items:center;gap:.75rem}
+.tavatar{width:2.2rem;height:2.2rem;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:.85rem;font-weight:600;color:var(--gold2);flex-shrink:0}
+.tname{font-size:.82rem;font-weight:600;color:var(--navy)}
+.tvehicle{font-size:.7rem;color:var(--gold);letter-spacing:.04em}
+
+/* ── SELL PAGE HERO ── */
+.hero-sell{min-height:calc(100vh - 64px);display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+.sell-left{background:url('/Blue-urus.jpg') center/cover no-repeat;position:relative;display:flex;align-items:flex-end;padding:3rem}
+.sell-left::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(12,28,51,.85) 0%,rgba(12,28,51,.3) 60%,transparent 100%)}
+.sell-left-content{position:relative;z-index:1}
+.sell-left-title{font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,3rem);font-weight:500;color:var(--white);line-height:1.15;margin-bottom:.75rem}
+.sell-left-title strong{font-weight:700;font-style:normal;color:inherit}
+.sell-left-sub{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.65);line-height:1.75;max-width:380px}
+.sell-next-strip{margin-top:2rem;padding-top:1.75rem;border-top:1px solid rgba(255,255,255,.15);max-width:380px}
+.sell-next-eyebrow{font-size:.65rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);margin-bottom:1rem}
+.sell-next-step{display:flex;align-items:center;gap:.75rem;font-size:.82rem;font-weight:300;color:rgba(255,255,255,.75);margin-bottom:.65rem}
+.sell-next-num{flex-shrink:0;width:1.6rem;height:1.6rem;border-radius:50%;border:1px solid rgba(212,180,122,.4);color:var(--gold2);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700}
+.sell-right{background:var(--beige2);display:flex;align-items:center;justify-content:center;padding:3rem 3.5rem}
+.sell-form-card{width:100%;max-width:420px}
+.sell-form-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:500;color:var(--navy);margin-bottom:.4rem}
+.sell-form-sub{font-size:.8rem;font-weight:300;color:var(--gray);margin-bottom:1.75rem;line-height:1.6}
+.sell-form-sub strong{color:var(--navy);font-weight:600}
+.sell-form .form-group label{color:var(--gray)}
+.sell-form .form-group input,.sell-form .form-group select,.sell-form .form-group textarea{background:var(--white);border:1px solid var(--border);color:var(--navy)}
+.sell-form .form-group input::placeholder{color:#aaa}
+.sell-form .form-group input:focus,.sell-form .form-group select:focus{border-color:var(--gold);background:var(--white)}
+.sell-form .form-group select option{color:var(--navy);background:var(--white)}
+.sell-submit{width:100%;padding:.9rem;background:var(--navy);color:var(--beige);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:.5rem;transition:background .2s}
+.sell-submit:hover{background:var(--navy2)}
+.sell-note{text-align:center;font-size:.72rem;color:var(--gray);margin-top:.75rem}
+.sell-note strong{color:var(--navy)}
+#page-sell h2.display em,
+#page-sell h2.display strong{font-style:normal;color:inherit;font-weight:700}
+
+/* ── CURRENTLY SOURCING BUYERS FOR (Sell My Car) ──
+   Text-only by design — no photo, since no seller-identifying data is
+   collected for this block at all (year/make/model + a human-written
+   area label only). .sb-fallback is a legitimate, expected state, not
+   an error state: fewer than 3 real published submissions means fewer
+   cards, or this generic line — never a filled-in fake. Admin decides
+   what's published (see the "Post-Submission Details" section of a
+   lead's detail view in Dealerportal.html); it's not gated on any
+   seller opt-in. */
+.sb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;max-width:1100px;margin:0 auto}
+.sb-card{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:1.75rem;text-align:center}
+.sb-card h3{font-family:'Playfair Display',serif;font-weight:500;font-size:1.1rem;color:var(--navy);margin:0 0 .3rem}
+.sb-area{font-size:.78rem;color:var(--gray)}
+.sb-fallback{grid-column:1/-1;text-align:center;color:var(--gray);font-size:.9rem;padding:1.5rem 0}
+@media(max-width:900px){.sb-grid{grid-template-columns:1fr}}
+
+/* ── ABOUT PAGE ── */
+.about-hero{min-height:60vh;display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+/* Larger, separately-cropped treatment of the same photo used in the
+   compact .founder-card-photo (images/jeff-headshot.jpg) — a full-body
+   lifestyle shot reads differently at hero size than in a 76px circle,
+   so this gets its own object-position rather than sharing one. */
+.about-img{background:var(--navy);position:relative;overflow:hidden}
+.about-img img{width:100%;height:100%;object-fit:cover;object-position:50% 20%;display:block}
+.about-content-block{padding:5rem 4.5rem;background:var(--beige2);display:flex;flex-direction:column;justify-content:center}
+.about-content-block p{font-size:.9rem;font-weight:300;color:var(--gray);line-height:1.85;margin-top:1.25rem}
+.creds{margin-top:2rem;display:flex;flex-direction:column;gap:.75rem}
+.cred{display:flex;align-items:flex-start;gap:.75rem;font-size:.82rem;color:var(--navy)}
+.cred::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--gold);flex-shrink:0;margin-top:5px}
+.about-features{padding:5rem;background:var(--beige);display:grid;grid-template-columns:repeat(3,1fr);gap:2rem;max-width:1100px;margin:0 auto}
+.feat-box{padding:2rem;background:var(--white);border:1px solid var(--border);border-radius:3px}
+.feat-icon{font-size:1.5rem;margin-bottom:1rem}
+.feat-title{font-size:.88rem;font-weight:700;color:var(--navy);margin-bottom:.5rem}
+.feat-desc{font-size:.8rem;font-weight:300;color:var(--gray);line-height:1.7}
+
+/* ── FOUNDER CARD — shared component ──
+   Rendered once (FOUNDER_CARD_HTML in src/index.js) into every
+   .founder-card-slot on the site: About's hero, and beside the Find My
+   Car / Sell My Car forms. Self-contained white card so it reads the
+   same whether the page behind it is light (About, Find) or a dark
+   photo panel (Sell) — see the surrounding pages for placement. */
+.founder-card{display:flex;gap:1rem;align-items:center;background:var(--white);border:1px solid var(--border);border-radius:8px;padding:1.25rem 1.4rem;max-width:400px;box-shadow:0 10px 28px rgba(0,0,0,.08)}
+/* Uses a dedicated pre-cropped square (jeff-headshot-compact.jpg,
+   see FOUNDER_CARD_HTML in src/index.js) rather than object-position
+   on the full-body source — cover on a container whose aspect ratio
+   is this close to the source's only ever crops top/bottom, so the
+   face (a fraction of the frame's width) would stay small regardless
+   of position. object-fit:cover is still set as a safety margin, not
+   the primary crop mechanism. */
+.founder-card-photo{width:76px;height:76px;border-radius:50%;flex-shrink:0;object-fit:cover;background:var(--beige2)}
+.founder-card-name{font-family:'Playfair Display',serif;font-weight:600;font-size:.95rem;color:var(--navy);margin-bottom:.2rem}
+.founder-card-line{font-size:.75rem;font-weight:300;color:var(--gray);line-height:1.55;margin-bottom:.4rem}
+.founder-card-link{font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--navy);text-decoration:none;border-bottom:1px solid var(--gold)}
+
+/* ── ABOUT: career history + press ── */
+.role-block{padding:2rem 0;border-bottom:1px solid var(--border)}
+.role-block:last-child{border-bottom:none}
+.role-block.role-lead{padding:2.25rem;background:var(--white);border:1px solid var(--border);border-radius:4px;margin-bottom:1.5rem}
+.role-header{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap;margin-bottom:.6rem}
+.role-title{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:500;color:var(--navy)}
+.role-dates{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
+.role-company{font-size:.78rem;font-weight:600;color:var(--gray);margin-bottom:.75rem}
+.role-desc{font-size:.86rem;font-weight:300;color:var(--gray);line-height:1.8}
+.press-box{background:var(--navy);border-radius:4px;padding:2.5rem;color:var(--white)}
+.press-box p{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.65);line-height:1.85;margin-bottom:1.25rem}
+.press-box p:last-child{margin-bottom:0}
+
+/* ── CONTACT PAGE ── */
+.contact-grid{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 64px)}
+.contact-left-panel{background:var(--navy);padding:5rem 4.5rem;display:flex;flex-direction:column;justify-content:center}
+.contact-left-panel p{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.5);line-height:1.8;margin-bottom:2.5rem}
+.contact-detail{display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem}
+.detail-icon{width:2.2rem;height:2.2rem;border-radius:2px;background:rgba(192,154,91,.1);border:1px solid rgba(192,154,91,.2);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+.detail-label{font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:.1rem}
+.detail-value{font-size:.88rem;font-weight:400;color:var(--white);text-decoration:none;transition:color .2s}
+.detail-value:hover{color:var(--gold2)}
+.contact-right-panel{padding:5rem 4.5rem;background:var(--beige2);display:flex;flex-direction:column;justify-content:center}
+.contact-right-panel .form-group label{color:var(--gray)}
+.contact-right-panel .form-group input,
+.contact-right-panel .form-group select,
+.contact-right-panel .form-group textarea{background:var(--beige);border:1px solid var(--border);color:var(--navy)}
+.contact-right-panel .form-group input::placeholder{color:#aaa}
+.contact-right-panel .form-group input:focus,
+.contact-right-panel .form-group select:focus,
+.contact-right-panel .form-group textarea:focus{border-color:var(--gold);background:var(--white)}
+
+/* ── GALLERY ── */
+.gallery-section{padding:5rem;background:var(--beige)}
+.gallery-grid{display:grid;grid-template-columns:2fr 1fr 1fr;grid-template-rows:240px 240px;gap:10px;max-width:1100px;margin:0 auto}
+.gitem{overflow:hidden;border-radius:2px}
+.gitem:first-child{grid-row:span 2}
+.gitem img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s}
+.gitem:hover img{transform:scale(1.04)}
+
+/* ── FOOTER ── */
+footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:2rem 5rem;display:flex;align-items:center;justify-content:space-between}
+.footer-logo{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:600;color:var(--white)}
+.footer-logo span{color:var(--gold)}
+.footer-sub{font-size:.62rem;color:rgba(255,255,255,.28);letter-spacing:.08em;text-transform:uppercase;margin-top:.2rem}
+.footer-nav{display:flex;gap:1.75rem;list-style:none;flex-wrap:wrap}
+.footer-nav a{font-size:.7rem;color:rgba(255,255,255,.32);text-decoration:none;letter-spacing:.05em;transition:color .2s}
+.footer-nav a:hover{color:var(--gold2)}
+.footer-copy{font-size:.65rem;color:rgba(255,255,255,.18)}
+.footer-social{display:flex;gap:1rem;align-items:center}
+.footer-social a{display:flex;color:rgba(255,255,255,.32);transition:color .2s}
+.footer-social a:hover{color:var(--gold2)}
+.footer-social svg{width:17px;height:17px}
+
+/* Reused on /about's "Follow Us" section — same icons, sized up and on
+   a light background, so the color/hover pair differs from .footer-social. */
+.social-links{display:flex;gap:1.1rem;align-items:center;justify-content:center}
+.social-links a{display:flex;color:var(--navy);opacity:.55;transition:opacity .2s}
+.social-links a:hover{opacity:1;color:var(--gold)}
+.social-links svg{width:22px;height:22px}
+
+/* ── FAQ ── */
+.faq-section{padding:5rem;background:var(--beige)}
+.faq-wrap{max-width:780px;margin:0 auto;display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:3px;overflow:hidden}
+.faq-item{background:var(--beige);cursor:pointer;transition:background .2s}
+.faq-item:hover{background:var(--beige2)}
+.faq-q{padding:1.25rem 1.5rem;font-size:.88rem;font-weight:600;color:var(--navy);display:flex;justify-content:space-between;align-items:center;gap:1rem}
+.faq-arrow{color:var(--gold);font-size:1.1rem;transition:transform .3s;flex-shrink:0}
+.faq-item.open .faq-arrow{transform:rotate(45deg)}
+.faq-a{font-size:.82rem;font-weight:300;color:var(--gray);line-height:1.75;max-height:0;overflow:hidden;transition:max-height .35s ease,padding .3s}
+.faq-item.open .faq-a{max-height:200px;padding:0 1.5rem 1.25rem}
+
+/* ── TRUST BAR ── */
+.trust-bar{background:var(--beige2);padding:1.5rem 5rem;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.trust-inner{display:flex;align-items:center;justify-content:center;gap:2.5rem;flex-wrap:wrap;max-width:1000px;margin:0 auto}
+.trust-item{display:flex;align-items:center;gap:.55rem;font-size:.75rem;font-weight:500;color:var(--gray)}
+.trust-divider{width:1px;height:18px;background:var(--border)}
+
+/* ── SUCCESS STATE ── */
+.success-state{display:none;text-align:center;padding:2rem}
+.success-state .check{font-size:2.5rem;margin-bottom:1rem}
+.success-state h3{font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--white);margin-bottom:.5rem}
+.success-state p{font-size:.82rem;color:rgba(255,255,255,.5);line-height:1.7}
+
+/* ── GUIDES (DARK TERMINAL) ──
+   Scoped to #page-guides and #page-guide-audi-r8 only. This is the one
+   section of the site with its own visual identity — nav and footer stay
+   the shared, site-wide chrome above/below it.
+   Accent is brand navy (#0C1C33, same value as --navy): solid on fills
+   (pills, chart bars, buttons) with light text on top. Pure navy has
+   ~1.1:1 contrast against this section's near-black background, so
+   on-background text/links/labels use --navy-tint instead — a lighter
+   steel-blue in the same hue family that actually reads (~6.6:1). */
+:root{--navy-tint:#7B9BC9}
+.terminal-hero{background:#0a0d0c;padding:6.5rem var(--side-pad) 4rem;position:relative;overflow:hidden}
+.terminal-hero::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(123,155,201,.025) 0px,rgba(123,155,201,.025) 1px,transparent 1px,transparent 3px);pointer-events:none}
+.terminal-bar{display:flex;align-items:center;gap:.4rem;position:relative;z-index:1}
+.terminal-dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.15)}
+.terminal-dot:nth-child(1){background:#e0605a}
+.terminal-dot:nth-child(2){background:#e0b95a}
+.terminal-dot:nth-child(3){background:#3ddc84}
+.terminal-path{margin-left:.75rem;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:rgba(123,155,201,.65)}
+.terminal-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:500;letter-spacing:.08em;color:var(--navy-tint);display:flex;align-items:center;gap:.5rem;margin:1.5rem 0 1rem;position:relative;z-index:1}
+.terminal-eyebrow::before{content:'$';opacity:.55}
+.terminal-h1{font-family:'Playfair Display',serif;font-size:clamp(2.1rem,4vw,3.1rem);font-weight:500;line-height:1.15;color:#f2f5f3;margin-bottom:1.25rem;position:relative;z-index:1}
+.terminal-h1 em{font-style:italic;color:var(--navy-tint)}
+.terminal-body{background:#0e1210}
+.terminal-body a{color:var(--navy-tint);border-bottom:1px solid rgba(123,155,201,.4);text-decoration:none}
+.terminal-body a:hover{border-color:var(--navy-tint)}
+.terminal-section{padding:4.5rem var(--side-pad);border-top:1px solid rgba(123,155,201,.12)}
+.terminal-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--navy-tint);opacity:.9;margin-bottom:1rem;display:block}
+.terminal-p{font-size:.95rem;font-weight:300;line-height:1.85;color:rgba(230,236,233,.78)}
+.breadcrumb-term{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:rgba(123,155,201,.75);display:inline-flex;align-items:center;gap:.4rem;margin-bottom:2rem;position:relative;z-index:1}
+.breadcrumb-term:hover{color:var(--navy-tint)}
+
+.guide-grid{display:grid;grid-template-columns:var(--grid-2);gap:1.5rem}
+.guide-card{display:block;background:#121715;border:1px solid rgba(123,155,201,.2);border-radius:4px;padding:1.75rem;text-decoration:none;transition:border-color .2s,transform .2s}
+.guide-card:hover{border-color:rgba(123,155,201,.55);transform:translateY(-2px)}
+.guide-card-file{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--navy-tint);opacity:.85;margin-bottom:.6rem}
+.guide-card h3{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:500;color:#f2f5f3;margin-bottom:.6rem}
+.guide-card p{font-size:.85rem;font-weight:300;color:rgba(230,236,233,.62);line-height:1.7;margin-bottom:1rem}
+.guide-card-cta{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--navy-tint);letter-spacing:.03em;border-bottom:none!important}
+.guide-card.soon{opacity:.4;border-style:dashed}
+
+.trim-block{padding-bottom:1rem}
+.trim-block+.trim-block{margin-top:3.5rem;padding-top:3.5rem;border-top:1px solid rgba(123,155,201,.12)}
+.trim-tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.06em;text-transform:uppercase;color:#F5F0E8;background:#0C1C33;padding:.25rem .6rem;border-radius:2px;margin-bottom:.9rem;font-weight:600}
+.trim-block h3{font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:500;color:#f2f5f3;margin-bottom:1.25rem}
+.spec-strip{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:1.5rem}
+.spec-chip{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:rgba(230,236,233,.85);background:rgba(123,155,201,.08);border:1px solid rgba(123,155,201,.2);border-radius:3px;padding:.4rem .7rem}
+.spec-chip b{color:var(--navy-tint);font-weight:600}
+.trim-block h4{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gold2);margin:1.5rem 0 .6rem}
+.trim-block p{font-size:.92rem;font-weight:300;line-height:1.85;color:rgba(230,236,233,.78)}
+
+.look-for-list{list-style:none;display:flex;flex-direction:column;gap:1.1rem}
+.look-for-list li{padding-left:1.6rem;position:relative;font-size:.92rem;font-weight:300;line-height:1.8;color:rgba(230,236,233,.8)}
+.look-for-list li::before{content:'›';position:absolute;left:0;color:var(--navy-tint);font-family:'JetBrains Mono',monospace}
+
+.terminal-faq-item{padding:1.75rem 0;border-bottom:1px solid rgba(123,155,201,.15)}
+.terminal-faq-item:first-child{border-top:1px solid rgba(123,155,201,.15)}
+.terminal-faq-item h3{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:600;color:var(--navy-tint);margin-bottom:.75rem}
+.terminal-faq-item p{font-size:.92rem;font-weight:300;line-height:1.85;color:rgba(230,236,233,.78)}
+
+/* ── PRICE TABLE + BAR CHARTS ── */
+.price-table-wrap{overflow-x:auto;margin-bottom:2.5rem;border:1px solid rgba(123,155,201,.15);border-radius:4px}
+.price-table{width:100%;border-collapse:collapse;font-size:.85rem;min-width:480px}
+.price-table th{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;color:var(--navy-tint);text-align:left;padding:.85rem 1rem;background:rgba(123,155,201,.06);border-bottom:1px solid rgba(123,155,201,.15)}
+.price-table td{padding:.75rem 1rem;color:rgba(230,236,233,.85);border-bottom:1px solid rgba(123,155,201,.08);font-weight:300}
+.price-table td:last-child{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;color:#f2f5f3;font-weight:500;text-align:right}
+.price-table tr:last-child td{border-bottom:none}
+.price-table-avg td{background:rgba(123,155,201,.05);font-weight:500;color:#f2f5f3}
+.price-table-avg td:last-child{color:var(--navy-tint);font-weight:700}
+
+.chart-block{margin-bottom:3rem}
+.chart-block h3{font-family:'JetBrains Mono',monospace;font-size:.8rem;letter-spacing:.04em;color:#f2f5f3;margin-bottom:1.5rem;font-weight:600}
+.price-bar-row{margin-bottom:1.15rem}
+.price-bar-row:last-child{margin-bottom:0}
+.price-bar-label{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;margin-bottom:.4rem}
+.price-bar-name{font-size:.82rem;color:rgba(230,236,233,.85)}
+.price-bar-name small{display:block;font-size:.7rem;color:rgba(230,236,233,.45);margin-top:.1rem}
+.price-bar-value{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:#f2f5f3;white-space:nowrap}
+.price-bar-track{height:20px;background:rgba(255,255,255,.045);border-radius:4px;overflow:hidden}
+.price-bar-fill{height:100%;background:#0C1C33;border-radius:0 4px 4px 0;position:relative;min-width:4px}
+.price-bar-fill::after{content:'';position:absolute;top:0;right:0;bottom:0;width:2px;background:var(--navy-tint)}
+.chart-disclaimer{font-size:.75rem;font-weight:300;line-height:1.7;color:rgba(230,236,233,.45);border-top:1px solid rgba(123,155,201,.12);padding-top:1.25rem;margin-top:.5rem}
+
+/* ── HOME (hero → buyer's guides, ported from the demo) ──
+   Its own visual identity, same treatment as #page-guides above: a
+   dedicated token set and a `home-` class prefix so nothing here can
+   collide with the site-wide styles used by every other page. Nav and
+   footer stay the shared, site-wide chrome above/below it. */
+:root{
+  --home-navy:#0F1B2D;--home-ivory:#EDE6D6;
+  --home-brass:#A67C3D;--home-brass-light:#C79A5A;
+  --home-charcoal:#1C2530;--home-slate:#5C6670;
+  --home-hairline:rgba(15,27,45,0.14);
+}
+#page-home{background:var(--home-ivory);color:var(--home-charcoal);font-family:'General Sans',sans-serif;-webkit-font-smoothing:antialiased}
+.home-wrap{max-width:1200px;margin:0 auto;padding:0 32px}
+.home-mono{font-family:'General Sans',sans-serif;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:12px}
+
+.home-hero{position:relative;min-height:82vh;display:flex;align-items:flex-end;overflow:hidden}
+.home-hero-photo{position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,27,45,.05) 0%,rgba(15,27,45,.35) 60%,var(--home-navy) 98%),url('/hero-car.jpeg');background-size:cover;background-position:center center;background-repeat:no-repeat}
+.home-hero-content{position:relative;width:100%;padding:0 32px 88px;color:var(--home-ivory)}
+.home-hero-content h1{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-optical-sizing:auto;font-size:clamp(40px,5.5vw,72px);line-height:1.02;letter-spacing:-.01em;margin:0 0 28px;max-width:820px}
+.home-hero-content h1 strong{font-weight:700}
+.home-lede{font-size:18px;line-height:1.6;color:rgba(237,230,214,.8);max-width:440px;margin:0 0 36px}
+.home-hero-cta{display:inline-flex;align-items:center;gap:10px;background:var(--home-brass);color:var(--home-navy);font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;padding:16px 26px;text-decoration:none}
+.home-hero-cta:hover{background:var(--home-brass-light)}
+
+.home-section{padding:90px 0}
+.home-section-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:48px;gap:24px;flex-wrap:wrap;border-bottom:1px solid var(--home-hairline);padding-bottom:24px}
+.home-section-head h2{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(28px,3.5vw,40px);margin:0;letter-spacing:-.01em}
+.home-section-head p{color:var(--home-slate);font-size:15px;max-width:340px;margin:0}
+
+.home-reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+.home-review-card{border-top:2px solid var(--home-brass);padding-top:20px}
+.home-review-card p{font-family:'Cabinet Grotesk',sans-serif;font-weight:400;font-size:17px;line-height:1.6;color:var(--home-charcoal);margin:0 0 16px}
+.home-review-card .home-mono{color:var(--home-slate)}
+
+.home-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--home-hairline);border:1px solid var(--home-hairline)}
+.home-step{background:var(--home-ivory);padding:36px 32px;position:relative}
+.home-step .stub-num{font-family:'General Sans',sans-serif;font-weight:600;font-size:12px;color:var(--home-brass);letter-spacing:.08em;text-transform:uppercase;margin-bottom:20px;display:block}
+.home-step h3{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:22px;margin:0 0 12px}
+.home-step p{color:var(--home-slate);font-size:15px;line-height:1.6;margin:0}
+
+.home-featured{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
+.home-photo-block{width:100%;aspect-ratio:4/5;background:linear-gradient(160deg,rgba(15,27,45,.06),rgba(15,27,45,.02)),repeating-linear-gradient(45deg,rgba(15,27,45,.05) 0 2px,transparent 2px 14px);border:1px solid var(--home-hairline);display:flex;align-items:flex-end;position:relative;overflow:hidden}
+.home-featured-info h3{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:30px;margin:0 0 10px}
+.home-featured-info .price{font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;color:var(--home-brass);margin-bottom:24px}
+.home-featured-info p{color:var(--home-slate);font-size:15px;line-height:1.6}
+.home-spec-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;margin:24px 0 32px;padding-top:24px;border-top:1px solid var(--home-hairline)}
+.home-spec-grid div .label{font-family:'General Sans',sans-serif;font-weight:600;font-size:11px;color:var(--home-slate);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px}
+.home-spec-grid div .val{font-size:15px;font-weight:600}
+.home-text-cta{font-family:'General Sans',sans-serif;font-weight:600;font-size:13px;text-decoration:none;color:var(--home-navy);border-bottom:1px solid var(--home-navy);padding-bottom:2px}
+
+.home-guides-list{border-top:1px solid var(--home-hairline)}
+.home-guide-row{display:flex;justify-content:space-between;align-items:center;padding:24px 0;border-bottom:1px solid var(--home-hairline);text-decoration:none;color:var(--home-charcoal)}
+.home-guide-row .g-left{display:flex;align-items:baseline;gap:20px}
+.home-guide-row .g-num{font-family:'General Sans',sans-serif;font-weight:600;font-size:12px;color:var(--home-slate)}
+.home-guide-row h4{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:20px;margin:0}
+.home-guide-row .g-right{font-family:'General Sans',sans-serif;font-weight:600;font-size:12px;color:var(--home-slate);display:flex;align-items:center;gap:8px}
+.home-guide-row:hover .g-right{color:var(--home-brass)}
+
+.home-footer-cta{background:var(--home-ivory);padding:80px 0;text-align:center}
+.home-footer-cta h2{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(30px,4vw,44px);color:var(--home-navy);margin:0 0 28px;letter-spacing:-.01em}
+.home-ticket{position:relative;display:inline-flex;align-items:center;gap:14px;background:var(--home-navy);color:var(--home-ivory);padding:16px 24px 16px 20px;text-decoration:none;font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;clip-path:polygon(0% 0%,100% 0%,100% 100%,0% 100%,0% 62%,3% 62%,3% 58%,0% 58%,0% 46%,3% 46%,3% 42%,0% 42%)}
+.home-ticket:hover{background:var(--home-charcoal)}
+
+/* ── FIND MY CAR — matches the homepage's type system ──
+   Scoped to #page-find so the shared .hero-title/.form-group/.submit-btn
+   etc. rules (also used by Sell My Car and Contact) are untouched. */
+#page-find{font-family:'General Sans',sans-serif}
+#page-find .hero-title,
+#page-find .form-title,
+#page-find h2.display{font-family:'Cabinet Grotesk',sans-serif;font-weight:500}
+#page-find .hero-title strong,
+#page-find h2.display strong{font-weight:700;font-style:normal;color:inherit}
+#page-find h2.display em{font-style:normal;color:inherit;font-weight:700}
+#page-find .eyebrow{font-family:'General Sans',sans-serif;font-weight:600}
+#page-find .form-group label,
+#page-find .ms-step-label{font-family:'General Sans',sans-serif;font-weight:600;letter-spacing:.08em}
+#page-find .form-group input,
+#page-find .form-group select,
+#page-find .form-group textarea,
+#page-find .submit-btn,
+#page-find .ms-back-btn{font-family:'General Sans',sans-serif}
+#page-find .submit-btn,
+#page-find .ms-back-btn{border-radius:8px}
+#page-find .tquote{font-family:'Cabinet Grotesk',sans-serif;font-style:normal;font-weight:400}
+#page-find .tavatar{font-family:'Cabinet Grotesk',sans-serif}
+
+/* ── RECENT MATCHES CARDS ──
+   .rm-card is the teaser (Find My Car) AND the listing-page card — both
+   are deliberately just a photo + name, per the content rules; savings
+   and tags only ever appear one level deeper, on a match's own detail
+   page (in .home-featured-info, alongside the homepage's own "recent
+   match" section, which uses the same .rm-saved/.rm-tags treatment). */
+.rm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;max-width:1100px;margin:0 auto}
+.rm-card{display:block;text-decoration:none;background:var(--white);border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:transform .2s,box-shadow .2s}
+.rm-card:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.08)}
+.rm-photo{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--beige2)}
+.rm-photo-placeholder{display:flex;align-items:center;justify-content:center;color:var(--gray);font-size:.75rem}
+.rm-card h3{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:1.1rem;color:var(--navy);margin:1.1rem 1.25rem .2rem}
+.rm-card .rm-vehicle{font-family:'General Sans',sans-serif;font-size:.78rem;color:var(--gray);margin:0 1.25rem 1.25rem}
+@media(max-width:900px){.rm-grid{grid-template-columns:1fr}}
+
+/* ── RECENT MATCHES PAGE (listing) ── */
+#page-recent-matches{font-family:'General Sans',sans-serif}
+#page-recent-matches .eyebrow{font-family:'General Sans',sans-serif;font-weight:600}
+#page-recent-matches h1{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(2rem,4vw,3rem);line-height:1.15;color:var(--navy);margin-bottom:1rem}
+#page-recent-matches h1 strong{font-weight:700}
+
+/* ── RECENT MATCH DETAIL PAGE — borrows the homepage's "recent match"
+   layout classes (.home-featured/.home-photo-block/.home-featured-info)
+   directly rather than redefining them, so the two stay visually
+   identical without duplicated CSS. .rm-saved/.rm-tags below are the
+   savings-figure + how-we-helped-tags content that replaces the
+   homepage's old listing-price-vs-purchase-price line. */
+#page-recent-match-detail{background:var(--home-ivory);color:var(--home-charcoal);font-family:'General Sans',sans-serif}
+#page-recent-match-detail .home-section-head{border-bottom:1px solid var(--home-hairline)}
+.rmd-photo{width:100%;height:100%;object-fit:cover;display:block}
+.rm-saved{font-family:'Cabinet Grotesk',sans-serif;font-weight:700;font-size:1.9rem;color:var(--home-brass);line-height:1;margin-bottom:1.25rem;display:flex;align-items:baseline;gap:.5rem}
+.rm-saved-label{font-family:'General Sans',sans-serif;font-weight:600;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--home-slate)}
+.rm-tags{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 2rem}
+.rm-tag{font-family:'General Sans',sans-serif;font-weight:600;font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;color:var(--home-navy);background:rgba(15,27,45,.05);border:1px solid var(--home-hairline);border-radius:6px;padding:.4rem .75rem}
+
+/* ── WHITE GLOVE PAGE — matches the homepage's type system ── */
+#page-white-glove{font-family:'General Sans',sans-serif;background:var(--home-ivory);color:var(--home-charcoal)}
+#page-white-glove .eyebrow{font-family:'General Sans',sans-serif;font-weight:600;color:var(--home-brass)}
+#page-white-glove .eyebrow::before,#page-white-glove .eyebrow::after{background:var(--home-brass)}
+#page-white-glove h2.display{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;color:var(--home-navy)}
+#page-white-glove h2.display strong{font-weight:700}
+.wg-h1{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(2rem,4vw,2.9rem);line-height:1.15;color:var(--home-navy);margin:0 0 20px;max-width:820px}
+.wg-h1 strong{font-weight:700}
+.wg-lede{font-size:17px;line-height:1.6;color:var(--home-slate);max-width:620px;margin:0}
+#page-white-glove .home-section-head h2{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;color:var(--home-navy);font-size:clamp(1.4rem,2.5vw,1.9rem)}
+.wg-included-list{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:14px 32px;max-width:820px}
+.wg-included-list li{position:relative;padding-left:26px;font-size:15px;line-height:1.55;color:var(--home-charcoal)}
+.wg-included-list li::before{content:'';position:absolute;left:0;top:8px;width:8px;height:8px;border-radius:50%;background:var(--home-brass)}
+.wg-pricing-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px}
+.wg-price-card{background:#fff;border:1px solid var(--home-hairline);border-radius:8px;padding:32px}
+.wg-price-card-accent{border-color:var(--home-brass);box-shadow:0 1px 0 var(--home-brass) inset}
+.wg-price-tier{font-family:'General Sans',sans-serif;font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--home-slate);margin-bottom:12px}
+.wg-price-amount{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:28px;color:var(--home-navy);margin-bottom:14px;line-height:1.2}
+.wg-price-amount span{display:block;font-family:'General Sans',sans-serif;font-weight:500;font-size:13px;color:var(--home-slate);margin-top:4px}
+.wg-price-desc{font-size:14px;line-height:1.6;color:var(--home-slate);margin:0}
+.wg-billed{font-size:14px;line-height:1.6;color:var(--home-slate);max-width:700px;margin:0}
+.wg-why{font-size:16px;line-height:1.7;color:var(--home-charcoal);max-width:700px;margin:0}
+.wg-cta-btn{display:inline-flex;align-items:center;gap:10px;background:var(--home-brass);color:var(--home-navy);font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;padding:16px 30px;text-decoration:none;border-radius:8px}
+.wg-cta-btn:hover{background:var(--home-brass-light)}
+@media(max-width:760px){.wg-included-list,.wg-pricing-grid{grid-template-columns:1fr}}
+
+/* ── SELL/DEALERS/ADVICE HUBS — new pages built on the homepage's type
+   system directly (no scoping prefix needed; each is its own document
+   now, not a hidden div sharing the page with everything else). ── */
+.hub-h1{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(2.2rem,4.5vw,3.2rem);line-height:1.1;color:var(--home-navy);margin:0 0 20px;max-width:860px}
+.hub-h1 strong{font-weight:700}
+.hub-lede{font-size:18px;line-height:1.65;color:var(--home-slate);max-width:640px;margin:0}
+.brand-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--home-hairline);border:1px solid var(--home-hairline)}
+.brand-tile{background:var(--home-ivory);padding:28px 24px;text-decoration:none;color:var(--home-charcoal);transition:background .2s}
+.brand-tile:hover{background:#fff}
+.brand-tile h3{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:20px;margin:0 0 6px;color:var(--home-navy)}
+.brand-tile p{font-size:13px;color:var(--home-slate);margin:0}
+@media(max-width:800px){.brand-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.brand-grid{grid-template-columns:1fr}}
+
+@media(max-width:800px){
+  .home-featured{grid-template-columns:1fr}
+  .home-steps{grid-template-columns:1fr}
+  .home-reviews-grid{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+  .home-wrap{padding:0 20px}
+  .home-hero{min-height:74vh;align-items:center}
+  .home-hero-content{padding:0 20px}
+}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  :root{--side-pad:1.75rem;--grid-3:1fr;--grid-2:1fr}
+  .nav-links{display:none}
+  .hamburger{display:flex}
+  .hero-find,.hero-sell,.about-hero,.contact-grid,.split{grid-template-columns:1fr}
+  .hero-left{padding:3rem 1.75rem 2rem}
+  .hero-right,.sell-right,.sell-left,.about-img,.about-content-block,.split-content,.contact-left-panel,.contact-right-panel{padding:2.5rem 1.75rem;min-height:auto}
+  .sell-left{min-height:300px}
+  .how-section,.brands-section,.testi-section,.gallery-section,.faq-section,.trust-bar{padding:3.5rem 1.75rem}
+  .how-grid{grid-template-columns:1fr}
+  .testi-grid{grid-template-columns:1fr}
+  .gallery-grid{grid-template-columns:1fr 1fr;grid-template-rows:auto}
+  .gitem:first-child{grid-row:span 1;height:200px}
+  .gitem{height:180px}
+  .about-features{grid-template-columns:1fr;padding:2.5rem 1.75rem}
+  .form-row,.priority-grid{grid-template-columns:1fr}
+  footer{flex-direction:column;gap:1.25rem;text-align:center;padding:1.75rem}
+}
+@media(max-width:480px){
+  .gallery-grid{grid-template-columns:1fr}
+  .gitem:first-child{height:220px}
+  .gitem{height:200px}
+  .hero-title{font-size:2rem}
+  .nav-inner{padding:0 1.25rem}
+}
+
+/* ── NEWSLETTER POPUP ── */
+#nl-overlay{position:fixed;inset:0;z-index:1000;background:rgba(12,28,51,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:1.25rem;opacity:0;visibility:hidden;transition:opacity .35s ease,visibility .35s ease;}
+#nl-overlay.nl-visible{opacity:1;visibility:visible;}
+#nl-card{background:var(--navy);border:1px solid rgba(192,154,91,.25);border-radius:4px;width:100%;max-width:460px;padding:2.5rem 2.5rem 2.25rem;position:relative;transform:translateY(18px);transition:transform .35s ease;box-shadow:0 24px 64px rgba(0,0,0,.45);}
+#nl-overlay.nl-visible #nl-card{transform:translateY(0);}
+#nl-close{position:absolute;top:.9rem;right:1rem;background:none;border:none;cursor:pointer;color:rgba(255,255,255,.4);font-size:1.3rem;line-height:1;transition:color .2s;padding:.25rem;}
+#nl-close:hover{color:var(--gold2);}
+.nl-rule{width:32px;height:1.5px;background:var(--gold);margin-bottom:1.1rem;}
+.nl-eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem;}
+.nl-title{font-family:'Playfair Display',serif;font-size:1.75rem;font-weight:500;color:var(--white);line-height:1.15;margin-bottom:.6rem;}
+.nl-title strong{font-weight:700;font-style:normal;color:inherit;}
+.nl-sub{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.55);line-height:1.7;margin-bottom:1.25rem;}
+.nl-cats{display:flex;flex-wrap:wrap;gap:.45rem;margin-bottom:1.5rem;}
+.nl-cat{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border:1px solid rgba(192,154,91,.28);border-radius:20px;padding:.3rem .85rem;color:rgba(255,255,255,.6);background:rgba(192,154,91,.06);}
+.nl-form{display:flex;gap:.6rem;margin-bottom:.85rem;}
+.nl-input{flex:1;padding:.78rem 1rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:2px;font-family:'Jost',sans-serif;font-size:.85rem;font-weight:300;color:var(--white);outline:none;transition:border-color .2s,background .2s;}
+.nl-input::placeholder{color:rgba(255,255,255,.3);}
+.nl-input:focus{border-color:var(--gold);background:rgba(255,255,255,.1);}
+.nl-btn{white-space:nowrap;padding:.78rem 1.4rem;background:var(--gold);color:var(--navy);border:none;border-radius:2px;cursor:pointer;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transition:background .2s,opacity .2s;flex-shrink:0;}
+.nl-btn:hover{background:var(--gold2);}
+.nl-btn:disabled{opacity:.55;cursor:not-allowed;}
+.nl-micro{font-size:.72rem;font-weight:300;color:rgba(255,255,255,.3);text-align:center;}
+#nl-msg{display:none;text-align:center;font-size:.85rem;font-weight:400;padding:.6rem 0;border-radius:2px;margin-bottom:.75rem;}
+#nl-msg.nl-ok{color:#86efac;}
+#nl-msg.nl-err{color:#fca5a5;}
+@media(max-width:520px){#nl-card{padding:2rem 1.5rem 1.75rem;}.nl-form{flex-direction:column;}.nl-btn{width:100%;}.nl-title{font-size:1.45rem;}}

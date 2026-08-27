@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sell Your Car</title>
+  <meta name="description" content=""/>
+  <link rel="canonical" href="https://theexactmatch.com/sell/"/>
+  <meta property="og:title" content=""/>
+  <meta property="og:description" content=""/>
+  <meta property="og:url" content=""/>
+  <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://api.fontshare.com"/>
+  <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/css/site.css"/>
+</head>
+<body>
+
+<div id="nl-slot"></div>
+<div id="nav-slot"></div>
+<div id="mobile-menu-slot"></div>
+
+<!-- One shared template for all nine brand pages (same pattern as
+     pages/city.html) — server-side substitution of .brand-name and
+     #brand-cta's href per request, see src/index.js. Deliberately no
+     bespoke multi-step form here: maintaining nine near-duplicate forms is
+     worse than one strong CTA into the form that already exists.
+     #brand-cta carries ?make=<Brand> so the sell form can prefill Make on
+     arrival. -->
+<div class="page" id="page-sell-brand">
+  <section class="hero-sell">
+    <div class="sell-left">
+      <div class="sell-left-content">
+        <div class="hero-badge" style="margin-bottom:1.25rem"><span class="dot"></span>100% Free — No Obligation</div>
+        <h1 class="sell-left-title">Sell your <span class="brand-name">Ferrari</span>.<br/><strong>The right way.</strong></h1>
+        <p class="sell-left-sub"><span class="brand-name">Ferrari</span>s deserve more than a generic instant-offer estimate. We send yours to dealers and specialist buyers actively looking for exactly this — real offers, no lowball, no guesswork.</p>
+      </div>
+    </div>
+
+    <div class="sell-right">
+      <div class="sell-form-card" style="text-align:center">
+        <div class="sell-form-title">Start Your <span class="brand-name">Ferrari</span> Sale</div>
+        <div class="sell-form-sub">Same trusted process — just tell us about your <span class="brand-name">Ferrari</span> and we'll take it from there.</div>
+        <a class="sell-submit" id="brand-cta" href="/sellmycar" style="display:block;text-decoration:none">Get My Free Offers</a>
+        <div class="sell-note">Free to submit. No obligation to accept. <strong>Real dealer offers.</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding:5rem var(--side-pad);background:var(--beige)">
+    <div style="max-width:1000px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:3rem">
+        <div class="eyebrow center">Why TheExactMatch</div>
+        <h2 class="display">Selling a <span class="brand-name">Ferrari</span>? <strong>Do it right.</strong></h2>
+      </div>
+      <div style="display:grid;grid-template-columns:var(--grid-3);gap:1.5rem">
+        <div class="feat-box reveal">
+          <div class="feat-icon">🎯</div>
+          <div class="feat-title">Buyers Who Actually Want This Car</div>
+          <div class="feat-desc">Your <span class="brand-name">Ferrari</span> goes to dealers and specialist buyers actively looking for exactly this kind of vehicle — not a generic used-car lot.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🤝</div>
+          <div class="feat-title">Real Offers, Not an Algorithm</div>
+          <div class="feat-desc">No instant-offer lowball. Real people, real numbers — competing offers you can actually compare before you decide.</div>
+        </div>
+        <div class="feat-box reveal">
+          <div class="feat-icon">🔒</div>
+          <div class="feat-title">Handled Privately</div>
+          <div class="feat-desc">Your information goes to vetted dealer partners only — never posted publicly or shared with random buyers.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding:0 var(--side-pad) 3.5rem;background:var(--beige);text-align:center">
+    <p style="font-size:.85rem;font-weight:300;color:var(--gray);margin-bottom:1.25rem">Selling something else?</p>
+    <ul class="brand-crosslinks" style="list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:.6rem 1.25rem;padding:0;max-width:800px;margin:0 auto">
+      <li data-brand="ferrari"><a href="/sell/ferrari" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Ferrari</a></li>
+      <li data-brand="bentley"><a href="/sell/bentley" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Bentley</a></li>
+      <li data-brand="porsche"><a href="/sell/porsche" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Porsche</a></li>
+      <li data-brand="lamborghini"><a href="/sell/lamborghini" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Lamborghini</a></li>
+      <li data-brand="mclaren"><a href="/sell/mclaren" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">McLaren</a></li>
+      <li data-brand="rollsroyce"><a href="/sell/rollsroyce" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Rolls-Royce</a></li>
+      <li data-brand="tesla"><a href="/sell/tesla" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Tesla</a></li>
+      <li data-brand="astonmartin"><a href="/sell/astonmartin" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Aston Martin</a></li>
+      <li data-brand="maserati"><a href="/sell/maserati" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Maserati</a></li>
+    </ul>
+    <p style="margin-top:1.5rem"><a href="/sell/" style="font-size:.82rem;font-weight:600;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">See all brands we buy →</a></p>
+  </section>
+
+  <div id="footer-slot"></div>
+</div>
+
+<script src="/js/site.js"></script>
+</body>
+</html>

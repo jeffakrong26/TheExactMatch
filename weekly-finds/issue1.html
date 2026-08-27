@@ -4,14 +4,16 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Jeff's Recent Finds — Issue No. 1</title>
-<!-- Served straight from disk (the worker only rewrites the SPA views), so
-     these tags live in the file rather than being injected per-route. The
-     canonical must match the sitemap's <loc> exactly — /weeklyfinds still
-     resolves here via a 301, and only one of the two should be indexed. -->
+<!-- Served straight from disk (the worker only rewrites the per-URL pages
+     under pages/), so these tags live in the file rather than being
+     injected per-route. The canonical must match the sitemap's <loc>
+     exactly — the old /weekly-finds/issue-1 path 301s here now. -->
 <meta name="description" content="Six hand-picked vehicles — a Corvette Z06, an Audi RS3, a Lamborghini Urus and a Mercedes-AMG G63 among them, chosen on market trends, rarity and value."/>
-<link rel="canonical" href="https://theexactmatch.com/weekly-finds/issue-1"/>
-<!-- Same site-wide Organization block as index.html's <head> — this file is
-     a standalone document outside the SPA, so it needs its own copy. -->
+<link rel="canonical" href="https://theexactmatch.com/weeklyfinds/issue1"/>
+<!-- Same site-wide Organization block the worker injects into every page
+     under pages/ (see SITEWIDE_SCHEMA in src/index.js) — this file is a
+     standalone document outside that per-URL rewriting, so it needs its
+     own copy. -->
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"The Exact Match","url":"https://theexactmatch.com","sameAs":["https://facebook.com/theexactmatch","https://instagram.com/theexactmatch"]}</script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;0,900;1,400;1,700&family=Jost:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
@@ -673,7 +675,7 @@ body{font-family:'Jost',sans-serif;background:var(--paper);color:var(--ink);over
   </div>
   <div style="width:40px;height:1px;background:rgba(192,154,91,.4);margin:1.25rem auto"></div>
   <div style="font-size:.78rem;font-weight:300;color:rgba(255,255,255,.5);line-height:1.9;max-width:480px;margin:0 auto 1.25rem">
-    Most of this issue is sourced from Austin-area dealers — see our <a href="https://theexactmatch.com/austin" style="color:#D4B47A;text-decoration:none;border-bottom:1px solid rgba(212,180,122,.4)">Austin concierge page</a> if you'd rather have someone find and negotiate your next car for you. Buying one of these yourself? Read our <a href="https://theexactmatch.com/how-to-negotiate-car-price" style="color:#D4B47A;text-decoration:none;border-bottom:1px solid rgba(212,180,122,.4)">negotiation guide</a> first.
+    Most of this issue is sourced from Austin-area dealers — see our <a href="https://theexactmatch.com/austin" style="color:#D4B47A;text-decoration:none;border-bottom:1px solid rgba(212,180,122,.4)">Austin concierge page</a> if you'd rather have someone find and negotiate your next car for you. Buying one of these yourself? Read our <a href="https://theexactmatch.com/advice/howtonegotiatecarprice" style="color:#D4B47A;text-decoration:none;border-bottom:1px solid rgba(212,180,122,.4)">negotiation guide</a> first.
   </div>
   <div style="width:40px;height:1px;background:rgba(192,154,91,.4);margin:1.25rem auto"></div>
   <div class="nf-legal">You're receiving this because you subscribed to Jeff's Recent Finds at TheExactMatch.com. All listings are sourced from public dealer inventory. Prices, availability, and vehicle details are subject to change without notice. Contact information for any listing can be found at the provided dealer links. TheExactMatch.com is not the selling dealer for any vehicle featured in this newsletter.</div>
