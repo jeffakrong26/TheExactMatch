@@ -68,9 +68,10 @@ const VIEWS = [
   {
     path: '/sell-my-car',
     page: 'sell',
-    title: 'Sell My Car — Real Offers, No Dealership Games | TheExactMatch',
+    lastmod: '2026-08-27',
+    title: 'Sell My Car — Multiple Real Offers, Not One Lowball | TheExactMatch',
     description:
-      'Tell us about your vehicle and we send it to our dealer network. Get real offers with no negotiating, no dealership games and no pressure.',
+      "Skip the single instant-offer lowball. We send your car to multiple dealers actively buying your segment and bring back real, competing offers within 24 hours — you choose, or walk away.",
   },
   {
     path: '/how-it-works',
@@ -385,6 +386,16 @@ function recentMatchCardHtml(m, href) {
   return `<a class="rm-card" href="${href}">${photo}<h3>${escapeHtml(m.card_title)}</h3><div class="rm-vehicle">${escapeHtml(m.vehicle)}</div></a>`;
 }
 
+// "Currently Sourcing Buyers For" (Sell My Car) — text-only by design, not a
+// card variant that happens to lack a photo: no seller-identifying info is
+// collected for this block in the first place (dealer-api's public endpoint
+// returns only year/make/model/display_area), so there's nothing to add a
+// photo of even if the visual pattern otherwise matches .rm-card.
+function sourcingBuyerCardHtml(v) {
+  const vehicle = [v.year, v.make, v.model].filter(Boolean).join(' ');
+  return `<div class="sb-card"><h3>${escapeHtml(vehicle)}</h3>${v.display_area ? `<div class="sb-area">${escapeHtml(v.display_area)}</div>` : ''}</div>`;
+}
+
 function renderView(assetResponse, view, injections = {}) {
   const canonical = `${ORIGIN}${view.path}`;
 
@@ -546,6 +557,15 @@ export default {
       });
     }
 
+    // Same client-side-SPA-navigation fallback, same reasoning, for the
+    // Sell My Car page's "Currently Sourcing Buyers For" block.
+    if (pathname === '/api/sourcing-buyers-teaser') {
+      const data = await fetchDealerApiJson(env, '/api/public/sourcing-buyers');
+      return new Response(JSON.stringify({ vehicles: (data?.vehicles || []).slice(0, 3) }), {
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
+
     if (pathname === '/sitemap.xml') {
       const issues = await loadIssues(env, url.origin);
       return new Response(sitemapXml(issues), {
@@ -619,6 +639,15 @@ export default {
       injections.html['#rm-listing-grid'] = matches.length
         ? matches.map(m => recentMatchCardHtml(m, `/recent-matches/${m.slug}`)).join('')
         : `<p style="grid-column:1/-1;text-align:center;color:var(--gray);font-size:.9rem">More matches are on the way — check back soon.</p>`;
+    } else if (view.page === 'sell') {
+      // Real, consented submissions only — never fabricated. Fewer than 3 (or
+      // zero) is an expected, legitimate state, not an error: fall back to a
+      // generic proof-of-activity line rather than padding with anything made up.
+      const data = await fetchDealerApiJson(env, '/api/public/sourcing-buyers');
+      const vehicles = (data?.vehicles || []).slice(0, 3);
+      injections.html['#sb-grid'] = vehicles.length
+        ? vehicles.map(sourcingBuyerCardHtml).join('')
+        : `<div class="sb-fallback">Actively sourcing offers for sellers across Texas.</div>`;
     }
 
     // Pull index.html itself rather than the requested path, which by

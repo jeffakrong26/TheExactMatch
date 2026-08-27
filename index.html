@@ -193,8 +193,12 @@
     .sell-left::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(12,28,51,.85) 0%,rgba(12,28,51,.3) 60%,transparent 100%)}
     .sell-left-content{position:relative;z-index:1}
     .sell-left-title{font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,3rem);font-weight:500;color:var(--white);line-height:1.15;margin-bottom:.75rem}
-    .sell-left-title em{font-style:italic;color:var(--gold2)}
+    .sell-left-title strong{font-weight:700;font-style:normal;color:inherit}
     .sell-left-sub{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.65);line-height:1.75;max-width:380px}
+    .sell-next-strip{margin-top:2rem;padding-top:1.75rem;border-top:1px solid rgba(255,255,255,.15);max-width:380px}
+    .sell-next-eyebrow{font-size:.65rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);margin-bottom:1rem}
+    .sell-next-step{display:flex;align-items:center;gap:.75rem;font-size:.82rem;font-weight:300;color:rgba(255,255,255,.75);margin-bottom:.65rem}
+    .sell-next-num{flex-shrink:0;width:1.6rem;height:1.6rem;border-radius:50%;border:1px solid rgba(212,180,122,.4);color:var(--gold2);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700}
     .sell-right{background:var(--beige2);display:flex;align-items:center;justify-content:center;padding:3rem 3.5rem}
     .sell-form-card{width:100%;max-width:420px}
     .sell-form-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:500;color:var(--navy);margin-bottom:.4rem}
@@ -209,6 +213,21 @@
     .sell-submit:hover{background:var(--navy2)}
     .sell-note{text-align:center;font-size:.72rem;color:var(--gray);margin-top:.75rem}
     .sell-note strong{color:var(--navy)}
+    #page-sell h2.display em,
+    #page-sell h2.display strong{font-style:normal;color:inherit;font-weight:700}
+
+    /* ── CURRENTLY SOURCING BUYERS FOR (Sell My Car) ──
+       Text-only by design — no photo, since no seller-identifying data is
+       collected for this block at all (year/make/model + a human-written
+       area label only). .sb-fallback is a legitimate, expected state, not
+       an error state: fewer than 3 real consented+published submissions
+       means fewer cards, or this generic line — never a filled-in fake. */
+    .sb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;max-width:1100px;margin:0 auto}
+    .sb-card{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:1.75rem;text-align:center}
+    .sb-card h3{font-family:'Playfair Display',serif;font-weight:500;font-size:1.1rem;color:var(--navy);margin:0 0 .3rem}
+    .sb-area{font-size:.78rem;color:var(--gray)}
+    .sb-fallback{grid-column:1/-1;text-align:center;color:var(--gray);font-size:.9rem;padding:1.5rem 0}
+    @media(max-width:900px){.sb-grid{grid-template-columns:1fr}}
 
     /* ── ABOUT PAGE ── */
     .about-hero{min-height:60vh;display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
@@ -1127,35 +1146,30 @@
     <div class="sell-left">
       <div class="sell-left-content">
         <div class="hero-badge" style="margin-bottom:1.25rem"><span class="dot"></span>100% Free — No Obligation</div>
-        <div class="sell-left-title">Get real offers<br/>on your car.<br/><em>Fast & free.</em></div>
-        <p class="sell-left-sub">Tell us about your vehicle. We send it to our dealer network. You get real offers — no negotiating, no dealership games, no pressure.</p>
+        <div class="sell-left-title">Multiple real offers.<br/>Not one <strong>instant lowball.</strong></div>
+        <p class="sell-left-sub">Instant-offer sites give you one number, take it or leave it. We send your car to multiple dealers actively buying that segment and bring back real, competing offers — you pick the best one, or walk away.</p>
+
+        <div class="sell-next-strip">
+          <div class="sell-next-eyebrow">What Happens Next</div>
+          <div class="sell-next-step"><span class="sell-next-num">1</span><span>Submit your vehicle</span></div>
+          <div class="sell-next-step"><span class="sell-next-num">2</span><span>Goes to dealers actively buying that segment</span></div>
+          <div class="sell-next-step"><span class="sell-next-num">3</span><span>Real offers within 24 hours</span></div>
+          <div class="sell-next-step"><span class="sell-next-num">4</span><span>Accept the best one, or walk away</span></div>
+        </div>
       </div>
     </div>
 
     <div class="sell-right">
       <div class="sell-form-card">
-        <div class="sell-form-title">Get Your Offers</div>
-        <div class="sell-form-sub">Fill this out and we'll have dealer offers to you within <strong>24 hours</strong>. Completely free — you're under no obligation to accept anything.</div>
+        <div class="sell-form-title">Get Multiple Offers</div>
+        <div class="sell-form-sub">Fill this out and we'll have real, competing dealer offers to you within <strong>24 hours</strong>. Completely free — you're under no obligation to accept anything.</div>
 
         <div id="sell-form-wrap" class="sell-form">
           <div class="ms-progress"><div class="ms-progress-bar" id="sf-progress-bar" style="width:25%"></div></div>
           <div class="ms-step-label" id="sf-step-label">Step <strong>1</strong> of 4</div>
 
-          <!-- Step 1 — Contact -->
+          <!-- Step 1 — Your vehicle -->
           <div class="ms-step active" data-step="1">
-            <div class="form-row">
-              <div class="form-group"><label>First Name</label><input type="text" placeholder="John" id="sf-fname"/></div>
-              <div class="form-group"><label>Last Name</label><input type="text" placeholder="Smith" id="sf-lname"/></div>
-            </div>
-            <div class="form-group"><label>Email</label><input type="email" placeholder="john@email.com" id="sf-email"/></div>
-            <div class="form-row">
-              <div class="form-group"><label>Phone</label><input type="tel" placeholder="(555) 000-0000" id="sf-phone"/></div>
-              <div class="form-group"><label>ZIP Code</label><input type="text" placeholder="78701" id="sf-zip" maxlength="10"/></div>
-            </div>
-          </div>
-
-          <!-- Step 2 — Your vehicle -->
-          <div class="ms-step" data-step="2">
             <div class="form-row">
               <div class="form-group"><label>Year</label><input type="text" placeholder="2021" id="sf-year"/></div>
               <div class="form-group"><label>Make</label><input type="text" placeholder="Porsche" id="sf-make"/></div>
@@ -1164,14 +1178,12 @@
               <div class="form-group"><label>Model</label><input type="text" placeholder="911 Carrera S" id="sf-model"/></div>
               <div class="form-group"><label>Trim (Optional)</label><input type="text" placeholder="Carrera S" id="sf-trim"/></div>
             </div>
+            <div class="form-group"><label>Mileage</label><input type="text" placeholder="18,500" id="sf-mileage"/></div>
             <div class="form-group">
               <label>VIN (Optional)</label>
               <input type="text" placeholder="17-character VIN" id="sf-vin" maxlength="17" style="text-transform:uppercase"/>
             </div>
-            <div class="form-row">
-              <div class="form-group"><label>Mileage</label><input type="text" placeholder="18,500" id="sf-mileage"/></div>
-              <div class="form-group"><label>Exterior Color</label><input type="text" placeholder="Jet Black" id="sf-color"/></div>
-            </div>
+            <div class="form-group"><label>Exterior Color</label><input type="text" placeholder="Jet Black" id="sf-color"/></div>
             <div class="form-group">
               <label>Title Status <span style="color:var(--gold)">*</span></label>
               <select id="sf-title">
@@ -1197,8 +1209,10 @@
             </div>
           </div>
 
-          <!-- Step 3 — Condition -->
-          <div class="ms-step" data-step="3">
+          <!-- Step 2 — Condition (windshield/tire moved to a post-submission
+               follow-up — see sendSellCarReceivedEmail in dealer-api — since
+               neither changes whether a dealer bids, just added friction here) -->
+          <div class="ms-step" data-step="2">
             <div class="form-group">
               <label>Overall Condition</label>
               <select id="sf-condition">
@@ -1240,26 +1254,10 @@
                 <option>Yes</option><option>No</option>
               </select>
             </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Windshield Condition</label>
-                <select id="sf-windshield">
-                  <option value="">Select...</option>
-                  <option>Perfect</option><option>Minor Chips</option><option>Cracked — Needs Replacement</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Tire Condition</label>
-                <select id="sf-tires">
-                  <option value="">Select...</option>
-                  <option>New</option><option>Good</option><option>Worn</option><option>Needs Replacement</option>
-                </select>
-              </div>
-            </div>
           </div>
 
-          <!-- Step 4 — Final details -->
-          <div class="ms-step" data-step="4">
+          <!-- Step 3 — Final details -->
+          <div class="ms-step" data-step="3">
             <div class="form-group">
               <label>Aftermarket Modifications?</label>
               <select id="sf-mods-yn">
@@ -1291,6 +1289,32 @@
             </div>
           </div>
 
+          <!-- Step 4 — Contact (last: your offers are almost ready) -->
+          <div class="ms-step" data-step="4">
+            <div class="form-group" style="margin-bottom:.3rem"><label>Your Offers Are Almost Ready</label></div>
+            <div style="font-size:.72rem;font-weight:300;color:var(--gray);margin:-.3rem 0 .9rem">Just need to know where to send them.</div>
+            <div class="form-row">
+              <div class="form-group"><label>First Name</label><input type="text" placeholder="John" id="sf-fname"/></div>
+              <div class="form-group"><label>Last Name</label><input type="text" placeholder="Smith" id="sf-lname"/></div>
+            </div>
+            <div class="form-group"><label>Email</label><input type="email" placeholder="john@email.com" id="sf-email"/></div>
+            <div class="form-row">
+              <div class="form-group"><label>Phone</label><input type="tel" placeholder="(555) 000-0000" id="sf-phone"/></div>
+              <div class="form-group"><label>ZIP Code</label><input type="text" placeholder="78701" id="sf-zip" maxlength="10"/></div>
+            </div>
+
+            <div class="form-group">
+              <label>Add Photos (Optional) — Stronger Offers, Faster</label>
+              <input type="file" accept="image/*" multiple id="sf-photos"/>
+              <div style="font-size:.72rem;font-weight:300;color:var(--gray);margin-top:.4rem" id="sf-photos-hint">Up to 6 photos. Skip this and we'll text/email a request for photos afterward — it won't hold up your submission either way.</div>
+            </div>
+
+            <label style="display:flex;align-items:flex-start;gap:.6rem;margin-top:1rem;font-size:.78rem;color:var(--gray);cursor:pointer">
+              <input type="checkbox" id="sf-feature-consent" style="width:auto;margin-top:.2rem"/>
+              <span>You can feature my vehicle (year/make/model and general area only — never my name or contact info) in the "Currently Sourcing" preview on this page while my listing is active.</span>
+            </label>
+          </div>
+
           <div class="ms-nav">
             <button type="button" class="ms-back-btn" id="sf-back-btn" onclick="sfPrevStep()" style="display:none">Back</button>
             <button type="button" class="sell-submit" id="sf-next-btn" onclick="sfNextStep()">Next Step</button>
@@ -1306,6 +1330,23 @@
         <div id="sell-error" style="display:none;margin-top:.75rem;padding:.75rem 1rem;background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.25);border-radius:2px;font-size:.8rem;color:#9B2335;text-align:center;"></div>
       </div>
     </div>
+  </section>
+
+  <!-- Currently Sourcing Buyers For — real, consented submissions only; see
+       #sb-grid's server-side injection in src/index.js. Never hardcoded. -->
+  <section class="gallery-section">
+    <div style="text-align:center;margin-bottom:2.5rem">
+      <div class="eyebrow center">Currently Sourcing</div>
+      <h2 class="display">Buyers we're sourcing for <strong>right now.</strong></h2>
+    </div>
+    <div class="sb-grid" id="sb-grid"></div>
+  </section>
+
+  <!-- Selling something above this flow's range? -->
+  <section style="padding:0 var(--side-pad) 3.5rem;background:var(--beige);text-align:center">
+    <p style="font-size:.85rem;font-weight:300;color:var(--gray)">
+      Selling something higher-value — exotic, collector, ultra-luxury? See our brand-specific sell pages for a more tailored process.
+    </p>
   </section>
 
   <!-- Why sell with us -->
@@ -2695,6 +2736,7 @@ function renderPage(id) {
     });
   }, 50);
   if (id === 'find') loadRecentMatchesTeaser();
+  if (id === 'sell') loadSourcingBuyersTeaser();
 }
 
 // Server-injects the teaser grid's cards only when /find-my-car is the
@@ -2725,6 +2767,28 @@ async function loadRecentMatchesTeaser() {
     if (matches.length) grid.innerHTML = matches.map(recentMatchCardHtmlClient).join('');
   } catch (e) {
     console.error('[recent-matches] teaser fetch failed', e);
+  }
+}
+
+// Same fallback, same reasoning, for Sell My Car's "Currently Sourcing
+// Buyers For" block. Text-only cards — no photo, since none is collected.
+function sourcingBuyerCardHtmlClient(v) {
+  const vehicle = [v.year, v.make, v.model].filter(Boolean).join(' ');
+  return `<div class="sb-card"><h3>${escapeHtmlClient(vehicle)}</h3>${v.display_area ? `<div class="sb-area">${escapeHtmlClient(v.display_area)}</div>` : ''}</div>`;
+}
+async function loadSourcingBuyersTeaser() {
+  const grid = document.getElementById('sb-grid');
+  if (!grid || grid.children.length) return;
+  try {
+    const res = await fetch('/api/sourcing-buyers-teaser');
+    if (!res.ok) return;
+    const data = await res.json();
+    const vehicles = data.vehicles || [];
+    grid.innerHTML = vehicles.length
+      ? vehicles.map(sourcingBuyerCardHtmlClient).join('')
+      : `<div class="sb-fallback">Actively sourcing offers for sellers across Texas.</div>`;
+  } catch (e) {
+    console.error('[sourcing-buyers] teaser fetch failed', e);
   }
 }
 
@@ -2796,7 +2860,13 @@ function toggleFaq(el) {
 const DEALER_API = 'https://theexactmatch-dealer-api.jeffakrong26.workers.dev/api';
 
 // ── Core submit helper ────────────────────────────────────────
-async function submitToApi(btn, endpoint, wrapId, successId, errorId, payload) {
+// onSuccess (optional): called with the parsed response body after the
+// success UI is already showing — for follow-up work (e.g. uploading
+// optional photos using the id this endpoint just returned) that shouldn't
+// delay or risk the submission itself. Errors inside it are the caller's
+// concern to handle quietly; a failure there must never look like the
+// submission failed.
+async function submitToApi(btn, endpoint, wrapId, successId, errorId, payload, onSuccess) {
   // Prevent duplicate submissions
   if (btn.dataset.submitting === 'true') return;
   btn.dataset.submitting = 'true';
@@ -2814,6 +2884,7 @@ async function submitToApi(btn, endpoint, wrapId, successId, errorId, payload) {
     });
 
     if (res.ok) {
+      const data = await res.json().catch(() => ({}));
       // Success
       document.getElementById(wrapId).style.display = 'none';
       document.getElementById(successId).style.display = 'block';
@@ -2821,6 +2892,7 @@ async function submitToApi(btn, endpoint, wrapId, successId, errorId, payload) {
         const err = document.getElementById(errorId);
         if (err) err.style.display = 'none';
       }
+      if (onSuccess) onSuccess(data);
     } else {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || 'Submission failed. Please try again.');
@@ -2992,6 +3064,10 @@ function sfUpdateProgress(){
 
 function sfValidateStep(step){
   if(step === 1){
+    const titleStatus = document.getElementById('sf-title').value;
+    if(!titleStatus){ alert('Please select the title status — it makes a real difference in your offer.'); return false; }
+  }
+  if(step === 4){
     const fname = document.getElementById('sf-fname').value.trim();
     const lname = document.getElementById('sf-lname').value.trim();
     const email = document.getElementById('sf-email').value.trim();
@@ -2999,10 +3075,6 @@ function sfValidateStep(step){
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if(!fname || !lname || !email || !phone){ alert('Please fill out your name, email, and phone to continue.'); return false; }
     if(!re.test(email)){ alert('Please enter a valid email address.'); return false; }
-  }
-  if(step === 2){
-    const titleStatus = document.getElementById('sf-title').value;
-    if(!titleStatus){ alert('Please select the title status — it makes a real difference in your offer.'); return false; }
   }
   return true;
 }
@@ -3060,6 +3132,7 @@ document.addEventListener('DOMContentLoaded', function(){
 // ── Sell My Car submit ────────────────────────────────────────
 function submitSellForm() {
   const btn = document.getElementById('sf-next-btn');
+  const photoFiles = Array.from(document.getElementById('sf-photos').files || []).slice(0, 6);
   submitToApi(btn, '/public/sell-car-lead', 'sell-form-wrap', 'sell-success', 'sell-error', {
     first_name: document.getElementById('sf-fname').value.trim(),
     last_name:  document.getElementById('sf-lname').value.trim(),
@@ -3082,13 +3155,21 @@ function submitSellForm() {
     mechanical_status: document.getElementById('sf-mechanical-status').value,
     mechanical_notes: document.getElementById('sf-mechanical-notes').value.trim(),
     warning_lights: document.getElementById('sf-warning-yn').value,
-    windshield: document.getElementById('sf-windshield').value,
-    tires:      document.getElementById('sf-tires').value,
     modifications: document.getElementById('sf-mods-yn').value,
     modifications_desc: document.getElementById('sf-mods-desc').value.trim(),
     keys:       document.getElementById('sf-keys').value,
     timeline:   document.getElementById('sf-timeline').value,
-    notes:      document.getElementById('sf-notes').value.trim()
+    notes:      document.getElementById('sf-notes').value.trim(),
+    feature_consent: document.getElementById('sf-feature-consent').checked
+  }, function(data){
+    // Best-effort, after the success screen is already showing — a photo
+    // upload failing here must never read as the submission having failed.
+    if (!photoFiles.length || !data.id || !data.photo_token) return;
+    const formData = new FormData();
+    photoFiles.forEach(f => formData.append('photos', f));
+    fetch(`${DEALER_API}/public/sell-car-lead/${data.id}/${data.photo_token}/photos`, {
+      method: 'POST', body: formData
+    }).catch(e => console.error('[sell] quick photo upload failed', e));
   });
 }
 

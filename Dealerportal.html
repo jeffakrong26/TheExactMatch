@@ -2621,6 +2621,7 @@ function openSellLeadDetail(id) {
     ${contactCardHtml({ name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim(), phone: lead.phone, email: lead.email, zip: lead.zip })}
     <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.75rem">Vehicle Details</div>
     ${sellLeadFieldsHtml(lead)}
+    ${sellLeadDetailsFormHtml(lead)}
     ${lead.valuation_status ? `
       <div class="section-label" style="border-bottom:none;padding-bottom:0;margin:1.75rem 0 .75rem">Valuation</div>
       <div id="sell-lead-page-valuation"></div>
@@ -2636,6 +2637,72 @@ function openSellLeadDetail(id) {
 function closeSellLeadDetail() {
   document.getElementById('sell-lead-page').style.display = 'none';
   document.body.style.overflow = '';
+}
+
+// Two things bolted onto one small form, both filled in by admin after the
+// seller's core submission rather than collected up front:
+//  - windshield/tire condition — dropped from the main form (low signal on
+//    whether a dealer bids, high friction); seller replies to the
+//    confirmation email, admin transcribes the answer here.
+//  - "Currently Sourcing Buyers For" (Sell My Car page) publish controls.
+//    feature_consent is read-only here — it's the seller's own checkbox on
+//    the form, never admin-set — and sourcing_status can't go to
+//    'published' without it (enforced again server-side in
+//    adminUpdateSellLeadDetails, not just hidden in this UI).
+function sellLeadDetailsFormHtml(lead) {
+  const consentLine = lead.feature_consent
+    ? `<span style="color:var(--green);font-weight:600">✓ Consented to be featured</span>`
+    : `<span style="color:var(--gray)">Not consented — cannot be shown in Currently Sourcing</span>`;
+  return `
+    <div class="section-label" style="border-bottom:none;padding-bottom:0;margin:1.75rem 0 .75rem">Post-Submission Details</div>
+    <div class="dp-alert dp-alert-err" id="sld-error-${lead.id}"></div>
+    <div class="dp-form-row">
+      <div class="dp-form-group">
+        <label>Windshield Condition</label>
+        <select id="sld-windshield-${lead.id}">
+          <option value="">Not yet known</option>
+          <option ${lead.windshield === 'Perfect' ? 'selected' : ''}>Perfect</option>
+          <option ${lead.windshield === 'Minor Chips' ? 'selected' : ''}>Minor Chips</option>
+          <option ${lead.windshield === 'Cracked — Needs Replacement' ? 'selected' : ''}>Cracked — Needs Replacement</option>
+        </select>
+      </div>
+      <div class="dp-form-group">
+        <label>Tire Condition</label>
+        <select id="sld-tires-${lead.id}">
+          <option value="">Not yet known</option>
+          <option ${lead.tires === 'New' ? 'selected' : ''}>New</option>
+          <option ${lead.tires === 'Good' ? 'selected' : ''}>Good</option>
+          <option ${lead.tires === 'Worn' ? 'selected' : ''}>Worn</option>
+          <option ${lead.tires === 'Needs Replacement' ? 'selected' : ''}>Needs Replacement</option>
+        </select>
+      </div>
+    </div>
+    <div style="font-size:.8rem;margin:.25rem 0 .75rem">${consentLine}</div>
+    <div class="dp-form-row">
+      <div class="dp-form-group"><label>Display Area (e.g. "Austin area") — never the exact zip</label><input type="text" id="sld-area-${lead.id}" value="${escapeHtmlJs(lead.display_area || '')}" placeholder="Austin area" ${lead.feature_consent ? '' : 'disabled'}/></div>
+      <div class="dp-form-group">
+        <label>Currently Sourcing Status</label>
+        <select id="sld-status-${lead.id}" ${lead.feature_consent ? '' : 'disabled'}>
+          <option value="draft" ${lead.sourcing_status !== 'published' ? 'selected' : ''}>Draft (not shown)</option>
+          <option value="published" ${lead.sourcing_status === 'published' ? 'selected' : ''}>Published (live on site)</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn-primary btn-sm" style="width:auto" onclick="saveSellLeadDetails(${lead.id})">Save</button>
+  `;
+}
+
+async function saveSellLeadDetails(id) {
+  const body = {
+    windshield: document.getElementById(`sld-windshield-${id}`).value,
+    tires:      document.getElementById(`sld-tires-${id}`).value,
+    display_area: document.getElementById(`sld-area-${id}`).value.trim(),
+    sourcing_status: document.getElementById(`sld-status-${id}`).value,
+  };
+  const { res, data } = await apiFetch(`/admin/leads/${id}/details`, { method: 'PATCH', body: JSON.stringify(body) })
+    .catch(() => ({ res: { ok: false }, data: { error: 'Connection error. Please try again.' } }));
+  if (!res.ok) { showAlert(`sld-error-${id}`, data.error || 'Failed to save.'); return; }
+  loadAdminLeads(); // refreshes ADMIN_LEADS_CACHE so the field state stays correct if reopened
 }
 
 async function loadAdminLeadValuationDetail(leadId) {

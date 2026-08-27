@@ -3392,12 +3392,23 @@ async function generateValuationNarrative(env, args) {
   return toolUse.input;
 }
 
-function sendSellCarReceivedEmail(env, { first_name, email, token }) {
+// hasQuickPhotos: whether the seller already attached photos at signup
+// (Step 4 of the form, see index.html). Windshield/tire condition was
+// dropped from that same form — real detail, but not worth the friction on
+// the main flow — so this email is also where we ask for it, by reply
+// rather than another structured field (this codebase has no SMS provider
+// wired up yet, so "email/text" per the design brief is email-only for now).
+function sendSellCarReceivedEmail(env, { first_name, email, token, hasQuickPhotos }) {
   const uploadUrl = `https://theexactmatch.com/sell/upload/${token}`;
+  const photoAsk = hasQuickPhotos
+    ? `<p>Thanks for the photos you already sent — a couple more specific angles would help us lock in the most accurate offer.</p>
+       <p><a href="${uploadUrl}">Add the rest of your photos →</a></p>`
+    : `<p>We got your vehicle info and we're already working on it. To get you an accurate offer, we just need a few photos.</p>
+       <p><a href="${uploadUrl}">Upload photos of your vehicle →</a></p>`;
   const html = brandedEmailHtml(`
     <p>Hey ${escapeHtml(first_name)},</p>
-    <p>We got your vehicle info and we're already working on it. To get you an accurate offer, we just need a few photos.</p>
-    <p><a href="${uploadUrl}">Upload photos of your vehicle →</a></p>
+    ${photoAsk}
+    <p>One more thing that helps: what shape are your windshield and tires in? Just reply to this email — perfect, a few minor chips/wear, or needs replacing is plenty.</p>
     <p>It only takes a couple minutes, and it's the last step before we get you real numbers.</p>
     <p>— Jeff</p>
   `);
@@ -3481,7 +3492,10 @@ async function generateValuationForLead(env, leadId, input) {
     JSON.stringify(values.breakdown), values.lowConfidence ? 1 : 0
   ).run();
 
-  await sendSellCarReceivedEmail(env, { first_name: lead.first_name, email: lead.email, token });
+  await sendSellCarReceivedEmail(env, {
+    first_name: lead.first_name, email: lead.email, token,
+    hasQuickPhotos: parseJsonArray(lead.quick_photos).length > 0,
+  });
 
   await notifyCrm(env, '/api/hooks/log-touch', {
     funnel_type: 'sell_my_car', source_lead_id: leadId, type: 'confirmation_email',
@@ -4307,13 +4321,21 @@ async function submitSellCarLead(request, env, params, dealer, token, ctx) {
   const mechanical_status = (body.mechanical_status || '').trim();
   const mechanical_notes  = (body.mechanical_notes || '').trim();
 
+  // Windshield/tire condition moved out of the main form (low-signal on
+  // whether a dealer bids, high friction) — both columns stay, just filled
+  // in later from the seller's reply to sendSellCarReceivedEmail rather
+  // than collected here. photo_token is generated for every lead so the
+  // optional quick-photos upload below (and its public serving route) never
+  // has to key off the sequential id.
+  const photo_token = randomHex(16);
+
   const result = await env.DB.prepare(`
     INSERT INTO sell_my_car_leads (
       first_name, last_name, email, phone, zip, year, make, model, trim, mileage, exterior_color,
       title_status, remaining_balance, payoff_amount, condition, accidents, accidents_count, accidents_damage,
       mechanical_issues, mechanical_desc, warning_lights, windshield, tires, modifications, modifications_desc,
-      keys, timeline, notes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      keys, timeline, notes, feature_consent, photo_token
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     first_name, last_name, email, phone, zip,
     year, make, model, trim,
@@ -4321,8 +4343,9 @@ async function submitSellCarLead(request, env, params, dealer, token, ctx) {
     title_status, body.remaining_balance || '', (body.payoff_amount || '').trim(), body.condition || '',
     body.accidents || '', (body.accidents_count || '').trim(), (body.accidents_damage || '').trim(),
     body.mechanical_issues || '', (body.mechanical_desc || '').trim(), body.warning_lights || '',
-    body.windshield || '', body.tires || '', body.modifications || '', (body.modifications_desc || '').trim(),
-    body.keys || '', body.timeline || '', (body.notes || '').trim()
+    '', '', body.modifications || '', (body.modifications_desc || '').trim(),
+    body.keys || '', body.timeline || '', (body.notes || '').trim(),
+    body.feature_consent ? 1 : 0, photo_token
   ).run();
 
   const leadId = result.meta.last_row_id;
@@ -4357,7 +4380,97 @@ async function submitSellCarLead(request, env, params, dealer, token, ctx) {
     }).catch(err => console.error('CRM lead-created hook failed', leadId, err)));
   }
 
+  return json({ success: true, id: leadId, photo_token });
+}
+
+// ── Sell My Car: optional "quick photos" at signup ──────────────────
+// Separate from the structured valuation_photos slot system (which still
+// runs later via /sell/upload/:token) — this is just whatever 3-6 photos
+// the seller happened to have handy, for a stronger first impression with
+// dealers. Public and keyed by an unguessable per-lead token (not the
+// sequential id) rather than requiring auth, same tradeoff the existing
+// /sell/photos/:token/:slot/:filename route already makes for this category
+// of data.
+const QUICK_PHOTOS_MAX = 6;
+
+async function uploadSellQuickPhotos(request, env, params) {
+  const lead = await env.DB.prepare('SELECT id, quick_photos FROM sell_my_car_leads WHERE id = ? AND photo_token = ?')
+    .bind(+params.id, params.token).first();
+  if (!lead) return json({ error: 'Not found.' }, 404);
+
+  const formData = await request.formData().catch(() => null);
+  const files = formData?.getAll('photos').filter(f => typeof f !== 'string') || [];
+  if (!files.length) return json({ error: 'No photo files provided.' }, 400);
+
+  const existing = parseJsonArray(lead.quick_photos);
+  const room = QUICK_PHOTOS_MAX - existing.length;
+  if (room <= 0) return json({ error: `You can attach up to ${QUICK_PHOTOS_MAX} photos.` }, 400);
+
+  const toUpload = files.slice(0, room);
+  const urls = [];
+  for (const file of toUpload) {
+    const ext = (file.type || 'image/jpeg').split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+    const key = `sell-leads/${lead.id}/${randomHex(8)}.${ext}`;
+    await env.PHOTOS.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'image/jpeg' } });
+    urls.push(`https://theexactmatch.com/sell/quick-photos/${params.token}/${key.split('/').pop()}`);
+  }
+
+  const updated = [...existing, ...urls];
+  await env.DB.prepare('UPDATE sell_my_car_leads SET quick_photos = ? WHERE id = ?').bind(JSON.stringify(updated), lead.id).run();
+
+  return json({ success: true, photos: updated });
+}
+
+async function serveSellQuickPhoto(env, params, method) {
+  const lead = await env.DB.prepare('SELECT id FROM sell_my_car_leads WHERE photo_token = ?').bind(params.token).first();
+  if (!lead) return new Response(method === 'HEAD' ? null : 'Not found', { status: 404 });
+  const key = `sell-leads/${lead.id}/${params.filename}`;
+  const object = method === 'HEAD' ? await env.PHOTOS.head(key) : await env.PHOTOS.get(key);
+  if (!object) return new Response(method === 'HEAD' ? null : 'Not found', { status: 404 });
+  return new Response(method === 'HEAD' ? null : object.body, {
+    headers: { 'Content-Type': object.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'public, max-age=86400' },
+  });
+}
+
+// ── Sell My Car: "Currently Sourcing Buyers For" preview block ──────
+// Publishing requires feature_consent = 1 (set only by the seller's own
+// form checkbox, never by admin) — this endpoint refuses to publish a
+// submission without it, so consent is enforced server-side, not just
+// assumed from the admin UI not offering the option. The public read below
+// returns an explicit field allowlist (year/make/model/display_area only)
+// so no seller-identifying data can leak even if new columns are added
+// to sell_my_car_leads later.
+async function adminUpdateSellLeadDetails(request, env, params) {
+  const lead = await env.DB.prepare('SELECT id, feature_consent FROM sell_my_car_leads WHERE id = ?').bind(+params.id).first();
+  if (!lead) return json({ error: 'Lead not found.' }, 404);
+  const body = await request.json().catch(() => ({}));
+
+  const sets = [];
+  const values = [];
+
+  if (body.windshield !== undefined) { sets.push('windshield = ?'); values.push(String(body.windshield).trim()); }
+  if (body.tires !== undefined) { sets.push('tires = ?'); values.push(String(body.tires).trim()); }
+  if (body.display_area !== undefined) { sets.push('display_area = ?'); values.push(String(body.display_area).trim()); }
+
+  if (body.sourcing_status !== undefined) {
+    const status = body.sourcing_status === 'published' ? 'published' : 'draft';
+    if (status === 'published' && !lead.feature_consent) {
+      return json({ error: 'This seller did not opt in to being featured — cannot publish.' }, 400);
+    }
+    sets.push('sourcing_status = ?'); values.push(status);
+  }
+
+  if (!sets.length) return json({ success: true });
+  values.push(lead.id);
+  await env.DB.prepare(`UPDATE sell_my_car_leads SET ${sets.join(', ')} WHERE id = ?`).bind(...values).run();
   return json({ success: true });
+}
+
+async function publicSourcingBuyers(request, env) {
+  const { results } = await env.DB.prepare(
+    "SELECT year, make, model, display_area FROM sell_my_car_leads WHERE sourcing_status = 'published' AND feature_consent = 1 ORDER BY created_at DESC LIMIT 12"
+  ).all();
+  return json({ vehicles: results });
 }
 
 async function submitContactMessage(request, env) {
@@ -9013,7 +9126,7 @@ Be direct and concise — no hedging filler, no repeating the question back.`;
 // as report vehicle photos, under their own key prefix, and are served
 // from theexactmatch.com/recent-matches/photos/:slug (see the routes list
 // in wrangler.jsonc and the GET dispatch below).
-function parseMatchTags(raw) {
+function parseJsonArray(raw) {
   try {
     const arr = JSON.parse(raw || '[]');
     return Array.isArray(arr) ? arr.filter(t => typeof t === 'string') : [];
@@ -9031,7 +9144,7 @@ function serializeRecentMatch(row) {
     card_title: row.card_title,
     photo_url: row.photo_key ? `https://theexactmatch.com/recent-matches/photos/${row.slug}` : null,
     savings_amount: row.savings_amount,
-    tags: parseMatchTags(row.tags),
+    tags: parseJsonArray(row.tags),
     featured: !!row.featured,
     status: row.status,
     published_at: row.published_at,
@@ -9209,6 +9322,9 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/admin/contact-messages',       handler: adminContactMessages, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/public/find-car-lead',         handler: submitFindCarLead },
   { method: 'POST',  pattern: '/api/public/sell-car-lead',         handler: submitSellCarLead },
+  { method: 'POST',  pattern: '/api/public/sell-car-lead/:id/:token/photos', handler: uploadSellQuickPhotos },
+  { method: 'PATCH', pattern: '/api/admin/leads/:id/details',      handler: adminUpdateSellLeadDetails, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/public/sourcing-buyers',       handler: publicSourcingBuyers },
   { method: 'POST',  pattern: '/api/public/sell/:token/photo/:slot', handler: uploadSellPhoto },
   { method: 'POST',  pattern: '/api/public/sell/:token/complete',    handler: completeSellPhotos },
   { method: 'POST',  pattern: '/api/public/sell/:token/ready',       handler: publicMarkReadyToSell },
@@ -9356,6 +9472,9 @@ export default {
 
       const recentMatchPhotoParams = matchPath('/recent-matches/photos/:slug', url.pathname);
       if (recentMatchPhotoParams) return serveRecentMatchPhoto(env, recentMatchPhotoParams, request.method);
+
+      const sellQuickPhotoParams = matchPath('/sell/quick-photos/:token/:filename', url.pathname);
+      if (sellQuickPhotoParams) return serveSellQuickPhoto(env, sellQuickPhotoParams, request.method);
     }
 
     if (request.method === 'GET') {
