@@ -5083,14 +5083,22 @@ async function publicExpressReportInterest(request, env, params, dealer, token, 
   return json({ success: true, deep_dive_url: deepDiveUrl });
 }
 
-// White Glove fee tiers. Above $200k there's no defined tier yet, so the
-// customer sees "I'll follow up with pricing" instead of a number, and we
-// flag it for Jeff to price manually rather than guessing.
+// White Glove pricing (see /white-glove on the site worker for the
+// customer-facing copy this must stay in sync with): standard vehicles get
+// a flat fee starting at $249; hard-to-find vehicles get a custom quote of
+// 1-5% of the final negotiated price, capped at $7,000. Only the standard
+// tier can be computed here — the hard-to-find percentage is against a
+// price that doesn't exist yet at this point in the flow (negotiation
+// hasn't happened), so there's no number to show honestly. Above the
+// cutoff, this returns null and the confirmation UI falls back to "I'll
+// follow up with pricing" (see the wg-overlay markup below), which is
+// already the correct behavior for a custom quote, not just a stand-in for
+// a missing case.
+const WHITE_GLOVE_STANDARD_FEE = 249;
+const WHITE_GLOVE_STANDARD_CUTOFF = 200000;
 function computeWhiteGloveFee(price) {
   if (price == null) return null;
-  if (price < 50000) return 250;
-  if (price < 100000) return 350;
-  if (price < 200000) return 500;
+  if (price < WHITE_GLOVE_STANDARD_CUTOFF) return WHITE_GLOVE_STANDARD_FEE;
   return null;
 }
 
