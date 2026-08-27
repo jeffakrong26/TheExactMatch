@@ -528,6 +528,24 @@ export default {
       return handleTasksRequest(request, env, url);
     }
 
+    // Same-origin JSON for the client-side fallback in index.html's <script>.
+    // Server-side injection (below) only runs when /find-my-car is the
+    // literal requested URL — a cold load or crawler hit. Most real visits
+    // reach Find My Car via showPage('find'), a client-side swap onto
+    // markup that was baked for whatever OTHER route was actually
+    // requested, so its #rm-teaser-grid ships empty. This endpoint is what
+    // that swap calls to fill it in. (A direct cross-origin call to
+    // dealer-api would work too — CORS is already open there — but routing
+    // it through this worker keeps the DEALER_API binding as the one path
+    // data flows through, same as the server-rendered case.)
+    if (pathname === '/api/recent-matches-teaser') {
+      const data = await fetchDealerApiJson(env, '/api/public/recent-matches');
+      const featured = (data?.matches || []).filter(m => m.featured).slice(0, 3);
+      return new Response(JSON.stringify({ matches: featured }), {
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
+
     if (pathname === '/sitemap.xml') {
       const issues = await loadIssues(env, url.origin);
       return new Response(sitemapXml(issues), {

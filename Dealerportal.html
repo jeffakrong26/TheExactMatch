@@ -1111,7 +1111,10 @@
           <div class="dp-form-group"><label>Card Title <span class="required-mark">*</span></label><input type="text" id="rm-card-title" placeholder="Samantha's CX5" oninput="rmSuggestSlug()"/></div>
           <div class="dp-form-group"><label>URL Slug <span class="required-mark">*</span></label><input type="text" id="rm-slug" placeholder="samantha-cx5"/></div>
         </div>
-        <div class="dp-form-group" style="max-width:220px"><label>Savings Amount ($) <span class="required-mark">*</span></label><input type="number" id="rm-savings" placeholder="6000" min="0"/></div>
+        <div class="dp-form-row">
+          <div class="dp-form-group" style="max-width:220px"><label>Savings Amount ($) <span class="required-mark">*</span></label><input type="number" id="rm-savings" placeholder="6000" min="0"/></div>
+          <div class="dp-form-group"><label>Photo</label><input type="file" accept="image/*" id="rm-photo-file" style="font-size:.8rem"/></div>
+        </div>
 
         <div style="font-size:.63rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gray);margin:1rem 0 .6rem">How We Helped (pick any that apply)</div>
         <div id="rm-tags-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.75rem">
@@ -2908,7 +2911,7 @@ function toggleRecentMatchForm() {
   form.style.display = isHidden ? 'block' : 'none';
   document.getElementById('rm-add-toggle-btn').textContent = isHidden ? 'Cancel' : '+ New Match';
   if (!isHidden) return;
-  ['rm-first-name','rm-vehicle','rm-card-title','rm-slug','rm-savings','rm-transport-from','rm-transport-to'].forEach(id => document.getElementById(id).value = '');
+  ['rm-first-name','rm-vehicle','rm-card-title','rm-slug','rm-savings','rm-photo-file','rm-transport-from','rm-transport-to'].forEach(id => document.getElementById(id).value = '');
   document.querySelectorAll('.rm-tag-box').forEach(cb => cb.checked = false);
   document.getElementById('rm-transport-route').style.display = 'none';
   document.getElementById('rm-featured').checked = false;
@@ -2953,11 +2956,35 @@ async function doCreateRecentMatch() {
     showAlert('rm-add-error', 'First name, vehicle, card title, slug, and savings amount are required.');
     return;
   }
+  const photoFile = document.getElementById('rm-photo-file').files[0] || null;
+
   setLoading('rm-submit-btn', true, 'Saving…');
   const { res, data } = await apiFetch('/admin/recent-matches', { method: 'POST', body: JSON.stringify(body) })
     .catch(() => ({ res: { ok: false }, data: { error: 'Connection error. Please try again.' } }));
+  if (!res.ok) {
+    setLoading('rm-submit-btn', false, null, 'Save Match');
+    showAlert('rm-add-error', data.error || 'Failed to save.');
+    return;
+  }
+
+  // The match now has an id — the photo upload endpoint is keyed on it, so
+  // this has to happen second no matter what, same one Save action either way.
+  if (photoFile) {
+    try {
+      await rmUploadPhotoFile(data.id, photoFile);
+    } catch (e) {
+      // The match record itself did save — leave the form open (rather than
+      // toggleRecentMatchForm(), which would hide this same error along
+      // with it) so the message stays visible, and refresh the list below
+      // so that save is visibly confirmed.
+      setLoading('rm-submit-btn', false, null, 'Save Match');
+      showAlert('rm-add-error', 'Match saved, but the photo failed to upload — add it from the list below.');
+      loadAdminRecentMatches();
+      return;
+    }
+  }
+
   setLoading('rm-submit-btn', false, null, 'Save Match');
-  if (!res.ok) { showAlert('rm-add-error', data.error || 'Failed to save.'); return; }
   toggleRecentMatchForm();
   loadAdminRecentMatches();
 }
@@ -3026,25 +3053,34 @@ async function rmDeleteMatch(id) {
   loadAdminRecentMatches();
 }
 
+// Shared by the create form (one file, uploaded right after the match it
+// belongs to gets an id) and the per-card "Upload/Replace Photo" control on
+// already-saved matches. Throws on failure — callers decide how to surface
+// that, since the create flow needs to say "match saved, but..." rather
+// than a bare "Upload failed."
+async function rmUploadPhotoFile(id, file) {
+  const formData = new FormData();
+  formData.append('photo', file);
+  const res = await fetch(`${API}/admin/recent-matches/${id}/photo`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${authToken}` },
+    body: formData,
+  });
+  if (!res.ok) throw new Error('Upload failed.');
+}
+
 async function rmUploadPhoto(id, btn) {
   const wrap  = btn.closest('.photo-upload-wrap');
   const input = wrap.querySelector('.photo-file-input');
   if (!input.files.length) { alert('Choose a photo file first.'); return; }
-  const formData = new FormData();
-  formData.append('photo', input.files[0]);
   btn.disabled = true; btn.textContent = 'Uploading…';
   try {
-    const res = await fetch(`${API}/admin/recent-matches/${id}/photo`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${authToken}` },
-      body: formData,
-    });
-    btn.disabled = false; btn.textContent = 'Upload Photo';
-    if (res.ok) loadAdminRecentMatches();
-    else alert('Upload failed.');
+    await rmUploadPhotoFile(id, input.files[0]);
+    loadAdminRecentMatches();
   } catch (e) {
-    btn.disabled = false; btn.textContent = 'Upload Photo';
     alert('Upload failed.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Upload Photo';
   }
 }
 

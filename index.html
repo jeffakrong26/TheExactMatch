@@ -604,6 +604,8 @@
       <li><a href="/find-my-car" onclick="return showPage('find')" id="nav-find">Find My Car</a></li>
       <li><a href="/sell-my-car" onclick="return showPage('sell')" id="nav-sell">Sell My Car</a></li>
       <li><a href="/about" onclick="return showPage('about')" id="nav-about">About</a></li>
+      <!-- Mirrors .mobile-menu below — see the comment there on why these
+           two lists have to be kept in sync by hand. -->
       <li class="nav-more" id="nav-more">
         <a href="#" class="nav-more-toggle" onclick="return toggleNavMore()">More</a>
         <ul class="nav-more-menu">
@@ -623,12 +625,19 @@
 </nav>
 
 <!-- Mobile Menu -->
+<!-- Mirrors .nav-more-menu below (the desktop "More" dropdown) — this site
+     has no single shared nav data source (both are static HTML, and this
+     worker's per-request rewriting only swaps title/meta/active-class, not
+     link lists — see src/index.js's header comment on why that rewriting
+     exists at all), so an item added to one and not the other is a real
+     recurring failure mode. Keep both in sync by hand. -->
 <div class="mobile-menu" id="mobile-menu">
   <a href="/" onclick="toggleMenu();return showPage('home')">Home</a>
   <a href="/find-my-car" onclick="toggleMenu();return showPage('find')">Find My Car</a>
   <a href="/sell-my-car" onclick="toggleMenu();return showPage('sell')">Sell My Car</a>
   <a href="/about" onclick="toggleMenu();return showPage('about')">About</a>
   <a href="/how-it-works" onclick="toggleMenu();return showPage('how')">How It Works</a>
+  <a href="/recent-matches">Recent Matches</a>
   <a href="/weekly-finds" onclick="toggleMenu();return showPage('weekly')">Weekly Finds</a>
   <a href="/guides" onclick="toggleMenu();return showPage('guides')">Guides</a>
   <a href="Dealerportal.html">Dealer Portal</a>
@@ -2685,6 +2694,38 @@ function renderPage(id) {
       if (!el.classList.contains('on')) io.observe(el);
     });
   }, 50);
+  if (id === 'find') loadRecentMatchesTeaser();
+}
+
+// Server-injects the teaser grid's cards only when /find-my-car is the
+// literal requested URL (src/index.js) — a cold load or crawler hit. Every
+// showPage('find') call above is a client-side swap onto markup that was
+// shipped for whichever OTHER route the page actually loaded as, so
+// #rm-teaser-grid arrives empty in that case. This backfills it from the
+// same data, once, the first time the find page is shown that way.
+function escapeHtmlClient(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+function recentMatchCardHtmlClient(m) {
+  const photo = m.photo_url
+    ? `<img src="${escapeHtmlClient(m.photo_url)}" alt="${escapeHtmlClient(m.card_title)}" class="rm-photo"/>`
+    : `<div class="rm-photo rm-photo-placeholder"><span>Photo coming soon</span></div>`;
+  return `<a class="rm-card" href="/recent-matches">${photo}<h3>${escapeHtmlClient(m.card_title)}</h3><div class="rm-vehicle">${escapeHtmlClient(m.vehicle)}</div></a>`;
+}
+async function loadRecentMatchesTeaser() {
+  const grid = document.getElementById('rm-teaser-grid');
+  if (!grid || grid.children.length) return; // already server-rendered, or already backfilled
+  try {
+    const res = await fetch('/api/recent-matches-teaser');
+    if (!res.ok) return;
+    const data = await res.json();
+    const matches = data.matches || [];
+    if (matches.length) grid.innerHTML = matches.map(recentMatchCardHtmlClient).join('');
+  } catch (e) {
+    console.error('[recent-matches] teaser fetch failed', e);
+  }
 }
 
 function showPage(id) {
