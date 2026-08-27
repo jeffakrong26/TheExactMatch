@@ -58,6 +58,14 @@ const VIEWS = [
       "Tell us what you want and we'll find it. We search our nationwide dealer network and send you 3 curated options within 24 hours. Free, no obligation.",
   },
   {
+    path: '/recent-matches',
+    page: 'recent-matches',
+    lastmod: '2026-08-26',
+    title: 'Recent Matches — Real Deals We\'ve Closed | TheExactMatch',
+    description:
+      'Real cars we\'ve found, negotiated, and closed for clients — savings, warranties, and what actually happened on each deal.',
+  },
+  {
     path: '/sell-my-car',
     page: 'sell',
     title: 'Sell My Car — Real Offers, No Dealership Games | TheExactMatch',
