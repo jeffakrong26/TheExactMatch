@@ -494,14 +494,17 @@ function sourcingBuyerCardHtml(v) {
 
 // ── Founder card ─────────────────────────────────────────────────────
 // One definition, injected verbatim into every .founder-card-slot in the
-// document — About's hero, and the trust element beside the Find My Car and
-// Sell My Car forms. Editing the photo or the one-line statement here is
-// the only edit needed; it can't drift out of sync between pages because
-// there's only one copy to begin with. No <img> here on purpose — there is
-// no headshot yet, and this is a static, honestly-empty placeholder rather
-// than a stock photo standing in for one.
+// document — the compact trust element beside the Find My Car and Sell My
+// Car forms. (About's hero uses a larger, separately-cropped treatment of
+// the same source photo — see .about-img in index.html — since it has the
+// room for one and a full-body lifestyle shot reads differently at hero
+// size than crammed into a small circle; both pull from the same file,
+// images/jeff-headshot.jpg, so replacing that one file updates both.)
+// Editing the one-line statement here is the only edit needed for that
+// text; it can't drift out of sync between pages because there's only one
+// copy of it to begin with.
 const FOUNDER_CARD_HTML = `<div class="founder-card">
-  <div class="founder-card-photo" role="img" aria-label="Jeff Akrong headshot — not yet available"><span>Photo<br/>Coming Soon</span></div>
+  <img class="founder-card-photo" src="/images/jeff-headshot.jpg" alt="Jeff Akrong"/>
   <div class="founder-card-body">
     <div class="founder-card-name">Jeff Akrong</div>
     <div class="founder-card-line">Dealership insider turned buyer's advocate — ex-Audi, Mercedes-Benz, Aston Martin, Rolls-Royce &amp; Bentley. Now entirely on your side, free.</div>
