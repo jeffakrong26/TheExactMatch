@@ -234,11 +234,13 @@
 
     /* ── ABOUT PAGE ── */
     .about-hero{min-height:60vh;display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
-    .about-img{background:url('https://images.unsplash.com/photo-1555215695-3004980ad54e?w=1200&q=80') center/cover no-repeat;position:relative}
-    .about-img::after{content:'';position:absolute;inset:0;background:rgba(12,28,51,.3)}
-    .about-name-badge{position:absolute;bottom:2rem;left:2rem;z-index:1;background:rgba(12,28,51,.88);border:1px solid rgba(192,154,91,.3);padding:1rem 1.5rem;border-radius:2px}
-    .about-name-badge h3{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:500;color:var(--white);margin-bottom:.2rem}
-    .about-name-badge p{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2)}
+    /* No stock photo standing in for a headshot that doesn't exist yet — this
+       panel just hosts the shared .founder-card-slot (see FOUNDER_CARD_HTML
+       in src/index.js), same as the compact ones beside the Find/Sell forms,
+       so the "reserve space for a headshot" requirement is satisfied in
+       exactly one place rather than needing its own separate photo slot. */
+    .about-img{background:var(--navy);position:relative;display:flex;align-items:center;justify-content:center;padding:3rem;overflow:hidden}
+    .about-img::before{content:'';position:absolute;top:-100px;right:-100px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(192,154,91,.08) 0%,transparent 70%)}
     .about-content-block{padding:5rem 4.5rem;background:var(--beige2);display:flex;flex-direction:column;justify-content:center}
     .about-content-block p{font-size:.9rem;font-weight:300;color:var(--gray);line-height:1.85;margin-top:1.25rem}
     .creds{margin-top:2rem;display:flex;flex-direction:column;gap:.75rem}
@@ -249,6 +251,31 @@
     .feat-icon{font-size:1.5rem;margin-bottom:1rem}
     .feat-title{font-size:.88rem;font-weight:700;color:var(--navy);margin-bottom:.5rem}
     .feat-desc{font-size:.8rem;font-weight:300;color:var(--gray);line-height:1.7}
+
+    /* ── FOUNDER CARD — shared component ──
+       Rendered once (FOUNDER_CARD_HTML in src/index.js) into every
+       .founder-card-slot on the site: About's hero, and beside the Find My
+       Car / Sell My Car forms. Self-contained white card so it reads the
+       same whether the page behind it is light (About, Find) or a dark
+       photo panel (Sell) — see the surrounding pages for placement. */
+    .founder-card{display:flex;gap:1rem;align-items:center;background:var(--white);border:1px solid var(--border);border-radius:8px;padding:1.25rem 1.4rem;max-width:400px;box-shadow:0 10px 28px rgba(0,0,0,.08)}
+    .founder-card-photo{width:76px;height:76px;border-radius:50%;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--beige2);color:var(--gray);font-size:.56rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;text-align:center;line-height:1.35}
+    .founder-card-name{font-family:'Playfair Display',serif;font-weight:600;font-size:.95rem;color:var(--navy);margin-bottom:.2rem}
+    .founder-card-line{font-size:.75rem;font-weight:300;color:var(--gray);line-height:1.55;margin-bottom:.4rem}
+    .founder-card-link{font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--navy);text-decoration:none;border-bottom:1px solid var(--gold)}
+
+    /* ── ABOUT: career history + press ── */
+    .role-block{padding:2rem 0;border-bottom:1px solid var(--border)}
+    .role-block:last-child{border-bottom:none}
+    .role-block.role-lead{padding:2.25rem;background:var(--white);border:1px solid var(--border);border-radius:4px;margin-bottom:1.5rem}
+    .role-header{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap;margin-bottom:.6rem}
+    .role-title{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:500;color:var(--navy)}
+    .role-dates{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
+    .role-company{font-size:.78rem;font-weight:600;color:var(--gray);margin-bottom:.75rem}
+    .role-desc{font-size:.86rem;font-weight:300;color:var(--gray);line-height:1.8}
+    .press-box{background:var(--navy);border-radius:4px;padding:2.5rem;color:var(--white)}
+    .press-box p{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.65);line-height:1.85;margin-bottom:1.25rem}
+    .press-box p:last-child{margin-bottom:0}
 
     /* ── CONTACT PAGE ── */
     .contact-grid{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 64px)}
@@ -841,6 +868,7 @@
         <span>✓</span> Buy or Lease &nbsp;·&nbsp;
         <span>✓</span> Nationwide
       </div>
+      <div class="founder-card-slot" style="margin-top:2rem"></div>
     </div>
 
     <div class="hero-right">
@@ -1159,6 +1187,7 @@
           <div class="sell-next-step"><span class="sell-next-num">3</span><span>Real offers within 24 hours</span></div>
           <div class="sell-next-step"><span class="sell-next-num">4</span><span>Accept the best one, or walk away</span></div>
         </div>
+        <div class="founder-card-slot" style="margin-top:2rem"></div>
       </div>
     </div>
 
@@ -1703,59 +1732,81 @@
 <div class="page" id="page-about">
 
   <section class="about-hero">
-    <div class="about-img" style="position:relative">
-      <img src="https://images.unsplash.com/photo-1555215695-3004980ad54e?w=1200&q=80" style="width:100%;height:100%;object-fit:cover;display:block"/>
-      <div style="position:absolute;inset:0;background:rgba(12,28,51,.3)"></div>
-      <div class="about-name-badge">
-        <h3>Jeff Akrong</h3>
-        <p>Founder · TheExactMatch.com</p>
-      </div>
+    <div class="about-img">
+      <div class="founder-card-slot"></div>
     </div>
     <div class="about-content-block">
       <div class="eyebrow left">About</div>
-      <h2 class="display">Not an algorithm.<br/><em>A person</em> who knows cars.</h2>
-      <p>TheExactMatch isn't a listing aggregator or a bot. It's a real person — with a decade of dealership experience and real relationships — working to connect buyers and sellers with the right vehicles at the right price.</p>
-      <p>Jeff Akrong spent years on the floor at Mercedes-Benz, Audi, and Infiniti. He managed an exotic car rental fleet. He's been buying and selling cars personally since he was 16. He knows this market from every angle — what a great deal looks like, and what a bad one looks like.</p>
-      <div class="creds">
-        <div class="cred">Sales & Leasing Consultant — Mercedes-Benz of South Austin (Swickard Auto Group)</div>
-        <div class="cred">Audi Brand Specialist — Leading Luxury Dealership in Austin, TX</div>
-        <div class="cred">Infiniti Sales Consultant — Georgetown Infiniti (HiTech Motorcars)</div>
-        <div class="cred">Exotic Car Rental Fleet Management</div>
-        <div class="cred">Personal car buyer & reseller since age 16</div>
-      </div>
-      <p style="font-size:.85rem;font-weight:300;color:var(--gray);margin-top:1.5rem">
-        See what that Austin showroom experience means for buyers today on our <a href="/austin" style="color:var(--navy);font-weight:500;border-bottom:1px solid var(--gold);text-decoration:none">Austin concierge page</a> — or read the <a href="/how-it-works" onclick="return showPage('how')" style="color:var(--navy);font-weight:500;border-bottom:1px solid var(--gold);text-decoration:none">full process</a>.
-      </p>
+      <h2 class="display">He used to sell <strong>for</strong> the dealership.<br/>Now he works <strong>for you.</strong></h2>
+      <p style="font-size:.95rem;color:var(--navy);font-weight:400;line-height:1.8">Jeff Akrong spent years on the dealership side of the negotiation — brand-specializing across Audi, Porsche, Aston Martin, Rolls-Royce and Bentley, then on the Mercedes-Benz side at Swickard Automotive. That's the exact playbook dealers use against buyers every day. The Exact Match points it the other way — entirely on the buyer's side, for free.</p>
+      <p>Before any of that, Jeff founded Exclusive Auto Services, managing the fleet for an exotic car rental company — including facilitating fleet vehicle sales and purchases — and working as an online buyer for private-party clients hunting hard-to-find exotics. That's the direct model behind The Exact Match today: sourcing a specific car for a specific person, not selling from a lot.</p>
     </div>
   </section>
 
+  <!-- Career History — Exclusive Auto Services gets the lead/weighted
+       treatment (.role-lead) since it's the direct bridge to the current
+       business, not just another chronological line item. -->
   <section style="padding:5rem var(--side-pad);background:var(--beige)">
-    <div style="max-width:1100px;margin:0 auto">
+    <div style="max-width:800px;margin:0 auto">
       <div style="text-align:center;margin-bottom:3rem">
-        <div class="eyebrow center">Why It Works</div>
-        <h2 class="display">Insider access. <em>On your side.</em></h2>
+        <div class="eyebrow center">Career History</div>
+        <h2 class="display">Real roles. <strong>Real dealerships.</strong></h2>
       </div>
-      <div style="display:grid;grid-template-columns:var(--grid-2);gap:1.5rem">
-        <div class="feat-box reveal">
-          <div class="feat-icon">🧠</div>
-          <div class="feat-title">We Know How Dealers Think</div>
-          <div class="feat-desc">Years on the floor at Mercedes-Benz, Audi, and Infiniti means we know the margins, the incentives, and exactly how to get a buyer or seller the best outcome.</div>
+
+      <div class="role-block role-lead">
+        <div class="role-header">
+          <div class="role-title">Founder, Exclusive Auto Services</div>
+          <div class="role-dates">2018 – 2022</div>
         </div>
-        <div class="feat-box reveal">
-          <div class="feat-icon">🤝</div>
-          <div class="feat-title">Real Dealer Relationships</div>
-          <div class="feat-desc">Warm calls to GSMs and sales directors open doors that cold searches never reach — including off-lot and pre-market inventory most buyers never see.</div>
+        <div class="role-desc">Managed the fleet for an exotic car rental company, including facilitating the sale and purchase of new vehicles for that fleet. Alongside that, worked as an online buyer for private-party clients seeking hard-to-find cars — mostly exotics. That second part is the direct precursor to what The Exact Match does today: sourcing one specific car for one specific person, rather than moving inventory off a lot.</div>
+      </div>
+
+      <div class="role-block">
+        <div class="role-header">
+          <div class="role-title">Brand Specialist</div>
+          <div class="role-dates">2023 – 2024</div>
         </div>
-        <div class="feat-box reveal">
-          <div class="feat-icon">🏎</div>
-          <div class="feat-title">Luxury & Exotic Expertise</div>
-          <div class="feat-desc">Managing an exotic rental fleet and buying cars personally since 16 means we've seen every deal type — and know exactly what a good one looks like.</div>
+        <div class="role-company">HiTech Motorcars</div>
+        <div class="role-desc">Covered the luxury collection: Audi, Porsche, Aston Martin, Rolls-Royce, Bentley.</div>
+      </div>
+
+      <div class="role-block">
+        <div class="role-header">
+          <div class="role-title">Sales Consultant</div>
+          <div class="role-dates">2024 – 2025</div>
         </div>
-        <div class="feat-box reveal">
-          <div class="feat-icon">✦</div>
-          <div class="feat-title">100% Working For You</div>
-          <div class="feat-desc">We don't take money from dealers to favor certain inventory. We match buyers with the right vehicle, and sellers with the right buyer. That's it.</div>
-        </div>
+        <div class="role-company">Swickard Automotive — Mercedes-Benz</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Credentials -->
+  <section style="padding:5rem var(--side-pad);background:var(--beige2)">
+    <div style="max-width:800px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:2.5rem">
+        <div class="eyebrow center">Credentials</div>
+        <h2 class="display">Certified. <strong>Recognized.</strong></h2>
+      </div>
+      <div class="creds" style="margin-top:0">
+        <div class="cred">Certified Brand Ambassador — Audi</div>
+        <div class="cred">Certified Brand Ambassador — Mercedes-Benz</div>
+        <div class="cred">Sales award recipient at Audi</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- For Press — the quotable summary + direct contact, so a journalist or
+       producer can lift what they need without requesting anything further. -->
+  <section style="padding:5rem var(--side-pad);background:var(--beige)">
+    <div style="max-width:800px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:2.5rem">
+        <div class="eyebrow center">For Press</div>
+        <h2 class="display">The <strong>short version.</strong></h2>
+      </div>
+      <div class="press-box">
+        <p><strong style="color:var(--white)">The angle:</strong> Jeff Akrong spent years selling cars for dealerships — Audi, Porsche, Aston Martin, Rolls-Royce and Bentley at HiTech Motorcars, then Mercedes-Benz at Swickard Automotive. Before that, he founded Exclusive Auto Services, managing an exotic rental fleet and buying hard-to-find cars for private clients. The Exact Match takes that same insider playbook and points it entirely at the buyer's side — for free.</p>
+        <p><strong style="color:var(--white)">Credibility markers:</strong> Certified Brand Ambassador (Audi and Mercedes-Benz), Audi sales award recipient, founder of a fleet-management company, brand specialist across five luxury/exotic marques.</p>
+        <p><strong style="color:var(--white)">Media inquiries:</strong> <a href="mailto:info@theexactmatch.com" style="color:var(--gold2)">info@theexactmatch.com</a> or <a href="tel:5126509328" style="color:var(--gold2)">(512) 650-9328</a> — or use the <a href="/contact" onclick="return showPage('contact')" style="color:var(--gold2)">contact form</a> and select "Press / Media inquiry."</p>
       </div>
     </div>
   </section>
@@ -1854,6 +1905,7 @@
             <option>Sell My Car question</option>
             <option>White Glove service inquiry</option>
             <option>Dealer partnership inquiry</option>
+            <option>Press / Media inquiry</option>
             <option>Something else</option>
           </select>
         </div>

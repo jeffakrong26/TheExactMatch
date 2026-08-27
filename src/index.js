@@ -83,9 +83,64 @@ const VIEWS = [
   {
     path: '/about',
     page: 'about',
-    title: 'About Jeff Akrong — A Person Who Knows Cars | TheExactMatch',
+    lastmod: '2026-08-27',
+    title: "About Jeff Akrong — Dealership Insider Turned Buyer's Advocate | TheExactMatch",
     description:
-      'Not an algorithm — a person who knows cars. Jeff Akrong spent years at Mercedes-Benz, Audi and Infiniti and knows this market from every angle.',
+      "Jeff Akrong spent years selling for Audi, Mercedes-Benz, Aston Martin, Rolls-Royce and Bentley. Now he runs The Exact Match — the same insider playbook, entirely on the buyer's side, for free.",
+    // Role-wrapped worksFor (schema.org/Role) rather than plain Organization
+    // entries — it's the documented pattern for qualifying a relationship
+    // with a title and date range, and it's what lets Exclusive Auto
+    // Services read as a distinct "Founder" entry rather than blending in
+    // with the two employee roles that follow it.
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'Person',
+      name: 'Jeff Akrong',
+      alternateName: 'Jeff',
+      jobTitle: 'Founder',
+      url: 'https://theexactmatch.com/about',
+      sameAs: ['https://www.linkedin.com/in/jeffrey-akrong-a80488107'],
+      worksFor: [
+        {
+          '@type': 'Role',
+          roleName: 'Founder',
+          startDate: '2018',
+          endDate: '2022',
+          worksFor: {
+            '@type': 'Organization',
+            name: 'Exclusive Auto Services',
+            description: 'Exotic car rental fleet management, including facilitating fleet vehicle sales and purchases, plus private-party buying for clients seeking hard-to-find exotics.',
+          },
+        },
+        {
+          '@type': 'Role',
+          roleName: 'Brand Specialist',
+          startDate: '2023',
+          endDate: '2024',
+          worksFor: {
+            '@type': 'Organization',
+            name: 'HiTech Motorcars',
+            description: 'Covered the luxury collection: Audi, Porsche, Aston Martin, Rolls-Royce, Bentley.',
+          },
+        },
+        {
+          '@type': 'Role',
+          roleName: 'Sales Consultant',
+          startDate: '2024',
+          endDate: '2025',
+          worksFor: {
+            '@type': 'Organization',
+            name: 'Swickard Automotive',
+            description: 'Mercedes-Benz.',
+          },
+        },
+      ],
+      hasCredential: [
+        { '@type': 'EducationalOccupationalCredential', credentialCategory: 'Certification', name: 'Certified Brand Ambassador — Audi' },
+        { '@type': 'EducationalOccupationalCredential', credentialCategory: 'Certification', name: 'Certified Brand Ambassador — Mercedes-Benz' },
+      ],
+      award: 'Sales award recipient at Audi',
+    },
   },
   {
     path: '/weekly-finds',
@@ -437,6 +492,23 @@ function sourcingBuyerCardHtml(v) {
   return `<div class="sb-card"><h3>${escapeHtml(vehicle)}</h3>${v.display_area ? `<div class="sb-area">${escapeHtml(v.display_area)}</div>` : ''}</div>`;
 }
 
+// ── Founder card ─────────────────────────────────────────────────────
+// One definition, injected verbatim into every .founder-card-slot in the
+// document — About's hero, and the trust element beside the Find My Car and
+// Sell My Car forms. Editing the photo or the one-line statement here is
+// the only edit needed; it can't drift out of sync between pages because
+// there's only one copy to begin with. No <img> here on purpose — there is
+// no headshot yet, and this is a static, honestly-empty placeholder rather
+// than a stock photo standing in for one.
+const FOUNDER_CARD_HTML = `<div class="founder-card">
+  <div class="founder-card-photo" role="img" aria-label="Jeff Akrong headshot — not yet available"><span>Photo<br/>Coming Soon</span></div>
+  <div class="founder-card-body">
+    <div class="founder-card-name">Jeff Akrong</div>
+    <div class="founder-card-line">Dealership insider turned buyer's advocate — ex-Audi, Mercedes-Benz, Aston Martin, Rolls-Royce &amp; Bentley. Now entirely on your side, free.</div>
+    <a class="founder-card-link" href="/about" onclick="return showPage('about')">Meet Jeff &rarr;</a>
+  </div>
+</div>`;
+
 function renderView(assetResponse, view, injections = {}) {
   const canonical = `${ORIGIN}${view.path}`;
 
@@ -508,6 +580,14 @@ function renderView(assetResponse, view, injections = {}) {
       .on('.brand-crosslinks li', {
         element(el) {
           if (view.brand && el.getAttribute('data-brand') === view.brand.slug) el.remove();
+        },
+      })
+      // Same founder card everywhere it appears — About's hero, and beside
+      // the Find My Car / Sell My Car forms — unconditional on view.page
+      // since it's a no-op on any page whose markup has no such slot.
+      .on('.founder-card-slot', {
+        element(el) {
+          el.setInnerContent(FOUNDER_CARD_HTML, { html: true });
         },
       })
       // Route-scoped structured data. `</` is escaped so a future answer
