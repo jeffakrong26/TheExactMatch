@@ -607,7 +607,7 @@
     .nl-rule{width:32px;height:1.5px;background:var(--gold);margin-bottom:1.1rem;}
     .nl-eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem;}
     .nl-title{font-family:'Playfair Display',serif;font-size:1.75rem;font-weight:500;color:var(--white);line-height:1.15;margin-bottom:.6rem;}
-    .nl-title em{font-style:italic;color:var(--gold2);}
+    .nl-title strong{font-weight:700;font-style:normal;color:inherit;}
     .nl-sub{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.55);line-height:1.7;margin-bottom:1.25rem;}
     .nl-cats{display:flex;flex-wrap:wrap;gap:.45rem;margin-bottom:1.5rem;}
     .nl-cat{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border:1px solid rgba(192,154,91,.28);border-radius:20px;padding:.3rem .85rem;color:rgba(255,255,255,.6);background:rgba(192,154,91,.06);}
@@ -632,9 +632,9 @@
   <div id="nl-card">
     <button id="nl-close" aria-label="Close newsletter popup">&times;</button>
     <div class="nl-rule"></div>
-    <div class="nl-eyebrow">Weekly Drops</div>
-    <div class="nl-title" id="nl-title-id">Jeff's <em>Weekly Deals</em></div>
-    <div class="nl-sub">Get hand-picked vehicle opportunities delivered weekly.</div>
+    <div class="nl-eyebrow">Recent Finds</div>
+    <div class="nl-title" id="nl-title-id">Jeff's <strong>Recent Finds</strong></div>
+    <div class="nl-sub">Get hand-picked vehicle opportunities as we spot them — no fixed schedule, just real finds.</div>
     <div class="nl-cats">
       <span class="nl-cat">Luxury</span>
       <span class="nl-cat">Exotic</span>
@@ -644,7 +644,7 @@
     <div id="nl-msg"></div>
     <div class="nl-form">
       <input class="nl-input" id="nl-email" type="email" placeholder="your@email.com" autocomplete="email" aria-label="Email address"/>
-      <button class="nl-btn" id="nl-submit">Get Weekly Deals</button>
+      <button class="nl-btn" id="nl-submit">Get Recent Finds</button>
     </div>
     <div class="nl-micro">No spam. Just real opportunities worth looking at.</div>
   </div>
@@ -666,7 +666,7 @@
         <ul class="nav-more-menu">
           <li><a href="/how-it-works" onclick="return showPage('how')" id="nav-how">How It Works</a></li>
           <li><a href="/recent-matches" id="nav-recent-matches">Recent Matches</a></li>
-          <li><a href="/weekly-finds" onclick="return showPage('weekly')" id="nav-weekly">Weekly Finds</a></li>
+          <li><a href="/weekly-finds" onclick="return showPage('weekly')" id="nav-weekly">Recent Finds</a></li>
           <li><a href="/guides" onclick="return showPage('guides')" id="nav-guides">Guides</a></li>
           <li><a href="Dealerportal.html">Dealer Portal</a></li>
         </ul>
@@ -693,7 +693,7 @@
   <a href="/about" onclick="toggleMenu();return showPage('about')">About</a>
   <a href="/how-it-works" onclick="toggleMenu();return showPage('how')">How It Works</a>
   <a href="/recent-matches">Recent Matches</a>
-  <a href="/weekly-finds" onclick="toggleMenu();return showPage('weekly')">Weekly Finds</a>
+  <a href="/weekly-finds" onclick="toggleMenu();return showPage('weekly')">Recent Finds</a>
   <a href="/guides" onclick="toggleMenu();return showPage('guides')">Guides</a>
   <a href="Dealerportal.html">Dealer Portal</a>
   <a href="/contact" onclick="toggleMenu();return showPage('contact')">Contact</a>
@@ -840,7 +840,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -1155,7 +1155,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -1478,7 +1478,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -1576,7 +1576,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -1602,7 +1602,7 @@
   <!-- Header -->
   <section style="background:var(--navy);padding:5rem var(--side-pad);text-align:center">
     <div class="eyebrow light center">The Process</div>
-    <h2 class="display light" style="margin-bottom:1rem">Simple. Free. <em>Effective.</em></h2>
+    <h2 class="display light" style="margin-bottom:1rem">Simple. <strong>Effective.</strong></h2>
     <p style="font-size:.9rem;font-weight:300;color:rgba(255,255,255,.5);max-width:520px;margin:0 auto;line-height:1.8">Two services. One goal — making your car transaction effortless. Here's exactly how each one works.</p>
   </section>
 
@@ -1681,7 +1681,7 @@
     <div style="max-width:900px;margin:0 auto;text-align:center">
       <div class="eyebrow light center">Premium Option</div>
       <h2 class="display light" style="margin-bottom:1rem">Want us to handle <em>everything?</em></h2>
-      <p style="font-size:.9rem;font-weight:300;color:rgba(255,255,255,.5);line-height:1.8;max-width:560px;margin:0 auto 2.5rem">After you receive your 3 options, you can choose to have Jeff personally negotiate, review paperwork, and coordinate the entire closing on your behalf. White Glove service — a flat fee based on the vehicle value.</p>
+      <p style="margin:0 auto 2.5rem"><a href="/contact" onclick="return showPage('contact')" style="font-size:.9rem;font-weight:600;color:var(--gold2);border-bottom:1px solid rgba(212,180,122,.4);text-decoration:none">Want the whole deal handled? See White Glove →</a></p>
       <div style="display:grid;grid-template-columns:var(--grid-3);gap:1px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);border-radius:3px;overflow:hidden;max-width:700px;margin:0 auto 2.5rem">
         <div style="padding:1.75rem;background:rgba(255,255,255,.04)">
           <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.5rem">Under $50K</div>
@@ -1700,6 +1700,34 @@
     </div>
   </section>
 
+  <!-- FAQ — content here must stay worded identically to the FAQPage jsonLd
+       for this route in src/index.js; mismatched structured data is a
+       manual-action risk, not a boost. -->
+  <section class="faq-section">
+    <div style="text-align:center;margin-bottom:3rem">
+      <div class="eyebrow center">Questions</div>
+      <h2 class="display">Free vs. paid, <strong>straight answers.</strong></h2>
+    </div>
+    <div class="faq-wrap">
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">What's actually free, and what isn't? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">Search and matching are free, always — the form, the search, and your 3 curated options cost nothing, whether you're buying or selling. White Glove — Jeff personally negotiating, handling paperwork, and coordinating the closing — is a separate, optional paid tier with a flat fee based on the vehicle's value.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Do I have to use White Glove? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">No. Once you have your 3 matched options (or your offers, if you're selling), you're free to contact the dealer directly and handle negotiation and closing yourself at no cost. White Glove is there if you'd rather Jeff handle that part — it's never required.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">What if none of my 3 options are right? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">Tell us what missed and why — too far off budget, wrong trim, wrong condition — and we go back to the network with that in mind. There's no charge to keep searching, and no limit on how many rounds it takes to get it right.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Is Find My Car priced differently than Sell My Car? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">No — both work the same way. Search and matching are free on both sides; White Glove is available on both if you want the full deal handled, priced the same flat-fee-by-vehicle-value either way.</div>
+      </div>
+    </div>
+  </section>
+
   <section style="padding:0 var(--side-pad) 3.5rem;background:var(--navy);text-align:center">
     <p style="font-size:.85rem;font-weight:300;color:rgba(255,255,255,.5)">
       Prefer to handle it yourself? Read our <a href="/how-to-negotiate-car-price" onclick="return showPage('guide-negotiate')" style="color:var(--gold2);font-weight:500;border-bottom:1px solid rgba(212,180,122,.4);text-decoration:none">guide to negotiating a car price</a>.
@@ -1713,7 +1741,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -1846,7 +1874,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -1944,7 +1972,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -1971,9 +1999,9 @@
   <!-- Hero -->
   <section style="background:var(--navy);padding:5rem var(--side-pad) 4rem;text-align:center">
     <div class="eyebrow light center">Free Newsletter</div>
-    <h2 class="display light" style="margin-bottom:1rem">Jeff's <em>Weekly Deals</em></h2>
+    <h2 class="display light" style="margin-bottom:1rem">Jeff's <strong>Recent Finds</strong></h2>
     <p style="font-size:.95rem;font-weight:300;color:rgba(255,255,255,.55);max-width:520px;margin:0 auto 0;line-height:1.8">
-      Hand-picked vehicles delivered to your inbox every week — luxury, exotic, trucks, and hidden gems under $50K. No fluff. Just real opportunities worth looking at.
+      Hand-picked vehicles delivered to your inbox as we find them — luxury, exotic, trucks, and hidden gems under $50K. No fluff. Just real opportunities worth looking at.
     </p>
   </section>
 
@@ -1989,8 +2017,8 @@
     <!-- Signup card -->
     <div style="background:rgba(255,255,255,.04);border:1px solid rgba(192,154,91,.22);border-radius:4px;max-width:480px;margin:0 auto;padding:2.5rem 2.5rem 2.25rem">
       <div id="wf-form-wrap">
-        <div style="font-family:'Playfair Display',serif;font-size:1.35rem;font-weight:500;color:var(--white);margin-bottom:.4rem">Get Weekly Deals</div>
-        <div style="font-size:.82rem;font-weight:300;color:rgba(255,255,255,.45);margin-bottom:1.5rem;line-height:1.65">Drop your email — new finds every week, straight to your inbox.</div>
+        <div style="font-family:'Playfair Display',serif;font-size:1.35rem;font-weight:500;color:var(--white);margin-bottom:.4rem">Get Recent Finds</div>
+        <div style="font-size:.82rem;font-weight:300;color:rgba(255,255,255,.45);margin-bottom:1.5rem;line-height:1.65">Drop your email — new finds as we spot them, straight to your inbox.</div>
         <div id="wf-msg" style="display:none;text-align:center;font-size:.85rem;font-weight:400;padding:.6rem 0;margin-bottom:.75rem;border-radius:2px"></div>
         <div style="display:flex;gap:.6rem;margin-bottom:.75rem">
           <input id="wf-email" type="email" placeholder="your@email.com" autocomplete="email"
@@ -2005,23 +2033,24 @@
       <div id="wf-success" style="display:none;text-align:center;padding:1rem 0">
         <div style="font-size:1.8rem;color:var(--gold);margin-bottom:.75rem">✦</div>
         <div style="font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:500;color:var(--white);margin-bottom:.5rem">You're in.</div>
-        <div style="font-size:.85rem;font-weight:300;color:rgba(255,255,255,.5);line-height:1.7">Watch your inbox for Jeff's Weekly Deals.</div>
+        <div style="font-size:.85rem;font-weight:300;color:rgba(255,255,255,.5);line-height:1.7">Watch your inbox for Jeff's Recent Finds.</div>
       </div>
-     <div class="newsletter-feature" style="background: rgba(255,255,255,0.05); padding: 24px; border-radius: 12px; margin-top: 20px;">
-    <h3 style="color: #ffffff; margin-bottom: 12px;">
-         Weekly Finds Issue #1 Now Live
+     <div class="newsletter-feature" style="background:rgba(255,255,255,.05);padding:24px;border-radius:4px;margin-top:20px">
+    <h3 style="color:var(--white);margin-bottom:12px">
+         Latest Issue — No. 1
     </h3>
 
-    <p style="color: #ffffff; line-height: 1.6; margin-bottom: 20px;">
-        This week's featured vehicles include a rare 2023 Audi A6 Allroad Prestige,
+    <p style="color:rgba(255,255,255,.65);line-height:1.6;margin-bottom:8px">
+        Featured vehicles include a rare 2023 Audi A6 Allroad Prestige,
         the all-new 2026 Audi RS3, a low-mileage BMW X5, the incredible Corvette Z06,
         a Lamborghini Urus, and a Mercedes-AMG G63. Each vehicle was selected based on
         current market trends, rarity, value, and enthusiast appeal.
     </p>
+    <p style="color:rgba(255,255,255,.4);font-size:.75rem;margin-bottom:20px">Last updated July 9, 2026</p>
 
     <a href="/weekly-finds/issue-1"
-       style="display:inline-block; background:#D4AF37; color:#000000; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:700;">
-        Read Issue #1 →
+       style="display:inline-block;background:var(--gold);color:var(--navy);padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:700">
+        Read Issue No. 1 →
     </a>
 </div>
     </div>
@@ -2032,13 +2061,13 @@
     <div style="max-width:1000px;margin:0 auto">
       <div style="text-align:center;margin-bottom:3rem">
         <div class="eyebrow center">What to Expect</div>
-        <h2 class="display">Real deals. <em>Every week.</em></h2>
+        <h2 class="display">Real deals. <strong>Worth the wait.</strong></h2>
       </div>
       <div style="display:grid;grid-template-columns:var(--grid-3);gap:1.5rem">
         <div style="padding:2rem;background:var(--white);border:1px solid var(--border);border-radius:3px" class="reveal">
           <div style="font-size:1.5rem;margin-bottom:1rem">🔍</div>
           <div style="font-size:.88rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">Hand-Picked by Jeff</div>
-          <div style="font-size:.8rem;font-weight:300;color:var(--gray);line-height:1.7">Every vehicle in the weekly drop is personally selected. Not an algorithm — a real person with 10+ years in the luxury market.</div>
+          <div style="font-size:.8rem;font-weight:300;color:var(--gray);line-height:1.7">Every vehicle is personally selected — not an algorithm, a real person who's spent years on the dealership side of this market.</div>
         </div>
         <div style="padding:2rem;background:var(--white);border:1px solid var(--border);border-radius:3px" class="reveal">
           <div style="font-size:1.5rem;margin-bottom:1rem">💰</div>
@@ -2078,7 +2107,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -2114,10 +2143,10 @@
 
   <!-- Hero -->
   <section style="background:var(--navy);padding:5rem var(--side-pad) 4rem;text-align:center">
-    <div class="eyebrow light center"><span class="city-name">Austin</span>, Texas</div>
-    <h1 class="display light" style="font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,2.9rem);font-weight:500;line-height:1.15;margin-bottom:1.25rem"><span class="city-possessive">Austin's</span> <em>Car Buying Concierge</em></h1>
+    <div class="eyebrow light center">Based in <span class="city-name">Austin</span>, Texas</div>
+    <h1 class="display light" style="font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,2.9rem);font-weight:500;line-height:1.15;margin-bottom:1.25rem">Based in <span class="city-name">Austin</span>.<br/><strong>Serving all 50 states.</strong></h1>
     <p style="font-size:.95rem;font-weight:300;color:rgba(255,255,255,.55);max-width:640px;margin:0 auto 2rem;line-height:1.8">
-      The Exact Match brings car buying concierge service to <span class="city-name">Austin</span>. Tell us what you're looking for — make, model, budget, timeline — and we go find it. We work across dealer and private-party listings throughout Texas, negotiate on your behalf, and handle the paperwork. You never set foot on a lot unless you want to.
+      The Exact Match is based in <span class="city-name">Austin</span> — and <a href="/find-my-car" onclick="return showPage('find')" style="color:var(--gold2);text-decoration:none;border-bottom:1px solid rgba(212,180,122,.4)">Find My Car</a> works the same way nationwide. Tell us what you're looking for — make, model, budget, timeline — and we go find it, negotiate it, and handle the paperwork, wherever the car actually is. Being local to Texas just means we know this market a little better than most.
     </p>
     <button class="submit-btn" style="width:auto;padding:.85rem 2.5rem" onclick="showPage('find')">Find My Car — Free</button>
   </section>
@@ -2137,8 +2166,8 @@
         </div>
         <div>
           <div class="how-num">02</div>
-          <div class="how-title">We Search Across Texas</div>
-          <div class="how-desc">Dealer inventory and private-party listings statewide — including cars not yet listed publicly.</div>
+          <div class="how-title">We Search Nationwide</div>
+          <div class="how-desc">Dealer inventory and private-party listings across all 50 states — including cars not yet listed publicly. Being based in Texas means especially deep reach right here.</div>
         </div>
         <div>
           <div class="how-num">03</div>
@@ -2203,7 +2232,7 @@
   <section style="padding:4rem var(--side-pad);background:var(--white);text-align:center">
     <div style="max-width:760px;margin:0 auto">
       <div class="eyebrow center">Also Serving</div>
-      <h2 class="display" style="font-size:clamp(1.4rem,2.2vw,1.8rem);margin-bottom:1.75rem">Concierge service <em>across Texas.</em></h2>
+      <h2 class="display" style="font-size:clamp(1.4rem,2.2vw,1.8rem);margin-bottom:1.75rem">Deep roots <strong>across Texas.</strong></h2>
       <ul class="city-crosslinks" style="list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:.75rem 1.5rem;padding:0">
         <li data-city="austin"><a href="/austin" style="font-size:.85rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Austin</a></li>
         <li data-city="houston"><a href="/houston" style="font-size:.85rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Houston</a></li>
@@ -2237,7 +2266,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -2388,7 +2417,7 @@
   <!-- Closing CTA -->
   <section style="padding:4rem var(--side-pad);background:var(--navy);text-align:center">
     <div class="eyebrow light center">Or, Skip All Of This</div>
-    <h2 class="display light" style="margin-bottom:1rem">Or skip the negotiation <em>entirely.</em></h2>
+    <h2 class="display light" style="margin-bottom:1rem">Or skip the negotiation <strong>entirely.</strong></h2>
     <p style="font-size:.9rem;font-weight:300;color:rgba(255,255,255,.55);max-width:520px;margin:0 auto 2rem;line-height:1.8">
       This is exactly what we do for every Exact Match client — we find the car, negotiate the out-the-door price, and handle the paperwork, so none of the above is something you personally have to pull off.
     </p>
@@ -2396,10 +2425,20 @@
       <button class="submit-btn" style="width:auto;padding:.85rem 2.5rem" onclick="showPage('find')">Find My Car — Free</button>
     </div>
     <p style="font-size:.82rem;font-weight:300;color:rgba(255,255,255,.4)">
-      In the Austin area? See how it works on our <a href="/austin" style="color:var(--gold2);border-bottom:1px solid rgba(212,180,122,.4);text-decoration:none">Austin concierge page</a> — or read the <a href="/how-it-works" onclick="return showPage('how')" style="color:var(--gold2);border-bottom:1px solid rgba(212,180,122,.4);text-decoration:none">full process</a>.
+      In the Austin area? See how it works on our <a href="/austin" style="color:var(--gold2);border-bottom:1px solid rgba(212,180,122,.4);text-decoration:none">Austin page</a> — or read the <a href="/how-it-works" onclick="return showPage('how')" style="color:var(--gold2);border-bottom:1px solid rgba(212,180,122,.4);text-decoration:none">full process</a>.
     </p>
     <p style="font-size:.82rem;font-weight:300;color:rgba(255,255,255,.4);margin-top:.6rem">
       Already know the car you want? Read one of our <a href="/guides" onclick="return showPage('guides')" style="color:var(--gold2);border-bottom:1px solid rgba(212,180,122,.4);text-decoration:none">model buying guides</a> before you negotiate.
+    </p>
+    <p style="font-size:.82rem;font-weight:300;color:rgba(255,255,255,.4);margin-top:.6rem">
+      On the other side of a deal? <a href="/sell-my-car" onclick="return showPage('sell')" style="color:var(--gold2);border-bottom:1px solid rgba(212,180,122,.4);text-decoration:none">Sell your car to our dealer network</a> instead and skip the negotiating altogether.
+    </p>
+  </section>
+
+  <!-- Author byline — links to About per the site's authorship convention. -->
+  <section style="padding:3rem var(--side-pad);background:var(--beige);text-align:center">
+    <p style="font-size:.8rem;font-weight:300;color:var(--gray)">
+      Written by <a href="/about" onclick="return showPage('about')" style="color:var(--navy);font-weight:600;border-bottom:1px solid var(--gold);text-decoration:none">Jeff Akrong</a> — dealership insider turned buyer's advocate.
     </p>
   </section>
 
@@ -2410,7 +2449,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -2488,7 +2527,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -2720,7 +2759,7 @@
   <!-- Closing CTA -->
   <section style="padding:4rem var(--side-pad);background:var(--navy);text-align:center">
     <div class="eyebrow light center">Or, Skip The Search Entirely</div>
-    <h2 class="display light" style="margin-bottom:1rem">Let us find <em>your R8.</em></h2>
+    <h2 class="display light" style="margin-bottom:1rem">Let us find <strong>your R8.</strong></h2>
     <p style="font-size:.9rem;font-weight:300;color:rgba(255,255,255,.55);max-width:520px;margin:0 auto 2rem;line-height:1.8">
       Know the trim, generation, and gearbox you want? Tell us and we'll go find the right one in our dealer network — negotiated, inspected, and delivered.
     </p>
@@ -2728,7 +2767,17 @@
       <button class="submit-btn" style="width:auto;padding:.85rem 2.5rem" onclick="showPage('find')">Find My Car — Free</button>
     </div>
     <p style="font-size:.82rem;font-weight:300;color:rgba(255,255,255,.4)">
+      Already own one and thinking about selling? <a href="/sell-my-car" onclick="return showPage('sell')" style="color:var(--gold2);border-bottom:1px solid rgba(212,180,122,.4);text-decoration:none">Sell your car to our dealer network</a> instead — real offers, no listing games.
+    </p>
+    <p style="font-size:.82rem;font-weight:300;color:rgba(255,255,255,.4);margin-top:.5rem">
       Browse <a href="/guides" onclick="return showPage('guides')" style="color:var(--gold2);border-bottom:1px solid rgba(212,180,122,.4);text-decoration:none">more model guides</a> — or read our <a href="/how-to-negotiate-car-price" onclick="return showPage('guide-negotiate')" style="color:var(--gold2);border-bottom:1px solid rgba(212,180,122,.4);text-decoration:none">negotiation guide</a> before you make an offer.
+    </p>
+  </section>
+
+  <!-- Author byline — links to About per the site's authorship convention. -->
+  <section style="padding:0 var(--side-pad) 3rem;background:var(--beige);text-align:center">
+    <p style="font-size:.8rem;font-weight:300;color:var(--gray)">
+      Written by <a href="/about" onclick="return showPage('about')" style="color:var(--navy);font-weight:600;border-bottom:1px solid var(--gold);text-decoration:none">Jeff Akrong</a> — dealership insider turned buyer's advocate, ex-Audi brand specialist.
     </p>
   </section>
 
@@ -2739,7 +2788,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -2785,7 +2834,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -2844,7 +2893,7 @@
       <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
       <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
       <li><a href="/about" onclick="return showPage('about')">About</a></li>
-      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
       <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
       <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
     </ul>
@@ -3460,7 +3509,7 @@ async function submitWeeklyForm(){
       const data = await res.json().catch(()=>({}));
 
       if(res.ok){
-        showMsg("You’re in. Watch your inbox for Jeff’s Weekly Deals.",'ok');
+        showMsg("You’re in. Watch your inbox for Jeff’s Recent Finds.",'ok');
         localStorage.setItem(STORAGE_SUBBED,'1');
         emailEl.style.display = 'none';
         btn.style.display     = 'none';
@@ -3468,12 +3517,12 @@ async function submitWeeklyForm(){
       } else {
         showMsg(data.error || 'Something went wrong. Please try again.','err');
         btn.disabled    = false;
-        btn.textContent = 'Get Weekly Deals';
+        btn.textContent = 'Get Recent Finds';
       }
     } catch(e){
       showMsg('Something went wrong. Please try again.','err');
       btn.disabled    = false;
-      btn.textContent = 'Get Weekly Deals';
+      btn.textContent = 'Get Recent Finds';
     }
   }
 

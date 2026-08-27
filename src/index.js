@@ -76,9 +76,51 @@ const VIEWS = [
   {
     path: '/how-it-works',
     page: 'how',
+    lastmod: '2026-08-27',
     title: 'How It Works — Find My Car & Sell My Car | TheExactMatch',
     description:
       "Two services, one goal — making your car transaction effortless. Here's exactly how Find My Car and Sell My Car work, step by step.",
+    // Worded identically to the on-page FAQ — see #page-how in index.html.
+    // Keep both in sync; mismatched structured data is a manual-action
+    // risk, not a boost.
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: "What's actually free, and what isn't?",
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "Search and matching are free, always — the form, the search, and your 3 curated options cost nothing, whether you're buying or selling. White Glove — Jeff personally negotiating, handling paperwork, and coordinating the closing — is a separate, optional paid tier with a flat fee based on the vehicle's value.",
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Do I have to use White Glove?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "No. Once you have your 3 matched options (or your offers, if you're selling), you're free to contact the dealer directly and handle negotiation and closing yourself at no cost. White Glove is there if you'd rather Jeff handle that part — it's never required.",
+          },
+        },
+        {
+          '@type': 'Question',
+          name: "What if none of my 3 options are right?",
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "Tell us what missed and why — too far off budget, wrong trim, wrong condition — and we go back to the network with that in mind. There's no charge to keep searching, and no limit on how many rounds it takes to get it right.",
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Is Find My Car priced differently than Sell My Car?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'No — both work the same way. Search and matching are free on both sides; White Glove is available on both if you want the full deal handled, priced the same flat-fee-by-vehicle-value either way.',
+          },
+        },
+      ],
+    },
   },
   {
     path: '/about',
@@ -143,11 +185,17 @@ const VIEWS = [
     },
   },
   {
+    // Renamed Weekly Finds -> Recent Finds on 2026-08-27: the page (and this
+    // title/description) promised a weekly cadence the actual publishing
+    // rate never matched. URL and page id are untouched — renaming those
+    // too would mean a redirect and losing whatever this path's already
+    // earned, for a branding fix that doesn't need it.
     path: '/weekly-finds',
     page: 'weekly',
-    title: "Jeff's Weekly Deals — Free Car Newsletter | TheExactMatch",
+    lastmod: '2026-08-27',
+    title: "Jeff's Recent Finds — Free Car Newsletter | TheExactMatch",
     description:
-      'Hand-picked vehicles delivered to your inbox every week — luxury, exotic, trucks and hidden gems under $50K. No fluff, just real opportunities.',
+      'Hand-picked vehicles delivered to your inbox as we find them — luxury, exotic, trucks and hidden gems under $50K. No fluff, just real opportunities.',
   },
   {
     path: '/contact',
@@ -168,6 +216,17 @@ const VIEWS = [
     // manual-action risk, not a boost.
     jsonLd: {
       '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Article',
+          headline: 'How to Negotiate a Car Price: The Complete Guide',
+          author: { '@type': 'Person', name: 'Jeff Akrong', url: `${ORIGIN}/about` },
+          publisher: { '@type': 'Organization', name: 'The Exact Match', url: ORIGIN },
+          datePublished: '2026-07-31',
+          dateModified: '2026-07-31',
+          mainEntityOfPage: `${ORIGIN}/how-to-negotiate-car-price`,
+        },
+        {
       '@type': 'FAQPage',
       mainEntity: [
         {
@@ -203,6 +262,8 @@ const VIEWS = [
           },
         },
       ],
+        },
+      ],
     },
   },
   {
@@ -225,6 +286,17 @@ const VIEWS = [
     // manual-action risk, not a boost.
     jsonLd: {
       '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Article',
+          headline: 'Audi R8 Buying Guide: All Trims & Pricing Trends',
+          author: { '@type': 'Person', name: 'Jeff Akrong', url: `${ORIGIN}/about` },
+          publisher: { '@type': 'Organization', name: 'The Exact Match', url: ORIGIN },
+          datePublished: '2026-08-23',
+          dateModified: '2026-08-23',
+          mainEntityOfPage: `${ORIGIN}/guides/audi-r8`,
+        },
+        {
       '@type': 'FAQPage',
       mainEntity: [
         {
@@ -258,6 +330,8 @@ const VIEWS = [
             '@type': 'Answer',
             text: "It depends what you're optimizing for. Gen 1 (2008–2015) is the only place to find a manual, has a more analog driving character, and is generally the cheaper way into ownership. Gen 2 (2017–2023) is quicker across the board, with a sharper chassis and modern interior tech, but it's S tronic only — there's no manual Gen 2 R8. If the manual gearbox matters to you, that decision is effectively made for you.",
           },
+        },
+      ],
         },
       ],
     },
@@ -305,19 +379,43 @@ for (const city of CITIES) {
     page: 'city',
     city,
     lastmod: CITY_LASTMOD,
-    title: `Car Buying Concierge in ${city.name}, TX | The Exact Match`,
-    description: `Tell us what you want. We find it, negotiate it, and deliver it — anywhere in ${city.name}. The Exact Match handles your entire car search.`,
+    // "Car Buying Concierge" dropped from the title (and the on-page H1) —
+    // that positioning belongs to the nationwide Find My Car page now; city
+    // pages are Texas-market depth, not a competing claim to the same phrase.
+    title: `Buy a Car in ${city.name}, TX — Nationwide Reach | The Exact Match`,
+    description: `Based in ${city.name}, serving all 50 states. Tell us what you want and we find it, negotiate it, and handle the paperwork — with especially deep reach right here in Texas.`,
     // Injected per-route rather than written into index.html, because that
-    // file is the body of EVERY view — a FAQPage block living there would
-    // claim this FAQ on /, /about and /contact too.
+    // file is the body of EVERY view — this block would otherwise claim
+    // itself on /, /about and /contact too. @graph combines the FAQ (worded
+    // identically to #page-city's own FAQ section) with a LocalBusiness
+    // entry — no street address in it: this is a concierge business with no
+    // public storefront, and there's no real address anywhere on the site
+    // to draw from, so areaServed + phone stand in rather than a fabricated
+    // one (schema.org doesn't require address for LocalBusiness to validate).
     jsonLd: {
       '@context': 'https://schema.org',
-      '@type': 'FAQPage',
-      mainEntity: CITY_FAQ.map(([name, text]) => ({
-        '@type': 'Question',
-        name,
-        acceptedAnswer: { '@type': 'Answer', text },
-      })),
+      '@graph': [
+        {
+          '@type': 'FAQPage',
+          mainEntity: CITY_FAQ.map(([name, text]) => ({
+            '@type': 'Question',
+            name,
+            acceptedAnswer: { '@type': 'Answer', text },
+          })),
+        },
+        {
+          '@type': 'LocalBusiness',
+          name: `The Exact Match — ${city.name}, TX`,
+          url: `${ORIGIN}/${city.slug}`,
+          telephone: '+1-512-650-9328',
+          areaServed: {
+            '@type': 'City',
+            name: city.name,
+            containedInPlace: { '@type': 'State', name: 'Texas' },
+          },
+          parentOrganization: { '@type': 'Organization', name: 'The Exact Match', url: ORIGIN },
+        },
+      ],
     },
   });
 }
