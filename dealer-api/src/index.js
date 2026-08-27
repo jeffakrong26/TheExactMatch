@@ -1149,8 +1149,8 @@ async function submitFindCarLead(request, env, params, dealer, token, ctx) {
       budget_min, budget_max, max_mileage, timeline, payment_method, credit_range, desired_monthly_min, desired_monthly_max, down_payment,
       priorities, current_vehicle, current_like, current_change,
       trade_in, specific_needs, considering, anything_else,
-      preferred_make, preferred_model, year_min, year_max, undecided
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      preferred_make, preferred_model, year_min, year_max, undecided, preferred_contact_method
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     first_name, last_name, email, phone,
     (body.zip || '').trim(), body.vehicle_type || '', body.size_preference || '', body.condition || '',
@@ -1160,7 +1160,7 @@ async function submitFindCarLead(request, env, params, dealer, token, ctx) {
     body.priorities || '',
     (body.current_vehicle || '').trim(), (body.current_like || '').trim(), (body.current_change || '').trim(),
     body.trade_in || '', (body.specific_needs || '').trim(), (undecided ? '' : (body.considering || '')).trim(), (body.anything_else || '').trim(),
-    preferred_make, preferred_model, year_min, year_max, undecided ? 1 : 0
+    preferred_make, preferred_model, year_min, year_max, undecided ? 1 : 0, (body.preferred_contact_method || '').trim()
   ).run();
 
   const leadId = result.meta.last_row_id;
@@ -1196,6 +1196,7 @@ async function submitFindCarLead(request, env, params, dealer, token, ctx) {
           vehicle_description: [body.vehicle_type, body.size_preference].filter(Boolean).join(' · ') || null,
           budget_min: body.budget_min || null, budget_max: body.budget_max || null, credit_range: body.credit_range || null,
           trade_in: body.trade_in && !/^no$/i.test(String(body.trade_in).trim()) ? 1 : 0,
+          preferred_contact_method: (body.preferred_contact_method || '').trim() || null,
         });
         await notifyCrm(env, '/api/hooks/log-touch', {
           funnel_type: 'find_my_car', source_lead_id: leadId, type: 'confirmation_email',

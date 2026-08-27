@@ -444,6 +444,29 @@
     .home-ticket{position:relative;display:inline-flex;align-items:center;gap:14px;background:var(--home-navy);color:var(--home-ivory);padding:16px 24px 16px 20px;text-decoration:none;font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;clip-path:polygon(0% 0%,100% 0%,100% 100%,0% 100%,0% 62%,3% 62%,3% 58%,0% 58%,0% 46%,3% 46%,3% 42%,0% 42%)}
     .home-ticket:hover{background:var(--home-charcoal)}
 
+    /* ── FIND MY CAR — matches the homepage's type system ──
+       Scoped to #page-find so the shared .hero-title/.form-group/.submit-btn
+       etc. rules (also used by Sell My Car and Contact) are untouched. */
+    #page-find{font-family:'General Sans',sans-serif}
+    #page-find .hero-title,
+    #page-find .form-title,
+    #page-find h2.display{font-family:'Cabinet Grotesk',sans-serif;font-weight:500}
+    #page-find .hero-title strong,
+    #page-find h2.display strong{font-weight:700;font-style:normal;color:inherit}
+    #page-find h2.display em{font-style:normal;color:inherit;font-weight:700}
+    #page-find .eyebrow{font-family:'General Sans',sans-serif;font-weight:600}
+    #page-find .form-group label,
+    #page-find .ms-step-label{font-family:'General Sans',sans-serif;font-weight:600;letter-spacing:.08em}
+    #page-find .form-group input,
+    #page-find .form-group select,
+    #page-find .form-group textarea,
+    #page-find .submit-btn,
+    #page-find .ms-back-btn{font-family:'General Sans',sans-serif}
+    #page-find .submit-btn,
+    #page-find .ms-back-btn{border-radius:8px}
+    #page-find .tquote{font-family:'Cabinet Grotesk',sans-serif;font-style:normal;font-weight:400}
+    #page-find .tavatar{font-family:'Cabinet Grotesk',sans-serif}
+
     @media(max-width:800px){
       .home-featured{grid-template-columns:1fr}
       .home-steps{grid-template-columns:1fr}
@@ -751,13 +774,8 @@
   <!-- Hero with inline form -->
   <section class="hero-find">
     <div class="hero-left">
-      <div class="hero-badge"><span class="dot"></span>100% Free to You</div>
-      <h1 class="hero-title">Tell us what<br/>you want.<br/><em>We'll find it.</em></h1>
-      <p class="hero-sub">Fill out the form — we search our nationwide dealer network and send you 3 curated options within 24 hours. No cost, no obligation, no dealership headache.</p>
-      <div class="free-badge">
-        <span class="star">✦</span>
-        Free to buyers 
-      </div>
+      <h1 class="hero-title">Tell us what<br/>you want.<br/><strong>We'll find it.</strong></h1>
+      <p class="hero-sub">Fill out the form — we search our nationwide dealer network and send you 3 curated options within 24 hours. Search and matching are free, always.</p>
       <div class="trust-item" style="margin-top:.5rem">
         <span>✓</span> New & Pre-Owned &nbsp;·&nbsp;
         <span>✓</span> Buy or Lease &nbsp;·&nbsp;
@@ -768,26 +786,13 @@
     <div class="hero-right">
       <div class="form-card" id="find-form-wrap">
         <div class="form-title">Start Your Search</div>
-        <div class="form-sub">We'll send you <strong>3 matched options</strong> within 24 hours — completely free.</div>
+        <div class="form-sub">We'll send you <strong>3 matched options</strong> within 24 hours — free, always.</div>
 
         <div class="ms-progress"><div class="ms-progress-bar" id="ff-progress-bar" style="width:20%"></div></div>
         <div class="ms-step-label" id="ff-step-label">Step <strong>1</strong> of 5</div>
 
-        <!-- Step 1 — Contact -->
+        <!-- Step 1 — What are you looking for -->
         <div class="ms-step active" data-step="1">
-          <div class="form-row">
-            <div class="form-group"><label>First Name</label><input type="text" placeholder="John" id="ff-fname"/></div>
-            <div class="form-group"><label>Last Name</label><input type="text" placeholder="Smith" id="ff-lname"/></div>
-          </div>
-          <div class="form-group"><label>Email</label><input type="email" placeholder="john@email.com" id="ff-email"/></div>
-          <div class="form-row">
-            <div class="form-group"><label>Phone</label><input type="tel" placeholder="(555) 000-0000" id="ff-phone"/></div>
-            <div class="form-group"><label>ZIP Code</label><input type="text" placeholder="78701" id="ff-zip" maxlength="10"/></div>
-          </div>
-        </div>
-
-        <!-- Step 2 — What are you looking for -->
-        <div class="ms-step" data-step="2">
           <div class="form-group">
             <label>Vehicle Type</label>
             <select id="ff-vtype">
@@ -847,11 +852,12 @@
               <label>Down Payment Amount</label>
               <input type="number" placeholder="5000" id="ff-down-payment"/>
             </div>
+            <p class="form-sub" style="margin:.25rem 0 0;font-size:.72rem">This helps us negotiate the right structure for you.</p>
           </div>
         </div>
 
-        <!-- Step 3 — Priorities -->
-        <div class="ms-step" data-step="3">
+        <!-- Step 2 — Priorities -->
+        <div class="ms-step" data-step="2">
           <div class="form-group" style="margin-bottom:.3rem"><label>What Matters Most?</label></div>
           <div class="priority-hint">Pick up to 3 priorities.</div>
           <div class="priority-grid" id="ff-priority-grid">
@@ -868,8 +874,8 @@
           </div>
         </div>
 
-        <!-- Step 4 — Your situation -->
-        <div class="ms-step" data-step="4">
+        <!-- Step 3 — Your situation -->
+        <div class="ms-step" data-step="3">
           <div class="form-group"><label>Current Vehicle (Year/Make/Model)</label><input type="text" placeholder="2018 Honda CR-V" id="ff-current-vehicle"/></div>
           <div class="form-group"><label>What Do You Like About It?</label><textarea placeholder="Reliable, good gas mileage..." id="ff-current-like"></textarea></div>
           <div class="form-group"><label>What Do You Want to Change?</label><textarea placeholder="Needs more cargo space, tired of repairs..." id="ff-current-change"></textarea></div>
@@ -882,8 +888,8 @@
           </div>
         </div>
 
-        <!-- Step 5 — Anything else -->
-        <div class="ms-step" data-step="5">
+        <!-- Step 4 — Anything else -->
+        <div class="ms-step" data-step="4">
           <div class="form-group"><label>Specific Needs or Requirements</label><textarea placeholder="E.g. Third row seating, AWD required, tow package..." id="ff-specific-needs"></textarea></div>
 
           <div class="form-group">
@@ -910,6 +916,29 @@
           </div>
 
           <div class="form-group"><label>Anything Else We Should Know?</label><textarea placeholder="Anything else that would help us find your match..." id="ff-anything-else"></textarea></div>
+        </div>
+
+        <!-- Step 5 — Contact (last: where to send the 3 options) -->
+        <div class="ms-step" data-step="5">
+          <div class="form-group" style="margin-bottom:.3rem"><label>Where Should We Send Your 3 Options?</label></div>
+          <div class="priority-hint">Almost done — just need to know where to reach you.</div>
+          <div class="form-row">
+            <div class="form-group"><label>First Name</label><input type="text" placeholder="John" id="ff-fname"/></div>
+            <div class="form-group"><label>Last Name</label><input type="text" placeholder="Smith" id="ff-lname"/></div>
+          </div>
+          <div class="form-group"><label>Email</label><input type="email" placeholder="john@email.com" id="ff-email"/></div>
+          <div class="form-row">
+            <div class="form-group"><label>Phone</label><input type="tel" placeholder="(555) 000-0000" id="ff-phone"/></div>
+            <div class="form-group"><label>ZIP Code</label><input type="text" placeholder="78701" id="ff-zip" maxlength="10"/></div>
+          </div>
+          <div class="form-group">
+            <label>Preferred Contact Method</label>
+            <select id="ff-contact-method">
+              <option value="">Select...</option>
+              <option>Text</option><option>Email</option><option>Call</option>
+            </select>
+          </div>
+          <p style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:1rem;line-height:1.6">Want us to handle the entire deal for you once we find it? <a href="/contact" onclick="return showPage('contact')" style="color:rgba(255,255,255,.55);text-decoration:underline">Ask about White Glove.</a></p>
         </div>
 
         <div class="ms-nav">
@@ -2644,6 +2673,10 @@ function ffUpdateProgress(){
 
 function ffValidateStep(step){
   if(step === 1){
+    const maxMileage = document.getElementById('ff-max-mileage').value.trim();
+    if(!maxMileage){ alert('Please enter the maximum mileage you\'re comfortable with.'); return false; }
+  }
+  if(step === 5){
     const fname = document.getElementById('ff-fname').value.trim();
     const lname = document.getElementById('ff-lname').value.trim();
     const email = document.getElementById('ff-email').value.trim();
@@ -2651,10 +2684,6 @@ function ffValidateStep(step){
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if(!fname || !lname || !email || !phone){ alert('Please fill out your name, email, and phone to continue.'); return false; }
     if(!re.test(email)){ alert('Please enter a valid email address.'); return false; }
-  }
-  if(step === 2){
-    const maxMileage = document.getElementById('ff-max-mileage').value.trim();
-    if(!maxMileage){ alert('Please enter the maximum mileage you\'re comfortable with.'); return false; }
   }
   return true;
 }
@@ -2761,6 +2790,7 @@ function submitFindForm() {
     current_change: document.getElementById('ff-current-change').value.trim(),
     trade_in:   document.getElementById('ff-tradein').value,
     specific_needs: document.getElementById('ff-specific-needs').value.trim(),
+    preferred_contact_method: document.getElementById('ff-contact-method').value,
     undecided:  document.getElementById('ff-knows-what').value === 'no',
     preferred_make: document.getElementById('ff-pref-make').value.trim(),
     preferred_model: document.getElementById('ff-pref-model').value.trim(),
@@ -3016,7 +3046,17 @@ async function submitWeeklyForm(){
   document.addEventListener('DOMContentLoaded',function(){
     if(!shouldShow()) return;
 
-    setTimeout(open, DELAY_MS);
+    // Find My Car gets no on-load/timer/scroll popup — exit-intent only.
+    if(location.pathname === '/find-my-car'){
+      function exitIntent(e){
+        if(e.clientY > 0 || e.relatedTarget) return;
+        document.removeEventListener('mouseout', exitIntent);
+        open();
+      }
+      document.addEventListener('mouseout', exitIntent);
+    } else {
+      setTimeout(open, DELAY_MS);
+    }
 
     document.getElementById('nl-close').addEventListener('click', close);
     document.getElementById('nl-overlay').addEventListener('click',function(e){
