@@ -495,16 +495,19 @@ function sourcingBuyerCardHtml(v) {
 // ── Founder card ─────────────────────────────────────────────────────
 // One definition, injected verbatim into every .founder-card-slot in the
 // document — the compact trust element beside the Find My Car and Sell My
-// Car forms. (About's hero uses a larger, separately-cropped treatment of
-// the same source photo — see .about-img in index.html — since it has the
-// room for one and a full-body lifestyle shot reads differently at hero
-// size than crammed into a small circle; both pull from the same file,
-// images/jeff-headshot.jpg, so replacing that one file updates both.)
+// Car forms. Uses images/jeff-headshot-compact.jpg, a tight head-and-
+// shoulders crop pre-cropped from the same source as the About hero photo
+// (images/jeff-headshot.jpg — a full-body lifestyle shot). object-fit:cover
+// alone can't produce a proper face-filling circle from that source: the
+// container's aspect ratio matches the source's width-to-height ratio
+// closely enough that cover only ever crops top/bottom, never left/right,
+// so the face — a fraction of the frame's *width* — stays small no matter
+// what object-position is used. A dedicated pre-crop is the actual fix.
 // Editing the one-line statement here is the only edit needed for that
 // text; it can't drift out of sync between pages because there's only one
 // copy of it to begin with.
 const FOUNDER_CARD_HTML = `<div class="founder-card">
-  <img class="founder-card-photo" src="/images/jeff-headshot.jpg" alt="Jeff Akrong"/>
+  <img class="founder-card-photo" src="/images/jeff-headshot-compact.jpg" alt="Jeff Akrong"/>
   <div class="founder-card-body">
     <div class="founder-card-name">Jeff Akrong</div>
     <div class="founder-card-line">Dealership insider turned buyer's advocate — ex-Audi, Mercedes-Benz, Aston Martin, Rolls-Royce &amp; Bentley. Now entirely on your side, free.</div>

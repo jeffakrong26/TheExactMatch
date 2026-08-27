@@ -258,12 +258,14 @@
        same whether the page behind it is light (About, Find) or a dark
        photo panel (Sell) — see the surrounding pages for placement. */
     .founder-card{display:flex;gap:1rem;align-items:center;background:var(--white);border:1px solid var(--border);border-radius:8px;padding:1.25rem 1.4rem;max-width:400px;box-shadow:0 10px 28px rgba(0,0,0,.08)}
-    /* Source photo is a full-body lifestyle shot (subject roughly
-       centered-left, face ~37% down the frame) — object-position is tuned
-       per placement rather than shared, since a tight face-first crop that
-       works in a 76px circle would be far too close for the larger About
-       hero treatment below, and vice versa. */
-    .founder-card-photo{width:76px;height:76px;border-radius:50%;flex-shrink:0;object-fit:cover;object-position:50% 15%;background:var(--beige2)}
+    /* Uses a dedicated pre-cropped square (jeff-headshot-compact.jpg,
+       see FOUNDER_CARD_HTML in src/index.js) rather than object-position
+       on the full-body source — cover on a container whose aspect ratio
+       is this close to the source's only ever crops top/bottom, so the
+       face (a fraction of the frame's width) would stay small regardless
+       of position. object-fit:cover is still set as a safety margin, not
+       the primary crop mechanism. */
+    .founder-card-photo{width:76px;height:76px;border-radius:50%;flex-shrink:0;object-fit:cover;background:var(--beige2)}
     .founder-card-name{font-family:'Playfair Display',serif;font-weight:600;font-size:.95rem;color:var(--navy);margin-bottom:.2rem}
     .founder-card-line{font-size:.75rem;font-weight:300;color:var(--gray);line-height:1.55;margin-bottom:.4rem}
     .founder-card-link{font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--navy);text-decoration:none;border-bottom:1px solid var(--gold)}
