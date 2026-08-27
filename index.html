@@ -220,8 +220,11 @@
        Text-only by design — no photo, since no seller-identifying data is
        collected for this block at all (year/make/model + a human-written
        area label only). .sb-fallback is a legitimate, expected state, not
-       an error state: fewer than 3 real consented+published submissions
-       means fewer cards, or this generic line — never a filled-in fake. */
+       an error state: fewer than 3 real published submissions means fewer
+       cards, or this generic line — never a filled-in fake. Admin decides
+       what's published (see the "Post-Submission Details" section of a
+       lead's detail view in Dealerportal.html); it's not gated on any
+       seller opt-in. */
     .sb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;max-width:1100px;margin:0 auto}
     .sb-card{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:1.75rem;text-align:center}
     .sb-card h3{font-family:'Playfair Display',serif;font-weight:500;font-size:1.1rem;color:var(--navy);margin:0 0 .3rem}
@@ -1311,11 +1314,6 @@
               <input type="file" accept="image/*" multiple id="sf-photos"/>
               <div style="font-size:.72rem;font-weight:300;color:var(--gray);margin-top:.4rem" id="sf-photos-hint">Up to 6 photos. Skip this and we'll text/email a request for photos afterward — it won't hold up your submission either way.</div>
             </div>
-
-            <label style="display:flex;align-items:flex-start;gap:.6rem;margin-top:1rem;font-size:.78rem;color:var(--gray);cursor:pointer">
-              <input type="checkbox" id="sf-feature-consent" style="width:auto;margin-top:.2rem"/>
-              <span>You can feature my vehicle (year/make/model and general area only — never my name or contact info) in the "Currently Sourcing" preview on this page while my listing is active.</span>
-            </label>
           </div>
 
           <div class="ms-nav">
@@ -1335,8 +1333,9 @@
     </div>
   </section>
 
-  <!-- Currently Sourcing Buyers For — real, consented submissions only; see
-       #sb-grid's server-side injection in src/index.js. Never hardcoded. -->
+  <!-- Currently Sourcing Buyers For — real submissions admin has published
+       only; see #sb-grid's server-side injection in src/index.js. Never
+       hardcoded. -->
   <section class="gallery-section">
     <div style="text-align:center;margin-bottom:2.5rem">
       <div class="eyebrow center">Currently Sourcing</div>
@@ -3276,8 +3275,7 @@ function submitSellForm() {
     modifications_desc: document.getElementById('sf-mods-desc').value.trim(),
     keys:       document.getElementById('sf-keys').value,
     timeline:   document.getElementById('sf-timeline').value,
-    notes:      document.getElementById('sf-notes').value.trim(),
-    feature_consent: document.getElementById('sf-feature-consent').checked
+    notes:      document.getElementById('sf-notes').value.trim()
   }, function(data){
     // Best-effort, after the success screen is already showing — a photo
     // upload failing here must never read as the submission having failed.

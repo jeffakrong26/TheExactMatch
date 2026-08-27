@@ -699,9 +699,10 @@ export default {
         ? matches.map(m => recentMatchCardHtml(m, `/recent-matches/${m.slug}`)).join('')
         : `<p style="grid-column:1/-1;text-align:center;color:var(--gray);font-size:.9rem">More matches are on the way — check back soon.</p>`;
     } else if (view.page === 'sell') {
-      // Real, consented submissions only — never fabricated. Fewer than 3 (or
-      // zero) is an expected, legitimate state, not an error: fall back to a
-      // generic proof-of-activity line rather than padding with anything made up.
+      // Real submissions admin has published only — never fabricated. Fewer
+      // than 3 (or zero) is an expected, legitimate state, not an error:
+      // fall back to a generic proof-of-activity line rather than padding
+      // with anything made up.
       const data = await fetchDealerApiJson(env, '/api/public/sourcing-buyers');
       const vehicles = (data?.vehicles || []).slice(0, 3);
       injections.html['#sb-grid'] = vehicles.length

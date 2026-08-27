@@ -4334,8 +4334,8 @@ async function submitSellCarLead(request, env, params, dealer, token, ctx) {
       first_name, last_name, email, phone, zip, year, make, model, trim, mileage, exterior_color, interior_color,
       title_status, remaining_balance, payoff_amount, condition, accidents, accidents_count, accidents_damage,
       mechanical_issues, mechanical_desc, warning_lights, windshield, tires, modifications, modifications_desc,
-      keys, timeline, notes, feature_consent, photo_token
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      keys, timeline, notes, photo_token
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     first_name, last_name, email, phone, zip,
     year, make, model, trim,
@@ -4345,7 +4345,7 @@ async function submitSellCarLead(request, env, params, dealer, token, ctx) {
     body.mechanical_issues || '', (body.mechanical_desc || '').trim(), body.warning_lights || '',
     '', '', body.modifications || '', (body.modifications_desc || '').trim(),
     body.keys || '', body.timeline || '', (body.notes || '').trim(),
-    body.feature_consent ? 1 : 0, photo_token
+    photo_token
   ).run();
 
   const leadId = result.meta.last_row_id;
@@ -4433,15 +4433,13 @@ async function serveSellQuickPhoto(env, params, method) {
 }
 
 // ── Sell My Car: "Currently Sourcing Buyers For" preview block ──────
-// Publishing requires feature_consent = 1 (set only by the seller's own
-// form checkbox, never by admin) — this endpoint refuses to publish a
-// submission without it, so consent is enforced server-side, not just
-// assumed from the admin UI not offering the option. The public read below
-// returns an explicit field allowlist (year/make/model/display_area only)
-// so no seller-identifying data can leak even if new columns are added
-// to sell_my_car_leads later.
+// No seller opt-in gate — admin decides what's published, same as any other
+// admin-curated content on the site. The public read below still returns an
+// explicit field allowlist (year/make/model/display_area only) so no
+// seller-identifying data can leak even if new columns are added to
+// sell_my_car_leads later.
 async function adminUpdateSellLeadDetails(request, env, params) {
-  const lead = await env.DB.prepare('SELECT id, feature_consent FROM sell_my_car_leads WHERE id = ?').bind(+params.id).first();
+  const lead = await env.DB.prepare('SELECT id FROM sell_my_car_leads WHERE id = ?').bind(+params.id).first();
   if (!lead) return json({ error: 'Lead not found.' }, 404);
   const body = await request.json().catch(() => ({}));
 
@@ -4454,9 +4452,6 @@ async function adminUpdateSellLeadDetails(request, env, params) {
 
   if (body.sourcing_status !== undefined) {
     const status = body.sourcing_status === 'published' ? 'published' : 'draft';
-    if (status === 'published' && !lead.feature_consent) {
-      return json({ error: 'This seller did not opt in to being featured — cannot publish.' }, 400);
-    }
     sets.push('sourcing_status = ?'); values.push(status);
   }
 
@@ -4468,7 +4463,7 @@ async function adminUpdateSellLeadDetails(request, env, params) {
 
 async function publicSourcingBuyers(request, env) {
   const { results } = await env.DB.prepare(
-    "SELECT year, make, model, display_area FROM sell_my_car_leads WHERE sourcing_status = 'published' AND feature_consent = 1 ORDER BY created_at DESC LIMIT 12"
+    "SELECT year, make, model, display_area FROM sell_my_car_leads WHERE sourcing_status = 'published' ORDER BY created_at DESC LIMIT 12"
   ).all();
   return json({ vehicles: results });
 }

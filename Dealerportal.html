@@ -2645,15 +2645,10 @@ function closeSellLeadDetail() {
 //  - windshield/tire condition — dropped from the main form (low signal on
 //    whether a dealer bids, high friction); seller replies to the
 //    confirmation email, admin transcribes the answer here.
-//  - "Currently Sourcing Buyers For" (Sell My Car page) publish controls.
-//    feature_consent is read-only here — it's the seller's own checkbox on
-//    the form, never admin-set — and sourcing_status can't go to
-//    'published' without it (enforced again server-side in
-//    adminUpdateSellLeadDetails, not just hidden in this UI).
+//  - "Currently Sourcing Buyers For" (Sell My Car page) publish controls —
+//    admin decides what's published, same as any other admin-curated
+//    content on the site.
 function sellLeadDetailsFormHtml(lead) {
-  const consentLine = lead.feature_consent
-    ? `<span style="color:var(--green);font-weight:600">✓ Consented to be featured</span>`
-    : `<span style="color:var(--gray)">Not consented — cannot be shown in Currently Sourcing</span>`;
   return `
     <div class="section-label" style="border-bottom:none;padding-bottom:0;margin:1.75rem 0 .75rem">Post-Submission Details</div>
     <div class="dp-alert dp-alert-err" id="sld-error-${lead.id}"></div>
@@ -2678,12 +2673,11 @@ function sellLeadDetailsFormHtml(lead) {
         </select>
       </div>
     </div>
-    <div style="font-size:.8rem;margin:.25rem 0 .75rem">${consentLine}</div>
     <div class="dp-form-row">
-      <div class="dp-form-group"><label>Display Area (e.g. "Austin area") — never the exact zip</label><input type="text" id="sld-area-${lead.id}" value="${escapeHtmlJs(lead.display_area || '')}" placeholder="Austin area" ${lead.feature_consent ? '' : 'disabled'}/></div>
+      <div class="dp-form-group"><label>Display Area (e.g. "Austin area") — never the exact zip</label><input type="text" id="sld-area-${lead.id}" value="${escapeHtmlJs(lead.display_area || '')}" placeholder="Austin area"/></div>
       <div class="dp-form-group">
         <label>Currently Sourcing Status</label>
-        <select id="sld-status-${lead.id}" ${lead.feature_consent ? '' : 'disabled'}>
+        <select id="sld-status-${lead.id}">
           <option value="draft" ${lead.sourcing_status !== 'published' ? 'selected' : ''}>Draft (not shown)</option>
           <option value="published" ${lead.sourcing_status === 'published' ? 'selected' : ''}>Published (live on site)</option>
         </select>
