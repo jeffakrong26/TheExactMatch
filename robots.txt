@@ -61,9 +61,13 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
-# Trailing slash is load-bearing: /sell/ is the private tokenized valuation
-# flow, while /sell-my-car is a public page that must stay crawlable.
-Disallow: /sell/
+# Only these four token-gated subpaths under /sell/ are the private valuation
+# flow (see dealer-api/wrangler.jsonc for the matching Cloudflare route) —
+# /sell/ itself and /sell/[brand] are public pages that must stay crawlable.
+Disallow: /sell/upload/
+Disallow: /sell/report/
+Disallow: /sell/photos/
+Disallow: /sell/quick-photos/
 
 # ── OpenAI ────────────────────────────────────────────────────────────
 User-agent: GPTBot
@@ -75,7 +79,10 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
-Disallow: /sell/
+Disallow: /sell/upload/
+Disallow: /sell/report/
+Disallow: /sell/photos/
+Disallow: /sell/quick-photos/
 
 User-agent: OAI-SearchBot
 Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
@@ -86,7 +93,10 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
-Disallow: /sell/
+Disallow: /sell/upload/
+Disallow: /sell/report/
+Disallow: /sell/photos/
+Disallow: /sell/quick-photos/
 
 User-agent: ChatGPT-User
 Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
@@ -97,7 +107,10 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
-Disallow: /sell/
+Disallow: /sell/upload/
+Disallow: /sell/report/
+Disallow: /sell/photos/
+Disallow: /sell/quick-photos/
 
 # ── Anthropic ─────────────────────────────────────────────────────────
 User-agent: ClaudeBot
@@ -109,7 +122,10 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
-Disallow: /sell/
+Disallow: /sell/upload/
+Disallow: /sell/report/
+Disallow: /sell/photos/
+Disallow: /sell/quick-photos/
 
 User-agent: Claude-SearchBot
 Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
@@ -120,7 +136,10 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
-Disallow: /sell/
+Disallow: /sell/upload/
+Disallow: /sell/report/
+Disallow: /sell/photos/
+Disallow: /sell/quick-photos/
 
 User-agent: Claude-User
 Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
@@ -131,7 +150,10 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
-Disallow: /sell/
+Disallow: /sell/upload/
+Disallow: /sell/report/
+Disallow: /sell/photos/
+Disallow: /sell/quick-photos/
 
 # ── Perplexity ────────────────────────────────────────────────────────
 User-agent: PerplexityBot
@@ -143,7 +165,10 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
-Disallow: /sell/
+Disallow: /sell/upload/
+Disallow: /sell/report/
+Disallow: /sell/photos/
+Disallow: /sell/quick-photos/
 
 User-agent: Perplexity-User
 Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference
@@ -154,7 +179,10 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
-Disallow: /sell/
+Disallow: /sell/upload/
+Disallow: /sell/report/
+Disallow: /sell/photos/
+Disallow: /sell/quick-photos/
 
 # ── Google ────────────────────────────────────────────────────────────
 # Not a crawler — this token controls whether content already fetched by
@@ -170,7 +198,10 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
-Disallow: /sell/
+Disallow: /sell/upload/
+Disallow: /sell/report/
+Disallow: /sell/photos/
+Disallow: /sell/quick-photos/
 
 # ── Training-corpus collectors and bulk scrapers: blocked ─────────────
 # These are not citation engines — crawling IS the training-data collection

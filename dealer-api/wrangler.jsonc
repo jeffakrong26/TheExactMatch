@@ -19,12 +19,20 @@
 	],
 	"routes": [
 		{ "pattern": "theexactmatch.com/reports/*", "zone_name": "theexactmatch.com" },
-		{ "pattern": "theexactmatch.com/sell/*", "zone_name": "theexactmatch.com" },
+		// Narrowed from a blanket theexactmatch.com/sell/* on 2026-08-27: that
+		// claimed the entire /sell/ prefix, which blocked the site worker from
+		// ever serving a public /sell/ hub or /sell/[brand] page. dealer-api only
+		// actually needs these four token-gated subpaths (see the matchPath calls
+		// in src/index.js) — everything else under /sell/ is public site content.
+		{ "pattern": "theexactmatch.com/sell/upload/*", "zone_name": "theexactmatch.com" },
+		{ "pattern": "theexactmatch.com/sell/report/*", "zone_name": "theexactmatch.com" },
+		{ "pattern": "theexactmatch.com/sell/photos/*", "zone_name": "theexactmatch.com" },
+		{ "pattern": "theexactmatch.com/sell/quick-photos/*", "zone_name": "theexactmatch.com" },
 		{ "pattern": "theexactmatch.com/submissions/*", "zone_name": "theexactmatch.com" },
-		// Only the photo bytes — the /recent-matches and /recent-matches/:slug
+		// Only the photo bytes — the /recentmatches and /recentmatches/:slug
 		// pages themselves are rendered by the site worker (theexactmatch), which
 		// calls the /api/public/recent-matches* endpoints above over a service
-		// binding so nav/footer/CSS stay the single-source-of-truth index.html.
+		// binding so nav/footer/CSS stay single-source-of-truth.
 		{ "pattern": "theexactmatch.com/recent-matches/photos/*", "zone_name": "theexactmatch.com" }
 	],
 	"workers_dev": true,
