@@ -9005,6 +9005,173 @@ Be direct and concise — no hedging filler, no repeating the question back.`;
   return json({ report, vehicle: { year, make, model, trim: trim || null, mileage, vin: vin || null } });
 }
 
+// ── Recent Matches (success-story cards + detail pages) ────────────────
+// Admin manages these here; the site worker (theexactmatch, a separate
+// Worker) calls the two public endpoints below over a service binding to
+// render the Find My Car teaser and the /recent-matches* pages, so a new
+// match goes live with no code deploy. Photos live in the same R2 bucket
+// as report vehicle photos, under their own key prefix, and are served
+// from theexactmatch.com/recent-matches/photos/:slug (see the routes list
+// in wrangler.jsonc and the GET dispatch below).
+function parseMatchTags(raw) {
+  try {
+    const arr = JSON.parse(raw || '[]');
+    return Array.isArray(arr) ? arr.filter(t => typeof t === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function serializeRecentMatch(row) {
+  return {
+    id: row.id,
+    slug: row.slug,
+    first_name: row.first_name,
+    vehicle: row.vehicle,
+    card_title: row.card_title,
+    photo_url: row.photo_key ? `https://theexactmatch.com/recent-matches/photos/${row.slug}` : null,
+    savings_amount: row.savings_amount,
+    tags: parseMatchTags(row.tags),
+    featured: !!row.featured,
+    status: row.status,
+    published_at: row.published_at,
+  };
+}
+
+async function adminListRecentMatches(request, env) {
+  const { results } = await env.DB.prepare('SELECT * FROM recent_matches ORDER BY created_at DESC').all();
+  return json({ matches: results.map(serializeRecentMatch) });
+}
+
+async function adminCreateRecentMatch(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const first_name = (body.first_name || '').trim();
+  const vehicle = (body.vehicle || '').trim();
+  const card_title = (body.card_title || '').trim();
+  const slug = slugify(body.slug || card_title);
+  const savingsAmount = parseInt(body.savings_amount, 10);
+
+  if (!first_name || !vehicle || !card_title || !slug) {
+    return json({ error: 'First name, vehicle, card title, and URL slug are all required.' }, 400);
+  }
+  if (!Number.isFinite(savingsAmount) || savingsAmount < 0) {
+    return json({ error: 'A valid savings amount is required.' }, 400);
+  }
+
+  const clash = await env.DB.prepare('SELECT id FROM recent_matches WHERE slug = ?').bind(slug).first();
+  if (clash) return json({ error: 'That URL slug is already in use.' }, 400);
+
+  const tags = Array.isArray(body.tags) ? body.tags.filter(t => typeof t === 'string' && t.trim()).map(t => t.trim()) : [];
+  const featured = body.featured ? 1 : 0;
+  const status = body.status === 'published' ? 'published' : 'draft';
+
+  const result = await env.DB.prepare(`
+    INSERT INTO recent_matches (slug, first_name, vehicle, card_title, savings_amount, tags, featured, status, published_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    slug, first_name, vehicle, card_title, savingsAmount, JSON.stringify(tags), featured, status,
+    status === 'published' ? new Date().toISOString() : null
+  ).run();
+
+  return json({ success: true, id: result.meta.last_row_id, slug });
+}
+
+async function adminUpdateRecentMatch(request, env, params) {
+  const match = await env.DB.prepare('SELECT * FROM recent_matches WHERE id = ?').bind(+params.id).first();
+  if (!match) return json({ error: 'Match not found.' }, 404);
+  const body = await request.json().catch(() => ({}));
+
+  const sets = [];
+  const values = [];
+
+  if (body.first_name !== undefined) { sets.push('first_name = ?'); values.push(String(body.first_name).trim()); }
+  if (body.vehicle !== undefined) { sets.push('vehicle = ?'); values.push(String(body.vehicle).trim()); }
+  if (body.card_title !== undefined) { sets.push('card_title = ?'); values.push(String(body.card_title).trim()); }
+
+  if (body.savings_amount !== undefined) {
+    const amount = parseInt(body.savings_amount, 10);
+    if (!Number.isFinite(amount) || amount < 0) return json({ error: 'A valid savings amount is required.' }, 400);
+    sets.push('savings_amount = ?'); values.push(amount);
+  }
+
+  if (body.tags !== undefined) {
+    const tags = Array.isArray(body.tags) ? body.tags.filter(t => typeof t === 'string' && t.trim()).map(t => t.trim()) : [];
+    sets.push('tags = ?'); values.push(JSON.stringify(tags));
+  }
+
+  if (body.featured !== undefined) { sets.push('featured = ?'); values.push(body.featured ? 1 : 0); }
+
+  if (body.status !== undefined) {
+    const status = body.status === 'published' ? 'published' : 'draft';
+    sets.push('status = ?'); values.push(status);
+    if (status === 'published' && match.status !== 'published') {
+      sets.push('published_at = ?'); values.push(new Date().toISOString());
+    }
+  }
+
+  if (body.slug !== undefined) {
+    const slug = slugify(body.slug);
+    if (!slug) return json({ error: 'Invalid URL slug.' }, 400);
+    const clash = await env.DB.prepare('SELECT id FROM recent_matches WHERE slug = ? AND id != ?').bind(slug, match.id).first();
+    if (clash) return json({ error: 'That URL slug is already in use.' }, 400);
+    sets.push('slug = ?'); values.push(slug);
+  }
+
+  if (!sets.length) return json({ success: true });
+  values.push(match.id);
+  await env.DB.prepare(`UPDATE recent_matches SET ${sets.join(', ')} WHERE id = ?`).bind(...values).run();
+  return json({ success: true });
+}
+
+async function adminDeleteRecentMatch(request, env, params) {
+  const match = await env.DB.prepare('SELECT id, photo_key FROM recent_matches WHERE id = ?').bind(+params.id).first();
+  if (!match) return json({ error: 'Match not found.' }, 404);
+  if (match.photo_key) await env.PHOTOS.delete(match.photo_key).catch(() => {});
+  await env.DB.prepare('DELETE FROM recent_matches WHERE id = ?').bind(match.id).run();
+  return json({ success: true });
+}
+
+async function adminUploadRecentMatchPhoto(request, env, params) {
+  const match = await env.DB.prepare('SELECT id, slug FROM recent_matches WHERE id = ?').bind(+params.id).first();
+  if (!match) return json({ error: 'Match not found.' }, 404);
+
+  const formData = await request.formData().catch(() => null);
+  const file = formData?.get('photo');
+  if (!file || typeof file === 'string') return json({ error: 'No photo file provided.' }, 400);
+
+  const key = `recent-matches/${match.slug}`;
+  await env.PHOTOS.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'image/jpeg' } });
+  await env.DB.prepare('UPDATE recent_matches SET photo_key = ? WHERE id = ?').bind(key, match.id).run();
+
+  return json({ success: true, photo_url: `https://theexactmatch.com/recent-matches/photos/${match.slug}` });
+}
+
+async function serveRecentMatchPhoto(env, params, method) {
+  const match = await env.DB.prepare('SELECT photo_key FROM recent_matches WHERE slug = ?').bind(params.slug).first();
+  const key = match?.photo_key;
+  if (!key) return new Response(method === 'HEAD' ? null : 'Not found', { status: 404 });
+  const object = method === 'HEAD' ? await env.PHOTOS.head(key) : await env.PHOTOS.get(key);
+  if (!object) return new Response(method === 'HEAD' ? null : 'Not found', { status: 404 });
+  return new Response(method === 'HEAD' ? null : object.body, {
+    headers: { 'Content-Type': object.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'public, max-age=86400' },
+  });
+}
+
+async function publicListRecentMatches(request, env) {
+  const { results } = await env.DB.prepare(
+    "SELECT * FROM recent_matches WHERE status = 'published' ORDER BY published_at DESC"
+  ).all();
+  return json({ matches: results.map(serializeRecentMatch) });
+}
+
+async function publicGetRecentMatch(request, env, params) {
+  const match = await env.DB.prepare(
+    "SELECT * FROM recent_matches WHERE slug = ? AND status = 'published'"
+  ).bind(params.slug).first();
+  if (!match) return json({ error: 'Not found.' }, 404);
+  return json({ match: serializeRecentMatch(match) });
+}
+
 // ── Route table ───────────────────────────────────────────────────
 const ROUTES = [
   { method: 'POST',  pattern: '/api/setup/init-admin',          handler: initAdmin },
@@ -9070,6 +9237,14 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/interest', handler: publicExpressReportInterest },
   { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/white-glove', handler: publicRequestWhiteGlove },
   { method: 'POST',  pattern: '/api/public/reports/:code/vehicles/:position/ready', handler: publicReadyToMoveForward },
+
+  { method: 'GET',    pattern: '/api/admin/recent-matches',           handler: adminListRecentMatches, auth: true, admin: true },
+  { method: 'POST',   pattern: '/api/admin/recent-matches',           handler: adminCreateRecentMatch, auth: true, admin: true },
+  { method: 'PATCH',  pattern: '/api/admin/recent-matches/:id',       handler: adminUpdateRecentMatch, auth: true, admin: true },
+  { method: 'DELETE', pattern: '/api/admin/recent-matches/:id',       handler: adminDeleteRecentMatch, auth: true, admin: true },
+  { method: 'POST',   pattern: '/api/admin/recent-matches/:id/photo', handler: adminUploadRecentMatchPhoto, auth: true, admin: true },
+  { method: 'GET',    pattern: '/api/public/recent-matches',          handler: publicListRecentMatches },
+  { method: 'GET',    pattern: '/api/public/recent-matches/:slug',    handler: publicGetRecentMatch },
 
   // ── Dealer Partner Network (dealers ARE partners — same login/session
   // as the rest of the Dealer Portal above, `auth: true` + authenticate()) ──
@@ -9178,6 +9353,9 @@ export default {
 
       const sellPhotoParams = matchPath('/sell/photos/:token/:slot/:filename', url.pathname);
       if (sellPhotoParams) return serveSellPhoto(env, sellPhotoParams, request.method);
+
+      const recentMatchPhotoParams = matchPath('/recent-matches/photos/:slug', url.pathname);
+      if (recentMatchPhotoParams) return serveRecentMatchPhoto(env, recentMatchPhotoParams, request.method);
     }
 
     if (request.method === 'GET') {

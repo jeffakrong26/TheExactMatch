@@ -353,10 +353,42 @@ function withActive(classAttr, isActive) {
   return classes.join(' ');
 }
 
-function renderView(assetResponse, view) {
+// ── Recent Matches ───────────────────────────────────────────────────
+// Match data lives in dealer-api's D1/R2, not here — this worker only calls
+// its two public read endpoints (over the DEALER_API service binding, so
+// it's an in-process call rather than a real network hop) and renders
+// whatever comes back. That's what lets a new match go live from the admin
+// panel with no deploy of this worker.
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function fetchDealerApiJson(env, path) {
+  try {
+    const res = await env.DEALER_API.fetch(new Request(`https://internal${path}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('[recent-matches] dealer-api call failed', path, err);
+    return null;
+  }
+}
+
+// Teaser (Find My Car) and listing (/recent-matches) cards are deliberately
+// identical and light — photo + name/vehicle only, no savings or tags. Both
+// link one level shallower than the data they're for: teaser -> the listing,
+// listing card -> that match's own detail page.
+function recentMatchCardHtml(m, href) {
+  const photo = m.photo_url
+    ? `<img src="${escapeHtml(m.photo_url)}" alt="${escapeHtml(m.card_title)}" class="rm-photo"/>`
+    : `<div class="rm-photo rm-photo-placeholder"><span>Photo coming soon</span></div>`;
+  return `<a class="rm-card" href="${href}">${photo}<h3>${escapeHtml(m.card_title)}</h3><div class="rm-vehicle">${escapeHtml(m.vehicle)}</div></a>`;
+}
+
+function renderView(assetResponse, view, injections = {}) {
   const canonical = `${ORIGIN}${view.path}`;
 
-  return (
+  const rewriter =
     new HTMLRewriter()
       .on('title', {
         element(el) {
@@ -438,9 +470,35 @@ function renderView(assetResponse, view) {
             withActive(el.getAttribute('class'), id === `nav-${view.page}`)
           );
         },
-      })
-      .transform(assetResponse)
-  );
+      });
+
+  // Recent Matches content (teaser grid, listing grid, a single match's
+  // photo/title/tags) — server-rendered per request from live dealer-api
+  // data, same reasoning as everything above: crawlers don't run JS.
+  for (const [selector, html] of Object.entries(injections.html || {})) {
+    rewriter.on(selector, { element(el) { el.setInnerContent(html, { html: true }); } });
+  }
+  for (const [selector, text] of Object.entries(injections.text || {})) {
+    rewriter.on(selector, { element(el) { el.setInnerContent(text); } });
+  }
+  for (const selector of injections.remove || []) {
+    rewriter.on(selector, { element(el) { el.remove(); } });
+  }
+
+  return rewriter.transform(assetResponse);
+}
+
+// Shared by both the static-VIEWS path and the dynamic match-detail path
+// below — strips index.html's own validators (they describe the source
+// file, not this per-request transformed body) and stamps the real
+// Content-Type, since HTMLRewriter output otherwise inherits whatever the
+// asset response had.
+function finalizeHtmlResponse(response) {
+  const headers = new Headers(response.headers);
+  headers.set('Content-Type', 'text/html; charset=utf-8');
+  headers.delete('ETag');
+  headers.delete('Last-Modified');
+  return new Response(response.body, { status: 200, headers });
 }
 
 export default {
@@ -482,9 +540,67 @@ export default {
       });
     }
 
+    const isGetOrHead = request.method === 'GET' || request.method === 'HEAD';
+
+    // A single match's own page (e.g. /recent-matches/samantha-cx5). The slug
+    // isn't known at deploy time — admin adds these anytime — so unlike every
+    // other route it can't live in the static VIEWS list; it's looked up
+    // against dealer-api on every request instead.
+    const matchDetailSlug = isGetOrHead && pathname.match(/^\/recent-matches\/([a-z0-9-]+)$/)?.[1];
+    if (matchDetailSlug) {
+      const data = await fetchDealerApiJson(env, `/api/public/recent-matches/${matchDetailSlug}`);
+      if (!data?.match) {
+        return new Response('Not found', { status: 404 });
+      }
+      const m = data.match;
+      const view = {
+        path: pathname,
+        page: 'recent-match-detail',
+        title: `${m.card_title} — Recent Match | TheExactMatch`,
+        description: `${m.card_title}: ${m.vehicle} — $${m.savings_amount.toLocaleString()} saved. See how we found it, negotiated it, and got it done.`,
+      };
+      const asset = await env.ASSETS.fetch(new Request(`${url.origin}/index.html`));
+      if (!asset.ok) return asset;
+      const photoHtml = m.photo_url
+        ? `<img src="${escapeHtml(m.photo_url)}" alt="${escapeHtml(m.card_title)}" class="rmd-photo"/>`
+        : `<div class="rmd-photo rm-photo-placeholder"><span>Photo coming soon</span></div>`;
+      const tagsHtml = m.tags.map(t => `<span class="rm-tag">${escapeHtml(t)}</span>`).join('');
+      const savedHtml = `$${m.savings_amount.toLocaleString()} <span class="rm-saved-label">Saved</span>`;
+      const response = renderView(asset, view, {
+        html: { '#rmd-photo-wrap': photoHtml, '#rmd-tags': tagsHtml, '#rmd-saved': savedHtml },
+        text: {
+          '#rmd-heading': m.card_title,
+          '#rmd-vehicle': m.vehicle,
+        },
+      });
+      return finalizeHtmlResponse(response);
+    }
+
     const view = VIEWS_BY_PATH.get(pathname);
-    if (!view || (request.method !== 'GET' && request.method !== 'HEAD')) {
+    if (!view || !isGetOrHead) {
       return env.ASSETS.fetch(request);
+    }
+
+    // Recent Matches teaser (Find My Car) and listing grid (/recent-matches)
+    // are the only other spots needing live data — everything else on these
+    // views is static markup already baked into index.html.
+    const injections = { html: {}, remove: [] };
+    if (view.page === 'find') {
+      const data = await fetchDealerApiJson(env, '/api/public/recent-matches');
+      const featured = (data?.matches || []).filter(m => m.featured).slice(0, 3);
+      if (featured.length) {
+        injections.html['#rm-teaser-grid'] = featured.map(m => recentMatchCardHtml(m, '/recent-matches')).join('');
+      } else {
+        // Nothing published/featured yet — remove the whole section rather
+        // than ship an empty heading with no cards under it.
+        injections.remove.push('#rm-teaser-section');
+      }
+    } else if (view.page === 'recent-matches') {
+      const data = await fetchDealerApiJson(env, '/api/public/recent-matches');
+      const matches = data?.matches || [];
+      injections.html['#rm-listing-grid'] = matches.length
+        ? matches.map(m => recentMatchCardHtml(m, `/recent-matches/${m.slug}`)).join('')
+        : `<p style="grid-column:1/-1;text-align:center;color:var(--gray);font-size:.9rem">More matches are on the way — check back soon.</p>`;
     }
 
     // Pull index.html itself rather than the requested path, which by
@@ -495,13 +611,7 @@ export default {
     const asset = await env.ASSETS.fetch(new Request(`${url.origin}/index.html`));
     if (!asset.ok) return asset;
 
-    const response = renderView(asset, view);
-    const headers = new Headers(response.headers);
-    headers.set('Content-Type', 'text/html; charset=utf-8');
-    // index.html's validators describe the source file, not this transformed
-    // body — leaving them on would let two different views share a cache entry.
-    headers.delete('ETag');
-    headers.delete('Last-Modified');
-    return new Response(response.body, { status: 200, headers });
+    const response = renderView(asset, view, injections);
+    return finalizeHtmlResponse(response);
   },
 };

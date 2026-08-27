@@ -749,6 +749,7 @@
       <button class="tab-btn" onclick="switchTab('tab-dealers')">Dealers<span class="tab-badge" data-section="dealers"></span><span class="tab-badge" data-section="partner_applications"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-submissions')">Weekly Finds Submissions<span class="tab-badge" data-section="newsletter"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-messages')">Messages<span class="tab-badge" data-section="messages"></span></button>
+      <button class="tab-btn" onclick="switchTab('tab-recent-matches')">Recent Matches</button>
     </div>
 
     <!-- Tab: Submissions -->
@@ -1090,6 +1091,64 @@
       <div id="admin-messages-list"></div>
     </div>
 
+    <!-- Tab: Recent Matches — powers the Find My Car teaser + the public
+         /recent-matches and /recent-matches/:slug pages (site worker calls
+         GET /api/public/recent-matches* over a service binding; nothing
+         here needs a site deploy to go live). -->
+    <div class="tab-panel" id="tab-recent-matches">
+      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;border-bottom:none;padding-bottom:0;margin-bottom:1.5rem">
+        <span>Recent Matches</span>
+        <button class="btn-primary btn-sm btn-gold" style="width:auto" id="rm-add-toggle-btn" onclick="toggleRecentMatchForm()">+ New Match</button>
+      </div>
+
+      <div id="rm-add-form" style="display:none;margin-bottom:2rem;padding:1.25rem;background:var(--beige);border-radius:4px">
+        <div class="dp-alert dp-alert-err" id="rm-add-error"></div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Client First Name <span class="required-mark">*</span></label><input type="text" id="rm-first-name" placeholder="Samantha"/></div>
+          <div class="dp-form-group"><label>Vehicle (Year/Make/Model) <span class="required-mark">*</span></label><input type="text" id="rm-vehicle" placeholder="2026 Mazda CX-5"/></div>
+        </div>
+        <div class="dp-form-row">
+          <div class="dp-form-group"><label>Card Title <span class="required-mark">*</span></label><input type="text" id="rm-card-title" placeholder="Samantha's CX5" oninput="rmSuggestSlug()"/></div>
+          <div class="dp-form-group"><label>URL Slug <span class="required-mark">*</span></label><input type="text" id="rm-slug" placeholder="samantha-cx5"/></div>
+        </div>
+        <div class="dp-form-group" style="max-width:220px"><label>Savings Amount ($) <span class="required-mark">*</span></label><input type="number" id="rm-savings" placeholder="6000" min="0"/></div>
+
+        <div style="font-size:.63rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gray);margin:1rem 0 .6rem">How We Helped (pick any that apply)</div>
+        <div id="rm-tags-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.75rem">
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem"><input type="checkbox" class="rm-tag-box" value="Negotiated savings" style="width:auto"/> Negotiated savings</label>
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem"><input type="checkbox" class="rm-tag-box" value="Financing terms secured" style="width:auto"/> Financing terms secured</label>
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem"><input type="checkbox" class="rm-tag-box" value="CPO warranty secured" style="width:auto"/> CPO warranty secured</label>
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem"><input type="checkbox" class="rm-tag-box" value="At-home test drive" style="width:auto"/> At-home test drive</label>
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem"><input type="checkbox" class="rm-tag-box" value="Trade-in allowance" style="width:auto"/> Trade-in allowance</label>
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem"><input type="checkbox" class="rm-tag-box" id="rm-tag-transport" value="Transport arranged" style="width:auto" onchange="document.getElementById('rm-transport-route').style.display=this.checked?'flex':'none'"/> Transport arranged</label>
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem"><input type="checkbox" class="rm-tag-box" value="Pre-purchase inspection (PPI)" style="width:auto"/> Pre-purchase inspection (PPI)</label>
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem"><input type="checkbox" class="rm-tag-box" value="Detail/PPF/cosmetic work" style="width:auto"/> Detail/PPF/cosmetic work</label>
+        </div>
+        <div class="dp-form-row" id="rm-transport-route" style="display:none;margin-bottom:.75rem">
+          <div class="dp-form-group"><label>Transport From</label><input type="text" id="rm-transport-from" placeholder="Miami, FL"/></div>
+          <div class="dp-form-group"><label>Transport To</label><input type="text" id="rm-transport-to" placeholder="Austin, TX"/></div>
+        </div>
+
+        <div class="dp-form-row">
+          <div class="dp-form-group">
+            <label style="display:flex;align-items:center;gap:.5rem"><input type="checkbox" id="rm-featured" style="width:auto"/> Feature on Find My Car page</label>
+          </div>
+          <div class="dp-form-group">
+            <label>Status</label>
+            <select id="rm-status">
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="rm-submit-btn" onclick="doCreateRecentMatch()" style="max-width:220px;margin-top:.5rem">Save Match</button>
+      </div>
+
+      <div id="admin-recent-matches-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+      <div id="admin-recent-matches-list"></div>
+    </div>
+
   </div>
 
 </div><!-- /view-admin -->
@@ -1256,6 +1315,7 @@ function showView(id) {
     loadAdminDealers();
     loadAdminInvites();
     loadAdminPartnerApplications();
+    loadAdminRecentMatches();
     startNotificationPolling();
   } else if (notificationPollHandle) {
     clearInterval(notificationPollHandle);
@@ -2106,7 +2166,7 @@ function switchTab(tabId) {
     b.classList.remove('active');
     if (panels[i]) panels[i].classList.remove('active');
   });
-  const tabIndex = ['tab-find-leads','tab-leads','tab-reports','tab-saved-searches','tab-dealers','tab-submissions','tab-messages'].indexOf(tabId);
+  const tabIndex = ['tab-find-leads','tab-leads','tab-reports','tab-saved-searches','tab-dealers','tab-submissions','tab-messages','tab-recent-matches'].indexOf(tabId);
   document.querySelectorAll('.tab-btn')[tabIndex]?.classList.add('active');
   document.getElementById(tabId)?.classList.add('active');
   // Note: switching tabs never clears a badge — only reviewing/approving/
@@ -2835,6 +2895,157 @@ async function adminDeleteReport(code) {
   const { res } = await apiFetch(`/admin/reports/${code}`, { method: 'DELETE' }).catch(() => ({res:{ok:false}}));
   if (res.ok) loadAdminReports();
   else alert('Delete failed.');
+}
+
+// ── Recent Matches ────────────────────────────────────────────
+// Publishing/featuring here is what makes a match show up on the live site
+// (Find My Car teaser + /recent-matches*) — the site worker reads these
+// through dealer-api's public endpoints on every request, so there's no
+// deploy step between saving here and it going live.
+function toggleRecentMatchForm() {
+  const form = document.getElementById('rm-add-form');
+  const isHidden = form.style.display === 'none';
+  form.style.display = isHidden ? 'block' : 'none';
+  document.getElementById('rm-add-toggle-btn').textContent = isHidden ? 'Cancel' : '+ New Match';
+  if (!isHidden) return;
+  ['rm-first-name','rm-vehicle','rm-card-title','rm-slug','rm-savings','rm-transport-from','rm-transport-to'].forEach(id => document.getElementById(id).value = '');
+  document.querySelectorAll('.rm-tag-box').forEach(cb => cb.checked = false);
+  document.getElementById('rm-transport-route').style.display = 'none';
+  document.getElementById('rm-featured').checked = false;
+  document.getElementById('rm-status').value = 'draft';
+  document.getElementById('rm-add-error').style.display = 'none';
+}
+
+function rmSuggestSlug() {
+  const slugField = document.getElementById('rm-slug');
+  if (slugField.dataset.touched === '1') return; // admin already edited it by hand
+  slugField.value = document.getElementById('rm-card-title').value
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const slugField = document.getElementById('rm-slug');
+  if (slugField) slugField.addEventListener('input', () => { slugField.dataset.touched = '1'; });
+});
+
+function rmCollectTags() {
+  const tags = Array.from(document.querySelectorAll('.rm-tag-box:checked')).map(cb => cb.value);
+  const transportIndex = tags.indexOf('Transport arranged');
+  if (transportIndex !== -1) {
+    const from = document.getElementById('rm-transport-from').value.trim();
+    const to   = document.getElementById('rm-transport-to').value.trim();
+    if (from && to) tags[transportIndex] = `Transport arranged (${from} → ${to})`;
+  }
+  return tags;
+}
+
+async function doCreateRecentMatch() {
+  const body = {
+    first_name:     document.getElementById('rm-first-name').value.trim(),
+    vehicle:        document.getElementById('rm-vehicle').value.trim(),
+    card_title:     document.getElementById('rm-card-title').value.trim(),
+    slug:           document.getElementById('rm-slug').value.trim(),
+    savings_amount: document.getElementById('rm-savings').value.trim(),
+    tags:           rmCollectTags(),
+    featured:       document.getElementById('rm-featured').checked,
+    status:         document.getElementById('rm-status').value,
+  };
+  if (!body.first_name || !body.vehicle || !body.card_title || !body.slug || !body.savings_amount) {
+    showAlert('rm-add-error', 'First name, vehicle, card title, slug, and savings amount are required.');
+    return;
+  }
+  setLoading('rm-submit-btn', true, 'Saving…');
+  const { res, data } = await apiFetch('/admin/recent-matches', { method: 'POST', body: JSON.stringify(body) })
+    .catch(() => ({ res: { ok: false }, data: { error: 'Connection error. Please try again.' } }));
+  setLoading('rm-submit-btn', false, null, 'Save Match');
+  if (!res.ok) { showAlert('rm-add-error', data.error || 'Failed to save.'); return; }
+  toggleRecentMatchForm();
+  loadAdminRecentMatches();
+}
+
+async function loadAdminRecentMatches() {
+  const loading = document.getElementById('admin-recent-matches-loading');
+  const list    = document.getElementById('admin-recent-matches-list');
+  if (!loading || !list) return; // panel not on this page load (shouldn't happen, but matches other loaders' defensiveness)
+  loading.style.display = 'block';
+  list.innerHTML = '';
+  const { res, data } = await apiFetch('/admin/recent-matches').catch(() => ({ res: { ok: false }, data: {} }));
+  loading.style.display = 'none';
+  if (!res.ok) { list.innerHTML = '<div class="dp-alert dp-alert-err">Failed to load.</div>'; return; }
+  const matches = data.matches || [];
+  if (!matches.length) { list.innerHTML = '<p style="color:var(--gray);font-size:.88rem">No matches yet — add the first one above.</p>'; return; }
+  list.innerHTML = matches.map(renderAdminRecentMatchCard).join('');
+}
+
+function renderAdminRecentMatchCard(m) {
+  const photo = m.photo_url
+    ? `<img src="${escapeHtmlJs(m.photo_url)}" style="width:100%;height:100%;object-fit:cover;display:block"/>`
+    : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray);font-size:.72rem">No photo yet</div>`;
+  const tags = m.tags.map(t => `<span class="status-badge" style="background:rgba(12,28,51,.08);color:var(--navy);margin:0 .35rem .35rem 0">${escapeHtmlJs(t)}</span>`).join('') || '<span style="color:var(--gray);font-size:.8rem">No tags</span>';
+  return `
+    <div class="dp-card" style="display:flex;gap:1rem;margin-bottom:1rem;padding:1.1rem 1.25rem;border:1px solid var(--border);border-radius:3px">
+      <div style="width:110px;height:82px;flex-shrink:0;border-radius:3px;overflow:hidden;background:var(--beige)">${photo}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
+          <div>
+            <strong>${escapeHtmlJs(m.card_title)}</strong>
+            <div style="font-size:.8rem;color:var(--gray)">${escapeHtmlJs(m.vehicle)} · $${Number(m.savings_amount).toLocaleString()} saved · /recent-matches/${escapeHtmlJs(m.slug)}</div>
+          </div>
+          <div style="display:flex;gap:.5rem;flex-shrink:0">
+            <button class="btn-primary btn-sm btn-outline" style="width:auto" onclick="rmDeleteMatch(${m.id})">Delete</button>
+          </div>
+        </div>
+        <div style="margin:.6rem 0">${tags}</div>
+        <div class="photo-upload-wrap" data-id="${m.id}" style="display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem">
+          <input type="file" accept="image/*" class="photo-file-input" style="font-size:.78rem"/>
+          <button class="btn-primary btn-sm btn-outline" style="width:auto" onclick="rmUploadPhoto(${m.id}, this)">Upload Photo</button>
+        </div>
+        <div style="display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:.4rem;font-size:.82rem"><input type="checkbox" style="width:auto" ${m.featured ? 'checked' : ''} onchange="rmUpdateField(${m.id}, 'featured', this.checked)"/> Featured on Find My Car</label>
+          <label style="display:flex;align-items:center;gap:.4rem;font-size:.82rem">Status:
+            <select style="width:auto;padding:.3rem .5rem" onchange="rmUpdateField(${m.id}, 'status', this.value)">
+              <option value="draft" ${m.status === 'draft' ? 'selected' : ''}>Draft</option>
+              <option value="published" ${m.status === 'published' ? 'selected' : ''}>Published</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function rmUpdateField(id, field, value) {
+  const { res } = await apiFetch(`/admin/recent-matches/${id}`, { method: 'PATCH', body: JSON.stringify({ [field]: value }) })
+    .catch(() => ({ res: { ok: false } }));
+  if (!res.ok) { alert('Update failed.'); loadAdminRecentMatches(); return; }
+  if (field === 'status') loadAdminRecentMatches(); // slug/status line in the card summary can change
+}
+
+async function rmDeleteMatch(id) {
+  if (!confirm('Delete this match? This removes its public page immediately.')) return;
+  const { res } = await apiFetch(`/admin/recent-matches/${id}`, { method: 'DELETE' }).catch(() => ({ res: { ok: false } }));
+  if (!res.ok) { alert('Delete failed.'); return; }
+  loadAdminRecentMatches();
+}
+
+async function rmUploadPhoto(id, btn) {
+  const wrap  = btn.closest('.photo-upload-wrap');
+  const input = wrap.querySelector('.photo-file-input');
+  if (!input.files.length) { alert('Choose a photo file first.'); return; }
+  const formData = new FormData();
+  formData.append('photo', input.files[0]);
+  btn.disabled = true; btn.textContent = 'Uploading…';
+  try {
+    const res = await fetch(`${API}/admin/recent-matches/${id}/photo`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}` },
+      body: formData,
+    });
+    btn.disabled = false; btn.textContent = 'Upload Photo';
+    if (res.ok) loadAdminRecentMatches();
+    else alert('Upload failed.');
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Upload Photo';
+    alert('Upload failed.');
+  }
 }
 
 // ── Generate a report from a pasted listing URL ─────────────────

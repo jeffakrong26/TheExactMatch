@@ -467,29 +467,40 @@
     #page-find .tquote{font-family:'Cabinet Grotesk',sans-serif;font-style:normal;font-weight:400}
     #page-find .tavatar{font-family:'Cabinet Grotesk',sans-serif}
 
-    /* ── RECENT MATCHES CARDS — teaser (Find My Car) + full (its own page) ──
-       Deliberately its own class family, not reusing .tcard/.gitem, so a new
-       match is just one more copy-pasted .rm-card / .rm-card-full block. */
+    /* ── RECENT MATCHES CARDS ──
+       .rm-card is the teaser (Find My Car) AND the listing-page card — both
+       are deliberately just a photo + name, per the content rules; savings
+       and tags only ever appear one level deeper, on a match's own detail
+       page (in .home-featured-info, alongside the homepage's own "recent
+       match" section, which uses the same .rm-saved/.rm-tags treatment). */
     .rm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;max-width:1100px;margin:0 auto}
-    .rm-card{display:block;text-decoration:none;background:var(--white);border:1px solid var(--border);border-radius:8px;padding:1.75rem;transition:transform .2s,box-shadow .2s}
+    .rm-card{display:block;text-decoration:none;background:var(--white);border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:transform .2s,box-shadow .2s}
     .rm-card:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.08)}
-    .rm-card h3,.rm-card-full h2{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:1.15rem;color:var(--navy);margin:0 0 .2rem}
-    .rm-card-full h2{font-size:1.4rem}
-    .rm-vehicle{font-family:'General Sans',sans-serif;font-size:.78rem;color:var(--gray);margin-bottom:1.1rem}
-    .rm-saved{font-family:'Cabinet Grotesk',sans-serif;font-weight:700;font-size:1.85rem;color:var(--gold);line-height:1;margin-bottom:1.1rem;display:flex;align-items:baseline;gap:.5rem}
-    .rm-saved-label{font-family:'General Sans',sans-serif;font-weight:600;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gray)}
-    .rm-tags{display:flex;flex-wrap:wrap;gap:.4rem}
-    .rm-tag{font-family:'General Sans',sans-serif;font-weight:600;font-size:.63rem;letter-spacing:.05em;text-transform:uppercase;color:var(--navy);background:var(--beige2);border:1px solid var(--border);border-radius:6px;padding:.35rem .6rem}
-    .rm-full-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.75rem;max-width:1150px;margin:0 auto}
-    .rm-card-full{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:2.25rem}
-    .rm-card-full p{font-family:'General Sans',sans-serif;font-size:.85rem;font-weight:400;color:var(--gray);line-height:1.7;margin:1.1rem 0}
-    @media(max-width:900px){.rm-grid,.rm-full-grid{grid-template-columns:1fr}}
+    .rm-photo{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--beige2)}
+    .rm-photo-placeholder{display:flex;align-items:center;justify-content:center;color:var(--gray);font-size:.75rem}
+    .rm-card h3{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:1.1rem;color:var(--navy);margin:1.1rem 1.25rem .2rem}
+    .rm-card .rm-vehicle{font-family:'General Sans',sans-serif;font-size:.78rem;color:var(--gray);margin:0 1.25rem 1.25rem}
+    @media(max-width:900px){.rm-grid{grid-template-columns:1fr}}
 
-    /* ── RECENT MATCHES PAGE ── */
+    /* ── RECENT MATCHES PAGE (listing) ── */
     #page-recent-matches{font-family:'General Sans',sans-serif}
     #page-recent-matches .eyebrow{font-family:'General Sans',sans-serif;font-weight:600}
     #page-recent-matches h1{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(2rem,4vw,3rem);line-height:1.15;color:var(--navy);margin-bottom:1rem}
     #page-recent-matches h1 strong{font-weight:700}
+
+    /* ── RECENT MATCH DETAIL PAGE — borrows the homepage's "recent match"
+       layout classes (.home-featured/.home-photo-block/.home-featured-info)
+       directly rather than redefining them, so the two stay visually
+       identical without duplicated CSS. .rm-saved/.rm-tags below are the
+       savings-figure + how-we-helped-tags content that replaces the
+       homepage's old listing-price-vs-purchase-price line. */
+    #page-recent-match-detail{background:var(--home-ivory);color:var(--home-charcoal);font-family:'General Sans',sans-serif}
+    #page-recent-match-detail .home-section-head{border-bottom:1px solid var(--home-hairline)}
+    .rmd-photo{width:100%;height:100%;object-fit:cover;display:block}
+    .rm-saved{font-family:'Cabinet Grotesk',sans-serif;font-weight:700;font-size:1.9rem;color:var(--home-brass);line-height:1;margin-bottom:1.25rem;display:flex;align-items:baseline;gap:.5rem}
+    .rm-saved-label{font-family:'General Sans',sans-serif;font-weight:600;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--home-slate)}
+    .rm-tags{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 2rem}
+    .rm-tag{font-family:'General Sans',sans-serif;font-weight:600;font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;color:var(--home-navy);background:rgba(15,27,45,.05);border:1px solid var(--home-hairline);border-radius:6px;padding:.4rem .75rem}
 
     @media(max-width:800px){
       .home-featured{grid-template-columns:1fr}
@@ -597,6 +608,7 @@
         <a href="#" class="nav-more-toggle" onclick="return toggleNavMore()">More</a>
         <ul class="nav-more-menu">
           <li><a href="/how-it-works" onclick="return showPage('how')" id="nav-how">How It Works</a></li>
+          <li><a href="/recent-matches" id="nav-recent-matches">Recent Matches</a></li>
           <li><a href="/weekly-finds" onclick="return showPage('weekly')" id="nav-weekly">Weekly Finds</a></li>
           <li><a href="/guides" onclick="return showPage('guides')" id="nav-guides">Guides</a></li>
           <li><a href="Dealerportal.html">Dealer Portal</a></li>
@@ -714,18 +726,11 @@
         <div class="home-photo-block" style="aspect-ratio:4/3;background-image:url('aston-martin-vantage.jpg');background-size:cover;background-position:center"></div>
         <div class="home-featured-info">
           <h3>2019 Aston Martin Vantage S</h3>
-          <div class="price">$92,999 — down from $99,999 asking</div>
-          <p>Matched and negotiated with a CPO warranty included, and the deal closed well under the original asking price.</p>
-          <div class="home-spec-grid">
-            <div><span class="label">Mileage</span><span class="val">13,000 mi</span></div>
-            <div><span class="label">Saved vs. asking</span><span class="val">$7,000</span></div>
-            <div><span class="label">Off asking</span><span class="val">7%</span></div>
-            <div><span class="label">Warranty</span><span class="val">CPO Secured</span></div>
+          <div class="rm-saved">$7,000 <span class="rm-saved-label">Saved</span></div>
+          <div class="rm-tags">
+            <span class="rm-tag">CPO Warranty Secured</span>
           </div>
-          <!-- TODO: no public per-report page exists yet (find_car_reports is
-               dealer-api/admin-only). Point this at a real report URL once
-               one ships. -->
-          <a class="home-text-cta" href="#">View the full report →</a>
+          <a class="home-text-cta" href="/recent-matches/andy-vantage">View the full match →</a>
         </div>
       </div>
     </section>
@@ -996,42 +1001,14 @@
     </div>
   </div>
 
-  <!-- Recent Matches -->
-  <section class="gallery-section">
+  <!-- Recent Matches teaser — cards are server-injected per request from
+       live dealer-api data (see src/index.js); this shell ships empty. -->
+  <section class="gallery-section" id="rm-teaser-section">
     <div style="text-align:center;margin-bottom:2.5rem">
       <div class="eyebrow center">Recent Matches</div>
-      <h2 class="display">Real deals, <em>real numbers.</em></h2>
+      <h2 class="display">Real deals, <em>real people.</em></h2>
     </div>
-    <div class="rm-grid">
-      <a class="rm-card" href="/recent-matches" onclick="return showPage('recent-matches')">
-        <h3>Samantha's CX5</h3>
-        <div class="rm-vehicle">New 2026 Mazda CX-5</div>
-        <div class="rm-saved">$6,000 <span class="rm-saved-label">Saved</span></div>
-        <div class="rm-tags">
-          <span class="rm-tag">0% APR Financing</span>
-          <span class="rm-tag">At-Home Test Drive</span>
-          <span class="rm-tag">Above-Market Trade-In</span>
-        </div>
-      </a>
-      <a class="rm-card" href="/recent-matches" onclick="return showPage('recent-matches')">
-        <h3>Casey's Huracán</h3>
-        <div class="rm-vehicle">2019 Lamborghini Huracán</div>
-        <div class="rm-saved">$8,000 <span class="rm-saved-label">Saved</span></div>
-        <div class="rm-tags">
-          <span class="rm-tag">CPO Warranty</span>
-          <span class="rm-tag">Miami → Austin Transport</span>
-          <span class="rm-tag">Full Detail Package</span>
-        </div>
-      </a>
-      <a class="rm-card" href="/recent-matches" onclick="return showPage('recent-matches')">
-        <h3>Andy's Vantage</h3>
-        <div class="rm-vehicle">2019 Aston Martin Vantage S</div>
-        <div class="rm-saved">$7,000 <span class="rm-saved-label">Saved</span></div>
-        <div class="rm-tags">
-          <span class="rm-tag">CPO Warranty</span>
-        </div>
-      </a>
-    </div>
+    <div class="rm-grid" id="rm-teaser-grid"></div>
   </section>
 
   <!-- Brands -->
@@ -2570,51 +2547,77 @@
   <section style="padding:6rem var(--side-pad) 5rem;background:var(--beige)">
     <div style="text-align:center;max-width:640px;margin:0 auto 3.5rem">
       <div class="eyebrow center">Recent Matches</div>
-      <h1>Real deals. <strong>Real savings.</strong></h1>
-      <p style="font-size:.92rem;font-weight:300;color:var(--gray);line-height:1.8">A running record of what we've actually found, negotiated, and closed for clients — no listing-price theatrics, just what changed hands and what it cost.</p>
+      <h1>Real deals. <strong>Real people.</strong></h1>
+      <p style="font-size:.92rem;font-weight:300;color:var(--gray);line-height:1.8">Every car we've found, negotiated, and closed for a client. Click into any match for the full story — what we did and what it saved them.</p>
     </div>
 
-    <!-- Repeatable card — copy this block for each new match. -->
-    <div class="rm-full-grid">
-      <div class="rm-card-full">
-        <h2>Samantha's CX5</h2>
-        <div class="rm-vehicle">New 2026 Mazda CX-5</div>
-        <div class="rm-saved">$6,000 <span class="rm-saved-label">Saved</span></div>
-        <p>Samantha wanted a new CX-5 without the financing runaround. We secured 0% APR, arranged an at-home test drive so she could try it in her own driveway first, and got her an above-market allowance on her trade-in.</p>
-        <div class="rm-tags">
-          <span class="rm-tag">0% APR Financing</span>
-          <span class="rm-tag">At-Home Test Drive</span>
-          <span class="rm-tag">Above-Market Trade-In</span>
-        </div>
-      </div>
-
-      <div class="rm-card-full">
-        <h2>Casey's Huracán</h2>
-        <div class="rm-vehicle">2019 Lamborghini Huracán</div>
-        <div class="rm-saved">$8,000 <span class="rm-saved-label">Saved</span></div>
-        <p>Casey's spec was sitting in Miami. We secured a CPO warranty, arranged transport from Miami, FL to Austin, TX, and had it fully detailed — PPF, ceramic coating, and paintless dent removal — before it ever reached him.</p>
-        <div class="rm-tags">
-          <span class="rm-tag">CPO Warranty</span>
-          <span class="rm-tag">Miami → Austin Transport</span>
-          <span class="rm-tag">Full Detail Package</span>
-        </div>
-      </div>
-
-      <div class="rm-card-full">
-        <h2>Andy's Vantage</h2>
-        <div class="rm-vehicle">2019 Aston Martin Vantage S</div>
-        <div class="rm-saved">$7,000 <span class="rm-saved-label">Saved</span></div>
-        <p>The same Vantage S deal featured on our homepage — closed with a CPO warranty included, so Andy got real coverage on top of the savings.</p>
-        <div class="rm-tags">
-          <span class="rm-tag">CPO Warranty</span>
-        </div>
-      </div>
-    </div>
+    <!-- Cards are server-injected per request from live dealer-api data
+         (see src/index.js) — this grid ships empty. -->
+    <div class="rm-grid" id="rm-listing-grid"></div>
 
     <div style="text-align:center;margin-top:3.5rem">
       <a href="/find-my-car" onclick="return showPage('find')" style="font-size:.85rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Start your own search — free →</a>
     </div>
   </section>
+
+  <footer>
+    <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
+    <ul class="footer-nav">
+      <li><a href="/find-my-car" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
+      <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
+      <li><a href="/about" onclick="return showPage('about')">About</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Weekly Finds</a></li>
+      <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
+      <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
+    </ul>
+    <div style="display:flex;align-items:center;gap:1.5rem">
+      <div class="footer-copy">© 2026 TheExactMatch.com</div>
+      <div class="footer-social">
+        <a href="https://facebook.com/theexactmatch" target="_blank" rel="noopener noreferrer" aria-label="TheExactMatch on Facebook">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.675 0h-21.35C.595 0 0 .593 0 1.325v21.351C0 23.407.595 24 1.325 24H12.82v-9.294H9.692v-3.622h3.128V8.413c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24h-1.918c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12V24h6.115C23.407 24 24 23.407 24 22.676V1.325C24 .593 23.407 0 22.675 0z"/></svg>
+        </a>
+        <a href="https://instagram.com/theexactmatch" target="_blank" rel="noopener noreferrer" aria-label="TheExactMatch on Instagram">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.332 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.332 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
+        </a>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: RECENT MATCH DETAIL (one shared template — see #page-city
+     for the same one-div-many-URLs pattern. Every #rmd-* placeholder is
+     filled server-side per request from live dealer-api data; nothing
+     here is reachable via client-side showPage(), see the PAGE_PATHS note
+     above.)
+═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-recent-match-detail">
+  <div class="home-wrap">
+    <section class="home-section" style="padding-top:96px">
+      <div class="home-section-head">
+        <h2>The Deal</h2>
+        <a class="home-text-cta" href="/recent-matches">&larr; All Matches</a>
+      </div>
+      <div class="home-featured">
+        <div class="home-photo-block" id="rmd-photo-wrap" style="aspect-ratio:4/3"></div>
+        <div class="home-featured-info">
+          <h1 id="rmd-heading" style="font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:30px;margin:0 0 4px"></h1>
+          <div class="rm-vehicle" id="rmd-vehicle" style="margin-bottom:20px"></div>
+          <div class="rm-saved" id="rmd-saved"></div>
+          <div class="rm-tags" id="rmd-tags"></div>
+          <a class="home-text-cta" href="/find-my-car" onclick="return showPage('find')">Start your own search — free &rarr;</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="home-footer-cta">
+    <div class="home-wrap">
+      <h2>Ready to start your match?</h2>
+      <a class="home-ticket" href="/find-my-car" onclick="return showPage('find')"><span>Start a free search</span></a>
+    </div>
+  </div>
 
   <footer>
     <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
@@ -2657,8 +2660,13 @@ const PAGE_PATHS = {
   'guide-negotiate': '/how-to-negotiate-car-price',
   guides: '/guides',
   'guide-audi-r8': '/guides/audi-r8',
-  'recent-matches': '/recent-matches',
 };
+// Deliberately absent: /recent-matches and /recent-matches/:slug. Both are
+// rendered server-side from live dealer-api data on every request (see
+// src/index.js), so a client-side swap into the same #page-recent-matches /
+// #page-recent-match-detail div would show stale or empty content — links to
+// these are plain <a href>, not showPage(), for the same reason the city
+// pages are.
 // Deliberately absent: the /<city> pages. All five share one #page-city div
 // whose city names are filled in server-side, so showing that div client-side
 // would render the wrong city. City links are plain hrefs and navigate for real.

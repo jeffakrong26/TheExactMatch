@@ -17,6 +17,13 @@
     // just one person's task state, hence KV over D1.
     { "binding": "TEM_TASKS", "id": "94e9c04eaa384a139c57096301d3c5c1" }
   ],
+  "services": [
+    // Recent Matches data lives in dealer-api's D1/R2 — this worker only
+    // renders. A service binding avoids a public network hop for what's
+    // really an in-process call between two Workers on every /find-my-car
+    // and /recent-matches* request.
+    { "binding": "DEALER_API", "service": "theexactmatch-dealer-api" }
+  ],
   "compatibility_flags": [
     "nodejs_compat"
   ]

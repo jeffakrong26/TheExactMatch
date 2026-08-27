@@ -20,7 +20,12 @@
 	"routes": [
 		{ "pattern": "theexactmatch.com/reports/*", "zone_name": "theexactmatch.com" },
 		{ "pattern": "theexactmatch.com/sell/*", "zone_name": "theexactmatch.com" },
-		{ "pattern": "theexactmatch.com/submissions/*", "zone_name": "theexactmatch.com" }
+		{ "pattern": "theexactmatch.com/submissions/*", "zone_name": "theexactmatch.com" },
+		// Only the photo bytes — the /recent-matches and /recent-matches/:slug
+		// pages themselves are rendered by the site worker (theexactmatch), which
+		// calls the /api/public/recent-matches* endpoints above over a service
+		// binding so nav/footer/CSS stay the single-source-of-truth index.html.
+		{ "pattern": "theexactmatch.com/recent-matches/photos/*", "zone_name": "theexactmatch.com" }
 	],
 	"workers_dev": true,
 	"r2_buckets": [
