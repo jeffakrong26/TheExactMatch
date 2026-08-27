@@ -267,6 +267,51 @@ for (const city of CITIES) {
   });
 }
 
+// ── Brand-specific sell pages ───────────────────────────────────────────
+// All 17 share the single #page-sell-brand div in index.html, same
+// one-div-many-URLs pattern as #page-city above. Routed under /sell-my-car/
+// rather than the /sell/:brand the brief originally asked for — /sell/* is
+// already a Cloudflare route pointing this whole path prefix at dealer-api
+// (see wrangler.jsonc; it owns /sell/upload/:token, /sell/report/:token,
+// /sell/photos/*, /sell/quick-photos/*), so /sell/ferrari would never reach
+// this worker at all. Nesting under /sell-my-car/ instead mirrors how
+// /guides/audi-r8 already nests under /guides.
+//
+// The list is the same set already shown (and visually split into a "hero"
+// row) in the Find My Car "Our Dealer Network" brand grid — not a new
+// roster invented for this feature.
+const SELL_BRAND_LASTMOD = '2026-08-27';
+const SELL_BRANDS = [
+  { slug: 'mercedes-benz', name: 'Mercedes-Benz' },
+  { slug: 'audi',          name: 'Audi' },
+  { slug: 'bentley',       name: 'Bentley' },
+  { slug: 'porsche',       name: 'Porsche' },
+  { slug: 'ferrari',       name: 'Ferrari' },
+  { slug: 'lamborghini',   name: 'Lamborghini' },
+  { slug: 'bmw',           name: 'BMW' },
+  { slug: 'rolls-royce',   name: 'Rolls-Royce' },
+  { slug: 'mclaren',       name: 'McLaren' },
+  { slug: 'aston-martin',  name: 'Aston Martin' },
+  { slug: 'maserati',      name: 'Maserati' },
+  { slug: 'land-rover',    name: 'Land Rover' },
+  { slug: 'lexus',         name: 'Lexus' },
+  { slug: 'infiniti',      name: 'Infiniti' },
+  { slug: 'cadillac',      name: 'Cadillac' },
+  { slug: 'genesis',       name: 'Genesis' },
+  { slug: 'alfa-romeo',    name: 'Alfa Romeo' },
+];
+
+for (const brand of SELL_BRANDS) {
+  VIEWS.push({
+    path: `/sell-my-car/${brand.slug}`,
+    page: 'sell-brand',
+    brand,
+    lastmod: SELL_BRAND_LASTMOD,
+    title: `Sell Your ${brand.name} — Real Offers, Not One Lowball | TheExactMatch`,
+    description: `Selling a ${brand.name}? We send it to dealers and specialist buyers actively looking for exactly this, and bring back real, competing offers within 24 hours. Free, no obligation.`,
+  });
+}
+
 // Standalone HTML files that are already their own real URL. They need no
 // rewriting, but they do belong in the sitemap, so they live here rather than
 // being hardcoded into the XML.
@@ -449,6 +494,24 @@ function renderView(assetResponse, view, injections = {}) {
       .on('.city-crosslinks li', {
         element(el) {
           if (view.city && el.getAttribute('data-city') === view.city.slug) el.remove();
+        },
+      })
+      // Same substitution pattern for the shared #page-sell-brand template.
+      .on('.brand-name', {
+        element(el) {
+          if (view.brand) el.setInnerContent(view.brand.name);
+        },
+      })
+      // The CTA needs the brand as a real query param (?make=Ferrari), not
+      // just text content, so the sell form can prefill Make on arrival.
+      .on('#brand-cta', {
+        element(el) {
+          if (view.brand) el.setAttribute('href', `/sell-my-car?make=${encodeURIComponent(view.brand.name)}`);
+        },
+      })
+      .on('.brand-crosslinks li', {
+        element(el) {
+          if (view.brand && el.getAttribute('data-brand') === view.brand.slug) el.remove();
         },
       })
       // Route-scoped structured data. `</` is escaped so a future answer
