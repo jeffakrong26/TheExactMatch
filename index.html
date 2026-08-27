@@ -557,6 +557,32 @@
     .rm-tags{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 2rem}
     .rm-tag{font-family:'General Sans',sans-serif;font-weight:600;font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;color:var(--home-navy);background:rgba(15,27,45,.05);border:1px solid var(--home-hairline);border-radius:6px;padding:.4rem .75rem}
 
+    /* ── WHITE GLOVE PAGE — matches the homepage's type system ── */
+    #page-white-glove{font-family:'General Sans',sans-serif;background:var(--home-ivory);color:var(--home-charcoal)}
+    #page-white-glove .eyebrow{font-family:'General Sans',sans-serif;font-weight:600;color:var(--home-brass)}
+    #page-white-glove .eyebrow::before,#page-white-glove .eyebrow::after{background:var(--home-brass)}
+    #page-white-glove h2.display{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;color:var(--home-navy)}
+    #page-white-glove h2.display strong{font-weight:700}
+    .wg-h1{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(2rem,4vw,2.9rem);line-height:1.15;color:var(--home-navy);margin:0 0 20px;max-width:820px}
+    .wg-h1 strong{font-weight:700}
+    .wg-lede{font-size:17px;line-height:1.6;color:var(--home-slate);max-width:620px;margin:0}
+    #page-white-glove .home-section-head h2{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;color:var(--home-navy);font-size:clamp(1.4rem,2.5vw,1.9rem)}
+    .wg-included-list{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:14px 32px;max-width:820px}
+    .wg-included-list li{position:relative;padding-left:26px;font-size:15px;line-height:1.55;color:var(--home-charcoal)}
+    .wg-included-list li::before{content:'';position:absolute;left:0;top:8px;width:8px;height:8px;border-radius:50%;background:var(--home-brass)}
+    .wg-pricing-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px}
+    .wg-price-card{background:#fff;border:1px solid var(--home-hairline);border-radius:8px;padding:32px}
+    .wg-price-card-accent{border-color:var(--home-brass);box-shadow:0 1px 0 var(--home-brass) inset}
+    .wg-price-tier{font-family:'General Sans',sans-serif;font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--home-slate);margin-bottom:12px}
+    .wg-price-amount{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:28px;color:var(--home-navy);margin-bottom:14px;line-height:1.2}
+    .wg-price-amount span{display:block;font-family:'General Sans',sans-serif;font-weight:500;font-size:13px;color:var(--home-slate);margin-top:4px}
+    .wg-price-desc{font-size:14px;line-height:1.6;color:var(--home-slate);margin:0}
+    .wg-billed{font-size:14px;line-height:1.6;color:var(--home-slate);max-width:700px;margin:0}
+    .wg-why{font-size:16px;line-height:1.7;color:var(--home-charcoal);max-width:700px;margin:0}
+    .wg-cta-btn{display:inline-flex;align-items:center;gap:10px;background:var(--home-brass);color:var(--home-navy);font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;padding:16px 30px;text-decoration:none;border-radius:8px}
+    .wg-cta-btn:hover{background:var(--home-brass-light)}
+    @media(max-width:760px){.wg-included-list,.wg-pricing-grid{grid-template-columns:1fr}}
+
     @media(max-width:800px){
       .home-featured{grid-template-columns:1fr}
       .home-steps{grid-template-columns:1fr}
@@ -665,6 +691,7 @@
         <a href="#" class="nav-more-toggle" onclick="return toggleNavMore()">More</a>
         <ul class="nav-more-menu">
           <li><a href="/how-it-works" onclick="return showPage('how')" id="nav-how">How It Works</a></li>
+          <li><a href="/white-glove" onclick="return showPage('white-glove')" id="nav-white-glove">White Glove</a></li>
           <li><a href="/recent-matches" id="nav-recent-matches">Recent Matches</a></li>
           <li><a href="/weekly-finds" onclick="return showPage('weekly')" id="nav-weekly">Recent Finds</a></li>
           <li><a href="/guides" onclick="return showPage('guides')" id="nav-guides">Guides</a></li>
@@ -692,6 +719,7 @@
   <a href="/sell-my-car" onclick="toggleMenu();return showPage('sell')">Sell My Car</a>
   <a href="/about" onclick="toggleMenu();return showPage('about')">About</a>
   <a href="/how-it-works" onclick="toggleMenu();return showPage('how')">How It Works</a>
+  <a href="/white-glove" onclick="toggleMenu();return showPage('white-glove')">White Glove</a>
   <a href="/recent-matches">Recent Matches</a>
   <a href="/weekly-finds" onclick="toggleMenu();return showPage('weekly')">Recent Finds</a>
   <a href="/guides" onclick="toggleMenu();return showPage('guides')">Guides</a>
@@ -1681,22 +1709,8 @@
     <div style="max-width:900px;margin:0 auto;text-align:center">
       <div class="eyebrow light center">Premium Option</div>
       <h2 class="display light" style="margin-bottom:1rem">Want us to handle <em>everything?</em></h2>
-      <p style="margin:0 auto 2.5rem"><a href="/contact" onclick="return showPage('contact')" style="font-size:.9rem;font-weight:600;color:var(--gold2);border-bottom:1px solid rgba(212,180,122,.4);text-decoration:none">Want the whole deal handled? See White Glove →</a></p>
-      <div style="display:grid;grid-template-columns:var(--grid-3);gap:1px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);border-radius:3px;overflow:hidden;max-width:700px;margin:0 auto 2.5rem">
-        <div style="padding:1.75rem;background:rgba(255,255,255,.04)">
-          <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.5rem">Under $50K</div>
-          <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:500;color:var(--gold2)">$500</div>
-        </div>
-        <div style="padding:1.75rem;background:rgba(192,154,91,.08);border-left:1px solid rgba(192,154,91,.2);border-right:1px solid rgba(192,154,91,.2)">
-          <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.5rem">$50K – $150K</div>
-          <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:500;color:var(--gold2)">$1,000</div>
-        </div>
-        <div style="padding:1.75rem;background:rgba(255,255,255,.04)">
-          <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.5rem">$150K+</div>
-          <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:500;color:var(--gold2)">$2,000+</div>
-        </div>
-      </div>
-      <button class="submit-btn" style="width:auto;padding:.85rem 2.5rem" onclick="showPage('contact')">Ask About White Glove</button>
+      <p style="font-size:.9rem;font-weight:300;color:rgba(255,255,255,.6);max-width:520px;margin:0 auto 2rem;line-height:1.8">A flat fee for standard vehicles, a custom quote for hard-to-find ones — capped, and never a surprise.</p>
+      <a href="/white-glove" onclick="return showPage('white-glove')" style="display:inline-block;margin-bottom:0;font-size:.9rem;font-weight:600;color:var(--gold2);border-bottom:1px solid rgba(212,180,122,.4);text-decoration:none">See the full White Glove breakdown →</a>
     </div>
   </section>
 
@@ -1711,7 +1725,7 @@
     <div class="faq-wrap">
       <div class="faq-item" onclick="toggleFaq(this)">
         <div class="faq-q">What's actually free, and what isn't? <span class="faq-arrow">+</span></div>
-        <div class="faq-a">Search and matching are free, always — the form, the search, and your 3 curated options cost nothing, whether you're buying or selling. White Glove — Jeff personally negotiating, handling paperwork, and coordinating the closing — is a separate, optional paid tier with a flat fee based on the vehicle's value.</div>
+        <div class="faq-a">Search and matching are free, always — the form, the search, and your 3 curated options cost nothing, whether you're buying or selling. White Glove — Jeff personally negotiating, handling paperwork, and coordinating the closing — is a separate, optional paid tier: a flat fee starting at $249 for standard vehicles, or a custom quote (capped at $7,000) for hard-to-find ones.</div>
       </div>
       <div class="faq-item" onclick="toggleFaq(this)">
         <div class="faq-q">Do I have to use White Glove? <span class="faq-arrow">+</span></div>
@@ -1723,7 +1737,7 @@
       </div>
       <div class="faq-item" onclick="toggleFaq(this)">
         <div class="faq-q">Is Find My Car priced differently than Sell My Car? <span class="faq-arrow">+</span></div>
-        <div class="faq-a">No — both work the same way. Search and matching are free on both sides; White Glove is available on both if you want the full deal handled, priced the same flat-fee-by-vehicle-value either way.</div>
+        <div class="faq-a">No — both work the same way. Search and matching are free on both sides; White Glove is available on both if you want the full deal handled, priced the same way either way — flat fee or custom quote depending on the vehicle.</div>
       </div>
     </div>
   </section>
@@ -1748,6 +1762,114 @@
     <div style="display:flex;align-items:center;gap:1.5rem">
       <div class="footer-copy">© 2026 TheExactMatch.com</div>
       <!-- Placeholder URLs — confirm the real handles before this goes live. -->
+      <div class="footer-social">
+        <a href="https://facebook.com/theexactmatch" target="_blank" rel="noopener noreferrer" aria-label="TheExactMatch on Facebook">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.675 0h-21.35C.595 0 0 .593 0 1.325v21.351C0 23.407.595 24 1.325 24H12.82v-9.294H9.692v-3.622h3.128V8.413c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24h-1.918c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12V24h6.115C23.407 24 24 23.407 24 22.676V1.325C24 .593 23.407 0 22.675 0z"/></svg>
+        </a>
+        <a href="https://instagram.com/theexactmatch" target="_blank" rel="noopener noreferrer" aria-label="TheExactMatch on Instagram">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.332 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.332 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
+        </a>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: WHITE GLOVE
+═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-white-glove">
+  <div class="home-wrap">
+    <section class="home-section" style="padding-top:96px;padding-bottom:48px">
+      <div class="eyebrow">White Glove</div>
+      <h1 class="wg-h1">Finding your car is free. <strong>Handling the whole deal is White Glove.</strong></h1>
+      <p class="wg-lede">Search and matching always stays free — three real options, sourced from our dealer network, at no cost to you. If you want us to take it from there and run the entire transaction on your behalf, that's White Glove.</p>
+    </section>
+
+    <section class="home-section" style="padding-top:0;padding-bottom:48px">
+      <div class="home-section-head">
+        <h2>What's included</h2>
+      </div>
+      <ul class="wg-included-list">
+        <li>Inquiry and initial outreach to the dealer on your behalf</li>
+        <li>Test drive scheduling, including at-home delivery where available</li>
+        <li>Pre-purchase inspection (PPI) arranged, if applicable</li>
+        <li>Full price negotiation</li>
+        <li>Financing assistance, if applicable</li>
+        <li>Nationwide transport arranged, if applicable</li>
+      </ul>
+    </section>
+
+    <section class="home-section" style="padding-top:0;padding-bottom:48px">
+      <div class="home-section-head">
+        <h2>Pricing</h2>
+      </div>
+      <div class="wg-pricing-grid">
+        <div class="wg-price-card">
+          <div class="wg-price-tier">Standard vehicles</div>
+          <div class="wg-price-amount">Starting at $249<span>Flat fee</span></div>
+          <p class="wg-price-desc">Final flat fee confirmed after your inquiry, based on the specifics of your deal.</p>
+        </div>
+        <div class="wg-price-card wg-price-card-accent">
+          <div class="wg-price-tier">Hard-to-find vehicles</div>
+          <div class="wg-price-amount">1%&ndash;5%<span>Of the final negotiated price</span></div>
+          <p class="wg-price-desc">Depending on how much sourcing and negotiation work is involved. Capped at $7,000 maximum, regardless of vehicle value. You'll receive your exact quote after we've reviewed what you're looking for.</p>
+        </div>
+      </div>
+      <p class="wg-billed">PPI, transport, and any other third-party services are billed at cost, with no markup — you pay exactly what the provider charges.</p>
+    </section>
+
+    <section class="home-section" style="padding-top:0;padding-bottom:48px">
+      <div class="home-section-head">
+        <h2>Why the split</h2>
+      </div>
+      <p class="wg-why">We're paid by the dealer for the search itself, so that part stays free no matter what. Running the actual deal — negotiating, coordinating inspections, arranging transport — is real, hands-on work on your behalf, and that's what the White Glove fee covers.</p>
+    </section>
+
+    <!-- Worked example: add once a real White Glove transaction is logged.
+         No placeholder or invented example belongs here in the meantime —
+         see the Recent Matches photo-handling rule for the same principle
+         applied to a different kind of fabricated content. Style any future
+         version on #page-recent-match-detail's .home-featured layout so it
+         matches that page's real-deal treatment. -->
+
+    <section class="home-section" style="padding-top:0;padding-bottom:96px;text-align:center">
+      <a class="wg-cta-btn" href="/contact" onclick="return showPage('contact')">Ask About White Glove</a>
+    </section>
+  </div>
+
+  <!-- FAQ — content here must stay worded identically to the FAQPage jsonLd
+       for this route in src/index.js; mismatched structured data is a
+       manual-action risk, not a boost. -->
+  <section class="faq-section">
+    <div style="text-align:center;margin-bottom:3rem">
+      <div class="eyebrow center">Questions</div>
+      <h2 class="display">White Glove, <strong>straight answers.</strong></h2>
+    </div>
+    <div class="faq-wrap">
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Is White Glove required? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">No. Every client gets free search and matching regardless. White Glove is only for people who want the entire deal — negotiation through delivery — handled for them.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">How is the fee determined for hard-to-find vehicles? <span class="faq-arrow">+</span></div>
+        <div class="faq-a">It depends on how much sourcing and negotiation the vehicle requires. You'll get your exact quote after telling us what you're looking for — never a surprise fee after the fact.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
+    <ul class="footer-nav">
+      <li><a href="/find-my-car" onclick="return showPage('find')">Find My Car</a></li>
+      <li><a href="/sell-my-car" onclick="return showPage('sell')">Sell My Car</a></li>
+      <li><a href="/how-it-works" onclick="return showPage('how')">How It Works</a></li>
+      <li><a href="/about" onclick="return showPage('about')">About</a></li>
+      <li><a href="/weekly-finds" onclick="return showPage('weekly')">Recent Finds</a></li>
+      <li><a href="/guides" onclick="return showPage('guides')">Guides</a></li>
+      <li><a href="/contact" onclick="return showPage('contact')">Contact</a></li>
+    </ul>
+    <div style="display:flex;align-items:center;gap:1.5rem">
+      <div class="footer-copy">© 2026 TheExactMatch.com</div>
       <div class="footer-social">
         <a href="https://facebook.com/theexactmatch" target="_blank" rel="noopener noreferrer" aria-label="TheExactMatch on Facebook">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.675 0h-21.35C.595 0 0 .593 0 1.325v21.351C0 23.407.595 24 1.325 24H12.82v-9.294H9.692v-3.622h3.128V8.413c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24h-1.918c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12V24h6.115C23.407 24 24 23.407 24 22.676V1.325C24 .593 23.407 0 22.675 0z"/></svg>
@@ -2921,6 +3043,7 @@ const PAGE_PATHS = {
   find:    '/find-my-car',
   sell:    '/sell-my-car',
   how:     '/how-it-works',
+  'white-glove': '/white-glove',
   about:   '/about',
   weekly:  '/weekly-finds',
   contact: '/contact',

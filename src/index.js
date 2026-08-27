@@ -92,7 +92,7 @@ const VIEWS = [
           name: "What's actually free, and what isn't?",
           acceptedAnswer: {
             '@type': 'Answer',
-            text: "Search and matching are free, always — the form, the search, and your 3 curated options cost nothing, whether you're buying or selling. White Glove — Jeff personally negotiating, handling paperwork, and coordinating the closing — is a separate, optional paid tier with a flat fee based on the vehicle's value.",
+            text: "Search and matching are free, always — the form, the search, and your 3 curated options cost nothing, whether you're buying or selling. White Glove — Jeff personally negotiating, handling paperwork, and coordinating the closing — is a separate, optional paid tier: a flat fee starting at $249 for standard vehicles, or a custom quote (capped at $7,000) for hard-to-find ones.",
           },
         },
         {
@@ -116,7 +116,40 @@ const VIEWS = [
           name: 'Is Find My Car priced differently than Sell My Car?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'No — both work the same way. Search and matching are free on both sides; White Glove is available on both if you want the full deal handled, priced the same flat-fee-by-vehicle-value either way.',
+            text: 'No — both work the same way. Search and matching are free on both sides; White Glove is available on both if you want the full deal handled, priced the same way either way — flat fee or custom quote depending on the vehicle.',
+          },
+        },
+      ],
+    },
+  },
+  {
+    path: '/white-glove',
+    page: 'white-glove',
+    lastmod: '2026-08-27',
+    title: 'White Glove — We Handle the Whole Deal | TheExactMatch',
+    description:
+      "Search and matching are free, always. White Glove is the paid, optional tier where we negotiate, coordinate inspections, and arrange transport on your behalf — flat fee for standard vehicles, custom quote (capped at $7,000) for hard-to-find ones.",
+    // Worded identically to the on-page FAQ — see #page-white-glove in
+    // index.html. Keep both in sync; mismatched structured data is a
+    // manual-action risk, not a boost.
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'Is White Glove required?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'No. Every client gets free search and matching regardless. White Glove is only for people who want the entire deal — negotiation through delivery — handled for them.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'How is the fee determined for hard-to-find vehicles?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "It depends on how much sourcing and negotiation the vehicle requires. You'll get your exact quote after telling us what you're looking for — never a surprise fee after the fact.",
           },
         },
       ],
