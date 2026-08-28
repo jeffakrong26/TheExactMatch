@@ -110,6 +110,7 @@ const NAV_STANDALONE = [
 ];
 const NAV_PHONE = { href: 'tel:5126509328', label: '(512) 650-9328' };
 const NAV_DEALERS = { page: 'dealers', href: '/dealers', label: 'For Dealers' };
+const NAV_LOGIN = { href: '/Dealerportal.html', label: 'Login' };
 
 const groupIsActive = (group, activePage) =>
   group.featured?.page === activePage || group.links.some((l) => l.page === activePage);
@@ -158,6 +159,7 @@ function renderDesktopNav(activePage) {
     <div class="nav-right">
       <a class="nav-phone" href="${NAV_PHONE.href}">${NAV_PHONE.label}</a>
       <a class="nav-dealers${NAV_DEALERS.page === activePage ? ' active' : ''}" href="${NAV_DEALERS.href}">${NAV_DEALERS.label}</a>
+      <a class="nav-login" href="${NAV_LOGIN.href}">${NAV_LOGIN.label}</a>
       <div class="hamburger" id="hamburger" onclick="toggleMenu()">
         <span></span><span></span><span></span>
       </div>
@@ -189,7 +191,10 @@ function renderMobileMenu() {
   ${standaloneHtml}
   <div class="mobile-footer">
     <a class="mobile-phone" href="${NAV_PHONE.href}">${NAV_PHONE.label}</a>
-    <a class="mobile-dealers" href="${NAV_DEALERS.href}" onclick="toggleMenu()">${NAV_DEALERS.label}</a>
+    <div class="mobile-utility-row">
+      <a class="mobile-dealers" href="${NAV_DEALERS.href}" onclick="toggleMenu()">${NAV_DEALERS.label}</a>
+      <a class="mobile-login" href="${NAV_LOGIN.href}" onclick="toggleMenu()">${NAV_LOGIN.label}</a>
+    </div>
   </div>
 </div>`;
 }

@@ -86,6 +86,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(245,240,232,
 .nav-phone:hover{opacity:1;color:var(--gold)}
 .nav-dealers{font-size:.68rem;font-weight:500;letter-spacing:.03em;color:var(--gray);text-decoration:none;white-space:nowrap;opacity:.8;transition:opacity .2s,color .2s}
 .nav-dealers:hover,.nav-dealers.active{opacity:1;color:var(--gold)}
+/* Small pill next to "For Dealers" — the invite-only portal login, not a
+   marketing destination, so it stays understated rather than matching the
+   weight of the mega-menu triggers. */
+.nav-login{font-size:.66rem;font-weight:600;letter-spacing:.03em;color:var(--navy);text-decoration:none;padding:.4rem .85rem;border:1px solid var(--border);border-radius:20px;white-space:nowrap;opacity:.85;transition:opacity .2s,border-color .2s,color .2s,background .2s}
+.nav-login:hover{opacity:1;border-color:var(--gold);color:var(--gold);background:rgba(192,154,91,.06)}
 
 .hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:.5rem;position:relative;z-index:310}
 .hamburger span{width:20px;height:1.5px;background:var(--navy);transition:transform .3s ease,opacity .3s ease}
@@ -127,7 +132,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(245,240,232,
 .mobile-footer{margin-top:1.4rem;display:flex;flex-direction:column;gap:.6rem}
 .mobile-phone{display:flex;align-items:center;justify-content:center;background:var(--gold);color:var(--navy);font-weight:600;font-size:.85rem;letter-spacing:.02em;padding:.9rem;border-radius:12px;text-decoration:none;transition:background .2s}
 .mobile-phone:hover{background:var(--gold2)}
+.mobile-utility-row{display:flex;align-items:center;justify-content:center;gap:1rem}
 .mobile-dealers{text-align:center;color:rgba(245,240,232,.55);font-size:.72rem;text-decoration:none;padding:.4rem}
+.mobile-login{text-align:center;color:rgba(245,240,232,.75);font-size:.72rem;font-weight:500;text-decoration:none;padding:.35rem .9rem;border:1px solid rgba(255,255,255,.18);border-radius:16px;transition:border-color .2s,color .2s}
+.mobile-login:hover{border-color:var(--gold2);color:var(--gold2)}
 
 /* ── PAGE WRAPPER ──
    Every route is now its own real document (no more hidden .page divs
@@ -707,7 +715,7 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 @media(max-width:900px){
   :root{--side-pad:1.75rem;--grid-3:1fr;--grid-2:1fr}
   .nav-center{display:none}
-  .nav-phone,.nav-dealers{display:none}
+  .nav-phone,.nav-dealers,.nav-login{display:none}
   .hamburger{display:flex}
   .hero-find,.hero-sell,.about-hero,.contact-grid,.split{grid-template-columns:1fr}
   .hero-left{padding:3rem 1.75rem 2rem}
