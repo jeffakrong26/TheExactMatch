@@ -719,13 +719,11 @@ for (const brand of SELL_BRANDS) {
   });
 }
 
-// ── New pages awaiting copy review ───────────────────────────────────────
-// Built with real, drafted copy — grounded only in facts already established
-// for this business, no invented stats/testimonials/claims — but held out
-// of the sitemap and marked noindex until reviewed. `/sell/` (hub) is here
-// too but not gated the same way in practice: the nine brand pages above
-// already link to it, since it's low-risk boilerplate (a list of brands
-// already live elsewhere) rather than a new claim about the business.
+// ── Pages added by the per-URL migration ──────────────────────────────────
+// Shipped with real, drafted copy — grounded only in facts already
+// established for this business, no invented stats/testimonials/claims —
+// held `noindex` and out of the sitemap pending review; approved and
+// unflagged 2026-08-28.
 const NEW_LASTMOD = '2026-08-27';
 VIEWS.push(
   {
@@ -733,7 +731,6 @@ VIEWS.push(
     page: 'carbuyingconcierge',
     file: '/pages/car-buying-concierge.html',
     lastmod: NEW_LASTMOD,
-    noindex: true,
     title: 'Car Buying Concierge — Nationwide, Free Search & Negotiation | The Exact Match',
     description:
       "A car buying concierge who works for you, not the dealer: free search across our nationwide dealer network, real negotiation, and delivery — with the option to have the whole deal handled for you.",
@@ -775,7 +772,6 @@ VIEWS.push(
     page: 'carbroker',
     file: '/pages/car-broker.html',
     lastmod: NEW_LASTMOD,
-    noindex: true,
     title: 'Car Broker — We Search, Negotiate & Deliver | The Exact Match',
     description:
       "An auto broker who works for the buyer, not the lot: free nationwide search, real negotiation against dealer inventory, and the option to have the entire purchase handled for you.",
@@ -785,7 +781,6 @@ VIEWS.push(
     page: 'dealers',
     file: '/pages/dealers.html',
     lastmod: NEW_LASTMOD,
-    noindex: true,
     title: 'For Dealers — Partner With The Exact Match | TheExactMatch',
     description:
       "We send pre-qualified, ready-to-transact buyers and sellers straight to your lot. No listing fees — we're paid a commission only when a deal actually closes.",
@@ -795,7 +790,6 @@ VIEWS.push(
     page: 'advice-outofstate',
     file: '/pages/advice/buying-a-car-out-of-state.html',
     lastmod: NEW_LASTMOD,
-    noindex: true,
     title: 'Buying a Car Out of State: What to Know | The Exact Match',
     description:
       'What actually changes when you buy from an out-of-state dealer — titling, sales tax, inspection, and shipping — explained plainly.',
@@ -826,7 +820,6 @@ VIEWS.push(
     page: 'advice-financedcar',
     file: '/pages/advice/how-to-sell-a-financed-car.html',
     lastmod: NEW_LASTMOD,
-    noindex: true,
     title: 'How to Sell a Car You Still Owe Money On | The Exact Match',
     description:
       'Selling a financed car is normal, not a dead end — how the payoff, the lienholder, and your equity (or shortfall) actually work.',
@@ -857,7 +850,6 @@ VIEWS.push(
     page: 'sell-hub',
     file: '/pages/sell/index.html',
     lastmod: NEW_LASTMOD,
-    noindex: true,
     title: 'Sell Your Car — Real Offers From Dealers Who Want It | The Exact Match',
     description:
       'Sell your car — including hard-to-find exotics and luxury brands — to dealers actively buying your segment. Free, real, competing offers within 24 hours.',
