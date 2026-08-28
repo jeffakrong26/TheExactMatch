@@ -78,6 +78,7 @@ function navHtml(activePage) {
       </li>
       <li><a href="/contact" class="nav-cta${activePage === 'contact' ? ' active' : ''}" id="nav-contact">Contact</a></li>
     </ul>
+    <a class="nav-phone" href="tel:5126509328">(512) 650-9328</a>
     <div class="hamburger" id="hamburger" onclick="toggleMenu()">
       <span></span><span></span><span></span>
     </div>

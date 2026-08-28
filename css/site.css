@@ -59,6 +59,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(245,240,232,
 .nav-more.open .nav-more-menu{display:flex}
 .nav-more-menu a{display:block;padding:.65rem .9rem;white-space:nowrap}
 .nav-more:has(.nav-more-menu a.active) .nav-more-toggle{opacity:1;color:var(--gold)}
+/* Always visible (unlike .nav-links, which the 900px breakpoint below hides
+   in favor of the hamburger) — a tappable phone number is most useful on
+   exactly the viewport where the rest of the nav collapses away. */
+.nav-phone{font-size:.72rem;font-weight:600;letter-spacing:.03em;color:var(--navy);text-decoration:none;opacity:.75;white-space:nowrap;transition:opacity .2s}
+.nav-phone:hover{opacity:1;color:var(--gold)}
 .hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:.5rem}
 .hamburger span{width:22px;height:1.5px;background:var(--navy);transition:all .3s}
 .mobile-menu{display:none;position:fixed;inset:0;top:64px;background:var(--beige);z-index:200;padding:2rem;flex-direction:column;gap:0}
@@ -440,6 +445,8 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 .home-lede{font-size:18px;line-height:1.6;color:rgba(237,230,214,.8);max-width:440px;margin:0 0 36px}
 .home-hero-cta{display:inline-flex;align-items:center;gap:10px;background:var(--home-brass);color:var(--home-navy);font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;padding:16px 26px;text-decoration:none}
 .home-hero-cta:hover{background:var(--home-brass-light)}
+.home-free-note{display:flex;align-items:center;gap:8px;font-family:'General Sans',sans-serif;font-weight:500;font-size:13px;color:rgba(237,230,214,.65);margin-top:16px}
+.home-free-note::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--home-brass-light);flex-shrink:0}
 
 .home-section{padding:90px 0}
 .home-section-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:48px;gap:24px;flex-wrap:wrap;border-bottom:1px solid var(--home-hairline);padding-bottom:24px}
@@ -614,6 +621,7 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
   .gitem{height:200px}
   .hero-title{font-size:2rem}
   .nav-inner{padding:0 1.25rem}
+  .nav-phone{font-size:.66rem}
 }
 
 /* ── NEWSLETTER POPUP ── */

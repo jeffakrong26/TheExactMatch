@@ -172,19 +172,56 @@ async function submitToApi(btn, endpoint, wrapId, successId, errorId, payload, o
     }
   }
 
+  // Find My Car / Sell My Car: interrupting someone mid-form is worse than
+  // not showing the popup at all, so these two get no exit-intent/scroll
+  // trigger — instead we wait for their own success screen (#find-success /
+  // #sell-success) to actually appear. A MutationObserver on that element
+  // rather than a hook into submitFindForm/submitSellForm: this stays
+  // decoupled from the two page-specific submit flows entirely, and doesn't
+  // care how the success screen ended up visible.
+  const FORM_PAGE_SUCCESS_ID = {
+    '/find-my-car': 'find-success',
+    '/sell-my-car': 'sell-success',
+  }[location.pathname];
+
+  // Same breakpoint the nav already treats as "mobile" (.nav-links hides,
+  // hamburger takes over) — reused here so "mobile" means the same thing
+  // everywhere on the site rather than a second, possibly-drifting number.
+  const isMobile = () => window.matchMedia('(max-width: 900px)').matches;
+
   document.addEventListener('DOMContentLoaded',function(){
     if(!shouldShow()) return;
 
-    // Find My Car gets no on-load/timer/scroll popup — exit-intent only.
-    if(location.pathname === '/find-my-car'){
+    if (FORM_PAGE_SUCCESS_ID) {
+      const successEl = document.getElementById(FORM_PAGE_SUCCESS_ID);
+      if (successEl) {
+        const observer = new MutationObserver(() => {
+          if (successEl.style.display === 'block') {
+            observer.disconnect();
+            open();
+          }
+        });
+        observer.observe(successEl, { attributes: true, attributeFilter: ['style'] });
+      }
+    } else if (isMobile()) {
+      // 60% scroll depth.
+      function onScroll(){
+        const scrolled = window.scrollY + window.innerHeight;
+        const total = document.documentElement.scrollHeight;
+        if (total > 0 && scrolled / total >= 0.6) {
+          window.removeEventListener('scroll', onScroll);
+          open();
+        }
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+    } else {
+      // Exit-intent.
       function exitIntent(e){
         if(e.clientY > 0 || e.relatedTarget) return;
         document.removeEventListener('mouseout', exitIntent);
         open();
       }
       document.addEventListener('mouseout', exitIntent);
-    } else {
-      setTimeout(open, DELAY_MS);
     }
 
     document.getElementById('nl-close').addEventListener('click', close);
