@@ -5488,7 +5488,7 @@ table.finance-table{width:100%;border-collapse:collapse;font-variant-numeric:tab
 .action-btn.secondary:hover{background:var(--navy2)}
 .conf-overlay{position:fixed;inset:0;background:rgba(21,34,56,.6);display:none;align-items:center;justify-content:center;padding:1.2rem;z-index:50}
 .conf-overlay.open{display:flex}
-.conf-box{background:var(--white);border-radius:6px;padding:2rem 1.8rem;max-width:440px;width:100%;max-height:90vh;overflow-y:auto}
+.conf-box{background:var(--white);border-radius:16px;padding:2rem 1.8rem;max-width:440px;width:100%;max-height:90vh;overflow-y:auto}
 .conf-title{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:500;color:var(--ink);margin-bottom:.8rem}
 .conf-body{font-size:.88rem;line-height:1.7;color:var(--ink);margin-bottom:1rem}
 .conf-recap{background:var(--cream);border-radius:4px;padding:1rem 1.2rem;margin-bottom:1rem}
@@ -5496,14 +5496,52 @@ table.finance-table{width:100%;border-collapse:collapse;font-variant-numeric:tab
 .conf-recap ul{list-style:none;display:flex;flex-direction:column;gap:.4rem}
 .conf-recap li{font-size:.82rem;color:var(--ink);padding-left:1rem;position:relative}
 .conf-recap li::before{content:'';position:absolute;left:0;top:.5em;width:5px;height:5px;border-radius:50%;background:var(--gold)}
-.conf-fee-box{display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:var(--white);border-radius:4px;padding:1rem 1.2rem;margin-bottom:1rem}
+.conf-fee-box{display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:var(--white);border-radius:12px;padding:1rem 1.2rem;margin-bottom:1rem}
 .conf-fee-label{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
 .conf-fee-value{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:600;margin-top:.2rem}
 .conf-fee-note{font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1.2rem}
-.conf-close{width:100%;padding:.85rem;background:var(--gold);color:var(--navy);border:none;border-radius:4px;font-family:'Jost',sans-serif;font-weight:700;font-size:.78rem;letter-spacing:.05em;cursor:pointer;margin-bottom:.6rem}
-.conf-close:hover{background:#d8b23c}
-.conf-cancel{width:100%;padding:.7rem;background:none;border:none;color:var(--muted);font-family:'Jost',sans-serif;font-size:.76rem;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
-.conf-cancel:hover{color:var(--ink)}
+
+/* .conf-close is the primary action for both confirm flows on this page
+   (White Glove's "Yes, Let's Do This" and the plain "Interested" flow's
+   "Close") — shimmer here for the same reason as Find My Car/Sell My Car's
+   submit: it's the high-intent action. .conf-cancel becomes the matching
+   calm secondary style instead of a plain underlined text link. */
+@property --gradient-angle{syntax:'<angle>';initial-value:0deg;inherits:false}
+@property --gradient-angle-offset{syntax:'<angle>';initial-value:0deg;inherits:false}
+@property --gradient-percent{syntax:'<percentage>';initial-value:5%;inherits:false}
+@property --gradient-shine{syntax:'<color>';initial-value:#e0c069;inherits:false}
+.conf-close{
+  --cta-bg:var(--navy);--cta-bg-subtle:var(--navy2);--cta-fg:var(--white);
+  --cta-highlight:var(--gold);--cta-highlight-subtle:#e0c069;
+  --duration:3s;--transition:800ms cubic-bezier(.25,1,.5,1);
+  isolation:isolate;position:relative;overflow:hidden;cursor:pointer;
+  width:100%;padding:.9rem;margin-bottom:.6rem;
+  font-family:'Jost',sans-serif;font-size:.82rem;font-weight:500;letter-spacing:.02em;
+  border:1px solid transparent;border-radius:12px;color:var(--cta-fg);
+  background:linear-gradient(var(--cta-bg),var(--cta-bg)) padding-box,
+    conic-gradient(from calc(var(--gradient-angle) - var(--gradient-angle-offset)),
+      transparent,var(--cta-highlight) var(--gradient-percent),
+      var(--gradient-shine) calc(var(--gradient-percent) * 2),
+      var(--cta-highlight) calc(var(--gradient-percent) * 3),transparent calc(var(--gradient-percent) * 4)
+    ) border-box;
+  box-shadow:inset 0 0 0 1px var(--cta-bg-subtle);
+  transition:var(--transition);transition-property:--gradient-angle-offset,--gradient-percent,--gradient-shine;
+  animation:gradient-angle var(--duration) linear infinite;
+}
+.conf-close::before{
+  content:'';position:absolute;inset-inline-start:50%;inset-block-start:50%;translate:-50% -50%;
+  pointer-events:none;z-index:-1;--size:calc(100% - 6px);--position:2px;--space:calc(var(--position) * 2);
+  width:var(--size);height:var(--size);
+  background:radial-gradient(circle at var(--position) var(--position),var(--cta-highlight-subtle) calc(var(--position) / 4),transparent 0) padding-box;
+  background-size:var(--space) var(--space);background-repeat:space;
+  mask-image:conic-gradient(from calc(var(--gradient-angle) + 45deg),black,transparent 10% 90%,black);
+  border-radius:inherit;opacity:.22;
+}
+.conf-close:active{translate:0 1px}
+.conf-close:is(:hover,:focus-visible){--gradient-percent:20%;--gradient-angle-offset:95deg;--gradient-shine:var(--cta-highlight-subtle);}
+@keyframes gradient-angle{to{--gradient-angle:360deg}}
+.conf-cancel{width:100%;padding:.7rem;cursor:pointer;background:transparent;color:var(--muted);border:1.5px solid var(--border);border-radius:12px;font-family:'Jost',sans-serif;font-size:.78rem;font-weight:500;transition:border-color .2s ease,color .2s ease,background .2s ease}
+.conf-cancel:hover{border-color:var(--gold);color:var(--ink);background:rgba(201,162,39,.06)}
 .hidden{display:none}
 @media (min-width:600px){ .action-bar{flex-direction:row} .action-btn{flex:1} .specs-bar{grid-template-columns:repeat(3,1fr)} }
 </style>
