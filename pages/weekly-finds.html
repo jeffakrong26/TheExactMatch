@@ -59,11 +59,12 @@
         <div style="font-family:'Playfair Display',serif;font-size:1.35rem;font-weight:500;color:var(--white);margin-bottom:.4rem">Get Recent Finds</div>
         <div style="font-size:.82rem;font-weight:300;color:rgba(255,255,255,.45);margin-bottom:1.5rem;line-height:1.65">Drop your email — new finds as we spot them, straight to your inbox.</div>
         <div id="wf-msg" style="display:none;text-align:center;font-size:.85rem;font-weight:400;padding:.6rem 0;margin-bottom:.75rem;border-radius:2px"></div>
+        <!-- Reuses .nl-input/.nl-btn (css/site.css) — same newsletter-signup
+             component as the sitewide popup, deliberately the calm style
+             rather than the shimmer treatment: low-commitment, one field. -->
         <div style="display:flex;gap:.6rem;margin-bottom:.75rem">
-          <input id="wf-email" type="email" placeholder="your@email.com" autocomplete="email"
-            style="flex:1;padding:.78rem 1rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:2px;font-family:'Jost',sans-serif;font-size:.85rem;font-weight:300;color:var(--white);outline:none;transition:border-color .2s"/>
-          <button id="wf-submit" onclick="submitWeeklyForm()"
-            style="white-space:nowrap;padding:.78rem 1.4rem;background:var(--gold);color:var(--navy);border:none;border-radius:2px;cursor:pointer;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transition:background .2s">
+          <input id="wf-email" class="nl-input" type="email" placeholder="your@email.com" autocomplete="email"/>
+          <button id="wf-submit" class="nl-btn" onclick="submitWeeklyForm()">
             Subscribe
           </button>
         </div>

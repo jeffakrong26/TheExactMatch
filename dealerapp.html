@@ -29,24 +29,64 @@ h1 em{font-style:italic;color:var(--gold)}
 .group{margin-bottom:1.1rem}
 .group label{display:block;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gray);margin-bottom:.4rem}
 .group .hint{font-weight:400;text-transform:none;letter-spacing:0;font-size:.75rem;color:var(--gray);display:block;margin-top:.3rem}
-.group input,.group select,.group textarea{width:100%;padding:.8rem 1rem;background:var(--beige);border:1px solid var(--border);border-radius:2px;font-family:'Jost',sans-serif;font-size:.88rem;color:var(--navy);outline:none;transition:border-color .2s}
-.group input:focus,.group select:focus,.group textarea:focus{border-color:var(--gold)}
+/* Light variant (this page sits on --beige throughout) — same rounded/
+   gold-glow language as the rest of the site's forms, kept restrained for
+   a B2B application: no glow on every radio row, no shimmer except the
+   one final submit. */
+.group input,.group select,.group textarea{width:100%;padding:.85rem 1rem;background:var(--white);border:1.5px solid var(--border);border-radius:12px;font-family:'Jost',sans-serif;font-size:.88rem;color:var(--navy);outline:none;transition:border-color .3s ease,box-shadow .3s ease}
+.group input:focus,.group select:focus,.group textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(192,154,91,.14)}
 .group textarea{resize:vertical;min-height:80px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
 @media (max-width:520px){.row2{grid-template-columns:1fr}}
 .radio-row{display:flex;flex-direction:column;gap:.5rem}
-.radio-opt{display:flex;align-items:flex-start;gap:.6rem;padding:.7rem .9rem;border:1px solid var(--border);border-radius:2px;cursor:pointer;font-size:.85rem}
-.radio-opt input{width:auto;margin-top:.2rem}
+.radio-opt{display:flex;align-items:flex-start;gap:.6rem;padding:.7rem .9rem;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;font-size:.85rem;transition:border-color .2s ease,background .2s ease}
+.radio-opt input{width:auto;margin-top:.2rem;accent-color:var(--gold)}
 .radio-opt.checked{border-color:var(--gold);background:rgba(192,154,91,.08)}
-.conditional{display:none;margin-top:.75rem;padding:.9rem;background:var(--beige);border-radius:2px}
+.conditional{display:none;margin-top:.75rem;padding:.9rem;background:var(--beige);border-radius:10px}
 .conditional.show{display:block}
 .checkbox-row{display:flex;align-items:flex-start;gap:.6rem;font-size:.82rem;color:var(--gray);line-height:1.5}
-.checkbox-row input{width:auto;margin-top:.25rem}
+.checkbox-row input{width:auto;margin-top:.25rem;accent-color:var(--gold)}
 .checkbox-row input:disabled{opacity:.4;cursor:not-allowed}
 .honeypot{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
-.submit-btn{width:100%;padding:1rem;background:var(--navy);color:var(--beige);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:1.5rem;transition:background .2s}
-.submit-btn:hover{background:var(--navy2)}
-.submit-btn:disabled{opacity:.55;cursor:not-allowed}
+
+/* Shimmer, reserved for this one final submit — same technique as the
+   homepage hero CTA and Find My Car/Sell My Car, applied once here since
+   this is the one high-intent action on the page. */
+@property --gradient-angle{syntax:'<angle>';initial-value:0deg;inherits:false}
+@property --gradient-angle-offset{syntax:'<angle>';initial-value:0deg;inherits:false}
+@property --gradient-percent{syntax:'<percentage>';initial-value:5%;inherits:false}
+@property --gradient-shine{syntax:'<color>';initial-value:#D4B47A;inherits:false}
+.submit-btn{
+  --cta-bg:var(--navy);--cta-bg-subtle:var(--navy2);--cta-fg:var(--beige);
+  --cta-highlight:var(--gold);--cta-highlight-subtle:var(--gold2);
+  --duration:3s;--transition:800ms cubic-bezier(.25,1,.5,1);
+  isolation:isolate;position:relative;overflow:hidden;cursor:pointer;
+  width:100%;padding:1rem;margin-top:1.5rem;
+  font-family:'Jost',sans-serif;font-size:.88rem;font-weight:500;letter-spacing:.02em;
+  border:1px solid transparent;border-radius:14px;color:var(--cta-fg);
+  background:linear-gradient(var(--cta-bg),var(--cta-bg)) padding-box,
+    conic-gradient(from calc(var(--gradient-angle) - var(--gradient-angle-offset)),
+      transparent,var(--cta-highlight) var(--gradient-percent),
+      var(--gradient-shine) calc(var(--gradient-percent) * 2),
+      var(--cta-highlight) calc(var(--gradient-percent) * 3),transparent calc(var(--gradient-percent) * 4)
+    ) border-box;
+  box-shadow:inset 0 0 0 1px var(--cta-bg-subtle);
+  transition:var(--transition);transition-property:--gradient-angle-offset,--gradient-percent,--gradient-shine;
+  animation:gradient-angle var(--duration) linear infinite;
+}
+.submit-btn::before{
+  content:'';position:absolute;inset-inline-start:50%;inset-block-start:50%;translate:-50% -50%;
+  pointer-events:none;z-index:-1;--size:calc(100% - 6px);--position:2px;--space:calc(var(--position) * 2);
+  width:var(--size);height:var(--size);
+  background:radial-gradient(circle at var(--position) var(--position),var(--cta-highlight-subtle) calc(var(--position) / 4),transparent 0) padding-box;
+  background-size:var(--space) var(--space);background-repeat:space;
+  mask-image:conic-gradient(from calc(var(--gradient-angle) + 45deg),black,transparent 10% 90%,black);
+  border-radius:inherit;opacity:.22;
+}
+.submit-btn:active{translate:0 1px}
+.submit-btn:is(:hover,:focus-visible){--gradient-percent:20%;--gradient-angle-offset:95deg;--gradient-shine:var(--cta-highlight-subtle);}
+.submit-btn:disabled{opacity:.55;cursor:not-allowed;animation:none}
+@keyframes gradient-angle{to{--gradient-angle:360deg}}
 .alert{padding:.8rem 1rem;border-radius:2px;font-size:.85rem;margin-bottom:1.25rem;display:none}
 .alert.show{display:block}
 .alert-err{background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.2);color:var(--red)}

@@ -96,14 +96,61 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(245,240,232,
 .form-sub strong{color:var(--gold2)}
 .form-group{margin-bottom:.9rem}
 .form-group label{display:block;font-size:.63rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:.4rem}
-.form-group input,.form-group select,.form-group textarea{width:100%;padding:.75rem 1rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:2px;font-family:'Jost',sans-serif;font-size:.85rem;font-weight:300;color:var(--white);outline:none;transition:border-color .2s,background .2s;appearance:none}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:.9rem 1.1rem;background:rgba(255,255,255,.07);border:1.5px solid rgba(212,180,122,.35);border-radius:12px;font-family:'Jost',sans-serif;font-size:.85rem;font-weight:300;color:var(--white);outline:none;transition:border-color .3s ease,box-shadow .3s ease,background .2s;appearance:none}
 .form-group input::placeholder{color:rgba(255,255,255,.3)}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--gold);background:rgba(255,255,255,.1)}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--gold);background:rgba(255,255,255,.1);box-shadow:0 0 0 3px rgba(192,154,91,.18)}
 .form-group select option{background:var(--navy);color:var(--white)}
 .form-group textarea{resize:vertical;min-height:70px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
-.submit-btn{width:100%;padding:.9rem;background:var(--gold);color:var(--navy);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:.5rem;transition:background .2s,transform .2s}
-.submit-btn:hover{background:var(--gold2);transform:translateY(-1px)}
+
+/* ── Shimmer submit button — shared @property registration + technique,
+     reused everywhere a form's PRIMARY action lives (Find My Car, Sell My
+     Car — same treatment as the homepage hero CTA in pages/home.html).
+     Deliberately not used for secondary actions or low-commitment forms
+     (newsletter signup, dealer portal login) — see js/site.js and
+     Dealerportal.html — so it keeps meaning "this is the high-intent
+     action" rather than becoming decoration on every button. Both submit
+     buttons share one navy-fill/gold-border treatment regardless of the
+     panel they sit on: unlike an input field, a solid opaque pill reads
+     fine on either a light or dark background, so it doesn't need a
+     light/dark variant the way .form-group input does. */
+@property --gradient-angle{syntax:'<angle>';initial-value:0deg;inherits:false}
+@property --gradient-angle-offset{syntax:'<angle>';initial-value:0deg;inherits:false}
+@property --gradient-percent{syntax:'<percentage>';initial-value:5%;inherits:false}
+@property --gradient-shine{syntax:'<color>';initial-value:#D4B47A;inherits:false}
+.submit-btn,.sell-submit{
+  --cta-bg:var(--navy);--cta-bg-subtle:var(--navy2);--cta-fg:var(--beige);
+  --cta-highlight:var(--gold);--cta-highlight-subtle:var(--gold2);
+  --duration:3s;--transition:800ms cubic-bezier(.25,1,.5,1);
+  isolation:isolate;position:relative;overflow:hidden;cursor:pointer;
+  width:100%;padding:.95rem;margin-top:.5rem;
+  font-family:'Jost',sans-serif;font-size:.85rem;font-weight:500;letter-spacing:.02em;
+  border:1px solid transparent;border-radius:14px;color:var(--cta-fg);
+  background:linear-gradient(var(--cta-bg),var(--cta-bg)) padding-box,
+    conic-gradient(from calc(var(--gradient-angle) - var(--gradient-angle-offset)),
+      transparent,var(--cta-highlight) var(--gradient-percent),
+      var(--gradient-shine) calc(var(--gradient-percent) * 2),
+      var(--cta-highlight) calc(var(--gradient-percent) * 3),transparent calc(var(--gradient-percent) * 4)
+    ) border-box;
+  box-shadow:inset 0 0 0 1px var(--cta-bg-subtle);
+  transition:var(--transition);transition-property:--gradient-angle-offset,--gradient-percent,--gradient-shine;
+  animation:gradient-angle var(--duration) linear infinite;
+}
+.submit-btn::before,.sell-submit::before{
+  content:'';position:absolute;inset-inline-start:50%;inset-block-start:50%;translate:-50% -50%;
+  pointer-events:none;z-index:-1;--size:calc(100% - 6px);--position:2px;--space:calc(var(--position) * 2);
+  width:var(--size);height:var(--size);
+  background:radial-gradient(circle at var(--position) var(--position),var(--cta-highlight-subtle) calc(var(--position) / 4),transparent 0) padding-box;
+  background-size:var(--space) var(--space);background-repeat:space;
+  mask-image:conic-gradient(from calc(var(--gradient-angle) + 45deg),black,transparent 10% 90%,black);
+  border-radius:inherit;opacity:.22;
+}
+.submit-btn:active,.sell-submit:active{translate:0 1px}
+.submit-btn:is(:hover,:focus-visible),.sell-submit:is(:hover,:focus-visible){
+  --gradient-percent:20%;--gradient-angle-offset:95deg;--gradient-shine:var(--cta-highlight-subtle);
+}
+@keyframes gradient-angle{to{--gradient-angle:360deg}}
+
 .form-note{text-align:center;font-size:.72rem;color:rgba(255,255,255,.3);margin-top:.75rem}
 .form-note strong{color:var(--gold2)}
 
@@ -116,21 +163,24 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(245,240,232,
 .ms-step.active{display:block}
 .ms-nav{display:flex;gap:.75rem;margin-top:1rem}
 .ms-nav .submit-btn{margin-top:0}
-.ms-back-btn{flex:0 0 auto;padding:.9rem 1.4rem;background:transparent;color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.18);border-radius:2px;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:border-color .2s,color .2s}
-.ms-back-btn:hover{border-color:var(--gold);color:var(--gold2)}
+.ms-back-btn{flex:0 0 auto;padding:.9rem 1.4rem;cursor:pointer;background:transparent;color:var(--gold2);border:1.5px solid rgba(212,180,122,.4);border-radius:14px;font-family:'Jost',sans-serif;font-size:.8rem;font-weight:500;letter-spacing:.02em;transition:border-color .2s ease,background .2s ease}
+.ms-back-btn:hover{border-color:var(--gold);background:rgba(192,154,91,.08)}
 .priority-hint{font-size:.72rem;font-weight:300;color:rgba(255,255,255,.4);margin:-.3rem 0 .9rem}
 .priority-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
-.priority-item{display:flex;align-items:center;gap:.55rem;padding:.65rem .85rem;border:1px solid rgba(255,255,255,.14);border-radius:2px;background:rgba(255,255,255,.04);cursor:pointer;transition:border-color .2s,background .2s;font-size:.76rem;font-weight:300;color:rgba(255,255,255,.75)}
+.priority-item{display:flex;align-items:center;gap:.55rem;padding:.65rem .85rem;border:1.5px solid rgba(212,180,122,.3);border-radius:12px;background:rgba(255,255,255,.04);cursor:pointer;transition:border-color .2s,background .2s,box-shadow .2s;font-size:.76rem;font-weight:300;color:rgba(255,255,255,.75)}
 .priority-item input{accent-color:var(--gold);width:14px;height:14px;flex-shrink:0}
-.priority-item.checked{border-color:var(--gold);background:rgba(192,154,91,.1);color:var(--white)}
+.priority-item.checked{border-color:var(--gold);background:rgba(192,154,91,.12);color:var(--white);box-shadow:0 0 0 3px rgba(192,154,91,.12)}
 .priority-item.disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
 
-/* ── MULTI-STEP FORM LIGHT VARIANT (SELL) ── */
+/* ── MULTI-STEP FORM LIGHT VARIANT (SELL) ──
+     Secondary-button text goes navy here rather than gold — gold-on-cream
+     reads much lower-contrast than gold-on-navy, so the light variant
+     leans on the gold border for the accent and keeps the text legible. */
 .sell-form .ms-progress{background:rgba(12,28,51,.08)}
 .sell-form .ms-step-label{color:var(--gray)}
 .sell-form .ms-step-label strong{color:var(--navy)}
-.sell-form .ms-back-btn{color:var(--gray);border-color:var(--border)}
-.sell-form .ms-back-btn:hover{border-color:var(--gold);color:var(--navy)}
+.sell-form .ms-back-btn{color:var(--navy);border-color:var(--border)}
+.sell-form .ms-back-btn:hover{border-color:var(--gold);background:rgba(192,154,91,.06)}
 .ms-nav .sell-submit{margin-top:0}
 
 /* ── HOW IT WORKS ── */
@@ -191,12 +241,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(245,240,232,
 .sell-form-sub{font-size:.8rem;font-weight:300;color:var(--gray);margin-bottom:1.75rem;line-height:1.6}
 .sell-form-sub strong{color:var(--navy);font-weight:600}
 .sell-form .form-group label{color:var(--gray)}
-.sell-form .form-group input,.sell-form .form-group select,.sell-form .form-group textarea{background:var(--white);border:1px solid var(--border);color:var(--navy)}
+.sell-form .form-group input,.sell-form .form-group select,.sell-form .form-group textarea{background:var(--white);border:1.5px solid var(--border);color:var(--navy);box-shadow:none}
 .sell-form .form-group input::placeholder{color:#aaa}
-.sell-form .form-group input:focus,.sell-form .form-group select:focus{border-color:var(--gold);background:var(--white)}
+.sell-form .form-group input:focus,.sell-form .form-group select:focus{border-color:var(--gold);background:var(--white);box-shadow:0 0 0 3px rgba(192,154,91,.14)}
 .sell-form .form-group select option{color:var(--navy);background:var(--white)}
-.sell-submit{width:100%;padding:.9rem;background:var(--navy);color:var(--beige);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:.5rem;transition:background .2s}
-.sell-submit:hover{background:var(--navy2)}
 .sell-note{text-align:center;font-size:.72rem;color:var(--gray);margin-top:.75rem}
 .sell-note strong{color:var(--navy)}
 #page-sell h2.display em,
@@ -639,11 +687,14 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 .nl-cats{display:flex;flex-wrap:wrap;gap:.45rem;margin-bottom:1.5rem;}
 .nl-cat{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border:1px solid rgba(192,154,91,.28);border-radius:20px;padding:.3rem .85rem;color:rgba(255,255,255,.6);background:rgba(192,154,91,.06);}
 .nl-form{display:flex;gap:.6rem;margin-bottom:.85rem;}
-.nl-input{flex:1;padding:.78rem 1rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:2px;font-family:'Jost',sans-serif;font-size:.85rem;font-weight:300;color:var(--white);outline:none;transition:border-color .2s,background .2s;}
+.nl-input{flex:1;padding:.85rem 1.1rem;background:rgba(255,255,255,.07);border:1.5px solid rgba(212,180,122,.35);border-radius:12px;font-family:'Jost',sans-serif;font-size:.85rem;font-weight:300;color:var(--white);outline:none;transition:border-color .3s ease,box-shadow .3s ease,background .2s;}
 .nl-input::placeholder{color:rgba(255,255,255,.3);}
-.nl-input:focus{border-color:var(--gold);background:rgba(255,255,255,.1);}
-.nl-btn{white-space:nowrap;padding:.78rem 1.4rem;background:var(--gold);color:var(--navy);border:none;border-radius:2px;cursor:pointer;font-family:'Jost',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transition:background .2s,opacity .2s;flex-shrink:0;}
-.nl-btn:hover{background:var(--gold2);}
+.nl-input:focus{border-color:var(--gold);background:rgba(255,255,255,.1);box-shadow:0 0 0 3px rgba(192,154,91,.18);}
+/* Calm secondary style, not the shimmer treatment — a newsletter signup is
+   low-commitment, and shimmer is reserved for actually starting the buy/sell
+   flow so it keeps meaning something. See .submit-btn/.sell-submit above. */
+.nl-btn{white-space:nowrap;padding:.85rem 1.4rem;background:transparent;color:var(--gold2);border:1.5px solid rgba(212,180,122,.45);border-radius:12px;cursor:pointer;font-family:'Jost',sans-serif;font-size:.78rem;font-weight:500;letter-spacing:.02em;transition:border-color .2s ease,background .2s ease,opacity .2s;flex-shrink:0;}
+.nl-btn:hover{border-color:var(--gold);background:rgba(192,154,91,.1);}
 .nl-btn:disabled{opacity:.55;cursor:not-allowed;}
 .nl-micro{font-size:.72rem;font-weight:300;color:rgba(255,255,255,.3);text-align:center;}
 #nl-msg{display:none;text-align:center;font-size:.85rem;font-weight:400;padding:.6rem 0;border-radius:2px;margin-bottom:.75rem;}

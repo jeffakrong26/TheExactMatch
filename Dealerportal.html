@@ -69,9 +69,20 @@
     .invite-badge{display:inline-flex;align-items:center;gap:.5rem;border:1px solid rgba(192,154,91,.3);border-radius:20px;padding:.4rem 1rem;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2)}
     .invite-dot{width:6px;height:6px;border-radius:50%;background:var(--gold2)}
     .login-right{background:var(--beige2);display:flex;align-items:center;justify-content:center;padding:3rem}
-    .login-card{width:100%;max-width:400px;background:var(--white);border:1px solid var(--border);border-radius:4px;padding:2.5rem}
+    .login-card{width:100%;max-width:400px;background:var(--white);border:1px solid var(--border);border-radius:16px;padding:2.5rem}
     .login-card-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:500;color:var(--navy);margin-bottom:.35rem}
     .login-card-sub{font-size:.82rem;font-weight:300;color:var(--gray);margin-bottom:1.75rem;line-height:1.6}
+    /* Scoped to .login-card deliberately — this is the whole auth surface
+       (view-login/view-forgot-password/view-reset-password/view-signup all
+       share this component), not the base .dp-form-group/.btn-primary rules
+       the rest of the admin dashboard uses everywhere else. An internal
+       tool: on-brand and clean, no shimmer — a returning dealer logging in
+       doesn't need a flashy moment. */
+    .login-card .dp-form-group input,.login-card .dp-form-group select,.login-card .dp-form-group textarea{border-radius:12px;border:1.5px solid var(--border);transition:border-color .3s ease,box-shadow .3s ease,background .2s}
+    .login-card .dp-form-group input:focus,.login-card .dp-form-group select:focus,.login-card .dp-form-group textarea:focus{box-shadow:0 0 0 3px rgba(192,154,91,.16)}
+    .login-card .btn-primary{border-radius:12px;letter-spacing:.04em;transition:background .2s ease,box-shadow .2s ease}
+    .login-card .btn-primary:not(:disabled):hover{box-shadow:0 0 0 3px rgba(192,154,91,.16)}
+    .login-card .dp-alert{border-radius:10px}
 
     /* ── FORM ELEMENTS (light, mirrors sell-form style) ── */
     .dp-form-group{margin-bottom:1rem}
