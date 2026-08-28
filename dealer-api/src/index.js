@@ -10,6 +10,11 @@ import ZIP_CENTROIDS from './zip-centroids.json';
 // The Tape's body_style/size/tier lookup, keyed "brand|model" (lowercase).
 // See taxonomyLookup() further down for the normalized-key accessor.
 import TAXONOMY from './taxonomy.json';
+// Resizes/re-encodes Recent Matches teaser photos on upload — see
+// resizeForWeb() below. Admin uploads land here at whatever resolution a
+// phone camera produced (one real case: 3213x3761, 2.5MB), and that shipped
+// unmodified to every visitor of /find-my-car and /recent-matches.
+import { PhotonImage, resize as photonResize, SamplingFilter } from '@cf-wasm/photon/workerd';
 
 function zipCentroid(zip) {
   return ZIP_CENTROIDS[(zip || '').trim()] || null;
@@ -9281,6 +9286,38 @@ async function adminDeleteRecentMatch(request, env, params) {
   return json({ success: true });
 }
 
+// Caps width at 900px (comfortably retina for the 4:3 teaser cards this
+// feeds — .rm-photo — which never render wider than ~380 CSS px in a
+// 3-column grid) and re-encodes as JPEG at quality 82. Never upscales: a
+// source narrower than the cap is returned unresized, just re-encoded, so
+// the quality pass alone still helps an already-small but poorly-compressed
+// upload. On any processing failure, returns the original bytes rather than
+// failing the upload — a slightly heavier photo beats a broken admin flow.
+async function resizeForWeb(bytes, maxWidth = 900, quality = 82) {
+  // Workers cap memory around 128MB, and decoding to raw pixels costs far
+  // more than the compressed size — an admin-only endpoint doesn't need to
+  // handle an arbitrarily large upload, so skip processing outright above a
+  // generous cap rather than risk exhausting it.
+  if (bytes.byteLength > 20 * 1024 * 1024) return bytes;
+  let inputImage, outputImage;
+  try {
+    inputImage = PhotonImage.new_from_byteslice(bytes);
+    const w = inputImage.get_width();
+    const h = inputImage.get_height();
+    const scale = Math.min(1, maxWidth / w);
+    const outW = Math.round(w * scale);
+    const outH = Math.round(h * scale);
+    outputImage = scale < 1 ? photonResize(inputImage, outW, outH, SamplingFilter.Lanczos3) : inputImage;
+    return outputImage.get_bytes_jpeg(quality);
+  } catch (err) {
+    console.error('[resizeForWeb] falling back to original bytes:', err);
+    return bytes;
+  } finally {
+    inputImage?.free();
+    if (outputImage && outputImage !== inputImage) outputImage.free();
+  }
+}
+
 async function adminUploadRecentMatchPhoto(request, env, params) {
   const match = await env.DB.prepare('SELECT id, slug FROM recent_matches WHERE id = ?').bind(+params.id).first();
   if (!match) return json({ error: 'Match not found.' }, 404);
@@ -9289,8 +9326,11 @@ async function adminUploadRecentMatchPhoto(request, env, params) {
   const file = formData?.get('photo');
   if (!file || typeof file === 'string') return json({ error: 'No photo file provided.' }, 400);
 
+  const originalBytes = new Uint8Array(await file.arrayBuffer());
+  const resizedBytes = await resizeForWeb(originalBytes);
+
   const key = `recent-matches/${match.slug}`;
-  await env.PHOTOS.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'image/jpeg' } });
+  await env.PHOTOS.put(key, resizedBytes, { httpMetadata: { contentType: 'image/jpeg' } });
   await env.DB.prepare('UPDATE recent_matches SET photo_key = ? WHERE id = ?').bind(key, match.id).run();
 
   return json({ success: true, photo_url: `https://theexactmatch.com/recent-matches/photos/${match.slug}` });
