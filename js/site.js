@@ -7,18 +7,52 @@
 // ── Mobile menu ──────────────────────────────────────────────
 function toggleMenu() {
   document.getElementById('mobile-menu').classList.toggle('open');
+  document.getElementById('hamburger').classList.toggle('open');
 }
 
-// ── Desktop nav "More" dropdown ─────────────────────────────
-function toggleNavMore() {
-  document.getElementById('nav-more').classList.toggle('open');
-  return false;
+// ── Desktop mega menu (hover-triggered, click also works for
+// touch/keyboard on tablet-width screens above the mobile breakpoint) ──
+let navCloseTimer;
+function openNavMenu(key) {
+  clearTimeout(navCloseTimer);
+  document.querySelectorAll('.nav-trigger').forEach((t) => t.classList.toggle('open', t.dataset.menu === key));
+  document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('open', p.dataset.panel === key));
 }
-document.addEventListener('click', (e) => {
-  const navMore = document.getElementById('nav-more');
-  if (navMore && navMore.classList.contains('open') && !navMore.contains(e.target)) {
-    navMore.classList.remove('open');
-  }
+function closeNavMenus() {
+  navCloseTimer = setTimeout(() => {
+    document.querySelectorAll('.nav-trigger').forEach((t) => t.classList.remove('open'));
+    document.querySelectorAll('.panel').forEach((p) => p.classList.remove('open'));
+  }, 120);
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.nav-trigger').forEach((trigger) => {
+    trigger.addEventListener('mouseenter', () => openNavMenu(trigger.dataset.menu));
+    trigger.addEventListener('mouseleave', closeNavMenus);
+    trigger.addEventListener('click', () => {
+      trigger.classList.contains('open') ? closeNavMenus() : openNavMenu(trigger.dataset.menu);
+    });
+  });
+  document.querySelectorAll('.panel').forEach((panel) => {
+    panel.addEventListener('mouseenter', () => clearTimeout(navCloseTimer));
+    panel.addEventListener('mouseleave', closeNavMenus);
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.nav-item')) closeNavMenus();
+  });
+
+  // ── Mobile accordion — one section open at a time ──────────
+  document.querySelectorAll('.accordion-trigger').forEach((trigger) => {
+    trigger.addEventListener('click', () => {
+      const body = document.querySelector(`.accordion-body[data-body="${trigger.dataset.target}"]`);
+      const wasOpen = trigger.classList.contains('open');
+      document.querySelectorAll('.accordion-trigger').forEach((t) => t.classList.remove('open'));
+      document.querySelectorAll('.accordion-body').forEach((b) => b.classList.remove('open'));
+      if (!wasOpen) {
+        trigger.classList.add('open');
+        body.classList.add('open');
+      }
+    });
+  });
 });
 
 // ── Scroll reveal ────────────────────────────────────────────

@@ -48,57 +48,157 @@ const LASTMOD = '2026-08-27';
 // their copy is comparatively low-risk (a plain list of brands already
 // live elsewhere on the site) — still flagged for review, just not held
 // back from linking.
-function navHtml(activePage) {
-  const links = [
-    ['home', '/', 'Home'],
-    ['findmycar', '/find-my-car', 'Find My Car'],
-    ['sellmycar', '/sell-my-car', 'Sell My Car'],
-    ['about', '/about', 'About'],
-  ];
-  const moreLinks = [
-    ['howitworks', '/how-it-works', 'How It Works'],
-    ['whiteglove', '/white-glove', 'White Glove'],
-    ['recentmatches', '/recent-matches', 'Recent Matches'],
-    ['weeklyfinds', '/weekly-finds', 'Recent Finds'],
-    ['guides', '/guides', 'Guides'],
-  ];
-  const linkHtml = (id, href, label) =>
-    `<a href="${href}"${id === activePage ? ' class="active"' : ''} id="nav-${id}">${label}</a>`;
+// Simple stroke-style 24x24 icons, keyed by name, shared by both the
+// desktop panel links and the mobile accordion links below — one set, not
+// two hand-copied ones.
+const NAV_ICONS = {
+  search: '<circle cx="10" cy="10" r="6"/><path d="M20 20l-5.2-5.2"/>',
+  concierge: '<circle cx="12" cy="8" r="3.2"/><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"/>',
+  key: '<circle cx="7.5" cy="15.5" r="3.2"/><path d="M9.8 13.2 18 5m0 0h-3.5M18 5v3.5M14.5 8.5l2 2"/>',
+  steps: '<path d="M4 19h4v-4H4v4zM10 19h4v-9h-4v9zM16 19h4V6h-4v13z"/>',
+  grid: '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
+  tag: '<path d="M12.6 3.6 20 11l-8.4 8.4a2 2 0 0 1-2.8 0L4 14.6V7a3.4 3.4 0 0 1 3.4-3.4H12.6z"/><circle cx="9" cy="9" r="1.3"/>',
+  car: '<path d="M4 16V11l2.2-4.4A2 2 0 0 1 8 5.5h8a2 2 0 0 1 1.8 1.1L20 11v5"/><path d="M4 16h16v2.5a1 1 0 0 1-1 1h-1.5a1 1 0 0 1-1-1V17h-9v1.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V16z"/><circle cx="7.5" cy="16" r="1.4"/><circle cx="16.5" cy="16" r="1.4"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  doc: '<path d="M6 3.5h8L19 8.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M14 3.5V9h5"/>',
+  mail: '<rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/><path d="M4 6.5l8 6.5 8-6.5"/>',
+};
+const svgIcon = (name) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${NAV_ICONS[name] || ''}</svg>`;
+
+// ── Single source of truth for nav links ─────────────────────────────────
+// Both renderDesktopNav() (mega menu) and renderMobileMenu() (accordion
+// slide-out) read from this same data — adding a page to the nav later
+// means editing one entry here, not two separate hand-written markup
+// blocks that can quietly drift apart. `page` matches the `page` id already
+// used in VIEWS, reused here for active-state highlighting the same way the
+// old flat nav did.
+const NAV_GROUPS = [
+  {
+    key: 'find', label: 'Find a Car',
+    featured: { page: 'findmycar', href: '/find-my-car', icon: 'search', title: 'Find My Car — Free', desc: '3 real matches in 24 hours' },
+    links: [
+      { page: 'carbuyingconcierge', href: '/car-buying-concierge', icon: 'concierge', title: 'Car Buying Concierge', desc: 'The full concept, explained.' },
+      { page: 'carbroker', href: '/car-broker', icon: 'key', title: 'Car Broker', desc: 'How broker terms map to what we do.' },
+      { page: 'howitworks', href: '/how-it-works', icon: 'steps', title: 'How It Works', desc: 'Step by step, start to finish.' },
+      { page: 'recentmatches', href: '/recent-matches', icon: 'grid', title: 'Recent Matches', desc: "See what we've found lately." },
+    ],
+  },
+  {
+    key: 'sell', label: 'Sell a Car',
+    featured: { page: 'sellmycar', href: '/sell-my-car', icon: 'tag', title: 'Sell My Car', desc: 'Multiple real dealer offers, not one instant lowball.' },
+    links: [
+      { page: 'sell-brand', href: '/sell/ferrari', icon: 'car', title: 'Sell My Ferrari' },
+      { page: 'sell-brand', href: '/sell/porsche', icon: 'car', title: 'Sell My Porsche' },
+      { page: 'sell-brand', href: '/sell/bentley', icon: 'car', title: 'Sell My Bentley' },
+      { page: 'sell-hub', href: '/sell/', icon: 'arrow', title: 'View All Brands →' },
+    ],
+  },
+  {
+    key: 'resources', label: 'Resources', simple: true, eyebrow: 'Guides & Advice',
+    links: [
+      { page: 'advice-negotiate', href: '/advice/how-to-negotiate-car-price', icon: 'doc', title: 'Negotiating Car Price' },
+      { page: 'advice-outofstate', href: '/advice/buying-a-car-out-of-state', icon: 'doc', title: 'Buying Out of State' },
+      { page: 'advice-financedcar', href: '/advice/how-to-sell-a-financed-car', icon: 'doc', title: 'Selling a Financed Car' },
+      { page: 'weeklyfinds', href: '/weekly-finds', icon: 'mail', title: 'Recent Finds' },
+    ],
+  },
+];
+const NAV_STANDALONE = [
+  { page: 'whiteglove', href: '/white-glove', label: 'White Glove' },
+  { page: 'about', href: '/about', label: 'About' },
+];
+const NAV_PHONE = { href: 'tel:5126509328', label: '(512) 650-9328' };
+const NAV_DEALERS = { page: 'dealers', href: '/dealers', label: 'For Dealers' };
+
+const groupIsActive = (group, activePage) =>
+  group.featured?.page === activePage || group.links.some((l) => l.page === activePage);
+
+const panelLinkHtml = (link, feature = false) => `<a class="panel-link${feature ? ' panel-feature' : ''}" href="${link.href}">
+          <span class="icon">${svgIcon(link.icon)}</span>
+          <div><div class="text-title">${link.title}</div>${link.desc ? `<div class="text-desc">${link.desc}</div>` : ''}</div>
+        </a>`;
+
+const mobileLinkHtml = (link) => `<a class="mobile-link" href="${link.href}" onclick="toggleMenu()">
+            <span class="icon">${svgIcon(link.icon)}</span>
+            <div><div class="m-title">${link.title}</div>${link.desc ? `<div class="m-desc">${link.desc}</div>` : ''}</div>
+          </a>`;
+
+function renderDesktopNav(activePage) {
+  const groupsHtml = NAV_GROUPS.map((group) => {
+    const panelInner = group.simple
+      ? `<div class="panel-eyebrow">${group.eyebrow}</div>
+        <div class="panel-grid cols-1">
+          ${group.links.map((l) => panelLinkHtml(l)).join('\n          ')}
+        </div>`
+      : `<div class="panel-grid cols-2">
+          ${panelLinkHtml(group.featured, true)}
+          ${group.links.map((l) => panelLinkHtml(l)).join('\n          ')}
+        </div>`;
+    return `<div class="nav-item">
+        <button class="nav-trigger${groupIsActive(group, activePage) ? ' active' : ''}" data-menu="${group.key}">
+          ${group.label}
+          <svg class="chevron" viewBox="0 0 12 8" fill="none"><path d="M1 1l5 5 5-5" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <div class="panel" data-panel="${group.key}">
+          ${panelInner}
+        </div>
+      </div>`;
+  }).join('\n      ');
+  const standaloneHtml = NAV_STANDALONE.map(
+    (link) => `<a class="nav-link${link.page === activePage ? ' active' : ''}" href="${link.href}">${link.label}</a>`
+  ).join('\n      ');
   return `<nav id="nav">
   <div class="nav-inner">
     <a class="logo" href="/">The<span>Exact</span>Match</a>
-    <ul class="nav-links">
-      ${links.map(([id, href, label]) => `<li>${linkHtml(id, href, label)}</li>`).join('\n      ')}
-      <li class="nav-more" id="nav-more">
-        <a href="#" class="nav-more-toggle" onclick="return toggleNavMore()">More</a>
-        <ul class="nav-more-menu">
-          ${moreLinks.map(([id, href, label]) => `<li>${linkHtml(id, href, label)}</li>`).join('\n          ')}
-          <li><a href="/Dealerportal.html">Dealer Portal</a></li>
-        </ul>
-      </li>
-      <li><a href="/contact" class="nav-cta${activePage === 'contact' ? ' active' : ''}" id="nav-contact">Contact</a></li>
-    </ul>
-    <a class="nav-phone" href="tel:5126509328">(512) 650-9328</a>
-    <div class="hamburger" id="hamburger" onclick="toggleMenu()">
-      <span></span><span></span><span></span>
+    <div class="nav-center">
+      ${groupsHtml}
+      ${standaloneHtml}
+    </div>
+    <div class="nav-right">
+      <a class="nav-phone" href="${NAV_PHONE.href}">${NAV_PHONE.label}</a>
+      <a class="nav-dealers${NAV_DEALERS.page === activePage ? ' active' : ''}" href="${NAV_DEALERS.href}">${NAV_DEALERS.label}</a>
+      <div class="hamburger" id="hamburger" onclick="toggleMenu()">
+        <span></span><span></span><span></span>
+      </div>
     </div>
   </div>
 </nav>`;
 }
 
-const MOBILE_MENU_HTML = `<div class="mobile-menu" id="mobile-menu">
-  <a href="/" onclick="toggleMenu()">Home</a>
-  <a href="/find-my-car" onclick="toggleMenu()">Find My Car</a>
-  <a href="/sell-my-car" onclick="toggleMenu()">Sell My Car</a>
-  <a href="/about" onclick="toggleMenu()">About</a>
-  <a href="/how-it-works" onclick="toggleMenu()">How It Works</a>
-  <a href="/white-glove" onclick="toggleMenu()">White Glove</a>
-  <a href="/recent-matches" onclick="toggleMenu()">Recent Matches</a>
-  <a href="/weekly-finds" onclick="toggleMenu()">Recent Finds</a>
-  <a href="/guides" onclick="toggleMenu()">Guides</a>
-  <a href="/Dealerportal.html">Dealer Portal</a>
-  <a href="/contact" onclick="toggleMenu()">Contact</a>
+function renderMobileMenu() {
+  const accordionHtml = NAV_GROUPS.map((group) => {
+    const allLinks = group.featured ? [group.featured, ...group.links] : group.links;
+    return `<div class="accordion-item">
+    <button class="accordion-trigger" data-target="${group.key}">
+      ${group.label}
+      <svg class="chevron" viewBox="0 0 12 8" fill="none"><path d="M1 1l5 5 5-5" stroke="currentColor" stroke-width="1.5"/></svg>
+    </button>
+    <div class="accordion-body" data-body="${group.key}">
+      <div class="accordion-links">
+        ${allLinks.map((l) => mobileLinkHtml(l)).join('\n        ')}
+      </div>
+    </div>
+  </div>`;
+  }).join('\n  ');
+  const standaloneHtml = NAV_STANDALONE.map(
+    (link) => `<a class="standalone-link" href="${link.href}" onclick="toggleMenu()">${link.label}</a>`
+  ).join('\n  ');
+  return `<div class="mobile-menu" id="mobile-menu">
+  ${accordionHtml}
+  ${standaloneHtml}
+  <div class="mobile-footer">
+    <a class="mobile-phone" href="${NAV_PHONE.href}">${NAV_PHONE.label}</a>
+    <a class="mobile-dealers" href="${NAV_DEALERS.href}" onclick="toggleMenu()">${NAV_DEALERS.label}</a>
+  </div>
 </div>`;
+}
+
+function navHtml(activePage) {
+  return renderDesktopNav(activePage);
+}
+
+const MOBILE_MENU_HTML = renderMobileMenu();
 
 const FOOTER_SOCIAL_SVG = `<div class="footer-social">
       <a href="https://facebook.com/theexactmatch" target="_blank" rel="noopener noreferrer" aria-label="TheExactMatch on Facebook">
