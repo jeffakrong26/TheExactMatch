@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Recent Match</title>
+  <title>Recent Matches</title>
   <meta name="description" content=""/>
-  <link rel="canonical" href="https://theexactmatch.com/recent-matches/"/>
+  <link rel="canonical" href="https://theexactmatch.com/recent-matches"/>
   <meta property="og:title" content=""/>
   <meta property="og:description" content=""/>
   <meta property="og:url" content=""/>
@@ -33,35 +33,22 @@
 <div id="nav-slot"></div>
 <div id="mobile-menu-slot"></div>
 
-<!-- One shared template — see pages/city.html for the same
-     one-file-many-URLs pattern. Every #rmd-* placeholder is filled
-     server-side per request from live dealer-api data (src/index.js). -->
-<div class="page" id="page-recent-match-detail">
-  <div class="home-wrap">
-    <section class="home-section" style="padding-top:96px">
-      <div class="home-section-head">
-        <h2>The Deal</h2>
-        <a class="home-text-cta" href="/recent-matches">&larr; All Matches</a>
-      </div>
-      <div class="home-featured">
-        <div class="home-photo-block" id="rmd-photo-wrap" style="aspect-ratio:4/3"></div>
-        <div class="home-featured-info">
-          <h1 id="rmd-heading" style="font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:30px;margin:0 0 4px"></h1>
-          <div class="rm-vehicle" id="rmd-vehicle" style="margin-bottom:20px"></div>
-          <div class="rm-saved" id="rmd-saved"></div>
-          <div class="rm-tags" id="rmd-tags"></div>
-          <a class="home-text-cta" href="/find-my-car">Start your own search — free &rarr;</a>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <div class="home-footer-cta">
-    <div class="home-wrap">
-      <h2>Ready to start your match?</h2>
-      <a class="home-ticket" href="/find-my-car"><span>Start a free search</span></a>
+<div class="page" id="page-recent-matches">
+  <section style="padding:6rem var(--side-pad) 5rem;background:var(--beige)">
+    <div style="text-align:center;max-width:640px;margin:0 auto 3.5rem">
+      <div class="eyebrow center">Recent Matches</div>
+      <h1>Real deals. <strong>Real people.</strong></h1>
+      <p style="font-size:.92rem;font-weight:300;color:var(--gray);line-height:1.8">Every car we've found, negotiated, and closed for a client. Click into any match for the full story — what we did and what it saved them.</p>
     </div>
-  </div>
+
+    <!-- Cards are server-injected per request from live dealer-api data
+         (see src/index.js) — this grid ships empty. -->
+    <div class="rm-grid" id="rm-listing-grid"></div>
+
+    <div style="text-align:center;margin-top:3.5rem">
+      <a href="/find-my-car" style="font-size:.85rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Start your own search — free →</a>
+    </div>
+  </section>
 
   <div id="footer-slot"></div>
 </div>

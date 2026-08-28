@@ -5,14 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Find My Car</title>
   <meta name="description" content=""/>
-  <link rel="canonical" href="https://theexactmatch.com/findmycar"/>
+  <link rel="canonical" href="https://theexactmatch.com/find-my-car"/>
   <meta property="og:title" content=""/>
   <meta property="og:description" content=""/>
   <meta property="og:url" content=""/>
   <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link rel="preconnect" href="https://api.fontshare.com"/>
-  <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin/>
+  <!-- Font stylesheets loaded non-blocking (preload + swap-on-load, with a
+       <noscript> fallback for the no-JS/crawler case) — a <link
+       rel="stylesheet"> to a third-party host otherwise blocks first paint
+       on that host's round trip regardless of font-display, since the
+       browser can't know in advance the fetched CSS only affects
+       @font-face. site.css stays a normal blocking stylesheet: it's
+       same-origin, small, and needed immediately for layout. -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"/></noscript>
+  <link rel="preload" as="style" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap"/></noscript>
   <link rel="stylesheet" href="/css/site.css"/>
 </head>
 <body>
@@ -191,7 +203,7 @@
               <option>Text</option><option>Email</option><option>Call</option>
             </select>
           </div>
-          <p style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:1rem;line-height:1.6">Want us to handle the entire deal for you once we find it? <a href="/whiteglove" style="color:rgba(255,255,255,.55);text-decoration:underline">Ask about White Glove.</a></p>
+          <p style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:1rem;line-height:1.6">Want us to handle the entire deal for you once we find it? <a href="/white-glove" style="color:rgba(255,255,255,.55);text-decoration:underline">Ask about White Glove.</a></p>
         </div>
 
         <div class="ms-nav">
@@ -290,9 +302,9 @@
       <ul style="list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:.75rem 1.5rem;padding:0">
         <li><a href="/austin" style="font-size:.9rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Austin</a></li>
         <li><a href="/houston" style="font-size:.9rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Houston</a></li>
-        <li><a href="/sanantonio" style="font-size:.9rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">San Antonio</a></li>
+        <li><a href="/san-antonio" style="font-size:.9rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">San Antonio</a></li>
         <li><a href="/dallas" style="font-size:.9rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Dallas</a></li>
-        <li><a href="/elpaso" style="font-size:.9rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">El Paso</a></li>
+        <li><a href="/el-paso" style="font-size:.9rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">El Paso</a></li>
       </ul>
     </div>
   </section>

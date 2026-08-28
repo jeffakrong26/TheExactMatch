@@ -41,9 +41,9 @@ const LASTMOD = '2026-08-27';
 // placeholder via HTMLRewriter's `.replace()`, once per request.
 //
 // New pages awaiting copy approval (see the per-URL migration plan) are
-// deliberately absent from this list until then — /carbuyingconcierge,
-// /carbroker, /dealers, /advice/buyingacaroutofstate,
-// /advice/howtosellafinancedcar. /sell/ (hub) and /sell/tesla are present
+// deliberately absent from this list until then — /car-buying-concierge,
+// /car-broker, /dealers, /advice/buying-a-car-out-of-state,
+// /advice/how-to-sell-a-financed-car. /sell/ (hub) and /sell/tesla are present
 // because the sell-brand pages structurally need the hub to exist, and
 // their copy is comparatively low-risk (a plain list of brands already
 // live elsewhere on the site) — still flagged for review, just not held
@@ -51,15 +51,15 @@ const LASTMOD = '2026-08-27';
 function navHtml(activePage) {
   const links = [
     ['home', '/', 'Home'],
-    ['findmycar', '/findmycar', 'Find My Car'],
-    ['sellmycar', '/sellmycar', 'Sell My Car'],
+    ['findmycar', '/find-my-car', 'Find My Car'],
+    ['sellmycar', '/sell-my-car', 'Sell My Car'],
     ['about', '/about', 'About'],
   ];
   const moreLinks = [
-    ['howitworks', '/howitworks', 'How It Works'],
-    ['whiteglove', '/whiteglove', 'White Glove'],
-    ['recentmatches', '/recentmatches', 'Recent Matches'],
-    ['weeklyfinds', '/weeklyfinds', 'Recent Finds'],
+    ['howitworks', '/how-it-works', 'How It Works'],
+    ['whiteglove', '/white-glove', 'White Glove'],
+    ['recentmatches', '/recent-matches', 'Recent Matches'],
+    ['weeklyfinds', '/weekly-finds', 'Recent Finds'],
     ['guides', '/guides', 'Guides'],
   ];
   const linkHtml = (id, href, label) =>
@@ -87,13 +87,13 @@ function navHtml(activePage) {
 
 const MOBILE_MENU_HTML = `<div class="mobile-menu" id="mobile-menu">
   <a href="/" onclick="toggleMenu()">Home</a>
-  <a href="/findmycar" onclick="toggleMenu()">Find My Car</a>
-  <a href="/sellmycar" onclick="toggleMenu()">Sell My Car</a>
+  <a href="/find-my-car" onclick="toggleMenu()">Find My Car</a>
+  <a href="/sell-my-car" onclick="toggleMenu()">Sell My Car</a>
   <a href="/about" onclick="toggleMenu()">About</a>
-  <a href="/howitworks" onclick="toggleMenu()">How It Works</a>
-  <a href="/whiteglove" onclick="toggleMenu()">White Glove</a>
-  <a href="/recentmatches" onclick="toggleMenu()">Recent Matches</a>
-  <a href="/weeklyfinds" onclick="toggleMenu()">Recent Finds</a>
+  <a href="/how-it-works" onclick="toggleMenu()">How It Works</a>
+  <a href="/white-glove" onclick="toggleMenu()">White Glove</a>
+  <a href="/recent-matches" onclick="toggleMenu()">Recent Matches</a>
+  <a href="/weekly-finds" onclick="toggleMenu()">Recent Finds</a>
   <a href="/guides" onclick="toggleMenu()">Guides</a>
   <a href="/Dealerportal.html">Dealer Portal</a>
   <a href="/contact" onclick="toggleMenu()">Contact</a>
@@ -115,11 +115,11 @@ const FOOTER_SOCIAL_SVG = `<div class="footer-social">
 const FOOTER_HTML = `<footer>
   <div><div class="footer-logo">The<span>Exact</span>Match</div><div class="footer-sub">Your car, found. — Nationwide</div></div>
   <ul class="footer-nav">
-    <li><a href="/findmycar">Find My Car</a></li>
-    <li><a href="/sellmycar">Sell My Car</a></li>
-    <li><a href="/howitworks">How It Works</a></li>
+    <li><a href="/find-my-car">Find My Car</a></li>
+    <li><a href="/sell-my-car">Sell My Car</a></li>
+    <li><a href="/how-it-works">How It Works</a></li>
     <li><a href="/about">About</a></li>
-    <li><a href="/weeklyfinds">Recent Finds</a></li>
+    <li><a href="/weekly-finds">Recent Finds</a></li>
     <li><a href="/guides">Guides</a></li>
     <li><a href="/contact">Contact</a></li>
   </ul>
@@ -215,36 +215,36 @@ const VIEWS = [
       "Tell us what you want — we search our dealer network, negotiate the price, and deliver your exact match. Free, no obligation.",
   },
   {
-    path: '/findmycar',
+    path: '/find-my-car',
     page: 'findmycar',
-    file: '/pages/findmycar.html',
+    file: '/pages/find-my-car.html',
     lastmod: '2026-08-27',
     title: 'Find My Car — Search, Negotiate & Deliver | TheExactMatch',
     description:
       "Tell us what you want and we'll find it. We search our nationwide dealer network and send you 3 curated options within 24 hours. Free, no obligation.",
   },
   {
-    path: '/sellmycar',
+    path: '/sell-my-car',
     page: 'sellmycar',
-    file: '/pages/sellmycar.html',
+    file: '/pages/sell-my-car.html',
     lastmod: '2026-08-27',
     title: 'Sell My Car — Multiple Real Offers, Not One Lowball | TheExactMatch',
     description:
       "Skip the single instant-offer lowball. We send your car to multiple dealers actively buying your segment and bring back real, competing offers within 24 hours — you choose, or walk away.",
   },
   {
-    path: '/recentmatches',
+    path: '/recent-matches',
     page: 'recentmatches',
-    file: '/pages/recentmatches.html',
+    file: '/pages/recent-matches.html',
     lastmod: '2026-08-27',
     title: 'Recent Matches — Real Deals We\'ve Closed | TheExactMatch',
     description:
       'Real cars we\'ve found, negotiated, and closed for clients — savings, warranties, and what actually happened on each deal.',
   },
   {
-    path: '/howitworks',
+    path: '/how-it-works',
     page: 'howitworks',
-    file: '/pages/howitworks.html',
+    file: '/pages/how-it-works.html',
     lastmod: '2026-08-27',
     title: 'How It Works — Find My Car & Sell My Car | TheExactMatch',
     description:
@@ -289,9 +289,9 @@ const VIEWS = [
     },
   },
   {
-    path: '/whiteglove',
+    path: '/white-glove',
     page: 'whiteglove',
-    file: '/pages/whiteglove.html',
+    file: '/pages/white-glove.html',
     lastmod: '2026-08-27',
     title: 'White Glove — We Handle the Whole Deal | TheExactMatch',
     description:
@@ -410,9 +410,9 @@ const VIEWS = [
     },
   },
   {
-    path: '/weeklyfinds',
+    path: '/weekly-finds',
     page: 'weeklyfinds',
-    file: '/pages/weeklyfinds.html',
+    file: '/pages/weekly-finds.html',
     lastmod: '2026-08-27',
     title: "Jeff's Recent Finds — Free Car Newsletter | TheExactMatch",
     description:
@@ -437,9 +437,9 @@ const VIEWS = [
       "In-depth model guides — trims, pricing trends, and what actually matters when you're shopping for a specific car.",
   },
   {
-    path: '/guides/audir8',
+    path: '/guides/audi-r8',
     page: 'guide-audir8',
-    file: '/pages/guides/audir8.html',
+    file: '/pages/guides/audi-r8.html',
     lastmod: '2026-08-23',
     title: 'Audi R8 Buying Guide: All Trims & Pricing Trends | The Exact Match',
     description:
@@ -454,13 +454,13 @@ const VIEWS = [
           publisher: { '@type': 'Organization', name: 'The Exact Match', url: ORIGIN },
           datePublished: '2026-08-23',
           dateModified: '2026-08-23',
-          mainEntityOfPage: `${ORIGIN}/guides/audir8`,
+          mainEntityOfPage: `${ORIGIN}/guides/audi-r8`,
         },
         {
           '@type': 'BreadcrumbList',
           itemListElement: [
             { '@type': 'ListItem', position: 1, name: 'Guides', item: `${ORIGIN}/guides` },
-            { '@type': 'ListItem', position: 2, name: 'Audi R8 Buying Guide', item: `${ORIGIN}/guides/audir8` },
+            { '@type': 'ListItem', position: 2, name: 'Audi R8 Buying Guide', item: `${ORIGIN}/guides/audi-r8` },
           ],
         },
         {
@@ -508,9 +508,9 @@ const VIEWS = [
 // ── Advice section (renamed + moved from bare top-level paths) ──────────
 const ADVICE_LASTMOD = '2026-08-27';
 VIEWS.push({
-  path: '/advice/howtonegotiatecarprice',
+  path: '/advice/how-to-negotiate-car-price',
   page: 'advice-negotiate',
-  file: '/pages/advice/howtonegotiatecarprice.html',
+  file: '/pages/advice/how-to-negotiate-car-price.html',
   lastmod: ADVICE_LASTMOD,
   title: 'How to Negotiate a Car Price: The Complete Guide | The Exact Match',
   description:
@@ -525,13 +525,13 @@ VIEWS.push({
         publisher: { '@type': 'Organization', name: 'The Exact Match', url: ORIGIN },
         datePublished: '2026-07-31',
         dateModified: ADVICE_LASTMOD,
-        mainEntityOfPage: `${ORIGIN}/advice/howtonegotiatecarprice`,
+        mainEntityOfPage: `${ORIGIN}/advice/how-to-negotiate-car-price`,
       },
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Advice', item: `${ORIGIN}/advice` },
-          { '@type': 'ListItem', position: 2, name: 'How to Negotiate a Car Price', item: `${ORIGIN}/advice/howtonegotiatecarprice` },
+          { '@type': 'ListItem', position: 2, name: 'How to Negotiate a Car Price', item: `${ORIGIN}/advice/how-to-negotiate-car-price` },
         ],
       },
       {
@@ -584,9 +584,9 @@ const CITY_LASTMOD = '2026-07-31';
 const CITIES = [
   { slug: 'austin',      name: 'Austin',      possessive: "Austin's" },
   { slug: 'houston',     name: 'Houston',     possessive: "Houston's" },
-  { slug: 'sanantonio',  name: 'San Antonio', possessive: "San Antonio's" },
+  { slug: 'san-antonio', name: 'San Antonio', possessive: "San Antonio's" },
   { slug: 'dallas',      name: 'Dallas',      possessive: "Dallas's" },
-  { slug: 'elpaso',      name: 'El Paso',     possessive: "El Paso's" },
+  { slug: 'el-paso',     name: 'El Paso',     possessive: "El Paso's" },
 ];
 
 // Worded identically to the on-page FAQ. Structured data that disagrees with
@@ -661,9 +661,9 @@ const SELL_BRANDS = [
   { slug: 'porsche',      name: 'Porsche' },
   { slug: 'lamborghini',  name: 'Lamborghini' },
   { slug: 'mclaren',      name: 'McLaren' },
-  { slug: 'rollsroyce',   name: 'Rolls-Royce' },
+  { slug: 'rolls-royce',  name: 'Rolls-Royce' },
   { slug: 'tesla',        name: 'Tesla' },
-  { slug: 'astonmartin',  name: 'Aston Martin' },
+  { slug: 'aston-martin', name: 'Aston Martin' },
   { slug: 'maserati',     name: 'Maserati' },
 ];
 
@@ -728,9 +728,9 @@ for (const brand of SELL_BRANDS) {
 const NEW_LASTMOD = '2026-08-27';
 VIEWS.push(
   {
-    path: '/carbuyingconcierge',
+    path: '/car-buying-concierge',
     page: 'carbuyingconcierge',
-    file: '/pages/carbuyingconcierge.html',
+    file: '/pages/car-buying-concierge.html',
     lastmod: NEW_LASTMOD,
     noindex: true,
     title: 'Car Buying Concierge — Nationwide, Free Search & Negotiation | The Exact Match',
@@ -770,9 +770,9 @@ VIEWS.push(
     },
   },
   {
-    path: '/carbroker',
+    path: '/car-broker',
     page: 'carbroker',
-    file: '/pages/carbroker.html',
+    file: '/pages/car-broker.html',
     lastmod: NEW_LASTMOD,
     noindex: true,
     title: 'Car Broker — We Search, Negotiate & Deliver | The Exact Match',
@@ -790,9 +790,9 @@ VIEWS.push(
       "We send pre-qualified, ready-to-transact buyers and sellers straight to your lot. No listing fees — we're paid a commission only when a deal actually closes.",
   },
   {
-    path: '/advice/buyingacaroutofstate',
+    path: '/advice/buying-a-car-out-of-state',
     page: 'advice-outofstate',
-    file: '/pages/advice/buyingacaroutofstate.html',
+    file: '/pages/advice/buying-a-car-out-of-state.html',
     lastmod: NEW_LASTMOD,
     noindex: true,
     title: 'Buying a Car Out of State: What to Know | The Exact Match',
@@ -808,22 +808,22 @@ VIEWS.push(
           publisher: { '@type': 'Organization', name: 'The Exact Match', url: ORIGIN },
           datePublished: NEW_LASTMOD,
           dateModified: NEW_LASTMOD,
-          mainEntityOfPage: `${ORIGIN}/advice/buyingacaroutofstate`,
+          mainEntityOfPage: `${ORIGIN}/advice/buying-a-car-out-of-state`,
         },
         {
           '@type': 'BreadcrumbList',
           itemListElement: [
             { '@type': 'ListItem', position: 1, name: 'Advice', item: `${ORIGIN}/advice` },
-            { '@type': 'ListItem', position: 2, name: 'Buying a Car Out of State', item: `${ORIGIN}/advice/buyingacaroutofstate` },
+            { '@type': 'ListItem', position: 2, name: 'Buying a Car Out of State', item: `${ORIGIN}/advice/buying-a-car-out-of-state` },
           ],
         },
       ],
     },
   },
   {
-    path: '/advice/howtosellafinancedcar',
+    path: '/advice/how-to-sell-a-financed-car',
     page: 'advice-financedcar',
-    file: '/pages/advice/howtosellafinancedcar.html',
+    file: '/pages/advice/how-to-sell-a-financed-car.html',
     lastmod: NEW_LASTMOD,
     noindex: true,
     title: 'How to Sell a Car You Still Owe Money On | The Exact Match',
@@ -839,13 +839,13 @@ VIEWS.push(
           publisher: { '@type': 'Organization', name: 'The Exact Match', url: ORIGIN },
           datePublished: NEW_LASTMOD,
           dateModified: NEW_LASTMOD,
-          mainEntityOfPage: `${ORIGIN}/advice/howtosellafinancedcar`,
+          mainEntityOfPage: `${ORIGIN}/advice/how-to-sell-a-financed-car`,
         },
         {
           '@type': 'BreadcrumbList',
           itemListElement: [
             { '@type': 'ListItem', position: 1, name: 'Advice', item: `${ORIGIN}/advice` },
-            { '@type': 'ListItem', position: 2, name: 'How to Sell a Financed Car', item: `${ORIGIN}/advice/howtosellafinancedcar` },
+            { '@type': 'ListItem', position: 2, name: 'How to Sell a Financed Car', item: `${ORIGIN}/advice/how-to-sell-a-financed-car` },
           ],
         },
       ],
@@ -908,52 +908,72 @@ const STATIC_PAGES = [
 ];
 
 // Recent Finds newsletter archive. Each issue is a standalone HTML file at
-// /weeklyfinds/<slug>, listed in weekly-finds/issues.json (directory name
-// kept as-is — it's a filesystem path, not a URL, so renaming it isn't
-// necessary the way the URL itself was).
+// /weekly-finds/<slug>, listed in weekly-finds/issues.json.
 //
 // To publish Issue No. N:
-//   1. Add weekly-finds/issueN.html
+//   1. Add weekly-finds/issue-N.html
 //   2. Set its <link rel="canonical"> to
-//      https://theexactmatch.com/weeklyfinds/issueN   (apex, no www)
-//   3. Append {"slug":"issueN","title":…,"lastmod":"YYYY-MM-DD"} to
+//      https://theexactmatch.com/weekly-finds/issue-N   (apex, no www)
+//   3. Append {"slug":"issue-N","title":…,"lastmod":"YYYY-MM-DD"} to
 //      weekly-finds/issues.json
 //   4. Deploy — the sitemap picks it up with no code change
 const ISSUES_MANIFEST = '/weekly-finds/issues.json';
-const ISSUE_BASE = '/weeklyfinds';
+const ISSUE_BASE = '/weekly-finds';
 const ISSUE_FILE_BASE = '/weekly-finds'; // where the actual issue files live on disk
 
-// Old hyphenated URLs 301 to their new no-hyphen equivalents — every one of
-// these was a real, indexed URL before this migration, so silently 404ing
-// them would drop whatever ranking/links they'd already earned. Redirects
-// are checked before VIEWS_BY_PATH, so an old path never falls through to a
-// stale asset.
+// 301s to the current hyphenated URLs. Two distinct generations of old path
+// land here: the site's original hyphenated URLs (pre-dating this whole
+// per-URL migration), and the brief no-hyphen URLs this same migration
+// shipped for about a day before hyphens were restored — both need to keep
+// working, since either could already be indexed or linked externally.
+// Redirects are checked before VIEWS_BY_PATH, so an old path never falls
+// through to a stale asset.
 const REDIRECTS = new Map([
-  ['/find-my-car', '/findmycar'],
-  ['/sell-my-car', '/sellmycar'],
-  ['/how-it-works', '/howitworks'],
-  ['/white-glove', '/whiteglove'],
-  ['/weekly-finds', '/weeklyfinds'],
-  // The pre-per-issue-path flat URL used to redirect here too
-  // (/weeklyfinds -> /weekly-finds/issue-1); /weeklyfinds is now the real
-  // page's own path, so that old redirect is retired rather than colliding
-  // with it. Issue 1 itself moves with its own entry below.
-  ['/weekly-finds/issue-1', '/weeklyfinds/issue1'],
-  ['/recent-matches', '/recentmatches'],
-  ['/how-to-negotiate-car-price', '/advice/howtonegotiatecarprice'],
-  ['/guides/audi-r8', '/guides/audir8'],
-  ['/san-antonio', '/sanantonio'],
-  ['/el-paso', '/elpaso'],
+  // Brief no-hyphen URLs -> restored hyphenated URLs.
+  ['/findmycar', '/find-my-car'],
+  ['/sellmycar', '/sell-my-car'],
+  ['/howitworks', '/how-it-works'],
+  ['/whiteglove', '/white-glove'],
+  ['/weeklyfinds', '/weekly-finds'],
+  ['/weekly-finds/issue1', '/weekly-finds/issue-1'],
+  ['/recentmatches', '/recent-matches'],
+  ['/guides/audir8', '/guides/audi-r8'],
+  ['/advice/howtonegotiatecarprice', '/advice/how-to-negotiate-car-price'],
+  ['/sanantonio', '/san-antonio'],
+  ['/elpaso', '/el-paso'],
+  ['/sell/rollsroyce', '/sell/rolls-royce'],
+  ['/sell/astonmartin', '/sell/aston-martin'],
+  ['/carbuyingconcierge', '/car-buying-concierge'],
+  ['/carbroker', '/car-broker'],
+  ['/advice/buyingacaroutofstate', '/advice/buying-a-car-out-of-state'],
+  ['/advice/howtosellafinancedcar', '/advice/how-to-sell-a-financed-car'],
+  // Original, pre-migration bare paths -> today's real (still hyphenated)
+  // paths, where the route also moved (gained a nesting prefix, etc.).
+  ['/how-to-negotiate-car-price', '/advice/how-to-negotiate-car-price'],
   ['/public/contact-message', '/contact'],
 ]);
-// The individual brand-page and city redirects below are generated from the
-// same lists SELL_BRANDS/CITIES already define, so a renamed slug can't
-// silently forget its old-URL redirect.
+// The brand-page redirects below are generated from the same SELL_BRANDS
+// list the routes themselves come from, so a renamed slug can't silently
+// forget its old-URL redirect. Every brand had a real /sell-my-car/[brand]
+// URL at some point (including the ones that only had it briefly under
+// their no-hyphen slug — those are covered by the manual entries above).
 for (const brand of SELL_BRANDS) {
   if (brand.slug === 'tesla') continue; // no old URL — this one's new
-  const oldSlug = brand.slug === 'rollsroyce' ? 'rolls-royce' : brand.slug === 'astonmartin' ? 'aston-martin' : brand.slug;
-  REDIRECTS.set(`/sell-my-car/${oldSlug}`, `/sell/${brand.slug}`);
+  REDIRECTS.set(`/sell-my-car/${brand.slug}`, `/sell/${brand.slug}`);
 }
+// The two multi-word brands also need their /sell-my-car/<brand> variant
+// caught by its bare (unhyphenated-at-the-time) spelling, same as it always
+// was pre-migration.
+REDIRECTS.set('/sell-my-car/rollsroyce', '/sell/rolls-royce');
+REDIRECTS.set('/sell-my-car/astonmartin', '/sell/aston-martin');
+
+// Recent Matches detail pages and Recent Finds issues both carry a dynamic
+// slug that can't live in a static REDIRECTS entry — this catches the brief
+// no-hyphen prefixes generally, for any current or future slug.
+const PREFIX_REDIRECTS = [
+  ['/recentmatches/', '/recent-matches/'],
+  ['/weeklyfinds/', '/weekly-finds/'],
+];
 
 const VIEWS_BY_PATH = new Map(VIEWS.map(v => [v.path, v]));
 
@@ -1010,7 +1030,7 @@ async function fetchDealerApiJson(env, path) {
   }
 }
 
-// Teaser (Find My Car) and listing (/recentmatches) cards are deliberately
+// Teaser (Find My Car) and listing (/recent-matches) cards are deliberately
 // identical and light — photo + name/vehicle only, no savings or tags. Both
 // link one level shallower than the data they're for: teaser -> the listing,
 // listing card -> that match's own detail page.
@@ -1115,7 +1135,7 @@ function renderView(assetResponse, view, injections = {}) {
       })
       .on('#brand-cta', {
         element(el) {
-          if (view.brand) el.setAttribute('href', `/sellmycar?make=${encodeURIComponent(view.brand.name)}`);
+          if (view.brand) el.setAttribute('href', `/sell-my-car?make=${encodeURIComponent(view.brand.name)}`);
         },
       })
       .on('.brand-crosslinks li', {
@@ -1176,6 +1196,11 @@ export default {
     if (redirectTo) {
       return Response.redirect(`${url.origin}${redirectTo}${url.search}`, 301);
     }
+    for (const [oldPrefix, newPrefix] of PREFIX_REDIRECTS) {
+      if (pathname.startsWith(oldPrefix)) {
+        return Response.redirect(`${url.origin}${newPrefix}${pathname.slice(oldPrefix.length)}${url.search}`, 301);
+      }
+    }
 
     if (pathname.startsWith('/api/tasks/')) {
       return handleTasksRequest(request, env, url);
@@ -1193,19 +1218,19 @@ export default {
 
     const isGetOrHead = request.method === 'GET' || request.method === 'HEAD';
 
-    // Recent Finds issue archive — /weeklyfinds/<slug> serves the standalone
+    // Recent Finds issue archive — /weekly-finds/<slug> serves the standalone
     // file that actually lives at weekly-finds/<slug>.html on disk (the
     // directory name wasn't part of the URL-format rename, only the route).
-    const issueSlug = isGetOrHead && pathname.match(/^\/weeklyfinds\/([a-z0-9-]+)$/)?.[1];
+    const issueSlug = isGetOrHead && pathname.match(/^\/weekly-finds\/([a-z0-9-]+)$/)?.[1];
     if (issueSlug) {
       return env.ASSETS.fetch(new Request(`${url.origin}${ISSUE_FILE_BASE}/${issueSlug}.html`));
     }
 
-    // A single match's own page (e.g. /recentmatches/samantha-cx5). The slug
+    // A single match's own page (e.g. /recent-matches/samantha-cx5). The slug
     // isn't known at deploy time — admin adds these anytime — so unlike every
     // other route it can't live in the static VIEWS list; it's looked up
     // against dealer-api on every request instead.
-    const matchDetailSlug = isGetOrHead && pathname.match(/^\/recentmatches\/([a-z0-9-]+)$/)?.[1];
+    const matchDetailSlug = isGetOrHead && pathname.match(/^\/recent-matches\/([a-z0-9-]+)$/)?.[1];
     if (matchDetailSlug) {
       const data = await fetchDealerApiJson(env, `/api/public/recent-matches/${matchDetailSlug}`);
       if (!data?.match) {
@@ -1240,7 +1265,7 @@ export default {
       return env.ASSETS.fetch(request);
     }
 
-    // Recent Matches teaser (Find My Car) and listing grid (/recentmatches)
+    // Recent Matches teaser (Find My Car) and listing grid (/recent-matches)
     // are the only other spots needing live data — everything else on these
     // views is static markup already baked into its page file.
     const injections = { html: {}, remove: [] };
@@ -1248,7 +1273,7 @@ export default {
       const data = await fetchDealerApiJson(env, '/api/public/recent-matches');
       const featured = (data?.matches || []).filter(m => m.featured).slice(0, 3);
       if (featured.length) {
-        injections.html['#rm-teaser-grid'] = featured.map(m => recentMatchCardHtml(m, '/recentmatches')).join('');
+        injections.html['#rm-teaser-grid'] = featured.map(m => recentMatchCardHtml(m, '/recent-matches')).join('');
       } else {
         // Nothing published/featured yet — remove the whole section rather
         // than ship an empty heading with no cards under it.
@@ -1258,7 +1283,7 @@ export default {
       const data = await fetchDealerApiJson(env, '/api/public/recent-matches');
       const matches = data?.matches || [];
       injections.html['#rm-listing-grid'] = matches.length
-        ? matches.map(m => recentMatchCardHtml(m, `/recentmatches/${m.slug}`)).join('')
+        ? matches.map(m => recentMatchCardHtml(m, `/recent-matches/${m.slug}`)).join('')
         : `<p style="grid-column:1/-1;text-align:center;color:var(--gray);font-size:.9rem">More matches are on the way — check back soon.</p>`;
     } else if (view.page === 'sellmycar') {
       // Real submissions admin has published only — never fabricated. Fewer

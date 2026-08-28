@@ -10,9 +10,21 @@
   <meta property="og:description" content=""/>
   <meta property="og:url" content=""/>
   <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link rel="preconnect" href="https://api.fontshare.com"/>
-  <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin/>
+  <!-- Font stylesheets loaded non-blocking (preload + swap-on-load, with a
+       <noscript> fallback for the no-JS/crawler case) — a <link
+       rel="stylesheet"> to a third-party host otherwise blocks first paint
+       on that host's round trip regardless of font-display, since the
+       browser can't know in advance the fetched CSS only affects
+       @font-face. site.css stays a normal blocking stylesheet: it's
+       same-origin, small, and needed immediately for layout. -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"/></noscript>
+  <link rel="preload" as="style" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap"/></noscript>
   <link rel="stylesheet" href="/css/site.css"/>
 </head>
 <body>
@@ -32,9 +44,9 @@
     <div class="eyebrow light center">Based in <span class="city-name">Austin</span>, Texas</div>
     <h1 class="display light" style="font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,2.9rem);font-weight:500;line-height:1.15;margin-bottom:1.25rem">Based in <span class="city-name">Austin</span>.<br/><strong>Serving all 50 states.</strong></h1>
     <p style="font-size:.95rem;font-weight:300;color:rgba(255,255,255,.55);max-width:640px;margin:0 auto 2rem;line-height:1.8">
-      The Exact Match is based in <span class="city-name">Austin</span> — and <a href="/findmycar" style="color:var(--gold2);text-decoration:none;border-bottom:1px solid rgba(212,180,122,.4)">Find My Car</a> works the same way nationwide. Tell us what you're looking for — make, model, budget, timeline — and we go find it, negotiate it, and handle the paperwork, wherever the car actually is. Being local to Texas just means we know this market a little better than most.
+      The Exact Match is based in <span class="city-name">Austin</span> — and <a href="/find-my-car" style="color:var(--gold2);text-decoration:none;border-bottom:1px solid rgba(212,180,122,.4)">Find My Car</a> works the same way nationwide. Tell us what you're looking for — make, model, budget, timeline — and we go find it, negotiate it, and handle the paperwork, wherever the car actually is. Being local to Texas just means we know this market a little better than most.
     </p>
-    <a class="submit-btn" style="width:auto;padding:.85rem 2.5rem;display:inline-block;text-decoration:none" href="/findmycar">Find My Car — Free</a>
+    <a class="submit-btn" style="width:auto;padding:.85rem 2.5rem;display:inline-block;text-decoration:none" href="/find-my-car">Find My Car — Free</a>
   </section>
 
   <!-- How it works -->
@@ -67,7 +79,7 @@
         </div>
       </div>
       <div style="text-align:center;margin-top:2.5rem">
-        <a href="/howitworks" style="font-size:.82rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);border-bottom:1px solid var(--gold);padding-bottom:.2rem;text-decoration:none">See the full process →</a>
+        <a href="/how-it-works" style="font-size:.82rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);border-bottom:1px solid var(--gold);padding-bottom:.2rem;text-decoration:none">See the full process →</a>
       </div>
     </div>
   </section>
@@ -122,16 +134,16 @@
       <ul class="city-crosslinks" style="list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:.75rem 1.5rem;padding:0">
         <li data-city="austin"><a href="/austin" style="font-size:.85rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Austin</a></li>
         <li data-city="houston"><a href="/houston" style="font-size:.85rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Houston</a></li>
-        <li data-city="sanantonio"><a href="/sanantonio" style="font-size:.85rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">San Antonio</a></li>
+        <li data-city="san-antonio"><a href="/san-antonio" style="font-size:.85rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">San Antonio</a></li>
         <li data-city="dallas"><a href="/dallas" style="font-size:.85rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Dallas</a></li>
-        <li data-city="elpaso"><a href="/elpaso" style="font-size:.85rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">El Paso</a></li>
+        <li data-city="el-paso"><a href="/el-paso" style="font-size:.85rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">El Paso</a></li>
       </ul>
     </div>
   </section>
 
   <section style="padding:0 var(--side-pad) 3.5rem;background:var(--white);text-align:center">
     <p style="font-size:.85rem;font-weight:300;color:var(--gray)">
-      Want to do it yourself? Read our <a href="/advice/howtonegotiatecarprice" style="color:var(--navy);font-weight:500;border-bottom:1px solid var(--gold);text-decoration:none">negotiation guide</a>.
+      Want to do it yourself? Read our <a href="/advice/how-to-negotiate-car-price" style="color:var(--navy);font-weight:500;border-bottom:1px solid var(--gold);text-decoration:none">negotiation guide</a>.
     </p>
   </section>
 
@@ -140,8 +152,8 @@
     <div class="eyebrow light center">Ready?</div>
     <h2 class="display light" style="margin-bottom:1.5rem">Let's find your <em>exact match</em> in <span class="city-name">Austin</span>.</h2>
     <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
-      <a class="submit-btn" style="width:auto;padding:.85rem 2.5rem;display:inline-block;text-decoration:none" href="/findmycar">Find My Car — Free</a>
-      <a class="sell-submit" style="width:auto;padding:.85rem 2.5rem;background:rgba(255,255,255,.1);color:var(--white);border:1px solid rgba(255,255,255,.2);display:inline-block;text-decoration:none" href="/sellmycar">Sell My Car — Free</a>
+      <a class="submit-btn" style="width:auto;padding:.85rem 2.5rem;display:inline-block;text-decoration:none" href="/find-my-car">Find My Car — Free</a>
+      <a class="sell-submit" style="width:auto;padding:.85rem 2.5rem;background:rgba(255,255,255,.1);color:var(--white);border:1px solid rgba(255,255,255,.2);display:inline-block;text-decoration:none" href="/sell-my-car">Sell My Car — Free</a>
     </div>
   </section>
 

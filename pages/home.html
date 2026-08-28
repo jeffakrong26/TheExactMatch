@@ -10,9 +10,21 @@
   <meta property="og:description" content=""/>
   <meta property="og:url" content=""/>
   <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link rel="preconnect" href="https://api.fontshare.com"/>
-  <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin/>
+  <!-- Font stylesheets loaded non-blocking (preload + swap-on-load, with a
+       <noscript> fallback for the no-JS/crawler case) — a <link
+       rel="stylesheet"> to a third-party host otherwise blocks first paint
+       on that host's round trip regardless of font-display, since the
+       browser can't know in advance the fetched CSS only affects
+       @font-face. site.css stays a normal blocking stylesheet: it's
+       same-origin, small, and needed immediately for layout. -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"/></noscript>
+  <link rel="preload" as="style" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap"/></noscript>
   <link rel="stylesheet" href="/css/site.css"/>
 </head>
 <body>
@@ -30,7 +42,7 @@
       <div class="home-wrap" style="padding:0">
         <h1>We don't list cars.<br/>We find <strong>yours</strong>.</h1>
         <p class="home-lede">Tell us what you want — we search dealer networks across the country so you don't have to sit through another sales pitch.</p>
-        <a class="home-hero-cta" href="/findmycar">Get started</a>
+        <a class="home-hero-cta" href="/find-my-car">Get started</a>
       </div>
     </div>
   </section>
@@ -110,7 +122,7 @@
           <div class="rm-tags">
             <span class="rm-tag">CPO Warranty Secured</span>
           </div>
-          <a class="home-text-cta" href="/recentmatches/andy-vantage">View the full match →</a>
+          <a class="home-text-cta" href="/recent-matches/andy-vantage">View the full match →</a>
         </div>
       </div>
     </section>
@@ -124,11 +136,11 @@
         <p>What we actually tell clients before they buy.</p>
       </div>
       <div class="home-guides-list">
-        <a class="home-guide-row" href="/guides/audir8">
+        <a class="home-guide-row" href="/guides/audi-r8">
           <div class="g-left"><span class="g-num">01</span><h4>Audi R8: what to check before you buy</h4></div>
           <div class="g-right">Read guide →</div>
         </a>
-        <a class="home-guide-row" href="/advice/howtonegotiatecarprice">
+        <a class="home-guide-row" href="/advice/how-to-negotiate-car-price">
           <div class="g-left"><span class="g-num">02</span><h4>How to negotiate with a dealer, honestly</h4></div>
           <div class="g-right">Read guide →</div>
         </a>
@@ -143,7 +155,7 @@
   <div class="home-footer-cta">
     <div class="home-wrap">
       <h2>Ready to start your match?</h2>
-      <a class="home-ticket" href="/findmycar">
+      <a class="home-ticket" href="/find-my-car">
         <span>Start a free search</span>
       </a>
     </div>
@@ -155,15 +167,15 @@
   <div class="home-wrap" style="padding:40px 32px;text-align:center;border-top:1px solid var(--home-hairline)">
     <p class="home-mono" style="color:var(--home-slate);margin-bottom:16px">Selling instead?</p>
     <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;font-family:'General Sans',sans-serif;font-size:13px">
-      <a class="home-text-cta" href="/sellmycar">Sell My Car</a>
+      <a class="home-text-cta" href="/sell-my-car">Sell My Car</a>
       <a class="home-text-cta" href="/sell/ferrari">Sell a Ferrari</a>
       <a class="home-text-cta" href="/sell/bentley">Sell a Bentley</a>
       <a class="home-text-cta" href="/sell/porsche">Sell a Porsche</a>
       <a class="home-text-cta" href="/sell/lamborghini">Sell a Lamborghini</a>
       <a class="home-text-cta" href="/sell/mclaren">Sell a McLaren</a>
-      <a class="home-text-cta" href="/sell/rollsroyce">Sell a Rolls-Royce</a>
+      <a class="home-text-cta" href="/sell/rolls-royce">Sell a Rolls-Royce</a>
       <a class="home-text-cta" href="/sell/tesla">Sell a Tesla</a>
-      <a class="home-text-cta" href="/sell/astonmartin">Sell an Aston Martin</a>
+      <a class="home-text-cta" href="/sell/aston-martin">Sell an Aston Martin</a>
       <a class="home-text-cta" href="/sell/maserati">Sell a Maserati</a>
     </div>
   </div>

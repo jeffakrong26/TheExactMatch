@@ -176,7 +176,7 @@ async function submitToApi(btn, endpoint, wrapId, successId, errorId, payload, o
     if(!shouldShow()) return;
 
     // Find My Car gets no on-load/timer/scroll popup — exit-intent only.
-    if(location.pathname === '/findmycar'){
+    if(location.pathname === '/find-my-car'){
       function exitIntent(e){
         if(e.clientY > 0 || e.relatedTarget) return;
         document.removeEventListener('mouseout', exitIntent);

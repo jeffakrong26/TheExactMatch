@@ -5,14 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>White Glove</title>
   <meta name="description" content=""/>
-  <link rel="canonical" href="https://theexactmatch.com/whiteglove"/>
+  <link rel="canonical" href="https://theexactmatch.com/white-glove"/>
   <meta property="og:title" content=""/>
   <meta property="og:description" content=""/>
   <meta property="og:url" content=""/>
   <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link rel="preconnect" href="https://api.fontshare.com"/>
-  <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin/>
+  <!-- Font stylesheets loaded non-blocking (preload + swap-on-load, with a
+       <noscript> fallback for the no-JS/crawler case) — a <link
+       rel="stylesheet"> to a third-party host otherwise blocks first paint
+       on that host's round trip regardless of font-display, since the
+       browser can't know in advance the fetched CSS only affects
+       @font-face. site.css stays a normal blocking stylesheet: it's
+       same-origin, small, and needed immediately for layout. -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"/></noscript>
+  <link rel="preload" as="style" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap"/></noscript>
   <link rel="stylesheet" href="/css/site.css"/>
 </head>
 <body>

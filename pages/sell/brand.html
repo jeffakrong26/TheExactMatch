@@ -10,9 +10,21 @@
   <meta property="og:description" content=""/>
   <meta property="og:url" content=""/>
   <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link rel="preconnect" href="https://api.fontshare.com"/>
-  <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin/>
+  <!-- Font stylesheets loaded non-blocking (preload + swap-on-load, with a
+       <noscript> fallback for the no-JS/crawler case) — a <link
+       rel="stylesheet"> to a third-party host otherwise blocks first paint
+       on that host's round trip regardless of font-display, since the
+       browser can't know in advance the fetched CSS only affects
+       @font-face. site.css stays a normal blocking stylesheet: it's
+       same-origin, small, and needed immediately for layout. -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"/></noscript>
+  <link rel="preload" as="style" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap"/></noscript>
   <link rel="stylesheet" href="/css/site.css"/>
 </head>
 <body>
@@ -42,7 +54,7 @@
       <div class="sell-form-card" style="text-align:center">
         <div class="sell-form-title">Start Your <span class="brand-name">Ferrari</span> Sale</div>
         <div class="sell-form-sub">Same trusted process — just tell us about your <span class="brand-name">Ferrari</span> and we'll take it from there.</div>
-        <a class="sell-submit" id="brand-cta" href="/sellmycar" style="display:block;text-decoration:none">Get My Free Offers</a>
+        <a class="sell-submit" id="brand-cta" href="/sell-my-car" style="display:block;text-decoration:none">Get My Free Offers</a>
         <div class="sell-note">Free to submit. No obligation to accept. <strong>Real dealer offers.</strong></div>
       </div>
     </div>
@@ -82,9 +94,9 @@
       <li data-brand="porsche"><a href="/sell/porsche" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Porsche</a></li>
       <li data-brand="lamborghini"><a href="/sell/lamborghini" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Lamborghini</a></li>
       <li data-brand="mclaren"><a href="/sell/mclaren" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">McLaren</a></li>
-      <li data-brand="rollsroyce"><a href="/sell/rollsroyce" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Rolls-Royce</a></li>
+      <li data-brand="rolls-royce"><a href="/sell/rolls-royce" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Rolls-Royce</a></li>
       <li data-brand="tesla"><a href="/sell/tesla" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Tesla</a></li>
-      <li data-brand="astonmartin"><a href="/sell/astonmartin" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Aston Martin</a></li>
+      <li data-brand="aston-martin"><a href="/sell/aston-martin" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Aston Martin</a></li>
       <li data-brand="maserati"><a href="/sell/maserati" style="font-size:.82rem;font-weight:500;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">Maserati</a></li>
     </ul>
     <p style="margin-top:1.5rem"><a href="/sell/" style="font-size:.82rem;font-weight:600;color:var(--navy);border-bottom:1px solid var(--gold);text-decoration:none">See all brands we buy →</a></p>
