@@ -30,13 +30,13 @@ body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy);ove
    (see pages/*.html) needed the same visual rule to apply regardless of
    which tag carries it. */
 h1.display,
-h2.display{font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,2.9rem);font-weight:500;line-height:1.15;color:var(--navy)}
+h2.display{font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(2rem,3.5vw,2.9rem);font-weight:800;line-height:1.15;color:var(--navy)}
 h1.display em,
-h2.display em{font-style:italic;color:var(--gold)}
+h2.display em{font-style:normal;color:inherit}
+h1.display strong,
+h2.display strong{font-weight:inherit}
 h1.display.light,
 h2.display.light{color:var(--white)}
-h1.display.light em,
-h2.display.light em{color:var(--gold2)}
 .reveal{opacity:0;transform:translateY(20px);transition:opacity .65s ease,transform .65s ease}
 .reveal.on{opacity:1;transform:translateY(0)}
 
@@ -148,8 +148,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(245,240,232,
 .hero-left{display:flex;flex-direction:column;justify-content:center;padding:5rem 4rem 5rem 5rem}
 .hero-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(192,154,91,.12);border:1px solid rgba(192,154,91,.3);border-radius:20px;padding:.4rem 1rem;font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:1.5rem}
 .hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}
-.hero-title{font-family:'Playfair Display',serif;font-size:clamp(2.4rem,4.5vw,3.8rem);font-weight:500;line-height:1.1;color:var(--navy);margin-bottom:1.25rem}
-.hero-title em{font-style:italic;color:var(--gold)}
+.hero-title{font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(2.4rem,4.5vw,3.8rem);font-weight:800;line-height:1.1;color:var(--navy);margin-bottom:1.25rem}
+.hero-title em{font-style:normal;color:inherit}
+.hero-title strong{font-weight:inherit}
 .hero-sub{font-size:.95rem;font-weight:300;color:var(--gray);line-height:1.8;margin-bottom:2rem;max-width:440px}
 .free-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--navy);color:var(--white);padding:.6rem 1.25rem;border-radius:2px;font-size:.75rem;font-weight:600;letter-spacing:.06em;margin-bottom:2rem}
 .free-badge .star{color:var(--gold);font-size:1rem}
@@ -295,8 +296,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(245,240,232,
 .sell-left{background:url('/Blue-urus.jpg') center/cover no-repeat;position:relative;display:flex;align-items:flex-end;padding:3rem}
 .sell-left::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(12,28,51,.85) 0%,rgba(12,28,51,.3) 60%,transparent 100%)}
 .sell-left-content{position:relative;z-index:1}
-.sell-left-title{font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,3rem);font-weight:500;color:var(--white);line-height:1.15;margin-bottom:.75rem}
-.sell-left-title strong{font-weight:700;font-style:normal;color:inherit}
+.sell-left-title{font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(2rem,3.5vw,3rem);font-weight:800;color:var(--white);line-height:1.15;margin-bottom:.75rem}
+.sell-left-title strong{font-weight:inherit;font-style:normal;color:inherit}
 .sell-left-sub{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.65);line-height:1.75;max-width:380px}
 .sell-next-strip{margin-top:2rem;padding-top:1.75rem;border-top:1px solid rgba(255,255,255,.15);max-width:380px}
 .sell-next-eyebrow{font-size:.65rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);margin-bottom:1rem}
@@ -314,9 +315,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(245,240,232,
 .sell-form .form-group select option{color:var(--navy);background:var(--white)}
 .sell-note{text-align:center;font-size:.72rem;color:var(--gray);margin-top:.75rem}
 .sell-note strong{color:var(--navy)}
-#page-sell h2.display em,
-#page-sell h2.display strong{font-style:normal;color:inherit;font-weight:700}
-
 /* ── CURRENTLY SOURCING BUYERS FOR (Sell My Car) ──
    Text-only by design — no photo, since no seller-identifying data is
    collected for this block at all (year/make/model + a human-written
@@ -475,8 +473,8 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 .terminal-path{margin-left:.75rem;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:rgba(123,155,201,.65)}
 .terminal-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:500;letter-spacing:.08em;color:var(--navy-tint);display:flex;align-items:center;gap:.5rem;margin:1.5rem 0 1rem;position:relative;z-index:1}
 .terminal-eyebrow::before{content:'$';opacity:.55}
-.terminal-h1{font-family:'Playfair Display',serif;font-size:clamp(2.1rem,4vw,3.1rem);font-weight:500;line-height:1.15;color:#f2f5f3;margin-bottom:1.25rem;position:relative;z-index:1}
-.terminal-h1 em{font-style:italic;color:var(--navy-tint)}
+.terminal-h1{font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(2.1rem,4vw,3.1rem);font-weight:800;line-height:1.15;color:#ffffff;margin-bottom:1.25rem;position:relative;z-index:1}
+.terminal-h1 em{font-style:normal;color:inherit}
 .terminal-body{background:#0e1210}
 .terminal-body a{color:var(--navy-tint);border-bottom:1px solid rgba(123,155,201,.4);text-decoration:none}
 .terminal-body a:hover{border-color:var(--navy-tint)}
@@ -555,8 +553,8 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 .home-hero{position:relative;min-height:82vh;display:flex;align-items:flex-end;overflow:hidden}
 .home-hero-photo{position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,27,45,.05) 0%,rgba(15,27,45,.35) 60%,var(--home-navy) 98%),url('/hero-car.jpeg');background-size:cover;background-position:center center;background-repeat:no-repeat}
 .home-hero-content{position:relative;width:100%;padding:0 32px 88px;color:var(--home-ivory)}
-.home-hero-content h1{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-optical-sizing:auto;font-size:clamp(40px,5.5vw,72px);line-height:1.02;letter-spacing:-.01em;margin:0 0 28px;max-width:820px}
-.home-hero-content h1 strong{font-weight:700}
+.home-hero-content h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-optical-sizing:auto;font-size:clamp(40px,5.5vw,72px);line-height:1.02;letter-spacing:-.01em;margin:0 0 28px;max-width:820px;color:#ffffff}
+.home-hero-content h1 strong{font-weight:inherit}
 .home-lede{font-size:18px;line-height:1.6;color:rgba(237,230,214,.8);max-width:440px;margin:0 0 36px}
 .home-hero-cta{display:inline-flex;align-items:center;gap:10px;background:var(--home-brass);color:var(--home-navy);font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;padding:16px 26px;text-decoration:none}
 .home-hero-cta:hover{background:var(--home-brass-light)}
@@ -565,7 +563,7 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 
 .home-section{padding:90px 0}
 .home-section-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:48px;gap:24px;flex-wrap:wrap;border-bottom:1px solid var(--home-hairline);padding-bottom:24px}
-.home-section-head h2{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(28px,3.5vw,40px);margin:0;letter-spacing:-.01em}
+.home-section-head h2{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(28px,3.5vw,40px);margin:0;letter-spacing:-.01em;color:var(--home-navy)}
 .home-section-head p{color:var(--home-slate);font-size:15px;max-width:340px;margin:0}
 
 .home-reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
@@ -598,7 +596,7 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 .home-guide-row:hover .g-right{color:var(--home-brass)}
 
 .home-footer-cta{background:var(--home-ivory);padding:80px 0;text-align:center}
-.home-footer-cta h2{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(30px,4vw,44px);color:var(--home-navy);margin:0 0 28px;letter-spacing:-.01em}
+.home-footer-cta h2{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(30px,4vw,44px);color:var(--home-navy);margin:0 0 28px;letter-spacing:-.01em}
 .home-ticket{position:relative;display:inline-flex;align-items:center;gap:14px;background:var(--home-navy);color:var(--home-ivory);padding:16px 24px 16px 20px;text-decoration:none;font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;clip-path:polygon(0% 0%,100% 0%,100% 100%,0% 100%,0% 62%,3% 62%,3% 58%,0% 58%,0% 46%,3% 46%,3% 42%,0% 42%)}
 .home-ticket:hover{background:var(--home-charcoal)}
 
@@ -606,12 +604,7 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
    Scoped to #page-find so the shared .hero-title/.form-group/.submit-btn
    etc. rules (also used by Sell My Car and Contact) are untouched. */
 #page-find{font-family:'General Sans',sans-serif}
-#page-find .hero-title,
-#page-find .form-title,
-#page-find h2.display{font-family:'Cabinet Grotesk',sans-serif;font-weight:500}
-#page-find .hero-title strong,
-#page-find h2.display strong{font-weight:700;font-style:normal;color:inherit}
-#page-find h2.display em{font-style:normal;color:inherit;font-weight:700}
+#page-find .form-title{font-family:'Cabinet Grotesk',sans-serif;font-weight:500}
 #page-find .eyebrow{font-family:'General Sans',sans-serif;font-weight:600}
 #page-find .form-group label,
 #page-find .ms-step-label{font-family:'General Sans',sans-serif;font-weight:600;letter-spacing:.08em}
@@ -643,8 +636,8 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 /* ── RECENT MATCHES PAGE (listing) ── */
 #page-recent-matches{font-family:'General Sans',sans-serif}
 #page-recent-matches .eyebrow{font-family:'General Sans',sans-serif;font-weight:600}
-#page-recent-matches h1{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(2rem,4vw,3rem);line-height:1.15;color:var(--navy);margin-bottom:1rem}
-#page-recent-matches h1 strong{font-weight:700}
+#page-recent-matches h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(2rem,4vw,3rem);line-height:1.15;color:var(--navy);margin-bottom:1rem}
+#page-recent-matches h1 strong{font-weight:inherit}
 
 /* ── RECENT MATCH DETAIL PAGE — borrows the homepage's "recent match"
    layout classes (.home-featured/.home-photo-block/.home-featured-info)
@@ -664,12 +657,12 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 #page-white-glove{font-family:'General Sans',sans-serif;background:var(--home-ivory);color:var(--home-charcoal)}
 #page-white-glove .eyebrow{font-family:'General Sans',sans-serif;font-weight:600;color:var(--home-brass)}
 #page-white-glove .eyebrow::before,#page-white-glove .eyebrow::after{background:var(--home-brass)}
-#page-white-glove h2.display{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;color:var(--home-navy)}
-#page-white-glove h2.display strong{font-weight:700}
-.wg-h1{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(2rem,4vw,2.9rem);line-height:1.15;color:var(--home-navy);margin:0 0 20px;max-width:820px}
-.wg-h1 strong{font-weight:700}
+#page-white-glove h2.display{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;color:var(--home-navy)}
+#page-white-glove h2.display strong{font-weight:inherit}
+.wg-h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(2rem,4vw,2.9rem);line-height:1.15;color:var(--home-navy);margin:0 0 20px;max-width:820px}
+.wg-h1 strong{font-weight:inherit}
 .wg-lede{font-size:17px;line-height:1.6;color:var(--home-slate);max-width:620px;margin:0}
-#page-white-glove .home-section-head h2{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;color:var(--home-navy);font-size:clamp(1.4rem,2.5vw,1.9rem)}
+#page-white-glove .home-section-head h2{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;color:var(--home-navy);font-size:clamp(1.4rem,2.5vw,1.9rem)}
 .wg-included-list{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:14px 32px;max-width:820px}
 .wg-included-list li{position:relative;padding-left:26px;font-size:15px;line-height:1.55;color:var(--home-charcoal)}
 .wg-included-list li::before{content:'';position:absolute;left:0;top:8px;width:8px;height:8px;border-radius:50%;background:var(--home-brass)}
@@ -689,8 +682,8 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 /* ── SELL/DEALERS/ADVICE HUBS — new pages built on the homepage's type
    system directly (no scoping prefix needed; each is its own document
    now, not a hidden div sharing the page with everything else). ── */
-.hub-h1{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:clamp(2.2rem,4.5vw,3.2rem);line-height:1.1;color:var(--home-navy);margin:0 0 20px;max-width:860px}
-.hub-h1 strong{font-weight:700}
+.hub-h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(2.2rem,4.5vw,3.2rem);line-height:1.1;color:var(--home-navy);margin:0 0 20px;max-width:860px}
+.hub-h1 strong{font-weight:inherit}
 .hub-lede{font-size:18px;line-height:1.65;color:var(--home-slate);max-width:640px;margin:0}
 .brand-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--home-hairline);border:1px solid var(--home-hairline)}
 .brand-tile{background:var(--home-ivory);padding:28px 24px;text-decoration:none;color:var(--home-charcoal);transition:background .2s}
