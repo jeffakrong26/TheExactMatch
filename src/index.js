@@ -228,6 +228,7 @@ const FOOTER_HTML = `<footer>
     <li><a href="/weekly-finds">Recent Finds</a></li>
     <li><a href="/guides">Guides</a></li>
     <li><a href="/contact">Contact</a></li>
+    <li><a href="/privacy-policy">Privacy</a></li>
   </ul>
   <div style="display:flex;align-items:center;gap:1.5rem">
     <div class="footer-copy">© 2026 TheExactMatch.com</div>
@@ -532,6 +533,15 @@ const VIEWS = [
     title: 'Contact — Talk Cars With Us | TheExactMatch',
     description:
       'Have a question, want to know more about White Glove service, or just want to talk through your situation? Reach out — we respond fast.',
+  },
+  {
+    path: '/privacy-policy',
+    page: 'privacy',
+    file: '/pages/privacy-policy.html',
+    lastmod: '2026-08-31',
+    title: 'Privacy Policy | TheExactMatch',
+    description:
+      'What The Exact Match collects when you use Find My Car, Sell My Car, or White Glove — and how it\'s shared with our dealer network to find your match. We never sell your data.',
   },
   {
     path: '/guides',

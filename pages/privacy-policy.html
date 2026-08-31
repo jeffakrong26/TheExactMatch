@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Privacy Policy</title>
+  <meta name="description" content=""/>
+  <link rel="canonical" href="https://theexactmatch.com/privacy-policy"/>
+  <meta property="og:title" content=""/>
+  <meta property="og:description" content=""/>
+  <meta property="og:url" content=""/>
+  <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <!-- Non-blocking font load (preload + swap-on-load, <noscript> fallback for
+       the no-JS/crawler case) — same pattern as the other pages/ files, so a
+       third-party stylesheet round trip can't block first paint. site.css
+       stays a normal blocking stylesheet: same-origin, small, needed for
+       layout immediately. -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"/></noscript>
+  <link rel="stylesheet" href="/css/site.css"/>
+  <style>
+    /* Scoped to #page-privacy so nothing here collides with the site-wide
+       rules — same convention the #page-home / #page-guides sections use.
+       Everything below is built on the shared tokens in css/site.css; the
+       one addition is --bronze, the darker gold that actually meets contrast
+       as text on the beige ground (identical to partner-terms.html's use). */
+    #page-privacy{background:var(--beige);--bronze:#8a6a12}
+    .pp-wrap{max-width:820px;margin:0 auto;padding:3.5rem 1.5rem 4.5rem}
+
+    .pp-eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--bronze);display:flex;align-items:center;gap:.65rem;margin-bottom:1rem}
+    .pp-eyebrow::before{content:'';display:block;height:1px;width:22px;background:var(--bronze)}
+
+    #page-privacy h1.display{margin-bottom:1.1rem}
+    .pp-intro{font-size:.95rem;line-height:1.75;color:var(--gray);max-width:60ch}
+    .pp-updated{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.04em;color:var(--gray);margin-top:1.6rem;display:flex;align-items:center;gap:.6rem}
+    .pp-updated::before{content:'';width:1.6rem;height:1px;background:var(--gold)}
+
+    .pp-card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:2.75rem 2.5rem;margin-top:2.75rem}
+
+    .pp-title{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:500;color:var(--navy);line-height:1.3;margin:2.5rem 0 1rem;padding-top:2.5rem;border-top:1px solid var(--border)}
+    .pp-title:first-child{margin-top:0;padding-top:0;border-top:none}
+    .pp-sub{font-family:'Jost',sans-serif;font-size:.9rem;font-weight:600;color:var(--navy);margin:1.6rem 0 .5rem}
+
+    .pp-card p{font-size:.88rem;line-height:1.8;color:var(--gray);margin-bottom:.9rem}
+    .pp-card p:last-child{margin-bottom:0}
+    .pp-card ul{margin:.4rem 0 .9rem;padding:0;list-style:none;display:flex;flex-direction:column;gap:.55rem}
+    .pp-card li{position:relative;padding-left:1.35rem;font-size:.88rem;line-height:1.8;color:var(--gray)}
+    .pp-card li::before{content:'';position:absolute;left:.15rem;top:.72em;width:.4rem;height:.4rem;background:var(--gold);transform:rotate(45deg)}
+    .pp-card strong{color:var(--navy);font-weight:600}
+    .pp-card a{color:var(--bronze);text-decoration:underline;text-underline-offset:.15em}
+
+    .pp-callout{background:var(--beige);border-left:3px solid var(--gold);border-radius:2px;padding:1rem 1.2rem;margin:1.2rem 0;font-size:.86rem;line-height:1.75;color:var(--navy)}
+    .pp-callout p{font-size:.86rem;color:var(--navy);margin:0}
+
+    .pp-contact-foot{font-size:.85rem;line-height:1.8;color:var(--gray);margin-top:2.25rem}
+    .pp-contact-foot a{color:var(--bronze);text-decoration:underline;text-underline-offset:.15em}
+
+    @media(max-width:640px){.pp-card{padding:2rem 1.4rem}}
+  </style>
+</head>
+<body>
+
+<div id="nl-slot"></div>
+<div id="nav-slot"></div>
+<div id="mobile-menu-slot"></div>
+
+<div class="page" id="page-privacy">
+
+  <div class="pp-wrap">
+
+    <div class="pp-eyebrow">Privacy</div>
+    <h1 class="display">Your information, and what we do with it</h1>
+    <p class="pp-intro">The Exact Match connects you with real vehicles and real buyers through our dealer network. This policy explains what we collect to do that, and how it's handled.</p>
+    <p class="pp-updated">Last updated August 31, 2026</p>
+
+    <div class="pp-card">
+
+      <h2 class="pp-title">What information we collect</h2>
+
+      <h3 class="pp-sub">When you use Find My Car</h3>
+      <p>Name, email, phone number, ZIP code, and vehicle preferences (make, model, budget, timeline, trade-in interest). Only if you select financing or leasing, we also collect your credit range, monthly payment range, and down payment amount. These financial fields are never shown to or requested from cash buyers.</p>
+
+      <h3 class="pp-sub">When you use Sell My Car</h3>
+      <p>Name, email, phone number, vehicle details (year, make, model, trim, VIN, mileage, color), title and payoff or loan balance information, vehicle condition details, and any photos you choose to upload.</p>
+
+      <h3 class="pp-sub">When you engage White Glove services</h3>
+      <p>The above, plus whatever additional information is needed to negotiate, arrange inspection, arrange financing, or arrange transport on your behalf.</p>
+
+      <h3 class="pp-sub">Automatically collected</h3>
+      <p>Standard analytics data — pages visited, general location by country or region, and device type — via Google Analytics and Google Search Console. We do not use this data to identify you personally.</p>
+
+      <h2 class="pp-title">How we use your information</h2>
+      <ul>
+        <li>To search our dealer network and match you with real vehicle options or buyer offers.</li>
+        <li>To contact you by phone, text, or email, using whichever method you tell us you prefer.</li>
+        <li>To negotiate, arrange inspections, arrange financing, or arrange transport if you've engaged White Glove.</li>
+        <li>To improve the site and our matching process.</li>
+      </ul>
+
+      <h2 class="pp-title">Who we share it with</h2>
+
+      <h3 class="pp-sub">Dealer partners</h3>
+      <p>This is core to how The Exact Match works. When you submit a Find My Car or Sell My Car request, relevant details are shared with dealers in our network who may have a matching vehicle or be interested in buying yours. This is how we're able to offer the search itself for free — dealers pay us a referral fee when a match results in a sale, not you.</p>
+
+      <div class="pp-callout">
+        <p><strong>We do not sell your information to data brokers or unrelated third parties.</strong> We do not share your information for any purpose outside of finding you a match, facilitating your sale, or delivering the service you requested.</p>
+      </div>
+
+      <h3 class="pp-sub">Service providers</h3>
+      <p>We may use third-party tools for essential functions like analytics (Google Analytics), communication (email and SMS delivery), and payment processing for White Glove fees (collected via Zelle or PayPal). These providers only receive what's needed to perform their function.</p>
+
+      <h2 class="pp-title">Your rights</h2>
+      <p>You can ask us at any time to:</p>
+      <ul>
+        <li>Tell you what information we have about you.</li>
+        <li>Correct inaccurate information.</li>
+        <li>Delete your information, except where we're required to retain records, such as completed transactions.</li>
+        <li>Stop contacting you.</li>
+      </ul>
+      <p>Contact <a href="mailto:info@theexactmatch.com">info@theexactmatch.com</a> to make any of these requests.</p>
+
+      <h2 class="pp-title">Data retention</h2>
+      <p>We keep your information as long as needed to provide the service you requested, and afterward only as long as necessary for legitimate business or legal purposes, such as transaction records.</p>
+
+      <h2 class="pp-title">Cookies &amp; analytics</h2>
+      <p>The site uses cookies and similar technology for basic analytics (Google Analytics and Search Console) to understand traffic and improve the site. These do not personally identify you.</p>
+
+      <h2 class="pp-title">Children's privacy</h2>
+      <p>The Exact Match is not directed at anyone under 18, and we do not knowingly collect information from minors.</p>
+
+      <h2 class="pp-title">Changes to this policy</h2>
+      <p>We'll update the "last updated" date above whenever this policy changes. Material changes affecting how your data is used will be communicated clearly.</p>
+
+      <h2 class="pp-title">Contact us</h2>
+      <p>Questions about this policy or your data: <a href="mailto:info@theexactmatch.com">info@theexactmatch.com</a> or <a href="tel:5126509328">(512)&nbsp;650-9328</a>.</p>
+
+    </div>
+
+  </div>
+
+  <div id="footer-slot"></div>
+</div>
+
+<script src="/js/site.js"></script>
+</body>
+</html>
