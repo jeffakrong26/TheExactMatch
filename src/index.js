@@ -316,7 +316,7 @@ const VIEWS = [
     path: '/',
     page: 'home',
     file: '/pages/home.html',
-    lastmod: '2026-08-27',
+    lastmod: '2026-08-31',
     title: "TheExactMatch — We Don't List Cars. We Find Yours.",
     description:
       "Tell us what you want — we search our dealer network, negotiate the price, and deliver your exact match. Free, no obligation.",
@@ -334,7 +334,7 @@ const VIEWS = [
     path: '/sell-my-car',
     page: 'sellmycar',
     file: '/pages/sell-my-car.html',
-    lastmod: '2026-08-27',
+    lastmod: '2026-08-31',
     title: 'Sell My Car — Multiple Real Offers, Not One Lowball | TheExactMatch',
     description:
       "Skip the single instant-offer lowball. We send your car to multiple dealers actively buying your segment and bring back real, competing offers within 24 hours — you choose, or walk away.",
@@ -399,7 +399,7 @@ const VIEWS = [
     path: '/white-glove',
     page: 'whiteglove',
     file: '/pages/white-glove.html',
-    lastmod: '2026-08-27',
+    lastmod: '2026-08-31',
     title: 'White Glove — We Handle the Whole Deal | TheExactMatch',
     description:
       "Search and matching are free, always. White Glove is the paid, optional tier where we negotiate, coordinate inspections, and arrange transport on your behalf — flat fee for standard vehicles, custom quote (capped at $7,000) for hard-to-find ones.",
@@ -696,7 +696,7 @@ VIEWS.push({
 // changes, so they're generated from this list rather than written out five
 // times. `possessive` is explicit rather than derived: "Dallas's" vs
 // "Dallas'" is a style call, not something to leave to string concatenation.
-const CITY_LASTMOD = '2026-07-31';
+const CITY_LASTMOD = '2026-08-31';
 const CITIES = [
   { slug: 'austin',      name: 'Austin',      possessive: "Austin's" },
   { slug: 'houston',     name: 'Houston',     possessive: "Houston's" },
@@ -711,7 +711,7 @@ const CITIES = [
 const CITY_FAQ = [
   [
     'How much does it cost?',
-    "Nothing. There's no fee, no subscription, and no charge for the search. We're paid a commission by the selling dealer when a purchase closes — it comes out of their side rather than being added to yours. If you don't buy, nobody pays anything.",
+    "Nothing. There's no fee, no subscription, and no charge for the search — finding your car is free. If you want the whole deal handled, that's White Glove, our optional paid service.",
   ],
   [
     'Do you only source from dealerships, or private sellers too?',
