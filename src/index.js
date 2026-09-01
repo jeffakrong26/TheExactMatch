@@ -619,6 +619,73 @@ const VIEWS = [
       ],
     },
   },
+  {
+    path: '/guides/aston-martin-vantage-v8',
+    page: 'guide-astonmartinvantagev8',
+    file: '/pages/guides/aston-martin-vantage-v8.html',
+    lastmod: '2026-08-31',
+    title: 'Aston Martin Vantage V8 Buying Guide (2019+): Pricing & Known Issues | The Exact Match',
+    description:
+      "A real buyer's guide to the 2019+ Aston Martin Vantage V8 — specs, current market pricing, known issues, and what to look for, from a team that's sourced one for a client.",
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Article',
+          headline: 'The 2019+ Aston Martin Vantage V8: A Real Buyer\'s Guide',
+          author: { '@type': 'Person', name: 'Jeff Akrong', url: `${ORIGIN}/about` },
+          publisher: { '@type': 'Organization', name: 'The Exact Match', url: ORIGIN },
+          datePublished: '2026-08-31',
+          dateModified: '2026-08-31',
+          mainEntityOfPage: `${ORIGIN}/guides/aston-martin-vantage-v8`,
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Guides', item: `${ORIGIN}/guides` },
+            { '@type': 'ListItem', position: 2, name: 'Aston Martin Vantage V8 Buying Guide', item: `${ORIGIN}/guides/aston-martin-vantage-v8` },
+          ],
+        },
+        {
+          '@type': 'FAQPage',
+          mainEntity: [
+            {
+              '@type': 'Question',
+              name: 'Is the Aston Martin Vantage reliable?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: "Aston Martin isn't known as the most reliable brand overall, and the 3rd-gen V8 Vantage has some recurring owner-reported issues — rear differential whine, coil pack corrosion, brake calibration at low speeds. None are dealbreakers, but a pre-purchase inspection is strongly recommended before buying.",
+              },
+            },
+            {
+              '@type': 'Question',
+              name: 'How much does it cost to maintain a Vantage?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: 'Routine oil changes run $250–$500. Minor services can run up to $1,500, and major service intervals can run $2,500 or more, depending on what\'s needed.',
+              },
+            },
+            {
+              '@type': 'Question',
+              name: "What's the best year to buy?",
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: 'A 2019–2021 example currently offers the best value — the same core platform and performance as later years, at a meaningfully lower price than 2022+ cars.',
+              },
+            },
+            {
+              '@type': 'Question',
+              name: 'Should I buy from an Aston Martin dealer or an independent seller?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: 'Buying from an authorized Aston Martin retailer — or getting an independent pre-purchase inspection if buying elsewhere — is strongly recommended. Factory-inspected cars often come with CPO warranty coverage that can save significant money down the line.',
+              },
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 // ── Advice section (renamed + moved from bare top-level paths) ──────────
