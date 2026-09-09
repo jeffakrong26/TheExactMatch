@@ -1351,11 +1351,25 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // Stays on whatever host the request arrived on rather than hardcoding
-    // ORIGIN — otherwise `wrangler dev` and the workers.dev preview would
-    // bounce every test request to production. Consolidating apex vs www is
-    // a DNS/redirect-rule concern, and the canonical tags already carry
-    // that signal.
+    // ── Host canonicalization: www -> apex ──────────────────────────────────
+    // www.theexactmatch.com is bound to this Worker too (Cloudflare answers it
+    // with a 200), so without this every www URL is a full duplicate of the
+    // apex site — Search Console flags them "Alternate page with proper
+    // canonical tag" and splits impressions across the two hosts. A correct
+    // <link rel="canonical"> (set in renderView) is not enough on its own; a
+    // hard 301 is. Scoped to the exact production www hostname so `wrangler
+    // dev` and the *.workers.dev preview are untouched. Cloudflare's "Always
+    // Use HTTPS" already upgrades the scheme, so the target is always the
+    // https apex regardless of how the request arrived.
+    //
+    // Static assets (/images/*, /css/*, /js/*, /robots.txt, ...) are served by
+    // Cloudflare before this Worker runs and still answer 200 on www — an edge
+    // Redirect Rule (www.theexactmatch.com/* -> https://theexactmatch.com/$1,
+    // 301) is the belt-and-suspenders fix for those. Every indexable HTML
+    // route and the sitemap pass through this Worker and are covered here.
+    if (url.hostname === 'www.theexactmatch.com') {
+      return Response.redirect(`${ORIGIN}${url.pathname}${url.search}`, 301);
+    }
 
     // Normalize a trailing slash to the bare path (/about/ -> /about) so the
     // two spellings can't both get indexed. /sell/ itself is the one
