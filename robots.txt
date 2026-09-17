@@ -61,6 +61,7 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
+Disallow: /public/contact-message
 # Only these four token-gated subpaths under /sell/ are the private valuation
 # flow (see dealer-api/wrangler.jsonc for the matching Cloudflare route) —
 # /sell/ itself and /sell/[brand] are public pages that must stay crawlable.
@@ -79,6 +80,7 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
+Disallow: /public/contact-message
 Disallow: /sell/upload/
 Disallow: /sell/report/
 Disallow: /sell/photos/
@@ -93,6 +95,7 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
+Disallow: /public/contact-message
 Disallow: /sell/upload/
 Disallow: /sell/report/
 Disallow: /sell/photos/
@@ -107,6 +110,7 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
+Disallow: /public/contact-message
 Disallow: /sell/upload/
 Disallow: /sell/report/
 Disallow: /sell/photos/
@@ -122,6 +126,7 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
+Disallow: /public/contact-message
 Disallow: /sell/upload/
 Disallow: /sell/report/
 Disallow: /sell/photos/
@@ -136,6 +141,7 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
+Disallow: /public/contact-message
 Disallow: /sell/upload/
 Disallow: /sell/report/
 Disallow: /sell/photos/
@@ -150,6 +156,7 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
+Disallow: /public/contact-message
 Disallow: /sell/upload/
 Disallow: /sell/report/
 Disallow: /sell/photos/
@@ -165,6 +172,7 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
+Disallow: /public/contact-message
 Disallow: /sell/upload/
 Disallow: /sell/report/
 Disallow: /sell/photos/
@@ -179,6 +187,7 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
+Disallow: /public/contact-message
 Disallow: /sell/upload/
 Disallow: /sell/report/
 Disallow: /sell/photos/
@@ -198,6 +207,7 @@ Disallow: /market
 Disallow: /reports/
 Disallow: /internal-reports/
 Disallow: /submissions/
+Disallow: /public/contact-message
 Disallow: /sell/upload/
 Disallow: /sell/report/
 Disallow: /sell/photos/

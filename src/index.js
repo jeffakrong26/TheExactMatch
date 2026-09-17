@@ -96,6 +96,7 @@ const NAV_GROUPS = [
   },
   {
     key: 'resources', label: 'Resources', simple: true, eyebrow: 'Guides & Advice',
+    page: 'resources', headerHref: '/resources',
     links: [
       { page: 'advice-negotiate', href: '/advice/how-to-negotiate-car-price', icon: 'doc', title: 'Negotiating Car Price' },
       { page: 'advice-outofstate', href: '/advice/buying-a-car-out-of-state', icon: 'doc', title: 'Buying Out of State' },
@@ -113,7 +114,7 @@ const NAV_DEALERS = { page: 'dealers', href: '/dealers', label: 'For Dealers' };
 const NAV_LOGIN = { href: '/Dealerportal.html', label: 'Login' };
 
 const groupIsActive = (group, activePage) =>
-  group.featured?.page === activePage || group.links.some((l) => l.page === activePage);
+  group.page === activePage || group.featured?.page === activePage || group.links.some((l) => l.page === activePage);
 
 const panelLinkHtml = (link, feature = false) => `<a class="panel-link${feature ? ' panel-feature' : ''}" href="${link.href}">
           <span class="icon">${svgIcon(link.icon)}</span>
@@ -127,8 +128,11 @@ const mobileLinkHtml = (link) => `<a class="mobile-link" href="${link.href}" onc
 
 function renderDesktopNav(activePage) {
   const groupsHtml = NAV_GROUPS.map((group) => {
+    const eyebrowHtml = group.headerHref
+      ? `<a class="panel-eyebrow" href="${group.headerHref}">${group.eyebrow} &rarr;</a>`
+      : `<div class="panel-eyebrow">${group.eyebrow}</div>`;
     const panelInner = group.simple
-      ? `<div class="panel-eyebrow">${group.eyebrow}</div>
+      ? `${eyebrowHtml}
         <div class="panel-grid cols-1">
           ${group.links.map((l) => panelLinkHtml(l)).join('\n          ')}
         </div>`
@@ -616,6 +620,30 @@ const VIEWS = [
             },
           ],
         },
+      ],
+    },
+  },
+  {
+    path: '/resources',
+    page: 'resources',
+    file: '/pages/resources.html',
+    lastmod: '2026-09-17',
+    title: 'Resources — Guides, Advice & Recent Finds | The Exact Match',
+    description:
+      "Everything we know, in one place — in-depth buyer's guides, straight answers on negotiating and selling, and hand-picked recent finds from the market.",
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: 'Resources',
+      url: `${ORIGIN}/resources`,
+      about: 'Car buying and selling guides, advice, and recent market finds',
+      hasPart: [
+        { '@type': 'CreativeWork', name: 'Aston Martin Vantage V8 Buying Guide', url: `${ORIGIN}/guides/aston-martin-vantage-v8` },
+        { '@type': 'CreativeWork', name: 'Audi R8 Buying Guide', url: `${ORIGIN}/guides/audi-r8` },
+        { '@type': 'CreativeWork', name: 'How to Negotiate Car Price', url: `${ORIGIN}/advice/how-to-negotiate-car-price` },
+        { '@type': 'CreativeWork', name: 'Buying a Car Out of State', url: `${ORIGIN}/advice/buying-a-car-out-of-state` },
+        { '@type': 'CreativeWork', name: 'How to Sell a Financed Car', url: `${ORIGIN}/advice/how-to-sell-a-financed-car` },
+        { '@type': 'CreativeWork', name: 'Recent Finds', url: `${ORIGIN}/weekly-finds` },
       ],
     },
   },
@@ -1126,6 +1154,12 @@ const REDIRECTS = new Map([
   // paths, where the route also moved (gained a nesting prefix, etc.).
   ['/how-to-negotiate-car-price', '/advice/how-to-negotiate-car-price'],
   ['/public/contact-message', '/contact'],
+  // /advice was 404ing but already had crawl attempts against it — rather
+  // than waste that signal, it now redirects to /resources, the real hub
+  // page that unifies guides + advice + recent finds under one URL.
+  ['/advice', '/resources'],
+  // Legacy alias for the homepage — 404ing on www.theexactmatch.com/home.
+  ['/home', '/'],
 ]);
 // The brand-page redirects below are generated from the same SELL_BRANDS
 // list the routes themselves come from, so a renamed slug can't silently
