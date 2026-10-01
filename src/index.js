@@ -320,10 +320,10 @@ const VIEWS = [
     path: '/',
     page: 'home',
     file: '/pages/home.html',
-    lastmod: '2026-08-31',
-    title: "TheExactMatch — We Don't List Cars. We Find Yours.",
+    lastmod: '2026-09-30',
+    title: 'The Exact Match — We Find Your Exact Car | Car Buying Concierge in Austin, TX',
     description:
-      "Tell us what you want — we search our dealer network, negotiate the price, and deliver your exact match. Free, no obligation.",
+      'Tell us the car you want. We search dealer networks nationwide, negotiate the price, and handle the paperwork. Based in Austin, serving all 50 states. Search is free, no obligation.',
   },
   {
     path: '/find-my-car',
@@ -722,20 +722,20 @@ VIEWS.push({
   path: '/advice/how-to-negotiate-car-price',
   page: 'advice-negotiate',
   file: '/pages/advice/how-to-negotiate-car-price.html',
-  lastmod: ADVICE_LASTMOD,
-  title: 'How to Negotiate a Car Price: The Complete Guide | The Exact Match',
+  lastmod: '2026-09-30',
+  title: 'How to Negotiate Car Price: The Complete Guide + Script | The Exact Match',
   description:
-    'Real negotiation tactics from a car buying concierge — what actually works at the dealership, what to say, and the mistakes that cost you thousands.',
+    'How to negotiate a car price from a dealership insider: invoice vs. MSRP, incentives, timing, the exact email to send the dealer, and the mistakes that cost buyers thousands.',
   jsonLd: {
     '@context': 'https://schema.org',
     '@graph': [
       {
         '@type': 'Article',
-        headline: 'How to Negotiate a Car Price: The Complete Guide',
+        headline: 'How to Negotiate Car Price: The Complete Guide',
         author: { '@type': 'Person', name: 'Jeff Akrong', url: `${ORIGIN}/about` },
         publisher: { '@type': 'Organization', name: 'The Exact Match', url: ORIGIN },
         datePublished: '2026-07-31',
-        dateModified: ADVICE_LASTMOD,
+        dateModified: '2026-09-30',
         mainEntityOfPage: `${ORIGIN}/advice/how-to-negotiate-car-price`,
       },
       {
