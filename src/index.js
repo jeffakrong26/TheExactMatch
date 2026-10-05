@@ -508,7 +508,7 @@ const VIEWS = [
     path: '/about',
     page: 'about',
     file: '/pages/about.html',
-    lastmod: '2026-08-27',
+    lastmod: '2026-10-05',
     title: "About Jeff Akrong — Dealership Insider Turned Buyer's Advocate | TheExactMatch",
     description:
       "Jeff Akrong sold for Audi, Mercedes-Benz, Aston Martin, Rolls-Royce and Bentley. Now he runs The Exact Match — the insider playbook, on the buyer's side.",
@@ -560,6 +560,15 @@ const VIEWS = [
         { '@type': 'EducationalOccupationalCredential', credentialCategory: 'Certification', name: 'Certified Brand Ambassador — Mercedes-Benz' },
       ],
       award: 'Sales award recipient at Audi',
+      // Third-party coverage — keep in sync with "Featured in" on pages/about.html.
+      subjectOf: [
+        {
+          '@type': 'Article',
+          name: 'Community Highlights: Meet Jeff Akrong of The Exact Match',
+          url: 'https://voyagehouston.com/interview/community-highlights-meet-jeff-akrong-of-the-exact-match/',
+          publisher: { '@type': 'Organization', name: 'Voyage Houston Magazine' },
+        },
+      ],
     },
   },
   {
