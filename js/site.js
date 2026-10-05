@@ -133,6 +133,53 @@ async function submitToApi(btn, endpoint, wrapId, successId, errorId, payload, o
   }
 }
 
+// ── Lead magnet capture (.lead-magnet-form) ───────────────────
+// Posts to the site worker's /api/guide-signup (src/lead-magnet.js), which
+// adds the contact in Brevo and emails the PDF. data-source on the form is
+// the Brevo segment tag. Same-origin endpoint, unlike the newsletter popup's.
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('.lead-magnet-form').forEach(function(form){
+    const box   = form.closest('.lead-magnet');
+    const msg   = box.querySelector('.lead-magnet-msg');
+    const btn   = form.querySelector('button');
+    const input = form.querySelector('input[type=email]');
+    const label = btn.textContent;
+
+    function show(text, type){ msg.textContent = text; msg.className = 'lead-magnet-msg ' + type; }
+
+    form.addEventListener('submit', async function(e){
+      e.preventDefault();
+      const email = input.value.trim();
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+        show('Please enter a valid email address.', 'err');
+        input.focus();
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      try{
+        const res = await fetch('/api/guide-signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email, source: form.dataset.source, company: form.elements.company.value }),
+        });
+        const data = await res.json().catch(function(){ return {}; });
+        if(!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
+        form.style.display = 'none';
+        box.querySelector('.lead-magnet-note').style.display = 'none';
+        show('Sent — check your inbox for the scripts (and your spam folder, just in case).', 'ok');
+        // They just gave us their email — don't follow up with the
+        // newsletter popup on top of it. Same "closed" key the popup uses.
+        try { localStorage.setItem('tem_nl_closed', Date.now().toString()); } catch(_){}
+      } catch(err){
+        show(err.message, 'err');
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+    });
+  });
+});
+
 // ── Newsletter popup ──────────────────────────────────────────
 (function(){
   const STORAGE_CLOSED   = 'tem_nl_closed';
@@ -149,6 +196,9 @@ async function submitToApi(btn, endpoint, wrapId, successId, errorId, payload, o
   }
 
   function open(){
+    // Re-checked here, not just at load: an inline lead-magnet signup on
+    // this same page view sets the "closed" key after the triggers are armed.
+    if(!shouldShow()) return;
     document.getElementById('nl-overlay').classList.add('nl-visible');
     document.getElementById('nl-email').focus();
   }

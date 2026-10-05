@@ -21,6 +21,7 @@
 // only paths with no matching file reach us.
 import { handleTasksRequest } from './tasks.js';
 import { SELL_BRAND_CONTENT } from './sell-brand-content.js';
+import { handleGuideSignup, leadMagnetEnabled } from './lead-magnet.js';
 
 // Apex, not www. The Worker's custom domain is bound to the apex only —
 // www.theexactmatch.com resolves to Cloudflare but has no origin behind it and
@@ -1561,6 +1562,18 @@ export default {
       return handleTasksRequest(request, env, url);
     }
 
+    if (pathname === '/api/guide-signup') {
+      return handleGuideSignup(request, env, url);
+    }
+
+    // Deal Review has no page yet, but its URL is printed in the Dealer Email
+    // Scripts PDF and linked from the welcome email — so it has to resolve
+    // from day one. 302 (temporary, not cached as permanent) to Contact until
+    // the real page exists; replace this with a VIEWS entry then.
+    if (pathname === '/deal-review') {
+      return Response.redirect(`${url.origin}/contact${url.search}`, 302);
+    }
+
     if (pathname === '/sitemap.xml') {
       const issues = await loadIssues(env, url.origin);
       return new Response(sitemapXml(issues), {
@@ -1624,6 +1637,9 @@ export default {
     // are the only other spots needing live data — everything else on these
     // views is static markup already baked into its page file.
     const injections = { html: {}, remove: [] };
+    // Email capture blocks (.lead-magnet) only render once Brevo is
+    // configured — see src/lead-magnet.js.
+    if (!leadMagnetEnabled(env)) injections.remove.push('.lead-magnet');
     if (view.page === 'findmycar') {
       const data = await fetchDealerApiJson(env, '/api/public/recent-matches');
       const featured = (data?.matches || []).filter(m => m.featured).slice(0, 3);
