@@ -95,6 +95,13 @@
     </div>
   </section>
 
+  <!-- City-specific local content (service area). Filled per request from
+       CITY_LOCAL in src/index.js; the worker removes the whole section for
+       cities that don't have any yet. -->
+  <section id="city-local-section" style="padding:0 var(--side-pad) 5rem;background:var(--white)">
+    <div id="city-local" style="max-width:760px;margin:0 auto;text-align:center"></div>
+  </section>
+
   <!-- FAQ -->
   <section style="padding:5rem var(--side-pad);background:var(--beige2)">
     <div style="max-width:760px;margin:0 auto">
@@ -117,12 +124,15 @@
         </p>
       </div>
 
-      <div style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:2rem 0">
+      <div style="border-top:1px solid var(--border);padding:2rem 0">
         <h3 style="font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:500;color:var(--navy);margin-bottom:.75rem">How long does it usually take?</h3>
         <p style="font-size:.95rem;font-weight:300;line-height:1.85;color:#333">
           You'll have your first set of matched options within 24 hours of submitting the form. From there it depends on how specific your requirements are. A common configuration often closes within a few days; a narrow spec — particular trim, particular color combination, low mileage — can take a couple of weeks of watching the market. We'd rather wait for the right car than push you toward a near-miss.
         </p>
       </div>
+      <!-- City-specific FAQs (CITY_LOCAL in src/index.js), same markup as above. -->
+      <div id="city-faq-extra"></div>
+      <div style="border-top:1px solid var(--border)"></div>
     </div>
   </section>
 

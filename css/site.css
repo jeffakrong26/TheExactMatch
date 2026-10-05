@@ -681,6 +681,17 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 .wg-cta-btn{display:inline-flex;align-items:center;gap:10px;background:var(--home-brass);color:var(--home-navy);font-family:'General Sans',sans-serif;font-weight:600;font-size:15px;padding:16px 30px;text-decoration:none;border-radius:8px}
 .wg-cta-btn:hover{background:var(--home-brass-light)}
 @media(max-width:760px){.wg-included-list,.wg-pricing-grid{grid-template-columns:1fr}}
+.wg-case{background:#fff;border:1px solid var(--home-hairline);border-radius:8px;padding:32px;max-width:760px}
+.wg-case h3{font-family:'Cabinet Grotesk',sans-serif;font-weight:500;font-size:22px;color:var(--home-navy);margin:0 0 12px;line-height:1.3}
+.wg-case-rows{margin:20px 0;border-top:1px solid var(--home-hairline)}
+.wg-case-row{display:flex;justify-content:space-between;gap:1rem;padding:12px 0;border-bottom:1px solid var(--home-hairline);font-size:15px;color:var(--home-charcoal)}
+.wg-case-row dd{margin:0;font-family:'JetBrains Mono',monospace}
+.wg-case-row.total{font-weight:600;color:var(--home-navy)}
+.wg-case-link{display:inline-block;margin-top:16px;font-size:14px;font-weight:600;color:var(--home-navy);border-bottom:1px solid var(--home-brass);text-decoration:none}
+
+/* Per-brand copy on the shared /sell/[brand] template (src/sell-brand-content.js). */
+.brand-notes p{font-size:1rem;font-weight:300;line-height:1.85;color:#333;margin:0 0 1.25rem}
+.brand-notes p:last-child{margin-bottom:0}
 
 /* ── SELL/DEALERS/ADVICE HUBS — new pages built on the homepage's type
    system directly (no scoping prefix needed; each is its own document
