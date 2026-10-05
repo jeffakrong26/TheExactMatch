@@ -794,3 +794,10 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 .lead-magnet .lead-magnet-msg.err{display:block;color:#ffb4a8}
 .lead-magnet .lead-magnet-note{margin:.75rem 0 0;color:rgba(255,255,255,.5)}
 @media(max-width:520px){.lead-magnet-form{flex-direction:column}}
+/* Press coverage — "Featured in" on /about, one-line mention on the homepage. */
+.press-featured{margin-top:2.5rem;text-align:center}
+.press-featured h3{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:500;color:var(--navy);margin:0 0 .6rem}
+.press-featured p{font-size:.95rem;font-weight:300;line-height:1.7;color:#333;margin:0}
+.press-featured a{color:var(--navy);font-weight:500;border-bottom:1px solid var(--gold);text-decoration:none}
+.press-mention{font-family:'General Sans',sans-serif;font-size:13px;color:var(--home-slate);margin:28px 0 0}
+.press-mention a{color:var(--home-navy);font-weight:600;border-bottom:1px solid var(--home-brass);text-decoration:none}
