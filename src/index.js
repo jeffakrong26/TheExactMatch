@@ -20,6 +20,7 @@
 // Static assets are served before this worker runs (the Wrangler default), so
 // only paths with no matching file reach us.
 import { handleTasksRequest } from './tasks.js';
+import { SELL_BRAND_CONTENT } from './sell-brand-content.js';
 
 // Apex, not www. The Worker's custom domain is bound to the apex only —
 // www.theexactmatch.com resolves to Cloudflare but has no origin behind it and
@@ -277,11 +278,11 @@ const FOUNDER_CARD_HTML = `<div class="founder-card">
 </div>`;
 
 // Sitewide structured data — Organization (unchanged from before) plus the
-// new AutomotiveBusiness/LocalBusiness entry. No `address`: no real street
-// address exists anywhere in this business's records to put here, and
-// schema.org doesn't require one for AutomotiveBusiness to validate —
-// areaServed + telephone stand in rather than a fabricated address, same
-// reasoning already used for the city-page LocalBusiness entries below.
+// new AutomotiveBusiness/LocalBusiness entry. `address` is locality-only
+// (Austin, TX): no real street address exists anywhere in this business's
+// records, and schema.org doesn't require one — city/region is true and is
+// what local search actually keys on, so it's stated rather than either
+// omitted or padded out with a fabricated street.
 const SITEWIDE_SCHEMA = {
   '@context': 'https://schema.org',
   '@graph': [
@@ -296,6 +297,7 @@ const SITEWIDE_SCHEMA = {
       name: 'The Exact Match',
       url: ORIGIN,
       telephone: '+1-512-650-9328',
+      address: { '@type': 'PostalAddress', addressLocality: 'Austin', addressRegion: 'TX', addressCountry: 'US' },
       areaServed: [
         { '@type': 'Country', name: 'United States' },
         { '@type': 'City', name: 'Austin', containedInPlace: { '@type': 'State', name: 'Texas' } },
@@ -323,7 +325,7 @@ const VIEWS = [
     lastmod: '2026-09-30',
     title: 'The Exact Match — We Find Your Exact Car | Car Buying Concierge in Austin, TX',
     description:
-      'Tell us the car you want. We search dealer networks nationwide, negotiate the price, and handle the paperwork. Based in Austin, serving all 50 states. Search is free, no obligation.',
+      'The Exact Match is a car-buying concierge in Austin, TX serving all 50 states. Tell us what you want — we search dealer networks and negotiate. Free search.',
   },
   {
     path: '/find-my-car',
@@ -332,7 +334,7 @@ const VIEWS = [
     lastmod: '2026-08-27',
     title: 'Find My Car — Search, Negotiate & Deliver | TheExactMatch',
     description:
-      "Tell us what you want and we'll find it. We search our nationwide dealer network and send you 3 curated options within 24 hours. Free, no obligation.",
+      'Tell us the car you want. We search dealer networks nationwide and send 3 curated matches in 24 hours. Free, no obligation. Austin-based, all 50 states.',
   },
   {
     path: '/sell-my-car',
@@ -341,7 +343,47 @@ const VIEWS = [
     lastmod: '2026-08-31',
     title: 'Sell My Car — Multiple Real Offers, Not One Lowball | TheExactMatch',
     description:
-      "Skip the single instant-offer lowball. We send your car to multiple dealers actively buying your segment and bring back real, competing offers within 24 hours — you choose, or walk away.",
+      'Sell your car to competing dealers — real offers in 24 hours, no instant-offer lowball. Free to submit, no obligation. The Exact Match, Austin TX.',
+    // Worded identically to the on-page FAQ in pages/sell-my-car.html —
+    // change one, change the other.
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'Is it really free to submit?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "Yes — 100% free. There is no fee, no subscription, and no cost to get offers on your vehicle. You pay nothing. If you'd rather have the whole sale handled for you, that's White Glove, our optional paid service.",
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'How do I know the offers are real?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'All offers come from vetted dealer partners in our network — not automated algorithms. Real buyers, real numbers, real conversations. We only work with dealers who have a track record of closing.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'What if I still owe money on my car?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'No problem — just let us know in the form. Dealers handle trade-ins with existing loans regularly. The process is the same; the dealer will pay off your remaining balance as part of the transaction.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'How long do I have to accept an offer?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "Offers are typically valid for 7 days from the time they're made, though this can vary by dealer. We'll communicate the timeline clearly with each offer you receive.",
+          },
+        },
+      ],
+    },
   },
   {
     path: '/recent-matches',
@@ -403,10 +445,10 @@ const VIEWS = [
     path: '/white-glove',
     page: 'whiteglove',
     file: '/pages/white-glove.html',
-    lastmod: '2026-08-31',
+    lastmod: '2026-10-05',
     title: 'White Glove — We Handle the Whole Deal | TheExactMatch',
     description:
-      "Search and matching are free, always. White Glove is the paid, optional tier where we negotiate, coordinate inspections, and arrange transport on your behalf — flat fee for standard vehicles, custom quote (capped at $7,000) for hard-to-find ones.",
+      'White Glove by The Exact Match: we handle your entire car deal — negotiation, inspection, paperwork, delivery. From $249, capped. See a real $8,300 win.',
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [
@@ -469,7 +511,7 @@ const VIEWS = [
     lastmod: '2026-08-27',
     title: "About Jeff Akrong — Dealership Insider Turned Buyer's Advocate | TheExactMatch",
     description:
-      "Jeff Akrong spent years selling for Audi, Mercedes-Benz, Aston Martin, Rolls-Royce and Bentley. Now he runs The Exact Match — the same insider playbook, entirely on the buyer's side, for free.",
+      "Jeff Akrong sold for Audi, Mercedes-Benz, Aston Martin, Rolls-Royce and Bentley. Now he runs The Exact Match — the insider playbook, on the buyer's side.",
     jsonLd: {
       '@context': 'https://schema.org',
       '@type': 'Person',
@@ -545,7 +587,7 @@ const VIEWS = [
     lastmod: '2026-08-31',
     title: 'Privacy Policy | TheExactMatch',
     description:
-      'What The Exact Match collects when you use Find My Car, Sell My Car, or White Glove — and how it\'s shared with our dealer network to find your match. We never sell your data.',
+      'What The Exact Match collects through Find My Car, Sell My Car and White Glove, and how it\'s shared with dealers to find your match. We never sell your data.',
   },
   {
     path: '/guides',
@@ -654,7 +696,7 @@ const VIEWS = [
     lastmod: '2026-08-31',
     title: 'Aston Martin Vantage V8 Buying Guide (2019+): Pricing & Known Issues | The Exact Match',
     description:
-      "A real buyer's guide to the 2019+ Aston Martin Vantage V8 — specs, current market pricing, known issues, and what to look for, from a team that's sourced one for a client.",
+      "A real buyer's guide to the 2019+ Aston Martin Vantage V8 — specs, current market pricing, known issues, and what to check before you buy one.",
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [
@@ -725,7 +767,7 @@ VIEWS.push({
   lastmod: '2026-09-30',
   title: 'How to Negotiate Car Price: The Complete Guide + Script | The Exact Match',
   description:
-    'How to negotiate a car price from a dealership insider: invoice vs. MSRP, incentives, timing, the exact email to send the dealer, and the mistakes that cost buyers thousands.',
+    'How to negotiate car price: the complete guide with email scripts, dealer tactics exposed, and a real $8,300 deal breakdown. From a dealership insider.',
   jsonLd: {
     '@context': 'https://schema.org',
     '@graph': [
@@ -818,21 +860,68 @@ const CITY_FAQ = [
   ],
 ];
 
+// Optional per-city local content: a service-area block (#city-local) and
+// extra FAQs appended after the shared CITY_FAQ (#city-faq-extra, and into
+// the FAQPage JSON-LD from this same array). A city without an entry gets
+// the plain shared template — the local section is removed entirely rather
+// than rendered empty. `areas` is plain text; FAQ entries are plain text.
+const CITY_LOCAL = {
+  austin: {
+    lastmod: '2026-10-05',
+    description:
+      'Buy a car in Austin, TX without the dealership runaround. The Exact Match searches nationwide dealer networks and negotiates for you. Free search.',
+    areasHeading: 'Areas we serve around Austin',
+    areas:
+      'Round Rock, Cedar Park, Georgetown, Pflugerville, Lakeway, Dripping Springs, San Marcos, Kyle, Buda, and everywhere in between — plus nationwide sourcing and shipping when the right car isn\'t local.',
+    faqs: [
+      [
+        'Do I have to come to Austin?',
+        "No. We handle the search, negotiation, and paperwork remotely and can arrange delivery, so you never need to visit. Local clients can also do in-person test drives where available.",
+      ],
+      [
+        'Do you know the Austin market specifically?',
+        "Yes — Texas is where our dealer network runs deepest, so Austin-area buyers get the benefit of relationships we've built here, not just a national database search.",
+      ],
+    ],
+  },
+};
+
+const FAQ_H3_STYLE = "font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:500;color:var(--navy);margin-bottom:.75rem";
+const FAQ_P_STYLE = 'font-size:.95rem;font-weight:300;line-height:1.85;color:#333';
+
+function cityLocalHtml(local) {
+  return `<h2 class="display" style="font-size:clamp(1.4rem,2.2vw,1.8rem);margin-bottom:1.25rem">${escapeHtml(local.areasHeading)}</h2>
+      <p style="font-size:1.05rem;font-weight:300;line-height:1.85;color:#333">${escapeHtml(local.areas)}</p>`;
+}
+
+function cityFaqExtraHtml(local) {
+  return local.faqs.map(([q, a]) => `<div style="border-top:1px solid var(--border);padding:2rem 0">
+        <h3 style="${FAQ_H3_STYLE}">${escapeHtml(q)}</h3>
+        <p style="${FAQ_P_STYLE}">${escapeHtml(a)}</p>
+      </div>`).join('\n      ');
+}
+
 for (const city of CITIES) {
+  const local = CITY_LOCAL[city.slug];
   VIEWS.push({
     path: `/${city.slug}`,
     page: 'city',
     file: '/pages/city.html',
     city,
-    lastmod: CITY_LASTMOD,
+    local,
+    lastmod: local?.lastmod || CITY_LASTMOD,
     title: `Buy a Car in ${city.name}, TX — Nationwide Reach | The Exact Match`,
-    description: `Based in ${city.name}, serving all 50 states. Tell us what you want and we find it, negotiate it, and handle the paperwork — with especially deep reach right here in Texas.`,
+    // Not "Based in <city>" — the business is based in Austin, and a
+    // description claiming otherwise for the other four cities is the kind
+    // of mismatch that costs trust once someone clicks through.
+    description: local?.description ||
+      `Buying a car in ${city.name}, TX? Tell us what you want — we search dealer networks nationwide, negotiate the price, and handle the paperwork. Free search.`,
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [
         {
           '@type': 'FAQPage',
-          mainEntity: CITY_FAQ.map(([name, text]) => ({
+          mainEntity: [...CITY_FAQ, ...(local?.faqs || [])].map(([name, text]) => ({
             '@type': 'Question',
             name,
             acceptedAnswer: { '@type': 'Answer', text },
@@ -865,7 +954,7 @@ for (const city of CITIES) {
 // Tesla added per this migration; the other eight (exotic/ultra-luxury,
 // same reasoning as before: the general Sell My Car flow already handles
 // mainstream-luxury brands well) carry over unchanged.
-const SELL_BRAND_LASTMOD = '2026-08-27';
+const SELL_BRAND_LASTMOD = '2026-10-05';
 const SELL_BRANDS = [
   { slug: 'ferrari',      name: 'Ferrari' },
   { slug: 'bentley',      name: 'Bentley' },
@@ -878,21 +967,46 @@ const SELL_BRANDS = [
   { slug: 'maserati',     name: 'Maserati' },
 ];
 
-for (const brand of SELL_BRANDS) {
+// Shared across all nine brands; each brand's own FAQs (SELL_BRAND_CONTENT)
+// are appended after these, on the page and in the JSON-LD alike.
+const sellBrandBaseFaqs = (brand) => [
+  [
+    `How much does it cost to sell my ${brand.name} through The Exact Match?`,
+    "Nothing to submit your car and get offers — that part is always free. If you'd rather Jeff handle negotiation, inspection, and paperwork for you, that's the separate, optional White Glove tier.",
+  ],
+  [
+    `Who actually buys the ${brand.name}?`,
+    `Dealers and specialist buyers in our network who are actively looking for ${brand.article} ${brand.name} like yours — not one instant-offer lowballer. You get multiple real, competing offers back within 24 hours and choose, or walk away.`,
+  ],
+];
+
+function sellBrandFaqHtml(faqs) {
+  return faqs.map(([q, a]) => `<div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">${escapeHtml(q)} <span class="faq-arrow">+</span></div>
+        <div class="faq-a">${escapeHtml(a)}</div>
+      </div>`).join('\n      ');
+}
+
+for (const b of SELL_BRANDS) {
+  const content = SELL_BRAND_CONTENT[b.slug];
+  const brand = { ...b, article: content?.article || 'a' };
+  const faqs = [...sellBrandBaseFaqs(brand), ...(content?.faqs || [])];
   VIEWS.push({
     path: `/sell/${brand.slug}`,
     page: 'sell-brand',
     file: '/pages/sell/brand.html',
     brand,
+    brandNotes: content?.notes || [],
+    brandFaqs: faqs,
     lastmod: SELL_BRAND_LASTMOD,
     title: `Sell Your ${brand.name} — Real Offers, Not One Lowball | TheExactMatch`,
-    description: `Selling a ${brand.name}? We send it to dealers and specialist buyers actively looking for exactly this, and bring back real, competing offers within 24 hours. Free, no obligation.`,
+    description: `Selling ${brand.article} ${brand.name}? Dealers and specialist buyers who want exactly this car compete for it — real offers within 24 hours. Free, no obligation.`,
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [
         {
           '@type': 'Service',
-          serviceType: `Sell a ${brand.name}`,
+          serviceType: `Sell ${brand.article} ${brand.name}`,
           provider: { '@type': 'Organization', name: 'The Exact Match', url: ORIGIN },
           areaServed: { '@type': 'Country', name: 'United States' },
         },
@@ -905,24 +1019,11 @@ for (const brand of SELL_BRANDS) {
         },
         {
           '@type': 'FAQPage',
-          mainEntity: [
-            {
-              '@type': 'Question',
-              name: `How much does it cost to sell my ${brand.name} through The Exact Match?`,
-              acceptedAnswer: {
-                '@type': 'Answer',
-                text: "Nothing to submit your car and get offers — that part is always free. If you'd rather Jeff handle negotiation, inspection, and paperwork for you, that's the separate, optional White Glove tier.",
-              },
-            },
-            {
-              '@type': 'Question',
-              name: `Who actually buys the ${brand.name}?`,
-              acceptedAnswer: {
-                '@type': 'Answer',
-                text: `Dealers and specialist buyers in our network who are actively looking for a ${brand.name} like yours — not one instant-offer lowballer. You get multiple real, competing offers back within 24 hours and choose, or walk away.`,
-              },
-            },
-          ],
+          mainEntity: faqs.map(([name, text]) => ({
+            '@type': 'Question',
+            name,
+            acceptedAnswer: { '@type': 'Answer', text },
+          })),
         },
       ],
     },
@@ -943,7 +1044,7 @@ VIEWS.push(
     lastmod: NEW_LASTMOD,
     title: 'Car Buying Concierge — Nationwide, Free Search & Negotiation | The Exact Match',
     description:
-      "A car buying concierge who works for you, not the dealer: free search across our nationwide dealer network, real negotiation, and delivery — with the option to have the whole deal handled for you.",
+      'A car buying concierge who works for you, not the dealer: free nationwide search, real negotiation, and delivery — or have the whole deal handled for you.',
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [
@@ -984,7 +1085,7 @@ VIEWS.push(
     lastmod: NEW_LASTMOD,
     title: 'Car Broker — We Search, Negotiate & Deliver | The Exact Match',
     description:
-      "An auto broker who works for the buyer, not the lot: free nationwide search, real negotiation against dealer inventory, and the option to have the entire purchase handled for you.",
+      'An auto broker who works for the buyer, not the lot: free nationwide search, real negotiation on dealer inventory, and the option to have it all handled.',
   },
   {
     path: '/dealers',
@@ -1331,6 +1432,22 @@ function renderView(assetResponse, view, injections = {}) {
           if (view.city) el.setInnerContent(view.city.possessive);
         },
       })
+      .on('#city-local', {
+        element(el) {
+          if (view.local) el.setInnerContent(cityLocalHtml(view.local), { html: true });
+        },
+      })
+      .on('#city-local-section', {
+        element(el) {
+          if (view.city && !view.local) el.remove();
+        },
+      })
+      .on('#city-faq-extra', {
+        element(el) {
+          if (view.local) el.replace(cityFaqExtraHtml(view.local), { html: true });
+          else el.remove();
+        },
+      })
       .on('.city-crosslinks li', {
         element(el) {
           if (view.city && el.getAttribute('data-city') === view.city.slug) el.remove();
@@ -1340,6 +1457,21 @@ function renderView(assetResponse, view, injections = {}) {
       .on('.brand-name', {
         element(el) {
           if (view.brand) el.setInnerContent(view.brand.name);
+        },
+      })
+      .on('.brand-article', {
+        element(el) {
+          if (view.brand) el.setInnerContent(view.brand.article);
+        },
+      })
+      .on('#brand-notes', {
+        element(el) {
+          if (view.brand) el.setInnerContent(view.brandNotes.map((p) => `<p>${p}</p>`).join(''), { html: true });
+        },
+      })
+      .on('#brand-faq-list', {
+        element(el) {
+          if (view.brand) el.setInnerContent(sellBrandFaqHtml(view.brandFaqs), { html: true });
         },
       })
       .on('#brand-cta', {

@@ -64,7 +64,7 @@
     <div style="max-width:1000px;margin:0 auto">
       <div style="text-align:center;margin-bottom:3rem">
         <div class="eyebrow center">Why TheExactMatch</div>
-        <h2 class="display">Selling a <span class="brand-name">Ferrari</span>? <strong>Do it right.</strong></h2>
+        <h2 class="display">Selling <span class="brand-article">a</span> <span class="brand-name">Ferrari</span>? <strong>Do it right.</strong></h2>
       </div>
       <div style="display:grid;grid-template-columns:var(--grid-3);gap:1.5rem">
         <div class="feat-box reveal">
@@ -84,6 +84,28 @@
         </div>
       </div>
     </div>
+  </section>
+
+  <!-- Brand-specific content and FAQ — both filled per request from
+       src/sell-brand-content.js (#brand-notes, #brand-faq-list). The FAQ
+       list is rendered from the same array as this route's FAQPage JSON-LD,
+       so the visible Q&A and the structured data can't disagree. -->
+  <section style="padding:5rem var(--side-pad);background:var(--white)">
+    <div style="max-width:760px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:2.5rem">
+        <div class="eyebrow center">Know Your Car</div>
+        <h2 class="display">Selling <span class="brand-article">a</span> <span class="brand-name">Ferrari</span>? <strong>What actually moves the number.</strong></h2>
+      </div>
+      <div id="brand-notes" class="brand-notes"></div>
+    </div>
+  </section>
+
+  <section class="faq-section">
+    <div style="text-align:center;margin-bottom:3rem">
+      <div class="eyebrow center">Questions</div>
+      <h2 class="display">Selling your <span class="brand-name">Ferrari</span>, <strong>straight answers.</strong></h2>
+    </div>
+    <div class="faq-wrap" id="brand-faq-list"></div>
   </section>
 
   <section style="padding:0 var(--side-pad) 3.5rem;background:var(--beige);text-align:center">
