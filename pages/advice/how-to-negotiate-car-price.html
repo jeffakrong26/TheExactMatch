@@ -141,6 +141,22 @@ What's the best you can do?
 
 [Your name]</div>
 
+      <!-- Lead magnet: emails the Dealer Email Scripts PDF via POST
+           /api/guide-signup (src/lead-magnet.js). The worker strips this
+           whole block until Brevo is configured. data-source is the Brevo
+           SIGNUP_SOURCE tag for this segment. -->
+      <div class="lead-magnet">
+        <h3>Take the scripts with you.</h3>
+        <p>The exact dealer emails from this guide — first outreach, follow-up, and what to say when they call instead — on a one-page printable you can keep on your phone at the dealership.</p>
+        <form class="lead-magnet-form" data-source="negotiation-guide" novalidate>
+          <input type="email" name="email" placeholder="you@email.com" autocomplete="email" aria-label="Email address" required/>
+          <input type="text" name="company" class="lead-magnet-hp" tabindex="-1" autocomplete="off" aria-hidden="true"/>
+          <button type="submit">Send me the scripts</button>
+        </form>
+        <p class="lead-magnet-msg" role="status" aria-live="polite"></p>
+        <p class="lead-magnet-note"><small>No spam. Just the scripts, plus the occasional real deal breakdown.</small></p>
+      </div>
+
       <h3 style="font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:500;color:var(--navy);margin-bottom:.6rem">If they call instead of emailing</h3>
       <p style="font-size:.95rem;font-weight:300;line-height:1.85;color:#333;margin-bottom:1.75rem">
         Keep it short: <em>"I appreciate the call. I'm only working with written out-the-door numbers right now — can you email it over?"</em> If they ask what payment you want: <em>"I'm not shopping by payment. What's the out-the-door price?"</em> If they say the price is only good if you come in today, that's your answer about whether it's a real number.

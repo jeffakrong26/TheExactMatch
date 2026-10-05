@@ -776,3 +776,21 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 #nl-msg.nl-ok{color:#86efac;}
 #nl-msg.nl-err{color:#fca5a5;}
 @media(max-width:520px){#nl-card{padding:2rem 1.5rem 1.75rem;}.nl-form{flex-direction:column;}.nl-btn{width:100%;}.nl-title{font-size:1.45rem;}}
+
+/* Inline email capture (lead magnet) — see src/lead-magnet.js. */
+.lead-magnet{background:var(--navy);border-radius:6px;padding:1.75rem;margin:0 0 2rem;color:#fff}
+.lead-magnet h3{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:500;color:#fff;margin:0 0 .5rem}
+.lead-magnet p{font-size:.92rem;font-weight:300;line-height:1.75;color:rgba(255,255,255,.75);margin:0 0 1.1rem}
+.lead-magnet-form{display:flex;gap:.6rem}
+.lead-magnet-form input[type=email]{flex:1;min-width:0;padding:.85rem 1rem;font:inherit;font-size:.92rem;border:1px solid rgba(255,255,255,.25);border-radius:6px;background:rgba(255,255,255,.08);color:#fff}
+.lead-magnet-form input[type=email]::placeholder{color:rgba(255,255,255,.45)}
+.lead-magnet-form input[type=email]:focus{outline:2px solid var(--gold2);outline-offset:1px}
+.lead-magnet-form button{padding:.85rem 1.4rem;font-family:'Jost',sans-serif;font-size:.88rem;font-weight:600;border:0;border-radius:6px;background:var(--gold2);color:var(--navy);cursor:pointer;white-space:nowrap}
+.lead-magnet-form button:hover{background:var(--gold)}
+.lead-magnet-form button:disabled{opacity:.6;cursor:default}
+.lead-magnet-hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.lead-magnet .lead-magnet-msg{display:none;margin:.9rem 0 0;font-weight:400}
+.lead-magnet .lead-magnet-msg.ok{display:block;color:var(--gold2)}
+.lead-magnet .lead-magnet-msg.err{display:block;color:#ffb4a8}
+.lead-magnet .lead-magnet-note{margin:.75rem 0 0;color:rgba(255,255,255,.5)}
+@media(max-width:520px){.lead-magnet-form{flex-direction:column}}

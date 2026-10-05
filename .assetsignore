@@ -10,3 +10,6 @@ src
 # Not secret, but no reason to serve the deploy config to the public either.
 wrangler.jsonc
 .assetsignore
+# Build-time tooling and the lead-magnet PDF source (scripts/lead-magnet/),
+# not site content.
+scripts
