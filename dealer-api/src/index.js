@@ -9445,6 +9445,49 @@ const DEAL_REVIEW_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 const DEAL_REVIEW_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const DEAL_REVIEW_UPLOADS_PER_IP_PER_HOUR = 10;
 
+// Creates the Deal Review tables if they don't exist yet (same SQL as
+// migrate-deal-reviews.sql, made idempotent). Runs once per Worker instance,
+// before the first Deal Review read or write, so the feature never depends
+// on someone remembering to run the migration by hand. If it fails, the
+// next request retries.
+const DEAL_REVIEW_SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS deal_reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    source TEXT NOT NULL DEFAULT 'manual',
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT,
+    state TEXT,
+    newsletter_opt_in INTEGER NOT NULL DEFAULT 0,
+    newsletter_added INTEGER NOT NULL DEFAULT 0,
+    deal_json TEXT NOT NULL,
+    draft_json TEXT,
+    draft_error TEXT,
+    photo_key TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    sent_at TEXT,
+    rejected_at TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_deal_reviews_status ON deal_reviews (status, created_at)`,
+  `CREATE TABLE IF NOT EXISTS deal_review_uploads (
+    token TEXT PRIMARY KEY,
+    photo_key TEXT NOT NULL,
+    ip_hash TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_deal_review_uploads_ip ON deal_review_uploads (ip_hash, created_at)`,
+];
+let dealReviewSchemaReady = null;
+function ensureDealReviewTables(env) {
+  if (!dealReviewSchemaReady) {
+    dealReviewSchemaReady = env.DB.batch(DEAL_REVIEW_SCHEMA.map(sql => env.DB.prepare(sql)))
+      .catch(err => { dealReviewSchemaReady = null; throw err; });
+  }
+  return dealReviewSchemaReady;
+}
+
 async function lookupMarketValue(/* env, vehicle */) {
   return {
     found: false,
@@ -9574,6 +9617,7 @@ function bytesToBase64(buffer) {
 // for the visitor to verify. An extraction failure is not an error to the
 // visitor — they get an empty verification screen to fill in instead.
 async function publicDealReviewExtract(request, env) {
+  await ensureDealReviewTables(env);
   const form = await request.formData().catch(() => null);
   if (!form) return json({ error: 'Invalid upload.' }, 400);
   if (form.get('company')) return json({ upload_token: null, readable: false, deal: null });
@@ -9618,6 +9662,7 @@ async function publicDealReviewExtract(request, env) {
 
 // POST /api/public/deal-review
 async function publicSubmitDealReview(request, env, params, dealer, token, ctx) {
+  await ensureDealReviewTables(env);
   const body = await request.json().catch(() => null);
   if (!body) return json({ error: 'Invalid request.' }, 400);
   if (body.company) return json({ success: true }); // honeypot
@@ -9720,6 +9765,7 @@ Call the record_pushback tool with the 3 things this buyer should push back on, 
 // Queue job 'deal_review_draft'. Market lookups never invent a number —
 // see lookupMarketValue().
 async function generateDealReviewDraft(env, id) {
+  await ensureDealReviewTables(env);
   const row = await env.DB.prepare('SELECT * FROM deal_reviews WHERE id = ?').bind(id).first();
   if (!row || row.status !== 'pending' || row.draft_json) return;
   const deal = JSON.parse(row.deal_json);
@@ -9760,6 +9806,7 @@ function serializeDealReview(r) {
 }
 
 async function adminListDealReviews(request, env) {
+  await ensureDealReviewTables(env);
   const { results } = await env.DB.prepare(
     `SELECT * FROM deal_reviews ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 200`
   ).all();
@@ -9767,6 +9814,7 @@ async function adminListDealReviews(request, env) {
 }
 
 async function loadDealReview(env, id) {
+  await ensureDealReviewTables(env);
   return env.DB.prepare('SELECT * FROM deal_reviews WHERE id = ?').bind(+id).first();
 }
 
@@ -9895,6 +9943,7 @@ async function adminDealReviewPhoto(request, env, params) {
 }
 
 async function cleanupDealReviewUploads(env) {
+  await ensureDealReviewTables(env);
   const { results } = await env.DB.prepare(
     `SELECT token, photo_key FROM deal_review_uploads WHERE created_at < datetime('now', '-2 days')`
   ).all();

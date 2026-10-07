@@ -1,4 +1,7 @@
 -- Free Deal Review (/review-my-deal): one row per submitted deal.
+-- dealer-api also creates these tables itself on first use
+-- (ensureDealReviewTables in src/index.js), so running this by hand is
+-- optional; it's safe to run more than once.
 -- Lifecycle: pending (draft generated, awaiting a team member) -> sent
 -- (approved and emailed) or rejected. Nothing reaches the visitor until a
 -- team member approves it in the admin "Deal Reviews" tab.
@@ -9,7 +12,7 @@
 -- photo_key   R2 key of the buyer's-order photo (photo path only). Served
 --             to admin only, never publicly — a buyer's order can carry an
 --             address and a driver's license number.
-CREATE TABLE deal_reviews (
+CREATE TABLE IF NOT EXISTS deal_reviews (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   status TEXT NOT NULL DEFAULT 'pending',
   source TEXT NOT NULL DEFAULT 'manual',
@@ -28,16 +31,16 @@ CREATE TABLE deal_reviews (
   sent_at TEXT,
   rejected_at TEXT
 );
-CREATE INDEX idx_deal_reviews_status ON deal_reviews (status, created_at);
+CREATE INDEX IF NOT EXISTS idx_deal_reviews_status ON deal_reviews (status, created_at);
 
 -- Buyer's-order photos uploaded on the photo path before the visitor has
 -- submitted (the upload happens first, then they verify the extracted
 -- fields). Claimed by the submission via its token; unclaimed rows and
 -- their R2 objects are swept by the daily cleanup after 2 days.
-CREATE TABLE deal_review_uploads (
+CREATE TABLE IF NOT EXISTS deal_review_uploads (
   token TEXT PRIMARY KEY,
   photo_key TEXT NOT NULL,
   ip_hash TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
-CREATE INDEX idx_deal_review_uploads_ip ON deal_review_uploads (ip_hash, created_at);
+CREATE INDEX IF NOT EXISTS idx_deal_review_uploads_ip ON deal_review_uploads (ip_hash, created_at);
