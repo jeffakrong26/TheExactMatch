@@ -204,7 +204,11 @@
     .dr-photo{max-width:100%;border:1px solid var(--border);border-radius:3px;margin-top:.75rem}
     .dr-section{margin-bottom:1rem}
     .dr-section label{display:flex;justify-content:space-between;font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gray);margin-bottom:.35rem}
-    .dr-section textarea{width:100%;min-height:90px;font-family:'Jost',sans-serif;font-size:.85rem;line-height:1.6;color:var(--navy);padding:.7rem .85rem;border:1px solid var(--border);border-radius:2px;resize:vertical}
+    .dr-banner{font-size:.82rem;line-height:1.55;padding:.7rem .85rem;border-radius:2px;margin-bottom:1rem}
+    .dr-banner.ok{background:rgba(26,71,49,.08);border:1px solid rgba(26,71,49,.25);color:var(--green)}
+    .dr-banner.warn{background:rgba(146,96,10,.08);border:1px solid rgba(146,96,10,.3);color:var(--amber)}
+    .dr-section.dr-updated textarea{border-color:var(--green);background:rgba(26,71,49,.05)}
+    .dr-section textarea{width:100%;min-height:90px;overflow:hidden;font-family:'Jost',sans-serif;font-size:.85rem;line-height:1.6;color:var(--navy);padding:.7rem .85rem;border:1px solid var(--border);border-radius:2px;resize:vertical}
     .dr-section.needs-input textarea{border-color:var(--amber);background:rgba(146,96,10,.05)}
     .dr-needs{color:var(--amber)}
     .dr-market{display:grid;grid-template-columns:1fr 1.4fr;gap:.5rem;margin-bottom:.5rem}
@@ -3875,7 +3879,36 @@ async function drRerunMarket(id, btn) {
   btn.disabled = false; btn.textContent = 'Re-run comparison';
   if (!res.ok) { alert(data.error || 'Re-run failed.'); return; }
   drReplace(data.review);
+  // Say plainly what the re-run did, and point at the boxes it changed.
+  const m = data.review.draft?.market?.car || {};
+  const money = n => '$' + Number(n).toLocaleString('en-US');
+  let text, ok = false;
+  if (m.status === 'ok') {
+    ok = true;
+    text = `Re-ran with "${trim}": ${m.count} comparable listings, average asking price ${money(m.average)}. Price check and Verdict below are updated.`;
+  } else if (m.status === 'error') {
+    text = `Re-ran with "${trim}": market data unavailable (${m.error || 'Marketcheck error'}). Price check and Verdict were not given an average.`;
+  } else {
+    const matches = (m.searches || []).reduce((best, x) => Math.max(best, (x.listings || []).filter(l => !l.reason).length), 0);
+    text = `Re-ran with "${trim}": ${matches ? `only ${matches} matching listing${matches === 1 ? '' : 's'}` : 'no matching listings'} — fewer than 3, so the draft can't use an average and still says "Not enough comparable listings found". If you've checked a price yourself, use the hand-checked average box.`;
+  }
+  const banner = document.getElementById(`dr-banner-${id}`);
+  banner.textContent = text;
+  banner.className = 'dr-banner ' + (ok ? 'ok' : 'warn');
+  banner.hidden = false;
+  if (ok) document.querySelectorAll(`#dr-card-${id} .dr-section[data-key="price"], #dr-card-${id} .dr-section[data-key="verdict"]`).forEach(el => el.classList.add('dr-updated'));
+  banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
+
+// Draft boxes grow to fit their text, so a changed line further down a
+// section is never hidden below the fold of a small box.
+function drAutosize(root) {
+  (root || document).querySelectorAll('.dr-section textarea').forEach(t => {
+    t.style.height = 'auto';
+    t.style.height = (t.scrollHeight + 2) + 'px';
+  });
+}
+document.addEventListener('input', e => { if (e.target.matches?.('.dr-section textarea')) drAutosize(e.target.parentElement); });
 
 function drCompsPanel(title, m, reviewId) {
   if (!m) return '';
@@ -3918,7 +3951,7 @@ function drCardHtml(r) {
   const draft = r.draft;
   const sections = draft ? DR_SECTION_ORDER.map(k => {
     const s = draft.sections[k] || { body: '' };
-    return `<div class="dr-section${s.needsInput ? ' needs-input' : ''}">
+    return `<div class="dr-section${s.needsInput ? ' needs-input' : ''}" data-key="${k}">
       <label for="dr-${r.id}-${k}"><span>${DR_SECTION_TITLES[k]}</span>${s.needsInput ? '<span class="dr-needs">Needs input</span>' : ''}</label>
       <textarea id="dr-${r.id}-${k}" data-section="${k}" ${pending ? '' : 'readonly'}>${e(s.body)}</textarea>
     </div>`;
@@ -3972,6 +4005,7 @@ function drCardHtml(r) {
         </div>
         <div>
           <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.5rem">Report draft</div>
+          <div class="dr-banner" id="dr-banner-${r.id}" role="status" hidden></div>
           ${verdictSelect}${market}${sections}${actions}
         </div>
       </div>
@@ -4009,16 +4043,23 @@ async function loadAdminDealReviews() {
     ? DEAL_REVIEWS.map(drCardHtml).join('')
     : '<div class="empty-state"><div class="empty-state-icon">📄</div><div class="empty-state-text">No deal reviews yet.</div></div>';
   open.forEach(id => document.getElementById(id)?.classList.add('open'));
+  drAutosize(list);
 }
 
-function drToggle(id) { document.getElementById(`dr-card-${id}`).classList.toggle('open'); }
+function drToggle(id) {
+  const card = document.getElementById(`dr-card-${id}`);
+  card.classList.toggle('open');
+  if (card.classList.contains('open')) drAutosize(card);
+}
 
 function drReplace(review) {
   const i = DEAL_REVIEWS.findIndex(r => r.id === review.id);
   if (i !== -1) DEAL_REVIEWS[i] = review;
   const el = document.getElementById(`dr-card-${review.id}`);
   el.outerHTML = drCardHtml(review);
-  document.getElementById(`dr-card-${review.id}`).classList.add('open');
+  const card = document.getElementById(`dr-card-${review.id}`);
+  card.classList.add('open');
+  drAutosize(card);
 }
 
 function drMsg(id, text, ok) {
