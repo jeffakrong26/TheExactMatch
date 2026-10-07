@@ -4,7 +4,14 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Refer a Buyer — TheExactMatch</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<!-- Fonts: Manrope 800 (headlines), DM Sans (body/UI), Playfair Display
+     600 (wordmark only). Loaded non-blocking (preload + swap-on-load,
+     display=swap, <noscript> fallback) so a third-party round trip never
+     blocks first paint. -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap"/></noscript>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -16,11 +23,11 @@
   --green:#1A4731;--red:#9B2335;
 }
 html{scroll-behavior:smooth}
-body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--navy);min-height:100vh}
+body{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--beige);color:var(--navy);min-height:100vh}
 .wrap{max-width:640px;margin:0 auto;padding:3rem 1.5rem 5rem}
 .eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--bronze);display:flex;align-items:center;gap:.65rem;margin-bottom:.9rem}
 .eyebrow::before,.eyebrow::after{content:'';display:block;height:1px;width:22px;background:var(--bronze)}
-h1{font-family:'Playfair Display',serif;font-size:clamp(1.9rem,5vw,2.6rem);font-weight:500;line-height:1.15;color:var(--navy);margin-bottom:.75rem}
+h1{font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:clamp(1.9rem,5vw,2.6rem);font-weight:500;line-height:1.15;color:var(--navy);margin-bottom:.75rem}
 h1 em{font-style:italic;color:var(--gold)}
 .intro{font-size:.92rem;line-height:1.7;color:var(--gray);margin-bottom:2.5rem}
 .card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:2rem 1.75rem}
@@ -29,20 +36,20 @@ h1 em{font-style:italic;color:var(--gold)}
 .group{margin-bottom:1.1rem}
 .group label{display:block;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gray);margin-bottom:.4rem}
 .group .hint{font-weight:400;text-transform:none;letter-spacing:0;font-size:.75rem;color:var(--gray);display:block;margin-top:.3rem}
-.group input,.group select,.group textarea{width:100%;padding:.8rem 1rem;background:var(--beige);border:1px solid var(--border);border-radius:2px;font-family:'Jost',sans-serif;font-size:.88rem;color:var(--navy);outline:none;transition:border-color .2s}
+.group input,.group select,.group textarea{width:100%;padding:.8rem 1rem;background:var(--beige);border:1px solid var(--border);border-radius:2px;font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.88rem;color:var(--navy);outline:none;transition:border-color .2s}
 .group input:focus,.group select:focus,.group textarea:focus{border-color:var(--gold)}
 .group textarea{resize:vertical;min-height:80px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
 @media (max-width:520px){.row2{grid-template-columns:1fr}}
 .honeypot{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
-.submit-btn{width:100%;padding:1rem;background:var(--navy);color:var(--beige);border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:1.5rem;transition:background .2s}
+.submit-btn{width:100%;padding:1rem;background:var(--navy);color:var(--beige);border:none;border-radius:2px;font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:1.5rem;transition:background .2s}
 .submit-btn:hover{background:var(--navy2)}
 .submit-btn:disabled{opacity:.55;cursor:not-allowed}
 .alert{padding:.8rem 1rem;border-radius:2px;font-size:.85rem;margin-bottom:1.25rem;display:none}
 .alert.show{display:block}
 .alert-err{background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.2);color:var(--red)}
 .success-screen{text-align:center;padding:3rem 1rem}
-.success-screen h2{font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--navy);margin-bottom:1rem}
+.success-screen h2{font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:1.6rem;color:var(--navy);margin-bottom:1rem}
 .success-screen p{color:var(--gray);font-size:.9rem;line-height:1.7}
 </style>
 </head>

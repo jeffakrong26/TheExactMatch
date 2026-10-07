@@ -17,8 +17,8 @@
        third-party stylesheet round trip can't block first paint. site.css
        stays a normal blocking stylesheet: same-origin, small, needed for
        layout immediately. -->
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"/></noscript>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap"/></noscript>
   <link rel="stylesheet" href="/css/site.css"/>
   <style>
     /* Scoped to #page-privacy so nothing here collides with the site-wide
@@ -34,14 +34,14 @@
 
     #page-privacy h1.display{margin-bottom:1.1rem}
     .pp-intro{font-size:.95rem;line-height:1.75;color:var(--gray);max-width:60ch}
-    .pp-updated{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.04em;color:var(--gray);margin-top:1.6rem;display:flex;align-items:center;gap:.6rem}
+    .pp-updated{font-family:var(--font-body);font-size:.72rem;letter-spacing:.04em;color:var(--gray);margin-top:1.6rem;display:flex;align-items:center;gap:.6rem}
     .pp-updated::before{content:'';width:1.6rem;height:1px;background:var(--gold)}
 
     .pp-card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:2.75rem 2.5rem;margin-top:2.75rem}
 
-    .pp-title{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:500;color:var(--navy);line-height:1.3;margin:2.5rem 0 1rem;padding-top:2.5rem;border-top:1px solid var(--border)}
+    .pp-title{font-family:var(--font-head);font-size:1.3rem;font-weight:500;color:var(--navy);line-height:1.3;margin:2.5rem 0 1rem;padding-top:2.5rem;border-top:1px solid var(--border)}
     .pp-title:first-child{margin-top:0;padding-top:0;border-top:none}
-    .pp-sub{font-family:'Jost',sans-serif;font-size:.9rem;font-weight:600;color:var(--navy);margin:1.6rem 0 .5rem}
+    .pp-sub{font-family:var(--font-body);font-size:.9rem;font-weight:600;color:var(--navy);margin:1.6rem 0 .5rem}
 
     .pp-card p{font-size:.88rem;line-height:1.8;color:var(--gray);margin-bottom:.9rem}
     .pp-card p:last-child{margin-bottom:0}

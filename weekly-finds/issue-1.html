@@ -15,7 +15,14 @@
      standalone document outside that per-URL rewriting, so it needs its
      own copy. -->
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"The Exact Match","url":"https://theexactmatch.com","sameAs":["https://facebook.com/theexactmatch","https://instagram.com/theexactmatch"]}</script>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;0,900;1,400;1,700&family=Jost:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<!-- Fonts: Manrope 800 (headlines), DM Sans (body/UI), Playfair Display
+     600 (wordmark only). Loaded non-blocking (preload + swap-on-load,
+     display=swap, <noscript> fallback) so a third-party round trip never
+     blocks first paint. -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap"/></noscript>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -32,25 +39,25 @@
   --white:#fff;
 }
 html{scroll-behavior:smooth}
-body{font-family:'Jost',sans-serif;background:var(--paper);color:var(--ink);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+body{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--paper);color:var(--ink);overflow-x:hidden;-webkit-font-smoothing:antialiased}
 
 /* ── MASTHEAD ── */
 .masthead{background:var(--navy);padding:0;position:relative;overflow:hidden}
 .masthead-top{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 3rem;border-bottom:1px solid rgba(192,154,91,.2)}
-.masthead-logo{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;color:var(--white);letter-spacing:.04em;text-decoration:none}
+.masthead-logo{font-family:'Playfair Display',Georgia,serif;font-size:1rem;font-weight:600;color:var(--white);letter-spacing:.04em;text-decoration:none}
 .masthead-logo span{color:var(--gold)}
-.masthead-issue{font-family:'DM Mono',monospace;font-size:.65rem;color:rgba(255,255,255,.4);letter-spacing:.12em;text-transform:uppercase}
+.masthead-issue{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.65rem;color:rgba(255,255,255,.4);letter-spacing:.12em;text-transform:uppercase}
 .masthead-hero{padding:4rem 3rem 3.5rem;text-align:center;position:relative}
 .masthead-hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 30%,rgba(192,154,91,.08) 0%,transparent 65%)}
-.issue-eyebrow{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;display:flex;align-items:center;justify-content:center;gap:.75rem}
+.issue-eyebrow{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.62rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;display:flex;align-items:center;justify-content:center;gap:.75rem}
 .issue-eyebrow::before,.issue-eyebrow::after{content:'';display:block;width:40px;height:1px;background:var(--gold);opacity:.5}
-.masthead-title{font-family:'Playfair Display',serif;font-size:clamp(3rem,7vw,5.5rem);font-weight:900;color:var(--white);line-height:.95;letter-spacing:-.02em;margin-bottom:.75rem}
+.masthead-title{font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:clamp(3rem,7vw,5.5rem);font-weight:900;color:var(--white);line-height:.95;letter-spacing:-.02em;margin-bottom:.75rem}
 .masthead-title strong{font-weight:900;font-style:normal;color:inherit}
 .masthead-sub{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.5);letter-spacing:.06em;text-transform:uppercase;margin-bottom:2.5rem}
 .masthead-rule{width:60px;height:1.5px;background:var(--gold);margin:0 auto 2rem}
-.masthead-intro{font-family:'Playfair Display',serif;font-size:1.1rem;font-style:italic;font-weight:400;color:rgba(255,255,255,.7);max-width:560px;margin:0 auto;line-height:1.75}
+.masthead-intro{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:1.1rem;font-style:italic;font-weight:400;color:rgba(255,255,255,.7);max-width:560px;margin:0 auto;line-height:1.75}
 .issue-strip{background:var(--gold);padding:.6rem 3rem;display:flex;gap:2rem;align-items:center;overflow-x:auto}
-.issue-strip-item{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--navy);white-space:nowrap;font-weight:500}
+.issue-strip-item{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--navy);white-space:nowrap;font-weight:500}
 .issue-strip-dot{width:3px;height:3px;border-radius:50%;background:var(--navy);opacity:.4;flex-shrink:0}
 
 /* ── LAYOUT ── */
@@ -63,10 +70,10 @@ body{font-family:'Jost',sans-serif;background:var(--paper);color:var(--ink);over
 .toc-inner{max-width:1100px;margin:0 auto;padding:2.5rem 2rem;display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:#DDD8CC}
 .toc-item{background:var(--cream);padding:1.25rem 1rem;text-align:center;text-decoration:none;transition:background .2s}
 .toc-item:hover{background:var(--white)}
-.toc-num{font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.15em;color:var(--gold);margin-bottom:.4rem;text-transform:uppercase}
+.toc-num{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.6rem;letter-spacing:.15em;color:var(--gold);margin-bottom:.4rem;text-transform:uppercase}
 .toc-make{font-size:.72rem;font-weight:700;color:var(--navy);letter-spacing:.05em;text-transform:uppercase;margin-bottom:.2rem}
-.toc-model{font-family:'Playfair Display',serif;font-size:.88rem;font-style:italic;color:var(--gray)}
-.toc-price{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--gold);margin-top:.35rem}
+.toc-model{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.88rem;font-style:italic;color:var(--gray)}
+.toc-price{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.68rem;color:var(--gold);margin-top:.35rem}
 
 /* ── VEHICLE PAGE ── */
 .vehicle-page{border-bottom:3px solid var(--ink);background:var(--white)}
@@ -77,17 +84,17 @@ body{font-family:'Jost',sans-serif;background:var(--paper);color:var(--ink);over
 .vp-hero img{width:100%;height:100%;object-fit:cover;display:block}
 .vp-hero-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.8) 0%,rgba(0,0,0,.25) 50%,rgba(0,0,0,.1) 100%)}
 .vp-hero-content{position:absolute;bottom:0;left:0;right:0;padding:2.5rem 3rem}
-.vp-issue-num{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.vp-issue-num{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
 .vp-issue-num::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
 .vp-make{font-size:.7rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:.35rem}
-.vp-title{font-family:'Playfair Display',serif;font-size:clamp(2.2rem,4.5vw,3.8rem);font-weight:700;color:var(--white);line-height:1.05;margin-bottom:.5rem}
+.vp-title{font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:clamp(2.2rem,4.5vw,3.8rem);font-weight:700;color:var(--white);line-height:1.05;margin-bottom:.5rem}
 .vp-title em{font-style:italic;color:var(--gold2)}
 .vp-tagline{font-size:.88rem;font-weight:300;color:rgba(255,255,255,.6);line-height:1.7}
 
 /* Price badge */
 .vp-price-badge{position:absolute;top:1.75rem;right:2.5rem;background:var(--navy);border:1px solid rgba(192,154,91,.35);padding:.9rem 1.25rem;text-align:center;border-radius:2px}
-.vp-price-label{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:.25rem}
-.vp-price-num{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;color:var(--gold);line-height:1}
+.vp-price-label{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:.25rem}
+.vp-price-num{font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:1.5rem;font-weight:700;color:var(--gold);line-height:1}
 
 /* Body grid */
 .vp-body{display:grid;grid-template-columns:1fr 340px;gap:0;border-top:2px solid var(--ink)}
@@ -95,15 +102,15 @@ body{font-family:'Jost',sans-serif;background:var(--paper);color:var(--ink);over
 .vp-sidebar{padding:2.25rem 2rem;border-left:1px solid #DDD8CC;background:var(--cream)}
 
 /* Editorial */
-.editorial-drop::first-letter{font-family:'Playfair Display',serif;font-size:4.5rem;font-weight:900;float:left;line-height:.8;margin:.1em .15em 0 0;color:var(--navy)}
+.editorial-drop::first-letter{font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:4.5rem;font-weight:900;float:left;line-height:.8;margin:.1em .15em 0 0;color:var(--navy)}
 .editorial-body{font-size:.95rem;font-weight:300;line-height:1.85;color:#333;margin-bottom:1.5rem;clear:both}
-.editorial-pull{font-family:'Playfair Display',serif;font-size:1.5rem;font-style:italic;font-weight:400;color:var(--navy);line-height:1.45;border-left:3px solid var(--gold);padding-left:1.25rem;margin:2rem 0;clear:both}
+.editorial-pull{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:1.5rem;font-style:italic;font-weight:400;color:var(--navy);line-height:1.45;border-left:3px solid var(--gold);padding-left:1.25rem;margin:2rem 0;clear:both}
 
 /* Specs block */
-.specs-heading{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid #DDD8CC}
+.specs-heading{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid #DDD8CC}
 .spec-row{display:flex;justify-content:space-between;align-items:baseline;padding:.5rem 0;border-bottom:1px solid #EEEAE0;gap:.5rem}
 .spec-row:last-child{border-bottom:none}
-.spec-label{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;color:var(--lgray);flex-shrink:0}
+.spec-label{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;color:var(--lgray);flex-shrink:0}
 .spec-val{font-size:.82rem;font-weight:600;color:var(--ink);text-align:right;line-height:1.3}
 
 /* Links */
@@ -119,9 +126,9 @@ body{font-family:'Jost',sans-serif;background:var(--paper);color:var(--ink);over
 
 /* Jeff's Take */
 .jeffs-take{background:var(--navy);padding:1.5rem;margin-top:2rem;border-radius:2px}
-.jeffs-take-label{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.65rem}
+.jeffs-take-label{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.65rem}
 .jeffs-take-text{font-size:.85rem;font-weight:300;color:rgba(255,255,255,.8);line-height:1.75}
-.jeffs-take-sig{font-family:'Playfair Display',serif;font-style:italic;font-size:.82rem;color:var(--gold2);margin-top:.75rem}
+.jeffs-take-sig{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-style:italic;font-size:.82rem;color:var(--gold2);margin-top:.75rem}
 
 /* Special note badge */
 .special-badge{background:var(--gold);color:var(--navy);padding:.5rem .85rem;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border-radius:20px;display:inline-block;margin-bottom:1.25rem}
@@ -134,20 +141,20 @@ body{font-family:'Jost',sans-serif;background:var(--paper);color:var(--ink);over
 
 /* ── MARKET PULSE sidebar ── */
 .market-pulse-box{background:var(--ink);padding:1.25rem;margin-top:1.75rem;border-radius:2px}
-.market-pulse-label{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.65rem}
+.market-pulse-label{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.65rem}
 .market-pulse-item{display:flex;justify-content:space-between;align-items:baseline;padding:.35rem 0;border-bottom:1px solid rgba(255,255,255,.08)}
 .market-pulse-item:last-child{border-bottom:none}
 .mp-label{font-size:.72rem;font-weight:300;color:rgba(255,255,255,.55)}
-.mp-val{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--gold2);font-weight:500}
+.mp-val{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.72rem;color:var(--gold2);font-weight:500}
 .mp-green{color:#86efac}
 .mp-red{color:#fca5a5}
 
 /* ── NEW/CPO STAMP ── */
-.stamp{display:inline-flex;align-items:center;gap:.4rem;border:1.5px solid var(--gold);border-radius:2px;padding:.3rem .65rem;font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem}
+.stamp{display:inline-flex;align-items:center;gap:.4rem;border:1.5px solid var(--gold);border-radius:2px;padding:.3rem .65rem;font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem}
 
 /* ── FOOTER ── */
 .newsletter-footer{background:var(--navy);padding:3rem;text-align:center}
-.nf-logo{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:var(--white);margin-bottom:.5rem}
+.nf-logo{font-family:'Playfair Display',Georgia,serif;font-size:1.3rem;font-weight:600;color:var(--white);margin-bottom:.5rem}
 .nf-logo span{color:var(--gold)}
 .nf-tagline{font-size:.78rem;font-weight:300;color:rgba(255,255,255,.4);margin-bottom:1.5rem;letter-spacing:.05em}
 .nf-contact{display:flex;justify-content:center;gap:2rem;flex-wrap:wrap;font-size:.75rem;color:rgba(255,255,255,.5);margin-bottom:1.5rem}
@@ -370,7 +377,7 @@ body{font-family:'Jost',sans-serif;background:var(--paper);color:var(--ink);over
         <a class="link-btn link-btn-primary" href="https://www.audinorthaustin.com/en/inventory/vehicle/?isdealer&market=us&vehicleId=WUAGWDGY3TA907892" target="_blank">
           <span class="link-btn-icon">🔗</span> View Full Listing
         </a>
-        <div style="padding:.65rem 1rem;background:var(--cream);border:1px solid #DDD8CC;border-radius:2px;font-size:.7rem;color:var(--lgray);font-family:'DM Mono',monospace;letter-spacing:.06em">
+        <div style="padding:.65rem 1rem;background:var(--cream);border:1px solid #DDD8CC;border-radius:2px;font-size:.7rem;color:var(--lgray);font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;letter-spacing:.06em">
           📋 NO CARFAX — Brand New 2026
         </div>
       </div>

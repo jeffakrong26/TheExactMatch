@@ -12,8 +12,6 @@
   <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link rel="preconnect" href="https://api.fontshare.com"/>
-  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin/>
   <!-- Font stylesheets loaded non-blocking (preload + swap-on-load, with a
        <noscript> fallback for the no-JS/crawler case) — a <link
        rel="stylesheet"> to a third-party host otherwise blocks first paint
@@ -21,10 +19,8 @@
        browser can't know in advance the fetched CSS only affects
        @font-face. site.css stays a normal blocking stylesheet: it's
        same-origin, small, and needed immediately for layout. -->
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"/></noscript>
-  <link rel="preload" as="style" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
-  <noscript><link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap"/></noscript>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap"/></noscript>
   <link rel="stylesheet" href="/css/site.css"/>
 </head>
 <body>
@@ -56,13 +52,13 @@
     <!-- Signup card -->
     <div style="background:rgba(255,255,255,.04);border:1px solid rgba(192,154,91,.22);border-radius:4px;max-width:480px;margin:0 auto;padding:2.5rem 2.5rem 2.25rem">
       <div id="wf-form-wrap">
-        <div style="font-family:'Playfair Display',serif;font-size:1.35rem;font-weight:500;color:var(--white);margin-bottom:.4rem">Get Recent Finds</div>
+        <div style="font-family:var(--font-head);font-size:1.35rem;font-weight:500;color:var(--white);margin-bottom:.4rem">Get Recent Finds</div>
         <div style="font-size:.82rem;font-weight:300;color:rgba(255,255,255,.45);margin-bottom:1.5rem;line-height:1.65">Drop your email — new finds as we spot them, straight to your inbox.</div>
         <div id="wf-msg" style="display:none;text-align:center;font-size:.85rem;font-weight:400;padding:.6rem 0;margin-bottom:.75rem;border-radius:2px"></div>
         <!-- Reuses .nl-input/.nl-btn (css/site.css) — same newsletter-signup
              component as the sitewide popup, deliberately the calm style
              rather than the shimmer treatment: low-commitment, one field. -->
-        <div style="display:flex;gap:.6rem;margin-bottom:.75rem">
+        <div class="nl-form" style="margin-bottom:.75rem">
           <input id="wf-email" class="nl-input" type="email" placeholder="your@email.com" autocomplete="email"/>
           <button id="wf-submit" class="nl-btn" onclick="submitWeeklyForm()">
             Subscribe
@@ -72,7 +68,7 @@
       </div>
       <div id="wf-success" style="display:none;text-align:center;padding:1rem 0">
         <div style="font-size:1.8rem;color:var(--gold);margin-bottom:.75rem">✦</div>
-        <div style="font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:500;color:var(--white);margin-bottom:.5rem">You're in.</div>
+        <div style="font-family:var(--font-head);font-size:1.2rem;font-weight:500;color:var(--white);margin-bottom:.5rem">You're in.</div>
         <div style="font-size:.85rem;font-weight:300;color:rgba(255,255,255,.5);line-height:1.7">Watch your inbox for Jeff's Recent Finds.</div>
       </div>
      <div class="newsletter-feature" style="background:rgba(255,255,255,.05);padding:24px;border-radius:4px;margin-top:20px">
@@ -126,7 +122,7 @@
   <!-- Social proof mini -->
   <section style="background:var(--beige2);padding:3.5rem var(--side-pad);text-align:center">
     <div style="max-width:600px;margin:0 auto">
-      <div style="font-family:'Playfair Display',serif;font-size:1.25rem;font-style:italic;color:var(--navy);line-height:1.65;margin-bottom:1.5rem">
+      <div style="font-family:var(--font-body);font-size:1.25rem;font-style:italic;color:var(--navy);line-height:1.65;margin-bottom:1.5rem">
         &#8220;Got the email on a Wednesday, called Jeff Thursday, picked up my RS7 Friday. Never would've found it on my own.&#8221;
       </div>
       <div style="font-size:.8rem;font-weight:600;color:var(--navy)">Kevin J.</div>
