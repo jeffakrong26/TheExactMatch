@@ -211,6 +211,12 @@
     .dr-market input,.dr-verdict-select{font-family:'Jost',sans-serif;font-size:.85rem;padding:.55rem .7rem;border:1px solid var(--border);border-radius:2px;width:100%}
     .dr-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem;align-items:center}
     .dr-msg{font-size:.8rem;margin-left:.25rem}
+    .dr-comps{margin-top:1.25rem;border-top:1px solid var(--border);padding-top:1rem}
+    .dr-comps-title{font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gray);margin-bottom:.4rem}
+    .dr-comps-note{font-size:.8rem;line-height:1.6;color:var(--navy);margin-bottom:.5rem}
+    .dr-comps-table{width:100%;border-collapse:collapse;font-size:.75rem}
+    .dr-comps-table th{text-align:left;font-weight:600;color:var(--gray);padding:.35rem .4rem;border-bottom:1px solid var(--border)}
+    .dr-comps-table td{padding:.4rem;border-bottom:1px solid var(--border);vertical-align:top}
     .tab-panel{display:none}.tab-panel.active{display:block}
     .subtabs .tab-bar{margin-bottom:1.75rem}
     .status-sold{background:rgba(26,71,49,.12);color:var(--green)}
@@ -3813,6 +3819,34 @@ function drDealText(r) {
   return L.join('\n');
 }
 
+// Admin-only reference for the listings comparison: every comp used, so a
+// team member can check the numbers against the source listings (or
+// AutoTempest) before approving. Not part of the email.
+function drCompsPanel(title, m) {
+  if (!m) return '';
+  const e = escapeHtmlJs;
+  const money = n => '$' + Number(n).toLocaleString('en-US');
+  const classic = m.classicUrl ? ` <a href="${e(m.classicUrl)}" target="_blank" rel="noopener">Search classic.com by hand →</a>` : '';
+  if (m.status !== 'ok') {
+    const why = m.status === 'error' ? `Market data unavailable${m.error ? ' (' + e(m.error) + ')' : ''}.`
+      : m.status === 'skipped' ? `No search: ${e(m.reason || '')}`
+      : 'Not enough comparable listings found (fewer than 3 in the visitor\'s state or nationwide).';
+    return `<div class="dr-comps"><div class="dr-comps-title">${title}</div><div class="dr-comps-note">${why}${classic}</div></div>`;
+  }
+  if (m.manual) return `<div class="dr-comps"><div class="dr-comps-title">${title}</div><div class="dr-comps-note">Entered by hand: ${money(m.average)}${m.source ? ' (' + e(m.source) + ')' : ''}.</div></div>`;
+  const where = m.scope === 'nationwide' ? `nationwide${m.searchedState ? ' (fewer than 3 in ' + e(m.searchedState) + ')' : ''}` : e(m.state);
+  const rows = m.comps.map(c => `<tr>
+      <td>${e(c.year)}</td><td>${e(c.trim || '—')}</td>
+      <td>${c.miles != null ? Number(c.miles).toLocaleString('en-US') : '—'}</td>
+      <td>${money(c.price)}</td>
+      <td>${c.milesGap != null ? Number(c.milesGap).toLocaleString('en-US') : '—'}</td>
+      <td>${e(c.dealer || '—')}${c.city ? '<br/><span style="color:var(--gray)">' + e(c.city) + (c.state ? ', ' + e(c.state) : '') + '</span>' : ''}</td>
+      <td>${c.url ? `<a href="${e(c.url)}" target="_blank" rel="noopener">View</a>` : '—'}</td></tr>`).join('');
+  return `<div class="dr-comps"><div class="dr-comps-title">${title}</div>
+    <div class="dr-comps-note">Average asking price of ${m.count} comparable listings: <strong>${money(m.average)}</strong> (range ${money(m.low)}–${money(m.high)}) · ${m.yearRange[0] === m.yearRange[1] ? m.yearRange[0] : m.yearRange[0] + '–' + m.yearRange[1]}${m.mileRange ? ' · ' + Number(m.mileRange[0]).toLocaleString('en-US') + '–' + Number(m.mileRange[1]).toLocaleString('en-US') + ' mi' : ''} · ${where}${m.count < 5 ? classic : ''}</div>
+    <div style="overflow-x:auto"><table class="dr-comps-table"><thead><tr><th>Year</th><th>Trim</th><th>Miles</th><th>Asking</th><th>Mi gap</th><th>Dealer</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
 function drStatusBadge(r) {
   if (r.status === 'sent') return `<span class="status-badge status-approved">Sent</span>`;
   if (r.status === 'rejected') return `<span class="status-badge status-rejected">Rejected</span>`;
@@ -3834,13 +3868,13 @@ function drCardHtml(r) {
   }).join('') : `<div style="font-size:.85rem;color:var(--gray)">The draft is still being generated. Refresh in a minute${pending ? ', or click Regenerate' : ''}.</div>`;
   const market = draft && pending ? `
     <div class="dr-section">
-      <label><span>Market research (manual)</span></label>
-      <div style="font-size:.78rem;color:var(--gray);margin-bottom:.5rem;line-height:1.55">No automated market lookup (classic.com's terms don't allow it). Enter a value you researched to recompute the verdict and price check — this replaces those sections' text. Leave blank to send "no market comparison found".</div>
-      <div class="dr-market"><input type="text" inputmode="decimal" placeholder="Market value ($)" data-market="market_value"/><input type="text" placeholder="Source / comps used" data-market="market_source"/></div>
-      ${r.deal.trade.has ? `<div class="dr-market"><input type="text" inputmode="decimal" placeholder="Trade-in market value ($)" data-market="trade_value"/><input type="text" placeholder="Source / comps used" data-market="trade_source"/></div>` : ''}
+      <label><span>Override with a hand-checked average (optional)</span></label>
+      <div style="font-size:.78rem;color:var(--gray);margin-bottom:.5rem;line-height:1.55">Only if the listings search came back thin or wrong. Enter an average asking price you checked yourself; it recomputes the verdict and price check (replacing those sections' text). Leave blank to keep the automatic result.</div>
+      <div class="dr-market"><input type="text" inputmode="decimal" placeholder="Average asking price ($)" data-market="market_value"/><input type="text" placeholder="Where you checked" data-market="market_source"/></div>
+      ${r.deal.trade.has ? `<div class="dr-market"><input type="text" inputmode="decimal" placeholder="Trade-in: average retail asking price ($)" data-market="trade_value"/><input type="text" placeholder="Where you checked" data-market="trade_source"/></div>` : ''}
     </div>` : '';
   const verdictSelect = draft ? `
-    <div class="dr-section"><label><span>Verdict${draft.verdict_basis === 'qualitative' ? ' (not market-based)' : ''}</span></label>
+    <div class="dr-section"><label><span>Verdict${draft.verdict_basis === 'qualitative' ? ' (not based on listings)' : ''}</span></label>
       <select class="dr-verdict-select" data-verdict ${pending ? '' : 'disabled'}>
         ${Object.entries(DR_VERDICTS).map(([k, v]) => `<option value="${k}"${draft.verdict_key === k ? ' selected' : ''}>${v}</option>`).join('')}
       </select></div>` : '';
@@ -3877,6 +3911,7 @@ function drCardHtml(r) {
           ${r.has_photo ? `<button class="btn-primary btn-sm" style="margin-top:.75rem" onclick="drShowPhoto(${r.id}, this)">Show buyer's order photo</button>` : ''}
           ${newsletter}
           ${r.draft_error ? `<div style="margin-top:.75rem;font-size:.8rem;color:var(--amber)">${e(r.draft_error)}</div>` : ''}
+          ${draft?.market ? drCompsPanel('Comparable listings — this car', draft.market.car) + (r.deal.trade.has ? drCompsPanel('Comparable listings — trade-in (retail asking prices)', draft.market.trade) : '') : ''}
         </div>
         <div>
           <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.5rem">Report draft</div>

@@ -1,7 +1,7 @@
 // Sanity checks for the deterministic Deal Review math (src/deal-review.js).
 // Run: node dealer-api/scripts/deal-review-selftest.mjs
 import assert from 'node:assert/strict';
-import { normalizeVin, marketVerdict, monthlyPayment, principalFromPayment, checkDocFee, classifyFee, normalizeDeal, buildDraft, applyManualMarket } from '../src/deal-review.js';
+import { usedCompWindow, selectComps, summarizeComps, normalizeVin, marketVerdict, monthlyPayment, principalFromPayment, checkDocFee, classifyFee, normalizeDeal, buildDraft, applyManualMarket } from '../src/deal-review.js';
 
 // Verdict thresholds: <= -5% good, >= +3% walk, between negotiable.
 assert.equal(marketVerdict(95000, 100000).key, 'good');
@@ -38,11 +38,12 @@ const deal = normalizeDeal({
   dealer: { name: 'Example Audi', timing: 'this_week' },
 });
 assert.equal(deal.state, 'TX');
-const draft = buildDraft(deal, { market: { found: false, reason: 'test' }, tradeMarket: { found: false } });
+const draft = buildDraft(deal, { market: { status: 'thin' }, tradeMarket: { status: 'error' } });
 assert.equal(draft.verdict_basis, 'qualitative');
 assert.equal(draft.sections.price.needsInput, true);
 assert.equal(draft.sections.pushback.needsInput, true);
-assert.match(draft.sections.verdict.body, /isn't based on a market price/);
+assert.match(draft.sections.verdict.body, /isn't based on comparable listings\. Not enough comparable listings found\./);
+assert.match(draft.sections.trade.body, /Market data unavailable\./);
 assert.match(draft.sections.fees.body, /FLAG — Paint protection/);
 assert.match(draft.sections.trade.body, /Negative equity of \$1,500/);
 const after = applyManualMarket(deal, draft, { marketValue: 49000 });
@@ -56,5 +57,46 @@ assert.equal(normalizeVin('wba5r1c50kfh12345'), 'WBA5R1C50KFH12345');
 assert.equal(normalizeVin('WBA5R1C50KFH1234'), '');   // 16 chars
 assert.equal(normalizeVin('WBA5R1C50KFH1234O'), '');  // contains O
 assert.equal(normalizeVin(''), '');
+// ── Listings comparison ──
+assert.deepEqual(usedCompWindow(2021, 3000), { yearMin: 2020, yearMax: 2023, milesMin: 0, milesMax: 8000 });
+const L = (id, year, miles, price, extra = {}) => ({ id, year, trim: 'SE', miles, price, dealer: 'D' + id, city: 'Austin', state: 'TX', url: 'https://x/' + id, sellerType: 'dealer', ...extra });
+const listings = [
+  L(1, 2021, 30000, 25000), L(2, 2022, 30000, 26000), L(3, 2021, 31000, 24000),
+  L(4, 2021, 36000, 99999),                       // outside +5,000
+  L(5, 2019, 30100, 99999),                       // year below year-1
+  L(6, 2024, 29000, 99999),                       // year above year+2
+  L(7, 2021, 30500, null),                        // no price
+  L(8, 2021, null, 99999),                        // no miles
+  L(9, 2021, 30200, 99999, { trim: 'XSE' }),      // different trim
+  L(10, 2021, 30200, 99999, { sellerType: 'fsbo' }), // private party
+  L(1, 2021, 30000, 25000),                       // duplicate
+];
+const used = selectComps(listings, { kind: 'used', year: 2021, miles: 30000, trim: 'se' });
+assert.deepEqual(used.map(c => c.id), [1, 2, 3]);   // gap 0 (2021 before 2022 on year), then 1,000
+const sum = summarizeComps(used, { kind: 'used', year: 2021, miles: 30000, scope: 'state', state: 'TX' });
+assert.equal(sum.average, 25000); assert.equal(sum.low, 24000); assert.equal(sum.high, 26000);
+assert.equal(summarizeComps(used.slice(0, 2), { kind: 'used', year: 2021, miles: 30000 }), null); // fewer than 3
+const many = Array.from({ length: 14 }, (_, i) => L(100 + i, 2021, 30000 + i * 300, 20000 + i * 100));
+const top = selectComps(many, { kind: 'used', year: 2021, miles: 30000, trim: 'SE' });
+assert.equal(top.length, 10); assert.equal(top[9].id, 109);
+const tradeComps = selectComps([L(1, 2019, 60000, 15000, { trim: 'EX' }), L(2, 2020, 61000, 16000, { trim: 'LX' }), L(3, 2018, 59000, 14000, { trim: '' })], { kind: 'trade', year: 2019, miles: 60000 });
+assert.equal(tradeComps.length, 3); // trade-in ignores trim
+const newComps = selectComps([L(1, 2026, 5, 50000), L(2, 2026, 10, 52000), L(3, 2025, 5, 40000), L(4, 2026, 0, 51000)], { kind: 'new', year: 2026, trim: 'SE' });
+assert.deepEqual(newComps.map(c => c.id).sort(), [1, 2, 4]);
+
+const usedDeal = normalizeDeal({ state: 'TX', car: { condition: 'used', year: 2021, make: 'Toyota', model: 'Camry', trim: 'SE', mileage: 30000 },
+  price: { selling: 27000 }, trade: { has: 'yes', year: 2016, make: 'Honda', model: 'Civic', miles: 90000, offer: 8000 }, payment: { method: 'cash' } });
+const tradeSum = summarizeComps(selectComps([L(1, 2016, 90000, 11000), L(2, 2017, 91000, 12000), L(3, 2015, 88000, 10000)], { kind: 'trade', year: 2016, miles: 90000 }), { kind: 'trade', year: 2016, miles: 90000, scope: 'nationwide' });
+const d2 = buildDraft(usedDeal, { market: sum, tradeMarket: tradeSum });
+assert.equal(d2.verdict_key, 'walk');            // 27,000 vs 25,000 = +8%
+assert.equal(d2.verdict_basis, 'market');
+assert.match(d2.sections.price.body, /Average asking price of 3 comparable listings: \$25,000 \(range \$24,000–\$26,000\)\. Comps are 2020–2023, 25,000–35,000 miles, Texas\./);
+assert.match(d2.sections.price.body, /Closest listing: 2021 SE, 30,000 miles, \$25,000, D1 in Austin, TX — https:\/\/x\/1/);
+assert.match(d2.sections.trade.body, /not what a dealer would pay on a trade/);
+assert.match(d2.sections.trade.body, /Dealer offer \$8,000 vs\. retail average \$11,000: \$3,000 below/);
+assert.match(d2.sections.trade.body, /firm trade number needs photos and the VIN/);
+assert.match(buildDraft(usedDeal, { market: { ...sum, scope: 'nationwide', searchedState: 'TX' } }).sections.price.body, /nationwide \(fewer than 3 in Texas\)\./);
+for (const k of Object.keys(d2.sections)) assert.doesNotMatch(d2.sections[k].body, /market value|sells for/i, k);
+console.log(d2.sections.price.body);
 console.log(draft.sections.payment.body);
 console.log('deal-review selftest: ok');

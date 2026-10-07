@@ -266,6 +266,115 @@ export const vehicleLabel = (car) =>
 // for that section and flags is a list of short issue strings that feed the
 // fallback verdict and the push-back prompt.
 
+// ── Market comparison from live listings ────────────────────────────────
+// Comparable *asking* prices from active dealer listings (Marketcheck,
+// fetched in src/index.js). Everything here is arithmetic on listings that
+// already came back: filtering to the comparable window, ranking, and the
+// average. No model ever produces or estimates these numbers. Wording rule:
+// these are asking prices, never "market value" or "what it sells for".
+export const COMP_MILES_WINDOW = 5000;
+export const COMP_AVERAGE_OF = 10;
+export const COMP_MINIMUM = 3;
+
+// Used cars and trade-ins: year − 1 to year + 2, miles ± 5,000 (floor 0).
+export function usedCompWindow(year, miles) {
+  return {
+    yearMin: year - 1,
+    yearMax: year + 2,
+    milesMin: Math.max(0, miles - COMP_MILES_WINDOW),
+    milesMax: miles + COMP_MILES_WINDOW,
+  };
+}
+
+const normTrim = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+// listings: [{ id, year, trim, miles, price, dealer, city, state, url, sellerType }]
+// target:   { kind: 'used'|'new'|'trade', year, miles, trim }
+// Returns the comps actually used (ranked) or [] — never pads or loosens.
+export function selectComps(listings, target) {
+  const seen = new Set();
+  const win = target.kind === 'new' ? null : usedCompWindow(target.year, target.miles);
+  const wantTrim = target.kind === 'trade' ? null : normTrim(target.trim);
+  const pool = [];
+  for (const l of listings || []) {
+    const key = l.id || l.url;
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    if (!(l.price > 0)) continue;
+    if (l.sellerType && l.sellerType !== 'dealer') continue;
+    if (wantTrim !== null && normTrim(l.trim) !== wantTrim) continue;
+    if (target.kind === 'new') {
+      if (l.year !== target.year) continue;
+    } else {
+      if (l.miles === null || l.miles === undefined) continue;
+      if (!(l.year >= win.yearMin && l.year <= win.yearMax)) continue;
+      if (l.miles < win.milesMin || l.miles > win.milesMax) continue;
+    }
+    pool.push({
+      ...l,
+      milesGap: target.kind === 'new' ? null : Math.abs(l.miles - target.miles),
+      yearGap: Math.abs(l.year - target.year),
+    });
+  }
+  if (target.kind === 'new') {
+    // Same year by definition; every same-spec new listing counts.
+    pool.sort((a, b) => a.price - b.price);
+    return pool;
+  }
+  // Mileage proximity first, then year proximity as the tiebreaker.
+  pool.sort((a, b) => a.milesGap - b.milesGap || a.yearGap - b.yearGap);
+  return pool.slice(0, COMP_AVERAGE_OF);
+}
+
+// Turns selected comps into the summary the draft and admin show.
+export function summarizeComps(comps, { kind, year, miles, scope, state }) {
+  if (comps.length < COMP_MINIMUM) return null;
+  const prices = comps.map((c) => c.price);
+  const average = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+  const win = kind === 'new' ? null : usedCompWindow(year, miles);
+  return {
+    status: 'ok',
+    kind,
+    count: comps.length,
+    average,
+    low: Math.min(...prices),
+    high: Math.max(...prices),
+    scope,
+    state,
+    yearRange: win ? [win.yearMin, win.yearMax] : [year, year],
+    mileRange: win ? [win.milesMin, win.milesMax] : null,
+    closest: comps[0],
+    comps,
+  };
+}
+
+const fmtMiles = (n) => `${Number(n).toLocaleString('en-US')}`;
+const placeLabel = (m) => (m.scope === 'nationwide'
+  ? `nationwide${m.searchedState ? ` (fewer than ${COMP_MINIMUM} in ${STATE_NAMES[m.searchedState] || m.searchedState})` : ''}`
+  : (STATE_NAMES[m.state] || m.state));
+
+export function compSummaryLine(m) {
+  const years = m.yearRange[0] === m.yearRange[1] ? `${m.yearRange[0]}` : `${m.yearRange[0]}–${m.yearRange[1]}`;
+  const parts = [m.kind === 'new' ? `new ${years}` : years];
+  if (m.mileRange) parts.push(`${fmtMiles(m.mileRange[0])}–${fmtMiles(m.mileRange[1])} miles`);
+  parts.push(placeLabel(m));
+  return `Average asking price of ${m.count} comparable listings: ${money(m.average)} (range ${money(m.low)}–${money(m.high)}). Comps are ${parts.join(', ')}.`;
+}
+
+export function closestCompLine(c) {
+  return `Closest listing: ${c.year} ${c.trim || ''}`.replace(/\s+$/, '') +
+    `${c.miles !== null && c.miles !== undefined ? `, ${fmtMiles(c.miles)} miles` : ''}, ${money(c.price)}` +
+    `${c.dealer ? `, ${c.dealer}` : ''}${c.city ? ` in ${c.city}${c.state ? ', ' + c.state : ''}` : ''}` +
+    `${c.url ? ` — ${c.url}` : ''}`;
+}
+
+// Why there's no number, in the draft's words.
+function noCompsLine(m) {
+  if (m?.status === 'error') return 'Market data unavailable.';
+  if (m?.status === 'skipped') return `No listings comparison: ${m.reason}`;
+  return 'Not enough comparable listings found.';
+}
+
 function priceSection(deal, market) {
   const { msrp, selling } = deal.price;
   const lines = [];
@@ -283,11 +392,16 @@ function priceSection(deal, market) {
   const flags = [];
   if (msrp > 0 && selling > msrp) flags.push(`selling price is ${money(selling - msrp)} over MSRP`);
 
-  if (market?.found && market.value > 0) {
-    const v = marketVerdict(selling, market.value);
-    lines.push(`Market comparison: ${money(market.value)}${market.source ? ` (${market.source})` : ''}. Selling price is ${pct1(v.pct)} vs. market.`);
+  if (market?.status === 'ok' && market.manual) {
+    const v = marketVerdict(selling, market.average);
+    lines.push(`Average asking price of comparable listings: ${money(market.average)}${market.source ? ` (${market.source})` : ''}. Selling price is ${pct1(v.pct)} vs. that average.`);
+  } else if (market?.status === 'ok') {
+    const v = marketVerdict(selling, market.average);
+    lines.push(compSummaryLine(market));
+    if (v) lines.push(`Selling price is ${pct1(v.pct)} vs. that average.`);
+    lines.push(closestCompLine(market.closest));
   } else {
-    lines.push(`No market comparison found.${market?.reason ? ' ' + market.reason : ''}`);
+    lines.push(noCompsLine(market));
   }
   return { body: lines.join('\n'), flags };
 }
@@ -337,10 +451,17 @@ function tradeSection(deal, tradeMarket) {
       lines.push(`Equity: ${money(eq)} toward the new car.`);
     }
   }
-  if (tradeMarket?.found && tradeMarket.value > 0) {
-    lines.push(`Market comparison: ${money(tradeMarket.value)}${tradeMarket.source ? ` (${tradeMarket.source})` : ''}.`);
+  if (tradeMarket?.status === 'ok') {
+    lines.push(`Retail asking prices for similar vehicles, not what a dealer would pay on a trade:`);
+    lines.push(tradeMarket.manual
+      ? `Average asking price of comparable listings: ${money(tradeMarket.average)}${tradeMarket.source ? ` (${tradeMarket.source})` : ''}.`
+      : compSummaryLine(tradeMarket));
+    if (t.offer !== null) {
+      const gap = tradeMarket.average - t.offer;
+      lines.push(`Dealer offer ${money(t.offer)} vs. retail average ${money(tradeMarket.average)}: ${gap >= 0 ? `${money(gap)} below` : `${money(-gap)} above`} the retail average.`);
+    }
   } else {
-    lines.push(`No market comparison found.${tradeMarket?.reason ? ' ' + tradeMarket.reason : ''} For a mainstream trade-in a collector-market comparable often doesn't exist at all.`);
+    lines.push(noCompsLine(tradeMarket));
   }
   lines.push('A firm trade number needs photos and the VIN either way.');
   return { body: lines.join('\n'), flags };
@@ -418,11 +539,11 @@ function fallbackVerdict(flagCount) {
 }
 
 function verdictSection(deal, market, flags) {
-  const mv = market?.found ? marketVerdict(deal.price.selling, market.value) : null;
+  const mv = market?.status === 'ok' ? marketVerdict(deal.price.selling, market.average) : null;
   if (mv) {
     return {
       verdict: mv,
-      body: `${mv.label}. Selling price is ${pct1(mv.pct)} vs. the market comparison of ${money(market.value)}.`,
+      body: `${mv.label}. Selling price is ${pct1(mv.pct)} vs. the average asking price of comparable listings (${money(market.average)}).`,
     };
   }
   const v = fallbackVerdict(flags.length);
@@ -431,7 +552,7 @@ function verdictSection(deal, market, flags) {
     : 'No fee or payment problems found in what was entered.';
   return {
     verdict: v,
-    body: `${v.label}. ${why}\nNote: this verdict isn't based on a market price — no market comparison was found for this car.`,
+    body: `${v.label}. ${why}\nNote: this verdict isn't based on comparable listings. ${noCompsLine(market)}`,
   };
 }
 
@@ -460,14 +581,16 @@ export function buildDraft(deal, { market, tradeMarket, pushback } = {}) {
   const flags = [...price.flags, ...fees.flags, ...trade.flags, ...payment.flags];
   const verdict = verdictSection(deal, market, flags);
 
-  const marketMissing = !market?.found;
-  const tradeMissing = deal.trade.has && !tradeMarket?.found;
+  const marketMissing = market?.status !== 'ok';
+  const tradeMissing = deal.trade.has && tradeMarket?.status !== 'ok';
   const pushbackItems = Array.isArray(pushback) && pushback.length ? pushback.slice(0, 3) : null;
 
   return {
     verdict_key: verdict.verdict.key,
     verdict_basis: verdict.verdict.basis,
     flags,
+    // Full comparison results for the admin reference table (not emailed).
+    market: { car: market || null, trade: deal.trade.has ? (tradeMarket || null) : null },
     sections: {
       verdict: { body: verdict.body, needsInput: marketMissing },
       price: { body: price.body, needsInput: marketMissing },
@@ -485,24 +608,24 @@ export function buildDraft(deal, { market, tradeMarket, pushback } = {}) {
   };
 }
 
-// Recompute just the market-dependent sections after a team member enters a
-// market value they researched by hand. Leaves every other (possibly edited)
-// section alone.
+// Recompute just the market-dependent sections after a team member enters an
+// average asking price they checked by hand (thin or failed search). Leaves
+// every other (possibly edited) section alone.
 export function applyManualMarket(deal, draft, { marketValue, marketSource, tradeValue, tradeSource }) {
   const next = structuredClone(draft);
-  const market = marketValue > 0 ? { found: true, value: marketValue, source: marketSource || 'manual research' } : null;
-  if (market) {
+  if (marketValue > 0) {
+    const market = { status: 'ok', manual: true, average: marketValue, source: marketSource || 'checked by hand' };
     const price = priceSection(deal, market);
-    const mv = marketVerdict(deal.price.selling, market.value);
+    const mv = marketVerdict(deal.price.selling, market.average);
     next.sections.price = { body: price.body, needsInput: false };
     if (mv) {
-      next.sections.verdict = { body: `${mv.label}. Selling price is ${pct1(mv.pct)} vs. the market comparison of ${money(market.value)}.`, needsInput: false };
+      next.sections.verdict = { body: `${mv.label}. Selling price is ${pct1(mv.pct)} vs. the average asking price of comparable listings (${money(market.average)}).`, needsInput: false };
       next.verdict_key = mv.key;
       next.verdict_basis = 'market';
     }
   }
   if (tradeValue > 0 && deal.trade.has) {
-    const t = tradeSection(deal, { found: true, value: tradeValue, source: tradeSource || 'manual research' });
+    const t = tradeSection(deal, { status: 'ok', manual: true, average: tradeValue, source: tradeSource || 'checked by hand' });
     next.sections.trade = { body: t.body, needsInput: false };
   }
   return next;
