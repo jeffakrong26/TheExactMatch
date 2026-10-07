@@ -45,8 +45,19 @@
     .dr-hero{
       position:relative;min-height:calc(100svh - 64px);display:flex;align-items:flex-end;
       background:linear-gradient(180deg,rgba(24,38,66,.25) 0%,rgba(24,38,66,.7) 55%,rgba(24,38,66,.95) 100%),
-        url('/images/review-my-deal.jpeg') center/cover no-repeat,var(--dr-navy);
+        url('/images/review-my-deal.jpeg') 72% 30%/cover no-repeat,var(--dr-navy);
       color:#fff;
+    }
+    /* Wide screens: the portrait photo crops to its middle band, so add a
+       left-side shade to keep the headline readable over the car. */
+    @media(min-width:900px){
+      .dr-hero{
+        background:linear-gradient(90deg,rgba(24,38,66,.92) 0%,rgba(24,38,66,.7) 45%,rgba(24,38,66,.15) 75%),
+          linear-gradient(180deg,rgba(24,38,66,.1) 0%,rgba(24,38,66,.75) 100%),
+          url('/images/review-my-deal.jpeg') 70% 28%/cover no-repeat,var(--dr-navy);
+      }
+      .dr-hero-inner{max-width:1200px;padding-left:32px;padding-right:32px}
+      .dr-hero h1,.dr-hero p{max-width:560px}
     }
     .dr-hero-inner{width:100%;max-width:760px;margin:0 auto;padding:3rem 16px 3.5rem}
     .dr-hero h1{font-size:clamp(2.25rem,7vw,3.75rem);line-height:1.04;margin:0 0 1rem}
@@ -119,7 +130,7 @@
         </button>
         <button type="button" class="dr-btn dr-btn-ghost" data-start="manual">Answer a few questions</button>
       </div>
-      <div class="dr-hero-note">Free. A team member reviews every report before it goes out.</div>
+      <div class="dr-hero-note">Free. Your report lands in your inbox within 24 hours.</div>
     </div>
   </section>
 
