@@ -19,7 +19,7 @@ import { PhotonImage, resize as photonResize, SamplingFilter } from '@cf-wasm/ph
 // X-ray, doc-fee caps, payment math). See the "Free Deal Review" section.
 import {
   normalizeDeal, buildDraft, applyManualMarket, dealSummaryLines, vehicleLabel, isState,
-  usedCompWindow, selectComps, summarizeComps, parseTrimFacets, matchTrim, explainSelection, excludeReason, applyMarketResult,
+  usedCompWindow, selectComps, summarizeComps, parseTrimFacets, parseFacetValues, matchTrim, explainSelection, excludeReason, applyMarketResult,
   VERDICT, SECTION_ORDER, SECTION_TITLES, TIMING_LABELS,
 } from './deal-review.js';
 
@@ -9641,6 +9641,58 @@ async function searchCompListings(env, target, state) {
   return listings;
 }
 
+// ── Vehicle picker lists for /review-my-deal (Year -> Make -> Model -> Trim)
+// GET /api/public/vehicle-options?year=&make=&model=
+// Returns Marketcheck's own spellings of what's currently listed, so a
+// visitor's pick matches the listings comparison exactly. Lists are shared
+// across visitors and cached 24h. Each level only accepts a parent value
+// from the level above (a make must be in that year's makes, etc.), so the
+// endpoint can't be used to fire arbitrary Marketcheck queries.
+const VEHICLE_OPTION_MIN_YEAR = 1981;
+
+async function facetList(env, filters, field) {
+  const key = ['opts', field, filters.year, filters.make || '', filters.model || ''].map(v => String(v).toLowerCase().trim()).join('|');
+  const hit = await env.DB.prepare(
+    `SELECT listings_json FROM deal_review_comps_cache WHERE cache_key = ? AND created_at > datetime('now', '-24 hours')`
+  ).bind(key).first();
+  if (hit) return JSON.parse(hit.listings_json);
+  const params = { year: filters.year, make: filters.make, model: filters.model, rows: 1 };
+  let res;
+  // field|offset|limit asks for the whole list (the default facet size is
+  // short). If this plan rejects that syntax, fall back to the plain field.
+  try { res = await marketcheckActive(env, { ...params, facets: `${field}|0|500` }); }
+  catch { res = await marketcheckActive(env, { ...params, facets: field }); }
+  const values = parseFacetValues(res.facets, field).map(f => f.trim)
+    .sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base', numeric: true }));
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO deal_review_comps_cache (cache_key, listings_json, num_found, created_at) VALUES (?, ?, ?, datetime('now'))`
+  ).bind(key, JSON.stringify(values), values.length).run();
+  return values;
+}
+
+async function publicVehicleOptions(request, env) {
+  await ensureDealReviewTables(env);
+  const url = new URL(request.url);
+  const year = Number(url.searchParams.get('year'));
+  const make = (url.searchParams.get('make') || '').trim().slice(0, 60);
+  const model = (url.searchParams.get('model') || '').trim().slice(0, 60);
+  const maxYear = new Date().getUTCFullYear() + 2;
+  if (!Number.isInteger(year) || year < VEHICLE_OPTION_MIN_YEAR || year > maxYear) return json({ error: 'Invalid year.' }, 400);
+  if (!env.MARKETCHECK_API_KEY) return json({ error: 'Vehicle lists unavailable.' }, 503);
+  try {
+    const makes = await facetList(env, { year }, 'make');
+    if (!make) return json({ options: makes });
+    if (!makes.includes(make)) return json({ options: [] });
+    const models = await facetList(env, { year, make }, 'model');
+    if (!model) return json({ options: models });
+    if (!models.includes(model)) return json({ options: [] });
+    return json({ options: await facetList(env, { year, make, model }, 'trim') });
+  } catch (err) {
+    console.error('[deal-review] vehicle options failed', year, make, model, err);
+    return json({ error: 'Vehicle lists unavailable.' }, 502);
+  }
+}
+
 // Plain link for a team member to check by hand on AutoTempest (a link,
 // never scraped), pre-filled with the same year/mileage window.
 function handSearchUrl(target) {
@@ -10275,6 +10327,7 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/public/referral',               handler: submitReferral },
   { method: 'POST',  pattern: '/api/public/deal-review/extract',    handler: publicDealReviewExtract },
   { method: 'POST',  pattern: '/api/public/deal-review',            handler: publicSubmitDealReview },
+  { method: 'GET',   pattern: '/api/public/vehicle-options',        handler: publicVehicleOptions },
   { method: 'GET',   pattern: '/api/admin/deal-reviews',            handler: adminListDealReviews, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/deal-reviews/marketcheck-check', handler: adminMarketcheckPlanCheck, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/deal-reviews/:id',        handler: adminUpdateDealReview, auth: true, admin: true },

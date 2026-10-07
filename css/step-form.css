@@ -82,3 +82,10 @@
 .sf-next:hover{opacity:.92}
 .sf-nav .submit-btn{flex:1;margin-top:0;font-size:1rem}
 .sf [hidden]{display:none !important}
+
+/* VehiclePicker (js/vehicle-picker.js): the container steps out of the way
+   so each Year/Make/Model/Trim field sits in the surrounding .sf-grid. */
+.vp{display:contents}
+.vp-level .vp-other{margin-top:.5rem}
+.vp-level select[hidden] + .vp-other{margin-top:0}
+.sf-field select:disabled{opacity:.6;cursor:not-allowed}
