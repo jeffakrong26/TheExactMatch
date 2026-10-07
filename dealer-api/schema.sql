@@ -157,7 +157,9 @@ CREATE TABLE find_car_leads (
   year_min INTEGER,
   year_max INTEGER,
   undecided INTEGER NOT NULL DEFAULT 0,
-  source TEXT NOT NULL DEFAULT 'customer_form'
+  source TEXT NOT NULL DEFAULT 'customer_form',
+  exterior_color_pref TEXT,
+  interior_color_pref TEXT
 );
 
 CREATE TABLE contact_messages (

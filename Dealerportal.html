@@ -4905,6 +4905,8 @@ function buyerIntakeHtml(lead) {
   if (lead.current_change) rows.push(['Wants to Change', lead.current_change]);
   if (lead.timeline) rows.push(['Timeline', lead.timeline]);
   if (lead.max_mileage) rows.push(['Max Mileage', Number(lead.max_mileage).toLocaleString()]);
+  if (lead.exterior_color_pref) rows.push(['Exterior Color (nice-to-have)', lead.exterior_color_pref]);
+  if (lead.interior_color_pref) rows.push(['Interior Color (nice-to-have)', lead.interior_color_pref]);
   if (lead.priorities) rows.push(['Priorities', lead.priorities]);
   if (lead.specific_needs) rows.push(['Specific Needs', lead.specific_needs]);
   if (lead.considering) rows.push(['Other Makes/Models Also Open To', lead.considering]);

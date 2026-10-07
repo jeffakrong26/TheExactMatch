@@ -1,6 +1,7 @@
 // Sanity checks for the deterministic Deal Review math (src/deal-review.js).
 // Run: node dealer-api/scripts/deal-review-selftest.mjs
 import assert from 'node:assert/strict';
+import { colorFamily, cleanColorPref, colorBonusMiles, EXTERIOR_MATCH_MILES, INTERIOR_MATCH_MILES } from '../src/colors.js';
 import { excludeReason, parseTrimFacets, matchTrim, explainSelection, applyMarketResult, usedCompWindow, selectComps, summarizeComps, normalizeVin, marketVerdict, monthlyPayment, principalFromPayment, checkDocFee, classifyFee, normalizeDeal, buildDraft, applyManualMarket } from '../src/deal-review.js';
 
 // Verdict thresholds: <= -5% good, >= +3% walk, between negotiable.
@@ -128,6 +129,22 @@ assert.match(buildDraft(normalizeDeal({ car: { condition: 'used' }, price: { sel
 const newM = normalizeDeal({ car: { condition: 'new' }, price: { msrp: '40000', listing: '1', selling: '39000' } });
 assert.equal(newM.price.listing, null);
 assert.match(buildDraft(newM, {}).sections.price.body, /\$1,000 under MSRP \$40,000/);
+// Find My Car color preference: marketing names map to basic families,
+// hue words beat finish words, and a match is only a small distance credit.
+for (const [name, fam] of [['Ruby Flare Pearl', 'Red'], ['Pearl White', 'White'], ['Crystal Black Pearl', 'Black'], ['Blue Pearl', 'Blue'],
+  ['Magnetic Gray Metallic', 'Gray'], ['Lunar Silver', 'Silver'], ['Wind Chill Pearl', 'White'], ['Carbon Black', 'Black'], ['Desert Sand', 'Beige'], ['Hellayella', null]]) {
+  assert.equal(colorFamily(name), fam, name);
+}
+for (const [name, fam] of [['Charcoal Black', 'Black'], ['Cognac', 'Beige/Tan'], ['Ash', 'Gray'], ['Ivory White', 'White/Cream'], ['Jet Black/Light Ash', 'Black']]) {
+  assert.equal(colorFamily(name, 'interior'), fam, name);
+}
+assert.equal(cleanColorPref('blue', 'exterior'), 'Blue');
+assert.equal(cleanColorPref('Beige/Tan', 'interior'), 'Beige/Tan');
+assert.equal(cleanColorPref('Beige/Tan', 'exterior'), null);
+assert.equal(cleanColorPref('No preference', 'exterior'), null);
+assert.equal(colorBonusMiles({ exterior_color: 'Rhapsody Blue', interior_color: 'Black Leather' }, { exterior: 'Blue', interior: 'Black' }), EXTERIOR_MATCH_MILES + INTERIOR_MATCH_MILES);
+assert.equal(colorBonusMiles({ exterior_color: 'Super White', interior_color: null }, { exterior: 'Blue', interior: 'Black' }), 0);
+assert.equal(colorBonusMiles({ exterior_color: 'Rhapsody Blue' }, null), 0);
 console.log(d2.sections.price.body);
 console.log(draft.sections.payment.body);
 console.log('deal-review selftest: ok');
