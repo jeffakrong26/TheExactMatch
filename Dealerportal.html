@@ -216,6 +216,11 @@
     .dr-comps-note{font-size:.8rem;line-height:1.6;color:var(--navy);margin-bottom:.5rem}
     .dr-comps-table{width:100%;border-collapse:collapse;font-size:.75rem}
     .dr-comps-table th{text-align:left;font-weight:600;color:var(--gray);padding:.35rem .4rem;border-bottom:1px solid var(--border)}
+    .dr-search-log{font-size:.75rem;color:var(--gray);margin-top:.5rem}
+    .dr-search-log summary{cursor:pointer;font-weight:600}
+    .dr-search-log ul{margin:.4rem 0 0 1.1rem;line-height:1.6}
+    .dr-trim-pick{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;font-size:.8rem;margin:.5rem 0}
+    .dr-trim-pick select{font-family:'Jost',sans-serif;font-size:.8rem;padding:.4rem .5rem;border:1px solid var(--border);border-radius:2px}
     .dr-comps-table td{padding:.4rem;border-bottom:1px solid var(--border);vertical-align:top}
     .tab-panel{display:none}.tab-panel.active{display:block}
     .subtabs .tab-bar{margin-bottom:1.75rem}
@@ -3822,7 +3827,55 @@ function drDealText(r) {
 // Admin-only reference for the listings comparison: every comp used, so a
 // team member can check the numbers against the source listings (or
 // AutoTempest) before approving. Not part of the email.
-function drCompsPanel(title, m) {
+// What was searched and why listings dropped out (from the stored result).
+function drSearchLog(m) {
+  const e = escapeHtmlJs;
+  if (!m.searches?.length) return '';
+  const lines = m.searches.map(x => {
+    const where = x.scope === 'nationwide' ? 'Nationwide' : e(x.state);
+    const parts = [];
+    if (x.note) parts.push(e(x.note));
+    if (x.trimLookupError) parts.push('trim list unavailable (' + e(x.trimLookupError) + '), searched the trim as entered');
+    if (x.why) {
+      const w = x.why, d = [];
+      if (w.noPrice) d.push(w.noPrice + ' no price');
+      if (w.wrongTrim) d.push(w.wrongTrim + ' other trim');
+      if (w.outsideYears) d.push(w.outsideYears + ' other year');
+      if (w.noMiles) d.push(w.noMiles + ' no mileage');
+      if (w.outsideMiles) d.push(w.outsideMiles + ' outside mileage window');
+      if (w.privateParty) d.push(w.privateParty + ' private party');
+      if (w.duplicate) d.push(w.duplicate + ' duplicate');
+      parts.push(`${w.returned} listings returned${d.length ? ', dropped: ' + d.join(', ') : ''}`);
+    }
+    if (x.trimsAvailable?.length) parts.push('trims listed: ' + x.trimsAvailable.map(t => `${e(t.trim)} (${t.count})`).join(', '));
+    else if (x.trimsAvailable) parts.push('no listings for this year/make/model');
+    return `<li><strong>${where}:</strong> ${parts.join(' · ')}</li>`;
+  }).join('');
+  return `<details class="dr-search-log"><summary>What was searched</summary><ul>${lines}</ul></details>`;
+}
+
+// When the trim found nothing, let a team member re-run with one of the
+// trims Marketcheck does list. Explicit, never automatic.
+function drTrimPicker(reviewId, m) {
+  const e = escapeHtmlJs;
+  const trims = [...new Map((m.searches || []).flatMap(x => x.trimsAvailable || []).map(t => [t.trim, t])).values()];
+  if (!trims.length) return '';
+  return `<div class="dr-trim-pick">Re-run with a trim Marketcheck lists:
+    <select id="dr-trim-${reviewId}">${trims.map(t => `<option value="${e(t.trim)}">${e(t.trim)}</option>`).join('')}</select>
+    <button class="btn-primary btn-sm" onclick="drRerunMarket(${reviewId}, this)">Re-run comparison</button></div>`;
+}
+
+async function drRerunMarket(id, btn) {
+  const trim = document.getElementById(`dr-trim-${id}`).value;
+  if (!confirm(`Re-run the listings comparison with the "${trim}" trim? This replaces the Price check and Verdict text, and the draft will say a team member chose the trim.`)) return;
+  btn.disabled = true; btn.textContent = 'Searching…';
+  const { res, data } = await apiFetch(`/admin/deal-reviews/${id}/rerun-market`, { method: 'POST', body: JSON.stringify({ trim }) }).catch(() => ({ res: { ok: false }, data: {} }));
+  btn.disabled = false; btn.textContent = 'Re-run comparison';
+  if (!res.ok) { alert(data.error || 'Re-run failed.'); return; }
+  drReplace(data.review);
+}
+
+function drCompsPanel(title, m, reviewId) {
   if (!m) return '';
   const e = escapeHtmlJs;
   const money = n => '$' + Number(n).toLocaleString('en-US');
@@ -3831,7 +3884,7 @@ function drCompsPanel(title, m) {
     const why = m.status === 'error' ? `Market data unavailable${m.error ? ' (' + e(m.error) + ')' : ''}.`
       : m.status === 'skipped' ? `No search: ${e(m.reason || '')}`
       : 'Not enough comparable listings found (fewer than 3 in the visitor\'s state or nationwide).';
-    return `<div class="dr-comps"><div class="dr-comps-title">${title}</div><div class="dr-comps-note">${why}${classic}</div></div>`;
+    return `<div class="dr-comps"><div class="dr-comps-title">${title}</div><div class="dr-comps-note">${why}${classic}</div>${reviewId && m.kind !== 'trade' && m.status !== 'skipped' ? drTrimPicker(reviewId, m) : ''}${drSearchLog(m)}</div>`;
   }
   if (m.manual) return `<div class="dr-comps"><div class="dr-comps-title">${title}</div><div class="dr-comps-note">Entered by hand: ${money(m.average)}${m.source ? ' (' + e(m.source) + ')' : ''}.</div></div>`;
   const where = m.scope === 'nationwide' ? `nationwide${m.searchedState ? ' (fewer than 3 in ' + e(m.searchedState) + ')' : ''}` : e(m.state);
@@ -3844,7 +3897,9 @@ function drCompsPanel(title, m) {
       <td>${c.url ? `<a href="${e(c.url)}" target="_blank" rel="noopener">View</a>` : '—'}</td></tr>`).join('');
   return `<div class="dr-comps"><div class="dr-comps-title">${title}</div>
     <div class="dr-comps-note">Average asking price of ${m.count} comparable listings: <strong>${money(m.average)}</strong> (range ${money(m.low)}–${money(m.high)}) · ${m.yearRange[0] === m.yearRange[1] ? m.yearRange[0] : m.yearRange[0] + '–' + m.yearRange[1]}${m.mileRange ? ' · ' + Number(m.mileRange[0]).toLocaleString('en-US') + '–' + Number(m.mileRange[1]).toLocaleString('en-US') + ' mi' : ''} · ${where}${m.count < 5 ? classic : ''}</div>
-    <div style="overflow-x:auto"><table class="dr-comps-table"><thead><tr><th>Year</th><th>Trim</th><th>Miles</th><th>Asking</th><th>Mi gap</th><th>Dealer</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    ${m.trimOverride ? `<div class="dr-comps-note">Trim chosen by a team member: <strong>${e(m.trimOverride)}</strong></div>` : ''}
+    <div style="overflow-x:auto"><table class="dr-comps-table"><thead><tr><th>Year</th><th>Trim</th><th>Miles</th><th>Asking</th><th>Mi gap</th><th>Dealer</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${reviewId && m.kind !== 'trade' ? drTrimPicker(reviewId, m) : ''}${drSearchLog(m)}</div>`;
 }
 
 function drStatusBadge(r) {
@@ -3911,7 +3966,7 @@ function drCardHtml(r) {
           ${r.has_photo ? `<button class="btn-primary btn-sm" style="margin-top:.75rem" onclick="drShowPhoto(${r.id}, this)">Show buyer's order photo</button>` : ''}
           ${newsletter}
           ${r.draft_error ? `<div style="margin-top:.75rem;font-size:.8rem;color:var(--amber)">${e(r.draft_error)}</div>` : ''}
-          ${draft?.market ? drCompsPanel('Comparable listings — this car', draft.market.car) + (r.deal.trade.has ? drCompsPanel('Comparable listings — trade-in (retail asking prices)', draft.market.trade) : '') : ''}
+          ${draft?.market ? drCompsPanel('Comparable listings — this car', draft.market.car, r.status === 'pending' ? r.id : null) + (r.deal.trade.has ? drCompsPanel('Comparable listings — trade-in (retail asking prices)', draft.market.trade) : '') : ''}
         </div>
         <div>
           <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.5rem">Report draft</div>
