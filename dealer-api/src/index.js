@@ -19,6 +19,7 @@ import { PhotonImage, resize as photonResize, SamplingFilter } from '@cf-wasm/ph
 // X-ray, doc-fee caps, payment math). See the "Free Deal Review" section.
 import {
   normalizeDeal, buildDraft, applyManualMarket, dealSummaryLines, vehicleLabel, isState,
+  usedCompWindow, selectComps, summarizeComps,
   VERDICT, SECTION_ORDER, SECTION_TITLES, TIMING_LABELS,
 } from './deal-review.js';
 
@@ -9421,19 +9422,17 @@ async function publicGetRecentMatch(request, env, params) {
 // things: reading the buyer's-order photo, and drafting the top-3 push-back
 // items. Both are draft input a person checks before anything sends.
 //
-// Market comparison: deliberately NOT an automated classic.com lookup.
-// classic.com's Terms of Use (classic.com/about/terms-conditions, checked
-// 2026-10) prohibit using "any robot, spider, site search/retrieval
-// application ... to retrieve, index, 'scrape,' 'data mine' or otherwise
-// gather any Content" and "any collection or use of any product listings,
-// descriptions, or prices" without prior written consent, and bar
-// commercial use — a per-submission automated query is still automated
-// retrieval for a commercial service. Their Pro tier advertises a
-// commercial-use license with API access; lookupMarketValue() is the one
-// place to wire that in once there's a license. Until then every draft
-// says "no market comparison found", the section is flagged NEEDS INPUT,
-// and a team member enters a hand-researched value in admin, which
-// recomputes the verdict.
+// Market comparison (report sections 2 and 4): average *asking* price of
+// comparable active dealer listings from Marketcheck's
+// GET /v2/search/car/active, called only from here with the
+// MARKETCHECK_API_KEY secret (the same key Sell My Car uses). The window,
+// ranking and average are plain code in src/deal-review.js; Claude only
+// writes sentences around numbers it's given. State first, nationwide if
+// fewer than 3 comps; still fewer than 3 -> "Not enough comparable
+// listings found" and the verdict falls back to fees/payment math. Raw
+// listings are cached 24h in D1 so a review costs one or two API calls.
+// No scraping of classic.com or AutoTempest: when results are thin, admin
+// gets a plain classic.com search link to check by hand.
 //
 // Secrets/vars: ANTHROPIC_API_KEY, BREVO_API_KEY (both already set);
 // BREVO_NEWSLETTER_LIST_ID — numeric Brevo list for "Also send me deal
@@ -9478,6 +9477,12 @@ const DEAL_REVIEW_SCHEMA = [
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
   `CREATE INDEX IF NOT EXISTS idx_deal_review_uploads_ip ON deal_review_uploads (ip_hash, created_at)`,
+  `CREATE TABLE IF NOT EXISTS deal_review_comps_cache (
+    cache_key TEXT PRIMARY KEY,
+    listings_json TEXT NOT NULL,
+    num_found INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
 ];
 let dealReviewSchemaReady = null;
 function ensureDealReviewTables(env) {
@@ -9534,11 +9539,124 @@ async function adminMarketcheckPlanCheck(request, env) {
   return json({ checked_at: new Date().toISOString(), results });
 }
 
-async function lookupMarketValue(/* env, vehicle */) {
+const MARKETCHECK_ACTIVE_URL = 'https://api.marketcheck.com/v2/search/car/active';
+const MARKETCHECK_MAX_ROWS = 50;          // confirmed: rows=50 returns 50
+const MARKETCHECK_TIMEOUT_MS = 12000;
+const COMP_NARROW_MILES = 1500;           // second pass when the window has >50 listings
+
+function toCompListing(l) {
   return {
-    found: false,
-    reason: 'Automated lookup is off: classic.com\'s terms prohibit automated retrieval and commercial use of their pricing without a license. Research comparables by hand and enter the number in admin.',
+    id: l.id || l.vdp_url || null,
+    year: l.build?.year ?? null,
+    trim: l.build?.trim || '',
+    miles: typeof l.miles === 'number' ? l.miles : null,
+    price: typeof l.price === 'number' ? l.price : null,
+    dealer: l.dealer?.name || '',
+    city: l.dealer?.city || '',
+    state: l.dealer?.state || '',
+    url: l.vdp_url || '',
+    sellerType: l.seller_type || '',
   };
+}
+
+async function marketcheckActive(env, params) {
+  // MARKETCHECK_API_BASE only exists for local tests against a mock server.
+  const url = new URL(env.MARKETCHECK_API_BASE ? `${env.MARKETCHECK_API_BASE}/v2/search/car/active` : MARKETCHECK_ACTIVE_URL);
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+  url.searchParams.set('api_key', env.MARKETCHECK_API_KEY);
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(MARKETCHECK_TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`Marketcheck HTTP ${res.status}`);
+  const data = await res.json();
+  return { numFound: data.num_found ?? 0, listings: (data.listings || []).map(toCompListing) };
+}
+
+// One location scope (a state, or nationwide), cached 24h on
+// kind/year/make/model/trim/mileage bucket/state. selectComps() re-applies
+// the exact window, so a cache hit from a nearby mileage in the same
+// 1,000-mile bucket can never let an out-of-window listing in.
+async function searchCompListings(env, target, state) {
+  const make = normalizeMakeForMarketcheck(target.make);
+  const model = normalizeModelForMarketcheck(target.model);
+  const bucket = target.kind === 'new' ? '' : Math.floor(target.miles / 1000);
+  const cacheKey = [target.kind, target.year, make, model, target.kind === 'trade' ? '' : target.trim, bucket, state || 'US']
+    .map(v => String(v).toLowerCase().trim()).join('|');
+
+  const hit = await env.DB.prepare(
+    `SELECT listings_json FROM deal_review_comps_cache WHERE cache_key = ? AND created_at > datetime('now', '-24 hours')`
+  ).bind(cacheKey).first();
+  if (hit) return JSON.parse(hit.listings_json);
+
+  const params = {
+    car_type: target.kind === 'new' ? 'new' : 'used',
+    seller_type: 'dealer',
+    make, model,
+    trim: target.kind === 'trade' ? undefined : target.trim,
+    state: state || undefined,
+    rows: MARKETCHECK_MAX_ROWS,
+  };
+  let listings;
+  if (target.kind === 'new') {
+    ({ listings } = await marketcheckActive(env, { ...params, year: target.year }));
+  } else {
+    const win = usedCompWindow(target.year, target.miles);
+    const base = { ...params, year_range: `${win.yearMin}-${win.yearMax}` };
+    const wide = await marketcheckActive(env, { ...base, miles_range: `${win.milesMin}-${win.milesMax}` });
+    listings = wide.listings;
+    // More listings in the window than one page returns: the 10 closest by
+    // mileage may not be on that page, so add a tight pass around the
+    // visitor's miles (still inside the window).
+    if (wide.numFound > wide.listings.length) {
+      const narrow = await marketcheckActive(env, {
+        ...base, miles_range: `${Math.max(0, target.miles - COMP_NARROW_MILES)}-${target.miles + COMP_NARROW_MILES}`,
+      });
+      listings = [...narrow.listings, ...wide.listings];
+    }
+  }
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO deal_review_comps_cache (cache_key, listings_json, num_found, created_at) VALUES (?, ?, ?, datetime('now'))`
+  ).bind(cacheKey, JSON.stringify(listings), listings.length).run();
+  return listings;
+}
+
+function classicSearchUrl(target) {
+  const q = [target.year, target.make, target.model, target.kind === 'trade' ? '' : target.trim].filter(Boolean).join(' ');
+  return `https://www.classic.com/search?q=${encodeURIComponent(q)}`;
+}
+
+// The comparison for one vehicle: visitor's state first, nationwide if that
+// gives fewer than 3 comps. Never widens year, mileage or trim to force a
+// number. Returns a result object for buildDraft() (status ok | thin |
+// error | skipped).
+async function compareListings(env, target, state) {
+  const base = { kind: target.kind, classicUrl: classicSearchUrl(target) };
+  const missing = [];
+  if (!target.year) missing.push('year');
+  if (!target.make) missing.push('make');
+  if (!target.model) missing.push('model');
+  if (target.kind !== 'trade' && !target.trim) missing.push('trim');
+  if (target.kind !== 'new' && !(target.miles > 0)) missing.push('mileage');
+  if (missing.length) return { ...base, status: 'skipped', reason: `the ${missing.join(', ')} ${missing.length > 1 ? 'weren\'t' : 'wasn\'t'} entered, so no listings search was run.` };
+  if (!env.MARKETCHECK_API_KEY) return { ...base, status: 'error', error: 'MARKETCHECK_API_KEY not set' };
+
+  try {
+    const scopes = state ? [['state', state], ['nationwide', null]] : [['nationwide', null]];
+    for (const [scope, st] of scopes) {
+      const listings = await searchCompListings(env, target, st);
+      const summary = summarizeComps(selectComps(listings, target), { kind: target.kind, year: target.year, miles: target.miles, scope, state: st });
+      if (summary) return { ...base, ...summary, searchedState: state || null };
+    }
+    return { ...base, status: 'thin' };
+  } catch (err) {
+    console.error('[deal-review] Marketcheck comparison failed', target, err);
+    return { ...base, status: 'error', error: String(err?.message || err).slice(0, 200) };
+  }
+}
+
+function carCompTarget(deal) {
+  const c = deal.car;
+  const kind = c.condition === 'new' ? 'new' : c.condition === 'used' || c.mileage ? 'used' : null;
+  if (!kind) return null;
+  return { kind, year: c.year, make: c.make, model: c.model, trim: c.trim, miles: c.mileage };
 }
 
 // One Messages API call that's expected to answer through a single tool.
@@ -9800,6 +9918,9 @@ async function draftPushback(env, deal, draft) {
 The deal:
 ${dealSummaryLines(deal).join('\n')}
 
+Price check (computed from comparable dealer listings; asking prices, not sale prices):
+${draft.sections.price.body}
+
 Fee check:
 ${draft.sections.fees.body}
 
@@ -9808,21 +9929,27 @@ ${draft.sections.payment.body}
 
 Issues flagged: ${draft.flags.length ? draft.flags.join('; ') : 'none'}
 
-Call the record_pushback tool with the 3 things this buyer should push back on, most important first. Ground each one in a specific number or line from this deal. Write to the buyer as "you". Plain, direct sentences; no filler, no hype, no exclamation marks. Don't invent market prices or facts that aren't above. If the deal is clean, still give the 3 most useful asks (for example: get the out-the-door price in writing, confirm the rate with an outside lender).`;
+Call the record_pushback tool with the 3 things this buyer should push back on, most important first. Ground each one in a specific number or line from this deal. Write to the buyer as "you". Plain, direct sentences; no filler, no hype, no exclamation marks. Use only the numbers above — never calculate, estimate or invent a price, average or market figure. Call listing prices "asking prices", never "market value". If the deal is clean, still give the 3 most useful asks (for example: get the out-the-door price in writing, confirm the rate with an outside lender).`;
   const out = await callDealReviewTool(env, { tool: PUSHBACK_TOOL, effort: 'medium', content: prompt });
   const items = (out?.items || []).map(s => String(s).trim()).filter(Boolean).slice(0, 3);
   return items.length ? items : null;
 }
 
-// Queue job 'deal_review_draft'. Market lookups never invent a number —
-// see lookupMarketValue().
+// Queue job 'deal_review_draft'. Market comparisons never invent a number —
+// see compareListings().
 async function generateDealReviewDraft(env, id) {
   await ensureDealReviewTables(env);
   const row = await env.DB.prepare('SELECT * FROM deal_reviews WHERE id = ?').bind(id).first();
   if (!row || row.status !== 'pending' || row.draft_json) return;
   const deal = JSON.parse(row.deal_json);
-  const market = await lookupMarketValue(env, deal.car);
-  const tradeMarket = deal.trade.has ? await lookupMarketValue(env, deal.trade) : null;
+  const carTarget = carCompTarget(deal);
+  const market = carTarget
+    ? await compareListings(env, carTarget, deal.state)
+    : { status: 'skipped', reason: 'new or used wasn\'t specified, so no listings search was run.' };
+  const t = deal.trade;
+  const tradeMarket = t.has
+    ? await compareListings(env, { kind: 'trade', year: t.year, make: t.make, model: t.model, miles: t.miles }, deal.state)
+    : null;
 
   let draft = buildDraft(deal, { market, tradeMarket });
   let draftError = null;
@@ -9996,6 +10123,7 @@ async function adminDealReviewPhoto(request, env, params) {
 
 async function cleanupDealReviewUploads(env) {
   await ensureDealReviewTables(env);
+  await env.DB.prepare(`DELETE FROM deal_review_comps_cache WHERE created_at < datetime('now', '-2 days')`).run();
   const { results } = await env.DB.prepare(
     `SELECT token, photo_key FROM deal_review_uploads WHERE created_at < datetime('now', '-2 days')`
   ).all();

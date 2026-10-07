@@ -377,3 +377,11 @@ CREATE TABLE deal_review_uploads (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX idx_deal_review_uploads_ip ON deal_review_uploads (ip_hash, created_at);
+
+-- 24h cache of Marketcheck active listings for the Deal Review comparison.
+CREATE TABLE IF NOT EXISTS deal_review_comps_cache (
+  cache_key TEXT PRIMARY KEY,
+  listings_json TEXT NOT NULL,
+  num_found INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
