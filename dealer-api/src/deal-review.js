@@ -234,7 +234,13 @@ export function normalizeDeal(raw = {}) {
       mileage: car.condition === 'used' ? wholeMiles(car.mileage) : null,
       vin: normalizeVin(car.vin),
     },
-    price: { msrp: num(price.msrp), selling: num(price.selling) },
+    // MSRP is for new cars; a used car's reference price is its listing
+    // (advertised) price. Each is only kept for its own condition.
+    price: {
+      msrp: car.condition === 'used' ? null : num(price.msrp),
+      listing: car.condition === 'used' ? num(price.listing) : null,
+      selling: num(price.selling),
+    },
     docFee: num(raw.docFee),
     fees: fees.slice(0, 25)
       .map((f) => ({ name: str(f?.name, 80), amount: num(f?.amount) }))
@@ -438,21 +444,25 @@ function noCompsLine(m) {
 }
 
 function priceSection(deal, market) {
-  const { msrp, selling } = deal.price;
+  const { selling } = deal.price;
+  // New: compare to MSRP. Used: compare to the listing (advertised) price.
+  const used = deal.car.condition === 'used';
+  const ref = used ? deal.price.listing : deal.price.msrp;
+  const refName = used ? 'the listing price' : 'MSRP';
   const lines = [];
-  if (msrp > 0 && selling > 0) {
-    const diff = selling - msrp;
-    const p = (diff / msrp) * 100;
+  if (ref > 0 && selling > 0) {
+    const diff = selling - ref;
+    const p = (diff / ref) * 100;
     lines.push(diff <= 0
-      ? `Selling price ${money(selling)} is ${money(-diff)} under MSRP ${money(msrp)} (${pct1(p)}).`
-      : `Selling price ${money(selling)} is ${money(diff)} over MSRP ${money(msrp)} (${pct1(p)}).`);
+      ? `Selling price ${money(selling)} is ${money(-diff)} under ${refName} ${money(ref)} (${pct1(p)}).`
+      : `Selling price ${money(selling)} is ${money(diff)} over ${refName} ${money(ref)} (${pct1(p)}).`);
   } else if (selling > 0) {
-    lines.push(`Selling price ${money(selling)}. No MSRP entered, so no MSRP comparison.`);
+    lines.push(`Selling price ${money(selling)}. No ${used ? 'listing price' : 'MSRP'} entered, so no ${used ? 'listing price' : 'MSRP'} comparison.`);
   } else {
     lines.push('No selling price entered.');
   }
   const flags = [];
-  if (msrp > 0 && selling > msrp) flags.push(`selling price is ${money(selling - msrp)} over MSRP`);
+  if (ref > 0 && selling > ref) flags.push(`selling price is ${money(selling - ref)} over ${refName}`);
 
   if (market?.status === 'ok' && market.manual) {
     const v = marketVerdict(selling, market.average);
@@ -716,7 +726,9 @@ export function dealSummaryLines(deal) {
   L.push(`Vehicle: ${deal.car.condition ? deal.car.condition + ' ' : ''}${vehicleLabel(deal.car)}`);
   if (deal.car.mileage) L.push(`Mileage: ${deal.car.mileage.toLocaleString('en-US')} miles`);
   if (deal.car.vin) L.push(`VIN: ${deal.car.vin}`);
-  L.push(`MSRP: ${money(deal.price.msrp)} · Selling price: ${money(deal.price.selling)}`);
+  L.push(deal.car.condition === 'used'
+    ? `Listing price: ${money(deal.price.listing)} · Selling price: ${money(deal.price.selling)}`
+    : `MSRP: ${money(deal.price.msrp)} · Selling price: ${money(deal.price.selling)}`);
   L.push(`Doc fee: ${money(deal.docFee)}`);
   for (const f of deal.fees) L.push(`Fee/add-on: ${f.name || 'Unnamed'} ${money(f.amount)}`);
   if (deal.trade.has) {

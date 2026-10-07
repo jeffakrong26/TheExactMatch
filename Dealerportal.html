@@ -3816,7 +3816,9 @@ function drDealText(r) {
   const L = [];
   L.push(`${c.condition ? c.condition[0].toUpperCase() + c.condition.slice(1) + ' ' : ''}${[c.year, c.make, c.model, c.trim].filter(Boolean).join(' ')}`);
   L.push(`Mileage: ${c.mileage ? Number(c.mileage).toLocaleString('en-US') + ' mi' : (c.condition === 'used' ? 'not entered' : 'n/a (new)')} · VIN: ${c.vin || 'not provided'}`);
-  L.push(`MSRP ${drMoney(d.price.msrp)} · Selling ${drMoney(d.price.selling)}`);
+  L.push(c.condition === 'used'
+    ? `Listing price ${drMoney(d.price.listing)} · Selling ${drMoney(d.price.selling)}`
+    : `MSRP ${drMoney(d.price.msrp)} · Selling ${drMoney(d.price.selling)}`);
   L.push(`Doc fee ${drMoney(d.docFee)}`);
   (d.fees || []).forEach(f => L.push(`  ${f.name || 'Item'}: ${drMoney(f.amount)}`));
   L.push(t.has ? `Trade: ${[t.year, t.make, t.model].filter(Boolean).join(' ')}${t.miles ? ', ' + Number(t.miles).toLocaleString() + ' mi' : ''} · payoff ${drMoney(t.payoff)} · offer ${drMoney(t.offer)}` : 'Trade: none');
