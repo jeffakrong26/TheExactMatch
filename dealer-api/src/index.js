@@ -9831,6 +9831,7 @@ const EXTRACT_BUYERS_ORDER_TOOL = {
       mileage: { ...nullable('integer'), description: 'Odometer reading of the vehicle being bought, if printed' },
       vin: { type: 'string', description: 'The 17-character VIN of the vehicle being bought, exactly as printed; empty string if not shown or not fully legible' },
       msrp: nullable('number'),
+      listing_price: { ...nullable('number'), description: 'Advertised / internet / listed price of the vehicle if printed separately from the selling price (mostly on used cars)' },
       selling_price: nullable('number'),
       doc_fee: nullable('number'),
       fees: {
@@ -9858,7 +9859,7 @@ const EXTRACT_BUYERS_ORDER_TOOL = {
       lease_miles_per_year: nullable('integer'),
       dealer_name: { type: 'string' },
     },
-    required: ['readable', 'condition', 'year', 'make', 'model', 'trim', 'mileage', 'vin', 'msrp', 'selling_price', 'doc_fee', 'fees',
+    required: ['readable', 'condition', 'year', 'make', 'model', 'trim', 'mileage', 'vin', 'msrp', 'listing_price', 'selling_price', 'doc_fee', 'fees',
       'trade_has', 'trade_year', 'trade_make', 'trade_model', 'trade_miles', 'trade_payoff', 'trade_offer',
       'payment_method', 'down_payment', 'apr', 'term_months', 'monthly_payment', 'lease_miles_per_year', 'dealer_name'],
     additionalProperties: false,
@@ -9879,7 +9880,7 @@ function extractedToDeal(x) {
   if (!x) return null;
   return {
     car: { condition: x.condition, year: x.year, make: x.make, model: x.model, trim: x.trim, mileage: x.mileage, vin: x.vin },
-    price: { msrp: x.msrp, selling: x.selling_price },
+    price: { msrp: x.msrp, listing: x.listing_price, selling: x.selling_price },
     docFee: x.doc_fee,
     fees: (x.fees || []).map(f => ({ name: f.name, amount: f.amount })),
     trade: {

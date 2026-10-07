@@ -117,6 +117,17 @@ assert.equal(excludeReason(L(2, 2025, 5, 1, { trim: 'XSE' }), { kind: 'trade', y
 const rerun = applyMarketResult(usedDeal, buildDraft(usedDeal, { market: { status: 'thin' } }), { ...sum, trimOverride: 'SE' });
 assert.equal(rerun.verdict_basis, 'market');
 assert.match(rerun.sections.price.body, /Compared against the SE trim \(chosen by a team member; the trim entered was SE\)/);
+// Used cars compare to the listing price, new cars to MSRP; each field is
+// only kept for its own condition.
+const usedL = normalizeDeal({ car: { condition: 'used' }, price: { msrp: '40000', listing: '27,995', selling: '28500' } });
+assert.equal(usedL.price.msrp, null); assert.equal(usedL.price.listing, 27995);
+const usedLDraft = buildDraft(usedL, { market: { status: 'thin' } });
+assert.match(usedLDraft.sections.price.body, /Selling price \$28,500 is \$505 over the listing price \$27,995 \(\+1\.8%\)\./);
+assert.ok(usedLDraft.flags.includes('selling price is $505 over the listing price'));
+assert.match(buildDraft(normalizeDeal({ car: { condition: 'used' }, price: { selling: '28500' } }), {}).sections.price.body, /No listing price entered/);
+const newM = normalizeDeal({ car: { condition: 'new' }, price: { msrp: '40000', listing: '1', selling: '39000' } });
+assert.equal(newM.price.listing, null);
+assert.match(buildDraft(newM, {}).sections.price.body, /\$1,000 under MSRP \$40,000/);
 console.log(d2.sections.price.body);
 console.log(draft.sections.payment.body);
 console.log('deal-review selftest: ok');

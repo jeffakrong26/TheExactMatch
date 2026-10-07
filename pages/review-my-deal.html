@@ -193,9 +193,11 @@
 
         <section class="sf-step" data-step="price" data-title="The price">
           <h2>The price</h2>
-          <p class="sf-help">Both are on your buyer's order.</p>
-          <label class="sf-field"><span>MSRP</span><input name="price.msrp" inputmode="decimal" placeholder="$38,500" autocomplete="off"/></label>
-          <label class="sf-field"><span>Selling price</span><input name="price.selling" inputmode="decimal" placeholder="$37,200" autocomplete="off"/></label>
+          <p class="sf-help" data-sf-show="car.condition=new,">Both are on your buyer's order.</p>
+          <p class="sf-help" data-sf-show="car.condition=used">The listing price is what the car was advertised at. The selling price is on your buyer's order.</p>
+          <label class="sf-field" data-sf-show="car.condition=new,"><span>MSRP</span><input name="price.msrp" inputmode="decimal" placeholder="$38,500" autocomplete="off"/></label>
+          <label class="sf-field" data-sf-show="car.condition=used"><span>Listing price</span><input name="price.listing" inputmode="decimal" placeholder="$27,995" autocomplete="off"/></label>
+          <label class="sf-field"><span>Selling price</span><input name="price.selling" inputmode="decimal" placeholder="The price you agreed to" autocomplete="off"/></label>
         </section>
 
         <section class="sf-step" data-step="fees" data-title="Fees &amp; add-ons">
@@ -344,7 +346,10 @@
         ...(c.condition === 'used' ? [['Mileage', milesOk(c.mileage) ? Number(String(c.mileage).replace(/,/g, '')).toLocaleString('en-US') + ' miles' : '']] : []),
         ['VIN', (c.vin || '').toUpperCase(), 'Not provided'],
       ] },
-      { step: 'price', title: 'The price', rows: [['MSRP', money(d.price?.msrp)], ['Selling price', money(d.price?.selling)]] },
+      { step: 'price', title: 'The price', rows: [
+        c.condition === 'used' ? ['Listing price', money(d.price?.listing)] : ['MSRP', money(d.price?.msrp)],
+        ['Selling price', money(d.price?.selling)],
+      ] },
       { step: 'fees', title: 'Fees & add-ons', rows: [
         ['Doc fee', money(d.docFee)],
         ...(d.fees || []).filter((f) => f.name || f.amount).map((f) => [f.name || 'Item', money(f.amount)]),
@@ -401,7 +406,8 @@
         : !/^(19|20)\d\d$/.test(d.car.year) ? 'Choose the year.'
         : !d.car.make || !d.car.model ? 'Choose the make and model.' : checkMileageAndVin(d.car)),
       price: (d) => (num(d.price.selling) === null ? 'Enter the selling price.'
-        : d.price.msrp && num(d.price.msrp) === null ? 'MSRP should be a number.' : null),
+        : d.car.condition !== 'used' && d.price.msrp && num(d.price.msrp) === null ? 'MSRP should be a number.'
+        : d.car.condition === 'used' && d.price.listing && num(d.price.listing) === null ? 'Listing price should be a number.' : null),
       trade: (d) => (!d.trade.has ? 'Choose Yes or No.' : null),
       payment: (d) => (!d.payment.method ? 'Choose Cash, Finance or Lease.' : null),
       dealer: (d) => (!d.dealer.timing ? 'Choose when you\'re buying.' : null),
@@ -526,7 +532,13 @@
           mileage: d.car.condition === 'used' ? String(d.car.mileage || '').replace(/,/g, '') : '',
           vin: (d.car.vin || '').trim().toUpperCase(),
         },
-        price: d.price, docFee: d.docFee,
+        // Only the reference price that fits the car: MSRP (new) or listing price (used).
+        price: {
+          selling: d.price.selling,
+          msrp: d.car.condition === 'used' ? '' : d.price.msrp,
+          listing: d.car.condition === 'used' ? d.price.listing : '',
+        },
+        docFee: d.docFee,
         fees: (d.fees || []).filter((f) => f.name || f.amount),
         trade: hasTrade ? { ...t, has: true } : { has: false },
         payment: {
