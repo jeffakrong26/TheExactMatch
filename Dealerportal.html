@@ -193,6 +193,24 @@
     .tab-btn:hover:not(.active){color:var(--navy)}
     .tab-badge{display:none;position:absolute;top:.1rem;right:.4rem;background:#E0293E;color:#fff;font-size:.62rem;font-weight:700;line-height:1;min-width:1.1rem;height:1.1rem;border-radius:1rem;padding:0 .3rem;align-items:center;justify-content:center;letter-spacing:0}
     .tab-badge.show{display:flex}
+    /* Deal Reviews (admin) */
+    .dr-card{background:var(--white);border:1px solid var(--border);border-radius:3px;margin-bottom:1rem}
+    .dr-card-head{display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:start;padding:1.25rem 1.5rem;cursor:pointer}
+    .dr-card-body{border-top:1px solid var(--border);padding:1.25rem 1.5rem;display:none}
+    .dr-card.open .dr-card-body{display:block}
+    .dr-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:1.5rem}
+    @media(max-width:860px){.dr-grid{grid-template-columns:1fr}}
+    .dr-deal{font-size:.8rem;line-height:1.7;color:var(--navy);background:var(--beige);border:1px solid var(--border);border-radius:3px;padding:.9rem 1rem;white-space:pre-wrap;margin:0}
+    .dr-photo{max-width:100%;border:1px solid var(--border);border-radius:3px;margin-top:.75rem}
+    .dr-section{margin-bottom:1rem}
+    .dr-section label{display:flex;justify-content:space-between;font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gray);margin-bottom:.35rem}
+    .dr-section textarea{width:100%;min-height:90px;font-family:'Jost',sans-serif;font-size:.85rem;line-height:1.6;color:var(--navy);padding:.7rem .85rem;border:1px solid var(--border);border-radius:2px;resize:vertical}
+    .dr-section.needs-input textarea{border-color:var(--amber);background:rgba(146,96,10,.05)}
+    .dr-needs{color:var(--amber)}
+    .dr-market{display:grid;grid-template-columns:1fr 1.4fr;gap:.5rem;margin-bottom:.5rem}
+    .dr-market input,.dr-verdict-select{font-family:'Jost',sans-serif;font-size:.85rem;padding:.55rem .7rem;border:1px solid var(--border);border-radius:2px;width:100%}
+    .dr-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem;align-items:center}
+    .dr-msg{font-size:.8rem;margin-left:.25rem}
     .tab-panel{display:none}.tab-panel.active{display:block}
     .subtabs .tab-bar{margin-bottom:1.75rem}
     .status-sold{background:rgba(26,71,49,.12);color:var(--green)}
@@ -761,6 +779,7 @@
       <button class="tab-btn" onclick="switchTab('tab-submissions')">Weekly Finds Submissions<span class="tab-badge" data-section="newsletter"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-messages')">Messages<span class="tab-badge" data-section="messages"></span></button>
       <button class="tab-btn" onclick="switchTab('tab-recent-matches')">Recent Matches</button>
+      <button class="tab-btn" onclick="switchTab('tab-deal-reviews')">Deal Reviews<span class="tab-badge" data-section="deal_reviews"></span></button>
     </div>
 
     <!-- Tab: Submissions -->
@@ -1095,6 +1114,19 @@
       <div id="admin-subs-list"></div>
     </div>
 
+    <!-- Tab: Deal Reviews — free /review-my-deal submissions. Each arrives
+         with an auto-generated draft; nothing is emailed to the visitor
+         until Approve & Send here. Market comparisons are manual research
+         (see the "Free Deal Review" section in dealer-api/src/index.js). -->
+    <div class="tab-panel" id="tab-deal-reviews">
+      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;border-bottom:none;padding-bottom:0;margin-bottom:1.5rem">
+        <span>Deal Reviews</span>
+        <button class="btn-primary btn-sm" style="width:auto" onclick="loadAdminDealReviews()">Refresh</button>
+      </div>
+      <div id="admin-deal-reviews-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
+      <div id="admin-deal-reviews-list"></div>
+    </div>
+
     <!-- Tab: Messages -->
     <div class="tab-panel" id="tab-messages">
       <div class="section-label">Contact Messages</div>
@@ -1330,6 +1362,7 @@ function showView(id) {
     loadAdminInvites();
     loadAdminPartnerApplications();
     loadAdminRecentMatches();
+    loadAdminDealReviews();
     startNotificationPolling();
   } else if (notificationPollHandle) {
     clearInterval(notificationPollHandle);
@@ -2175,14 +2208,12 @@ async function submitNetworkInterest(id) {
 
 // ── ADMIN ─────────────────────────────────────────────────────
 function switchTab(tabId) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    const panels = document.querySelectorAll('.tab-panel');
-    b.classList.remove('active');
-    if (panels[i]) panels[i].classList.remove('active');
-  });
-  const tabIndex = ['tab-find-leads','tab-leads','tab-reports','tab-saved-searches','tab-dealers','tab-submissions','tab-messages','tab-recent-matches'].indexOf(tabId);
-  document.querySelectorAll('.tab-btn')[tabIndex]?.classList.add('active');
-  document.getElementById(tabId)?.classList.add('active');
+  // Scoped to the admin dashboard's own tab bar and panels — the page also
+  // has dealer-view sub-tabs using the same classes.
+  const admin = document.getElementById('view-admin');
+  const buttons = admin.querySelectorAll(':scope > .content-area > .tab-bar > .tab-btn');
+  buttons.forEach(b => b.classList.toggle('active', b.getAttribute('onclick') === `switchTab('${tabId}')`));
+  admin.querySelectorAll(':scope > .content-area > .tab-panel').forEach(p => p.classList.toggle('active', p.id === tabId));
   // Note: switching tabs never clears a badge — only reviewing/approving/
   // expanding a specific item does (see markItemSeen), so opening a tab
   // can't accidentally hide a submission nobody's actually looked at.
@@ -3750,6 +3781,218 @@ async function markVehicleReady(code, position, btn) {
     .catch(() => ({ res: { ok: false } }));
   if (res.ok) { toggleReportDetail(code); toggleReportDetail(code); }
   else { btn.disabled = false; btn.textContent = 'Mark as Ready'; }
+}
+
+// ── Deal Reviews (free /review-my-deal) ───────────────────────
+const DR_SECTION_ORDER = ['verdict', 'price', 'fees', 'trade', 'payment', 'pushback', 'upsell'];
+const DR_SECTION_TITLES = { verdict: 'Verdict', price: 'Price check', fees: 'Fee X-ray', trade: 'Trade-in', payment: 'Payment math', pushback: 'Top 3 push-back items', upsell: 'White Glove line' };
+const DR_VERDICTS = { good: 'Good deal', negotiable: 'Negotiable', walk: 'Walk away' };
+const DR_TIMING = { this_week: 'This week', this_month: 'This month', just_looking: 'Just looking' };
+let DEAL_REVIEWS = [];
+
+function drMoney(n) { return n === null || n === undefined || n === '' ? '—' : '$' + Number(n).toLocaleString('en-US'); }
+
+function drDealText(r) {
+  const d = r.deal, c = d.car, t = d.trade, p = d.payment;
+  const L = [];
+  L.push(`${c.condition ? c.condition[0].toUpperCase() + c.condition.slice(1) + ' ' : ''}${[c.year, c.make, c.model, c.trim].filter(Boolean).join(' ')}`);
+  L.push(`MSRP ${drMoney(d.price.msrp)} · Selling ${drMoney(d.price.selling)}`);
+  L.push(`Doc fee ${drMoney(d.docFee)}`);
+  (d.fees || []).forEach(f => L.push(`  ${f.name || 'Item'}: ${drMoney(f.amount)}`));
+  L.push(t.has ? `Trade: ${[t.year, t.make, t.model].filter(Boolean).join(' ')}${t.miles ? ', ' + Number(t.miles).toLocaleString() + ' mi' : ''} · payoff ${drMoney(t.payoff)} · offer ${drMoney(t.offer)}` : 'Trade: none');
+  if (p.method === 'finance') L.push(`Finance: ${drMoney(p.down)} down · ${p.apr ?? '—'}% · ${p.term ?? '—'} mo · quoted ${drMoney(p.monthly)}/mo`);
+  else if (p.method === 'lease') L.push(`Lease: ${drMoney(p.down)} down · ${drMoney(p.monthly)}/mo · ${p.term ?? '—'} mo · ${p.mileage ?? '—'} mi/yr`);
+  else L.push(p.method ? 'Cash' : 'Payment: not entered');
+  L.push(`Dealer: ${d.dealer.name || '—'} · Buying: ${DR_TIMING[d.dealer.timing] || '—'}`);
+  L.push(`State: ${r.state || '—'}`);
+  return L.join('\n');
+}
+
+function drStatusBadge(r) {
+  if (r.status === 'sent') return `<span class="status-badge status-approved">Sent</span>`;
+  if (r.status === 'rejected') return `<span class="status-badge status-rejected">Rejected</span>`;
+  return `<span class="status-badge status-pending">${r.draft ? 'Pending' : 'Drafting…'}</span>`;
+}
+
+function drCardHtml(r) {
+  const e = escapeHtmlJs;
+  const c = r.deal.car;
+  const vehicle = [c.year, c.make, c.model, c.trim].filter(Boolean).join(' ') || 'Vehicle not entered';
+  const pending = r.status === 'pending';
+  const draft = r.draft;
+  const sections = draft ? DR_SECTION_ORDER.map(k => {
+    const s = draft.sections[k] || { body: '' };
+    return `<div class="dr-section${s.needsInput ? ' needs-input' : ''}">
+      <label for="dr-${r.id}-${k}"><span>${DR_SECTION_TITLES[k]}</span>${s.needsInput ? '<span class="dr-needs">Needs input</span>' : ''}</label>
+      <textarea id="dr-${r.id}-${k}" data-section="${k}" ${pending ? '' : 'readonly'}>${e(s.body)}</textarea>
+    </div>`;
+  }).join('') : `<div style="font-size:.85rem;color:var(--gray)">The draft is still being generated. Refresh in a minute${pending ? ', or click Regenerate' : ''}.</div>`;
+  const market = draft && pending ? `
+    <div class="dr-section">
+      <label><span>Market research (manual)</span></label>
+      <div style="font-size:.78rem;color:var(--gray);margin-bottom:.5rem;line-height:1.55">No automated market lookup (classic.com's terms don't allow it). Enter a value you researched to recompute the verdict and price check — this replaces those sections' text. Leave blank to send "no market comparison found".</div>
+      <div class="dr-market"><input type="text" inputmode="decimal" placeholder="Market value ($)" data-market="market_value"/><input type="text" placeholder="Source / comps used" data-market="market_source"/></div>
+      ${r.deal.trade.has ? `<div class="dr-market"><input type="text" inputmode="decimal" placeholder="Trade-in market value ($)" data-market="trade_value"/><input type="text" placeholder="Source / comps used" data-market="trade_source"/></div>` : ''}
+    </div>` : '';
+  const verdictSelect = draft ? `
+    <div class="dr-section"><label><span>Verdict${draft.verdict_basis === 'qualitative' ? ' (not market-based)' : ''}</span></label>
+      <select class="dr-verdict-select" data-verdict ${pending ? '' : 'disabled'}>
+        ${Object.entries(DR_VERDICTS).map(([k, v]) => `<option value="${k}"${draft.verdict_key === k ? ' selected' : ''}>${v}</option>`).join('')}
+      </select></div>` : '';
+  const actions = pending ? `
+    <div class="dr-actions">
+      ${draft ? `<button class="btn-primary btn-sm" onclick="drSave(${r.id}, this)">Save draft</button>
+      <button class="btn-primary btn-sm btn-gold" onclick="drSend(${r.id}, this)">Approve &amp; Send</button>` : ''}
+      <button class="btn-primary btn-sm" onclick="drRegenerate(${r.id}, this)">Regenerate</button>
+      <button class="btn-primary btn-sm btn-danger" onclick="drReject(${r.id}, this)">Reject</button>
+      <span class="dr-msg" id="dr-msg-${r.id}"></span>
+    </div>` : `<div class="dr-actions"><span class="dr-msg" style="color:var(--gray)">${r.status === 'sent' ? 'Sent ' + formatDate(r.sent_at) + ' to ' + e(r.email) : 'Rejected ' + formatDate(r.rejected_at)}</span></div>`;
+  const newsletter = r.newsletter_opt_in && !r.newsletter_added
+    ? `<button class="btn-primary btn-sm" style="margin-top:.75rem" onclick="drNewsletter(${r.id}, this)">Add to newsletter list</button>` : '';
+  return `<div class="dr-card" id="dr-card-${r.id}">
+    <div class="dr-card-head" onclick="drToggle(${r.id})">
+      <div>
+        <div class="item-card-title">${e(r.name)} — ${e(vehicle)}</div>
+        <div class="item-card-sub">${e(r.email)}${r.phone ? ' · ' + e(r.phone) : ''}${r.state ? ' · ' + e(r.state) : ''}</div>
+        <div class="item-card-meta">
+          <span class="meta-pill">${r.source === 'photo' ? 'Photo' : 'Form'}</span>
+          ${draft ? `<span class="meta-pill">${DR_VERDICTS[draft.verdict_key] || ''}</span>` : ''}
+          ${r.deal.dealer.timing ? `<span class="meta-pill">${DR_TIMING[r.deal.dealer.timing]}</span>` : ''}
+          ${r.newsletter_opt_in ? `<span class="meta-pill">Opted in${r.newsletter_added ? ' ✓' : ' (not on list yet)'}</span>` : ''}
+          <span class="meta-pill" style="opacity:.6">${formatDate(r.created_at)}</span>
+        </div>
+      </div>
+      <div>${drStatusBadge(r)}</div>
+    </div>
+    <div class="dr-card-body">
+      <div class="dr-grid">
+        <div>
+          <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.5rem">What they sent</div>
+          <pre class="dr-deal">${e(drDealText(r))}</pre>
+          ${r.has_photo ? `<button class="btn-primary btn-sm" style="margin-top:.75rem" onclick="drShowPhoto(${r.id}, this)">Show buyer's order photo</button>` : ''}
+          ${newsletter}
+          ${r.draft_error ? `<div style="margin-top:.75rem;font-size:.8rem;color:var(--amber)">${e(r.draft_error)}</div>` : ''}
+        </div>
+        <div>
+          <div class="section-label" style="border-bottom:none;padding-bottom:0;margin-bottom:.5rem">Report draft</div>
+          ${verdictSelect}${market}${sections}${actions}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function loadAdminDealReviews() {
+  const loading = document.getElementById('admin-deal-reviews-loading');
+  const list = document.getElementById('admin-deal-reviews-list');
+  loading.style.display = 'block';
+  const open = new Set([...list.querySelectorAll('.dr-card.open')].map(el => el.id));
+  const { res, data } = await apiFetch('/admin/deal-reviews').catch(() => ({ res: { ok: false }, data: {} }));
+  loading.style.display = 'none';
+  if (!res.ok) { list.innerHTML = `<div class="empty-state"><div class="empty-state-text">Couldn't load deal reviews.</div></div>`; return; }
+  DEAL_REVIEWS = data.reviews || [];
+  list.innerHTML = DEAL_REVIEWS.length
+    ? DEAL_REVIEWS.map(drCardHtml).join('')
+    : '<div class="empty-state"><div class="empty-state-icon">📄</div><div class="empty-state-text">No deal reviews yet.</div></div>';
+  open.forEach(id => document.getElementById(id)?.classList.add('open'));
+}
+
+function drToggle(id) { document.getElementById(`dr-card-${id}`).classList.toggle('open'); }
+
+function drReplace(review) {
+  const i = DEAL_REVIEWS.findIndex(r => r.id === review.id);
+  if (i !== -1) DEAL_REVIEWS[i] = review;
+  const el = document.getElementById(`dr-card-${review.id}`);
+  el.outerHTML = drCardHtml(review);
+  document.getElementById(`dr-card-${review.id}`).classList.add('open');
+}
+
+function drMsg(id, text, ok) {
+  const el = document.getElementById(`dr-msg-${id}`);
+  if (el) { el.textContent = text; el.style.color = ok ? 'var(--green)' : 'var(--red)'; }
+}
+
+function drCollect(id) {
+  const card = document.getElementById(`dr-card-${id}`);
+  const body = { sections: {} };
+  card.querySelectorAll('textarea[data-section]').forEach(t => { body.sections[t.dataset.section] = t.value; });
+  card.querySelectorAll('[data-market]').forEach(i => { if (i.value.trim()) body[i.dataset.market] = i.dataset.market.endsWith('_value') ? i.value.replace(/[$,\s]/g, '') : i.value.trim(); });
+  const v = card.querySelector('[data-verdict]');
+  if (v) body.verdict_key = v.value;
+  return body;
+}
+
+async function drSave(id, btn) {
+  const body = drCollect(id);
+  if ((body.market_value || body.trade_value) && !confirm('Applying a market value rewrites the Verdict and Price check (and Trade-in, if entered). Continue?')) return;
+  btn.disabled = true;
+  const { res, data } = await apiFetch(`/admin/deal-reviews/${id}`, { method: 'PATCH', body: JSON.stringify(body) }).catch(() => ({ res: { ok: false }, data: {} }));
+  btn.disabled = false;
+  if (!res.ok) return drMsg(id, data.error || 'Save failed.', false);
+  drReplace(data.review);
+  drMsg(id, '✓ Saved.', true);
+}
+
+async function drSend(id, btn) {
+  const r = DEAL_REVIEWS.find(x => x.id === id);
+  const card = document.getElementById(`dr-card-${id}`);
+  const flagged = [...card.querySelectorAll('.dr-section.needs-input textarea')].map(t => DR_SECTION_TITLES[t.dataset.section]);
+  const warn = flagged.length ? `\n\nStill flagged as needing input: ${flagged.join(', ')}. Send anyway (e.g. with "no market comparison found")?` : '';
+  if (!confirm(`Email this report to ${r.email}?${warn}`)) return;
+  btn.disabled = true;
+  // Save whatever is in the boxes first, so what's sent is what's on screen.
+  const save = await apiFetch(`/admin/deal-reviews/${id}`, { method: 'PATCH', body: JSON.stringify(drCollect(id)) }).catch(() => ({ res: { ok: false }, data: {} }));
+  if (!save.res.ok) { btn.disabled = false; return drMsg(id, save.data.error || 'Save failed — not sent.', false); }
+  const { res, data } = await apiFetch(`/admin/deal-reviews/${id}/send`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
+  btn.disabled = false;
+  if (!res.ok) return drMsg(id, data.error || 'Send failed.', false);
+  loadAdminDealReviews();
+  loadNotificationCounts();
+}
+
+async function drReject(id, btn) {
+  if (!confirm('Reject this deal review? Nothing will be sent to the visitor.')) return;
+  btn.disabled = true;
+  const { res, data } = await apiFetch(`/admin/deal-reviews/${id}/reject`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
+  btn.disabled = false;
+  if (!res.ok) return drMsg(id, data.error || 'Reject failed.', false);
+  loadAdminDealReviews();
+  loadNotificationCounts();
+}
+
+async function drRegenerate(id, btn) {
+  if (!confirm('Regenerate the draft from scratch? Any edits will be lost.')) return;
+  btn.disabled = true; btn.textContent = 'Regenerating…';
+  const { res, data } = await apiFetch(`/admin/deal-reviews/${id}/regenerate`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
+  btn.disabled = false; btn.textContent = 'Regenerate';
+  if (!res.ok) return drMsg(id, data.error || 'Regenerate failed.', false);
+  drReplace(data.review);
+  drMsg(id, '✓ Regenerated.', true);
+}
+
+async function drNewsletter(id, btn) {
+  btn.disabled = true;
+  const { res, data } = await apiFetch(`/admin/deal-reviews/${id}/newsletter`, { method: 'POST' }).catch(() => ({ res: { ok: false }, data: {} }));
+  btn.disabled = false;
+  if (!res.ok) { alert(data.error || 'Failed.'); return; }
+  loadAdminDealReviews();
+}
+
+// The photo endpoint needs the bearer token, so it can't be a plain <img src>.
+async function drShowPhoto(id, btn) {
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/admin/deal-reviews/${id}/photo`, { headers: { Authorization: `Bearer ${authToken}` } });
+    if (!res.ok) throw new Error();
+    const img = document.createElement('img');
+    img.className = 'dr-photo';
+    img.alt = "Buyer's order";
+    img.src = URL.createObjectURL(await res.blob());
+    btn.replaceWith(img);
+  } catch (_) {
+    btn.disabled = false;
+    btn.textContent = 'Photo unavailable';
+  }
 }
 
 async function loadAdminMessages() {

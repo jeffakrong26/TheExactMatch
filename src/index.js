@@ -64,6 +64,7 @@ const NAV_ICONS = {
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   doc: '<path d="M6 3.5h8L19 8.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M14 3.5V9h5"/>',
   mail: '<rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/><path d="M4 6.5l8 6.5 8-6.5"/>',
+  check: '<path d="M6 3.5h8L19 8.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M8.5 14l2.5 2.5 4.5-5"/>',
 };
 const svgIcon = (name) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${NAV_ICONS[name] || ''}</svg>`;
@@ -78,7 +79,13 @@ const svgIcon = (name) =>
 const NAV_GROUPS = [
   {
     key: 'find', label: 'Find a Car',
-    featured: { page: 'findmycar', href: '/find-my-car', icon: 'search', title: 'Find My Car — Free', desc: '3 real matches in 24 hours' },
+    // Two featured entries here: both are free, high-intent starting points
+    // for the same buyer (finding the car, then checking the deal before
+    // signing). `featured` takes one link or an array of them.
+    featured: [
+      { page: 'findmycar', href: '/find-my-car', icon: 'search', title: 'Find My Car — Free', desc: '3 real matches in 24 hours' },
+      { page: 'reviewmydeal', href: '/review-my-deal', icon: 'check', title: 'Free Deal Review', desc: 'Check your numbers before you sign' },
+    ],
     links: [
       { page: 'carbuyingconcierge', href: '/car-buying-concierge', icon: 'concierge', title: 'Car Buying Concierge', desc: 'The full concept, explained.' },
       { page: 'carbroker', href: '/car-broker', icon: 'key', title: 'Car Broker', desc: 'How broker terms map to what we do.' },
@@ -115,8 +122,10 @@ const NAV_PHONE = { href: 'tel:5126509328', label: '(512) 650-9328' };
 const NAV_DEALERS = { page: 'dealers', href: '/dealers', label: 'For Dealers' };
 const NAV_LOGIN = { href: '/Dealerportal.html', label: 'Login' };
 
+const featuredLinks = (group) => (group.featured ? [].concat(group.featured) : []);
+
 const groupIsActive = (group, activePage) =>
-  group.page === activePage || group.featured?.page === activePage || group.links.some((l) => l.page === activePage);
+  group.page === activePage || featuredLinks(group).some((l) => l.page === activePage) || group.links.some((l) => l.page === activePage);
 
 const panelLinkHtml = (link, feature = false) => `<a class="panel-link${feature ? ' panel-feature' : ''}" href="${link.href}">
           <span class="icon">${svgIcon(link.icon)}</span>
@@ -139,7 +148,7 @@ function renderDesktopNav(activePage) {
           ${group.links.map((l) => panelLinkHtml(l)).join('\n          ')}
         </div>`
       : `<div class="panel-grid cols-2">
-          ${panelLinkHtml(group.featured, true)}
+          ${featuredLinks(group).map((l) => panelLinkHtml(l, true)).join('\n          ')}
           ${group.links.map((l) => panelLinkHtml(l)).join('\n          ')}
         </div>`;
     return `<div class="nav-item">
@@ -176,7 +185,7 @@ function renderDesktopNav(activePage) {
 
 function renderMobileMenu() {
   const accordionHtml = NAV_GROUPS.map((group) => {
-    const allLinks = group.featured ? [group.featured, ...group.links] : group.links;
+    const allLinks = [...featuredLinks(group), ...group.links];
     return `<div class="accordion-item">
     <button class="accordion-trigger" data-target="${group.key}">
       ${group.label}
@@ -504,6 +513,15 @@ const VIEWS = [
         },
       ],
     },
+  },
+  {
+    path: '/review-my-deal',
+    page: 'reviewmydeal',
+    file: '/pages/review-my-deal.html',
+    lastmod: '2026-10-07',
+    title: 'Free Deal Review — Check Your Car Deal Before You Sign | TheExactMatch',
+    description:
+      "Send us your buyer's order before you sign. We check the price, fees, trade-in and payment math and tell you what to push back on. Free, within 24 hours.",
   },
   {
     path: '/about',
@@ -1575,12 +1593,13 @@ export default {
       return handleGuideSignup(request, env, url);
     }
 
-    // Deal Review has no page yet, but its URL is printed in the Dealer Email
-    // Scripts PDF and linked from the welcome email — so it has to resolve
-    // from day one. 302 (temporary, not cached as permanent) to Contact until
-    // the real page exists; replace this with a VIEWS entry then.
+    // /deal-review is printed in the Dealer Email Scripts PDF and linked
+    // from its welcome email. The free review now lives at /review-my-deal
+    // (hyphenated like every other route). Still a 302, not a 301: the PDF
+    // and email describe a paid $49.99 Deal Review, which isn't the same
+    // offer — keep this temporary until that copy is reconciled.
     if (pathname === '/deal-review') {
-      return Response.redirect(`${url.origin}/contact${url.search}`, 302);
+      return Response.redirect(`${url.origin}/review-my-deal${url.search}`, 302);
     }
 
     if (pathname === '/sitemap.xml') {
