@@ -345,6 +345,20 @@ export function matchTrim(available, trim) {
   return available.find((f) => normTrim(f.trim) === want)?.trim || null;
 }
 
+// One listing's reason for being left out of the comparison, or null if it
+// qualifies. Same rules as selectComps (minus de-duplication).
+export function excludeReason(l, target) {
+  const win = target.kind === 'new' ? null : usedCompWindow(target.year, target.miles);
+  if (!(l.price > 0)) return 'no price';
+  if (l.sellerType && l.sellerType !== 'dealer') return 'private party';
+  if (target.kind !== 'trade' && normTrim(l.trim) !== normTrim(target.trim)) return `other trim${l.trim ? ': ' + l.trim : ''}`;
+  if (target.kind === 'new') return l.year === target.year ? null : 'other year';
+  if (l.miles === null || l.miles === undefined) return 'no mileage';
+  if (!(l.year >= win.yearMin && l.year <= win.yearMax)) return 'outside year window';
+  if (l.miles < win.milesMin || l.miles > win.milesMax) return 'outside mileage window';
+  return null;
+}
+
 // Why listings didn't make it into the comparison — shown in admin so a
 // thin result can be diagnosed instead of guessed at.
 export function explainSelection(listings, target) {

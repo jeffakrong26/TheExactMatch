@@ -1,7 +1,7 @@
 // Sanity checks for the deterministic Deal Review math (src/deal-review.js).
 // Run: node dealer-api/scripts/deal-review-selftest.mjs
 import assert from 'node:assert/strict';
-import { parseTrimFacets, matchTrim, explainSelection, applyMarketResult, usedCompWindow, selectComps, summarizeComps, normalizeVin, marketVerdict, monthlyPayment, principalFromPayment, checkDocFee, classifyFee, normalizeDeal, buildDraft, applyManualMarket } from '../src/deal-review.js';
+import { excludeReason, parseTrimFacets, matchTrim, explainSelection, applyMarketResult, usedCompWindow, selectComps, summarizeComps, normalizeVin, marketVerdict, monthlyPayment, principalFromPayment, checkDocFee, classifyFee, normalizeDeal, buildDraft, applyManualMarket } from '../src/deal-review.js';
 
 // Verdict thresholds: <= -5% good, >= +3% walk, between negotiable.
 assert.equal(marketVerdict(95000, 100000).key, 'good');
@@ -107,6 +107,13 @@ assert.equal(matchTrim(parseTrimFacets({ trim: [{ item: 'SE Hybrid', count: 4 }]
 assert.deepEqual(parseTrimFacets(null), []);
 const why = explainSelection(listings, { kind: 'used', year: 2021, miles: 30000, trim: 'SE' });
 assert.deepEqual(why, { returned: 11, noPrice: 1, privateParty: 1, wrongTrim: 1, outsideYears: 2, noMiles: 1, outsideMiles: 1, duplicate: 1 });
+const usedT = { kind: 'used', year: 2021, miles: 30000, trim: 'SE' };
+assert.equal(excludeReason(L(1, 2021, 30000, 25000), usedT), null);
+assert.equal(excludeReason(L(9, 2021, 30200, 99999, { trim: 'XSE' }), usedT), 'other trim: XSE');
+assert.equal(excludeReason(L(7, 2021, 30500, null), usedT), 'no price');
+assert.equal(excludeReason(L(4, 2021, 36000, 1), usedT), 'outside mileage window');
+assert.equal(excludeReason(L(5, 2019, 30100, 1), usedT), 'outside year window');
+assert.equal(excludeReason(L(2, 2025, 5, 1, { trim: 'XSE' }), { kind: 'trade', year: 2025, miles: 10 }), null); // trade ignores trim
 const rerun = applyMarketResult(usedDeal, buildDraft(usedDeal, { market: { status: 'thin' } }), { ...sum, trimOverride: 'SE' });
 assert.equal(rerun.verdict_basis, 'market');
 assert.match(rerun.sections.price.body, /Compared against the SE trim \(chosen by a team member; the trim entered was SE\)/);
