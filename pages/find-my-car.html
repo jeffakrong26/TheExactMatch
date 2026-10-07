@@ -88,6 +88,11 @@
                 <label class="sf-field"><span>Up to</span><input name="k.milesMax" inputmode="numeric" placeholder="40,000" autocomplete="off"/></label>
               </div>
             </div>
+            <div class="sf-grid">
+              <label class="sf-field"><span>Exterior color</span><select name="k.ext" data-colors="exterior"></select></label>
+              <label class="sf-field"><span>Interior color</span><select name="k.int" data-colors="interior"></select></label>
+            </div>
+            <p class="sf-field-hint ff-color-hint">Optional. We'll favor these colors when two cars are otherwise close, but we won't pass on a better car for color.</p>
           </section>
 
           <section class="sf-step" data-step="kbudget" data-title="Your budget">
@@ -152,6 +157,11 @@
                 <select name="g.condition"><option value="">Select…</option><option>New</option><option>Pre-Owned</option><option>Either</option></select>
               </label>
             </div>
+            <div class="sf-grid">
+              <label class="sf-field"><span>Exterior color</span><select name="g.ext" data-colors="exterior"></select></label>
+              <label class="sf-field"><span>Interior color</span><select name="g.int" data-colors="interior"></select></label>
+            </div>
+            <p class="sf-field-hint ff-color-hint">Optional. We'll favor these colors when two cars are otherwise close, but we won't pass on a better car for color.</p>
           </section>
 
           <section class="sf-step" data-step="gbudget" data-title="Budget">
@@ -388,6 +398,17 @@
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const priorities = () => Array.from(document.querySelectorAll('#ff-priority-grid input:checked')).map((cb) => cb.value);
 
+  // Basic color families. Must match dealer-api/src/colors.js, which maps
+  // each listing's marketing color name ("Rhapsody Blue Metallic") to these.
+  const COLORS = {
+    exterior: ['Black', 'White', 'Gray', 'Silver', 'Blue', 'Red', 'Green', 'Brown', 'Beige', 'Gold', 'Orange', 'Yellow', 'Purple'],
+    interior: ['Black', 'Gray', 'Beige/Tan', 'Brown', 'White/Cream', 'Red', 'Blue'],
+  };
+  document.querySelectorAll('select[data-colors]').forEach((sel) => {
+    sel.innerHTML = '<option value="">No preference</option>' + COLORS[sel.dataset.colors].map((c) => `<option>${c}</option>`).join('');
+  });
+  const colorText = (v) => v || 'No preference';
+
   const carPicker = new VehiclePicker(document.querySelector('[data-vp="kcar"]'), { name: 'k', levels: ['year', 'make', 'model', 'trim'], fetchOptions: fetchVehicleOptions });
   const tradePicker = new VehiclePicker(document.querySelector('[data-vp="ktrade"]'), { name: 'kt', levels: ['year', 'make', 'model'], fetchOptions: fetchVehicleOptions });
 
@@ -437,6 +458,7 @@
         preferred_make: d.k.make, preferred_model: d.k.model,
         year_min: d.k.year, year_max: d.k.year,
         considering: '', anything_else: '',
+        exterior_color_pref: d.k.ext, interior_color_pref: d.k.int,
       };
     }
     const financed = d.g.pay === 'Financing' || d.g.pay === 'Leasing';
@@ -456,6 +478,7 @@
       undecided: true,
       preferred_make: '', preferred_model: '', year_min: '', year_max: '',
       considering: '', anything_else: d.g.anything,
+      exterior_color_pref: d.g.ext, interior_color_pref: d.g.int,
     };
   }
 
@@ -472,6 +495,7 @@
           ['New or used', cap(k.condition)],
           ['Vehicle', [k.year, k.make, k.model, k.trim].filter(Boolean).join(' ')],
           ...(k.condition === 'used' ? [['Mileage', num(k.milesMax) !== null ? `${miles(k.milesMin) || '0'}–${miles(k.milesMax)} miles` : '']] : []),
+          ['Exterior color', colorText(k.ext)], ['Interior color', colorText(k.int)],
         ] },
         { step: 'kbudget', title: 'Budget', rows: [['Maximum', money(k.budget)]] },
         { step: 'ktrade', title: 'Trade-in', rows: k.trade === 'yes' ? [['Trade-in', knowTradeSummary(d)]] : [['Trade-in', k.trade === 'no' ? 'No' : '']] },
@@ -485,7 +509,7 @@
     }
     const g = d.g, financed = g.pay === 'Financing' || g.pay === 'Leasing';
     return [
-      { step: 'gcar', title: 'The car you want', rows: [['Vehicle type', g.vtype], ['Size', g.size], ['Condition', g.condition]] },
+      { step: 'gcar', title: 'The car you want', rows: [['Vehicle type', g.vtype], ['Size', g.size], ['Condition', g.condition], ['Exterior color', colorText(g.ext)], ['Interior color', colorText(g.int)]] },
       { step: 'gbudget', title: 'Budget', rows: [['Budget', [money(g.budgetMin), money(g.budgetMax)].filter(Boolean).join(' – ')], ['Max mileage', miles(g.maxMiles)]] },
       { step: 'gpay', title: 'Timing & payment', rows: [
         ['Timeline', g.timeline], ['Paying by', g.pay],

@@ -832,6 +832,7 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
   font:inherit;color:#fff;background:rgba(255,255,255,.06);border:1.5px solid rgba(212,180,122,.4);border-radius:14px;transition:border-color .15s,background .15s}
 .ff-path:hover,.ff-path:focus-visible{border-color:var(--gold);background:rgba(192,154,91,.12);outline:none}
 .ff-path-title{font-family:var(--font-head);font-weight:800;font-size:1.05rem}
+.ff-color-hint{margin:-.5rem 0 0}
 .ff-path-sub{font-size:.85rem;color:rgba(255,255,255,.6)}
 .success-cta{display:inline-block;margin-top:1.25rem;font-weight:600;font-size:.9rem;color:var(--gold2);text-decoration:underline;text-underline-offset:3px}
 #page-sell .sf{

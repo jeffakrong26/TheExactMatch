@@ -22,6 +22,8 @@ import {
   usedCompWindow, selectComps, summarizeComps, parseTrimFacets, parseFacetValues, matchTrim, explainSelection, excludeReason, applyMarketResult,
   VERDICT, SECTION_ORDER, SECTION_TITLES, TIMING_LABELS,
 } from './deal-review.js';
+// Find My Car color preference: basic families, used only to nudge ordering.
+import { cleanColorPref, colorBonusMiles } from './colors.js';
 
 function zipCentroid(zip) {
   return ZIP_CENTROIDS[(zip || '').trim()] || null;
@@ -1130,6 +1132,25 @@ async function adminContactMessages(request, env) {
 }
 
 // ── Public marketing-site form submissions ───────────────────────
+// Color preference columns (migrate-find-car-colors.sql), added on first use
+// so a deploy never waits on someone running the migration by hand. A
+// "duplicate column" error just means they already exist.
+let findCarColorColumnsReady = null;
+function ensureFindCarColorColumns(env) {
+  if (!findCarColorColumnsReady) {
+    findCarColorColumnsReady = (async () => {
+      for (const col of ['exterior_color_pref', 'interior_color_pref']) {
+        try {
+          await env.DB.prepare(`ALTER TABLE find_car_leads ADD COLUMN ${col} TEXT`).run();
+        } catch (err) {
+          if (!/duplicate column/i.test(String(err?.message || err))) throw err;
+        }
+      }
+    })().catch(err => { findCarColorColumnsReady = null; throw err; });
+  }
+  return findCarColorColumnsReady;
+}
+
 async function submitFindCarLead(request, env, params, dealer, token, ctx) {
   const body        = await request.json().catch(() => ({}));
   const first_name  = (body.first_name || '').trim();
@@ -1160,14 +1181,20 @@ async function submitFindCarLead(request, env, params, dealer, token, ctx) {
   const year_min = !undecided && Number.isFinite(yearMinParsed) ? yearMinParsed : null;
   const year_max = !undecided && Number.isFinite(yearMaxParsed) ? yearMaxParsed : null;
 
+  // Optional, and only the dropdown's own values; anything else is "no preference".
+  const exteriorColorPref = cleanColorPref(body.exterior_color_pref, 'exterior');
+  const interiorColorPref = cleanColorPref(body.interior_color_pref, 'interior');
+  await ensureFindCarColorColumns(env);
+
   const result = await env.DB.prepare(`
     INSERT INTO find_car_leads (
       first_name, last_name, email, phone, zip, vehicle_type, size_preference, condition,
       budget_min, budget_max, max_mileage, timeline, payment_method, credit_range, desired_monthly_min, desired_monthly_max, down_payment,
       priorities, current_vehicle, current_like, current_change,
       trade_in, specific_needs, considering, anything_else,
-      preferred_make, preferred_model, year_min, year_max, undecided, preferred_contact_method
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      preferred_make, preferred_model, year_min, year_max, undecided, preferred_contact_method,
+      exterior_color_pref, interior_color_pref
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     first_name, last_name, email, phone,
     (body.zip || '').trim(), body.vehicle_type || '', body.size_preference || '', body.condition || '',
@@ -1177,7 +1204,8 @@ async function submitFindCarLead(request, env, params, dealer, token, ctx) {
     body.priorities || '',
     (body.current_vehicle || '').trim(), (body.current_like || '').trim(), (body.current_change || '').trim(),
     body.trade_in || '', (body.specific_needs || '').trim(), (undecided ? '' : (body.considering || '')).trim(), (body.anything_else || '').trim(),
-    preferred_make, preferred_model, year_min, year_max, undecided ? 1 : 0, (body.preferred_contact_method || '').trim()
+    preferred_make, preferred_model, year_min, year_max, undecided ? 1 : 0, (body.preferred_contact_method || '').trim(),
+    exteriorColorPref, interiorColorPref
   ).run();
 
   const leadId = result.meta.last_row_id;
@@ -1389,6 +1417,7 @@ ${(lead.payment_method === 'Financing' || lead.payment_method === 'Leasing') ? `
 - Preferred model: ${lead.preferred_model || 'not specified'}
 - Preferred year range: ${(lead.year_min || lead.year_max) ? `${lead.year_min || 'any'}–${lead.year_max || 'any'}` : 'not specified'}
 - Other makes/models also open to: ${lead.considering || 'none stated'}
+- Color preference (nice-to-have only; never trade fit, price, or condition for it): exterior ${lead.exterior_color_pref || 'no preference'}, interior ${lead.interior_color_pref || 'no preference'}
 - Anything else: ${lead.anything_else || 'none stated'}`;
 }
 
@@ -1641,6 +1670,7 @@ function mapAutodevListing(raw, distanceMiles) {
     transmission: v.transmission || null,
     engine: v.engine || null,
     exterior_color: v.exteriorColor || null,
+    interior_color: v.interiorColor || null,
     price: r.price ?? null,
     mileage: r.miles ?? null,
     dealer_name: r.dealer || null,
@@ -1692,7 +1722,7 @@ async function searchAutodevPartnerInventory(env, dealer, { make, model, yearMin
 // radius ladder, no pool-size threshold. Sorted by distance from the
 // client's zip in-Worker, since Auto.dev doesn't support distance sort
 // server-side (confirmed in docs).
-async function searchAutodevListings(env, { make, model, trim, zip, yearMin, yearMax, priceMax, maxMileage, used, leadId, partnerDealers }) {
+async function searchAutodevListings(env, { make, model, trim, zip, yearMin, yearMax, priceMax, maxMileage, used, leadId, partnerDealers, colorPrefs }) {
   const clientCentroid = zipCentroid(zip);
 
   const baseParams = {
@@ -1769,11 +1799,15 @@ async function searchAutodevListings(env, { make, model, trim, zip, yearMin, yea
     }
   }
 
+  // A color match counts as a few miles closer (colors.js), so it only
+  // breaks near-ties. Nothing is filtered out, and the partner-dealer
+  // partition below still runs after this.
+  const effectiveMiles = (l) => l.distance_miles - colorBonusMiles(l, colorPrefs);
   mapped.sort((a, b) => {
     if (a.distance_miles == null && b.distance_miles == null) return 0;
     if (a.distance_miles == null) return 1;
     if (b.distance_miles == null) return -1;
-    return a.distance_miles - b.distance_miles;
+    return effectiveMiles(a) - effectiveMiles(b);
   });
 
   // Partner dealers rank first (exact dealerId match), distance-sorted
@@ -2708,6 +2742,7 @@ async function fetchListingPool(env, pick, lead, partnerDealers, tag) {
     yearMax: pick.year ? pick.year + 2 : undefined,
     priceMax: lead.budget_max, maxMileage: lead.max_mileage, used: leadUsedFilter(lead.condition),
     leadId: lead.id, partnerDealers,
+    colorPrefs: { exterior: lead.exterior_color_pref || null, interior: lead.interior_color_pref || null },
   });
   console.log(`[timing] ${tag} primary search: ${Date.now() - t0}ms, pool_size=${searchResult.listings?.length || 0}`);
   return { searchResult };
