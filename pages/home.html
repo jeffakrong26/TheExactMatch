@@ -166,8 +166,9 @@
     </div>
   </section>
 
-  <!-- 2. Free deal review: the other free, high-intent entry point. -->
-  <section class="hp-band hp-navy">
+  <!-- 2. Free deal review: the other free, high-intent entry point. Light,
+       so the light/dark alternation starts right under the (dark) hero. -->
+  <section class="hp-band hp-cream">
     <div class="hp-wrap hp-band-inner">
       <div>
         <p class="hp-eyebrow">Already have a deal?</p>
@@ -180,7 +181,7 @@
 
   <!-- 3. Services. Find My Car copy stays to the free search only:
        negotiation and paperwork are White Glove. -->
-  <section class="hp-section hp-cream">
+  <section class="hp-section hp-navy">
     <div class="hp-wrap">
       <div class="hp-head">
         <h2>Our Services.</h2>
@@ -216,7 +217,7 @@
   </section>
 
   <!-- 4. Featured match. Real White Glove deal; no client name, no fee. -->
-  <section class="hp-section hp-navy">
+  <section class="hp-section hp-cream">
     <div class="hp-wrap hp-featured">
       <img class="hp-featured-img"
            src="/images/home/vantage-960.webp"
@@ -226,21 +227,21 @@
       <div class="hp-featured-info">
         <p class="hp-eyebrow">Featured Match</p>
         <h2>2019 Aston Martin Vantage</h2>
-        <p class="hp-featured-miles">16,500 miles</p>
+        <p class="hp-featured-miles">16,900 miles</p>
         <div class="hp-prices">
-          <div><span class="hp-price-label">Asking</span><span class="hp-price hp-price-was">$99,997</span></div>
+          <div><span class="hp-price-label">Asking</span><span class="hp-price hp-price-was">$101,000</span></div>
           <span class="hp-price-arrow" aria-hidden="true">→</span>
-          <div><span class="hp-price-label">Final</span><span class="hp-price">$92,500</span></div>
+          <div><span class="hp-price-label">Final</span><span class="hp-price">$92,700</span></div>
         </div>
-        <p>A 2019 Vantage listed at $99,997. Our team negotiated the final price down to $92,500, a savings of $7,497. This is the kind of result White Glove delivers.</p>
-        <a class="hp-link hp-link-light" href="/white-glove#worked-example">See how White Glove works →</a>
+        <p class="hp-featured-body">A 2019 Vantage listed at $101,000. Our team negotiated the final price down to $92,700, a savings of $8,300. This is the kind of result White Glove delivers.</p>
+        <a class="hp-link" href="/white-glove#worked-example">See how White Glove works →</a>
       </div>
     </div>
   </section>
 
   <!-- 5. How it works. Steps 1-2 are the free search; anything beyond that
        is step 3's White Glove option, never implied as part of it. -->
-  <section class="hp-section hp-cream">
+  <section class="hp-section hp-navy">
     <div class="hp-wrap">
       <div class="hp-head">
         <h2>How It Works.</h2>
@@ -271,9 +272,9 @@
   </section>
 
   <!-- 6. Client reviews: the three already live on the site, unchanged. -->
-  <section class="hp-section hp-navy">
+  <section class="hp-section hp-cream">
     <div class="hp-wrap">
-      <div class="hp-head hp-head-light">
+      <div class="hp-head">
         <h2>What clients say.</h2>
       </div>
       <div class="hp-reviews">
@@ -295,7 +296,7 @@
   </section>
 
   <!-- 7. About + buyer's guides. -->
-  <section class="hp-section hp-cream">
+  <section class="hp-section hp-navy">
     <div class="hp-wrap">
       <div class="hp-about">
         <div>
@@ -344,18 +345,24 @@
     </div>
   </section>
 
-  <!-- 8. Final CTA. Navy placeholder until the background photo is
-       supplied; when it is, add it as a lazy <img class="hp-final-img">
-       before .hp-final-scrim. -->
+  <!-- 8. Final CTA (light). Section background is matched to the photo's
+       studio backdrop so the car sits in one continuous scene with the
+       copy; no scrim needed since the text never overlaps the car. -->
   <section class="hp-final">
-    <div class="hp-final-scrim"></div>
     <div class="hp-wrap hp-final-content">
-      <h2>Ready to find your match?</h2>
-      <p>Start with a free deal review, or tell us the car you want.</p>
-      <div class="hp-btn-row hp-btn-row-center">
-        <a class="hp-btn hp-btn-gold" href="/review-my-deal">Get a free deal review</a>
-        <a class="hp-btn hp-btn-outline-light" href="/find-my-car">Start your match</a>
+      <div class="hp-final-copy">
+        <h2>Ready to find your match?</h2>
+        <p>Start with a free deal review, or tell us the car you want.</p>
+        <div class="hp-btn-row">
+          <a class="hp-btn hp-btn-gold" href="/review-my-deal">Get a free deal review</a>
+          <a class="hp-btn hp-btn-outline-dark" href="/find-my-car">Start your match</a>
+        </div>
       </div>
+      <img class="hp-final-img"
+           src="/images/home/final-911-960.webp"
+           srcset="/images/home/final-911-640.webp 640w, /images/home/final-911-960.webp 960w, /images/home/final-911-1290.webp 1290w"
+           sizes="(min-width: 900px) 640px, 100vw" width="1290" height="580"
+           alt="White Porsche 911 in a studio" loading="lazy" decoding="async"/>
     </div>
   </section>
 

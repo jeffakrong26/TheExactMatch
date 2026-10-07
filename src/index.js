@@ -721,7 +721,7 @@ const VIEWS = [
     path: '/guides/aston-martin-vantage-v8',
     page: 'guide-astonmartinvantagev8',
     file: '/pages/guides/aston-martin-vantage-v8.html',
-    lastmod: '2026-08-31',
+    lastmod: '2026-10-07',
     title: 'Aston Martin Vantage V8 Buying Guide (2019+): Pricing & Known Issues | The Exact Match',
     description:
       "A real buyer's guide to the 2019+ Aston Martin Vantage V8 — specs, current market pricing, known issues, and what to check before you buy one.",
