@@ -279,7 +279,7 @@ const NEWSLETTER_POPUP_HTML = `<div id="nl-overlay" role="dialog" aria-modal="tr
 // see the comment on FOUNDER_CARD_PHOTO_NOTE in git history for why a
 // dedicated pre-crop exists instead of relying on object-position.
 const FOUNDER_CARD_HTML = `<div class="founder-card">
-  <img class="founder-card-photo" src="/images/jeff-headshot-compact.jpg" alt="Jeff Akrong"/>
+  <img class="founder-card-photo" src="/images/jeff-headshot-compact.jpg" alt="Jeff Akrong" width="76" height="76" loading="lazy" decoding="async"/>
   <div class="founder-card-body">
     <div class="founder-card-name">Jeff Akrong</div>
     <div class="founder-card-line">Dealership insider turned buyer's advocate — ex-Audi, Mercedes-Benz, Aston Martin, Rolls-Royce &amp; Bentley. Now entirely on your side, free.</div>
@@ -332,7 +332,7 @@ const VIEWS = [
     path: '/',
     page: 'home',
     file: '/pages/home.html',
-    lastmod: '2026-09-30',
+    lastmod: '2026-10-07',
     title: 'The Exact Match — We Find Your Exact Car | Car Buying Concierge in Austin, TX',
     description:
       'The Exact Match is a car-buying concierge in Austin, TX serving all 50 states. Tell us what you want — we search dealer networks and negotiate. Free search.',

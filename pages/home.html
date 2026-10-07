@@ -22,6 +22,11 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap"/></noscript>
   <link rel="stylesheet" href="/css/site.css"/>
+  <!-- Hero photo is the LCP element — fetch it alongside the CSS rather than
+       after layout. Same srcset/sizes as the <img> in .hp-hero. -->
+  <link rel="preload" as="image" type="image/webp" fetchpriority="high"
+        imagesrcset="/images/home/hero-car-640.webp 640w, /images/home/hero-car-960.webp 960w, /images/home/hero-car-1322.webp 1322w"
+        imagesizes="100vw"/>
 
   <!-- TEM "Get Started" hero button — adapted from a 21st.dev React component into
        plain HTML/CSS. No React, no Tailwind, no build step — drop straight into the
@@ -62,6 +67,10 @@
 
       isolation: isolate;
       position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
       overflow: hidden;
       cursor: pointer;
       outline-offset: 4px;
@@ -138,189 +147,239 @@
 
 <div class="page" id="page-home">
 
-  <!-- Hero — full-bleed photo fading to navy -->
-  <section class="home-hero">
-    <div class="home-hero-photo"></div>
-    <div class="home-hero-content">
-      <div class="home-wrap" style="padding:0">
-        <h1>We don't list cars.<br/>We find <strong>yours</strong>.</h1>
-        <p class="home-lede">Tell us what you want — we search dealer networks across the country so you don't have to sit through another sales pitch.</p>
-        <button class="tem-cta" onclick="window.location.href='/find-my-car'">
-          Get Started →
-        </button>
-        <div class="home-free-note">We'll find your car for free. Want the whole deal handled? <a href="/white-glove">Learn more about White&nbsp;Glove</a>.</div>
-        <div class="founder-card-slot" style="margin-top:24px"></div>
+  <!-- 1. Hero. Photo is a real <img> (not a CSS background) so it can be
+       preloaded, served as responsive WebP, and sized up front. -->
+  <section class="hp-hero">
+    <img class="hp-hero-img"
+         src="/images/home/hero-car-960.webp"
+         srcset="/images/home/hero-car-640.webp 640w, /images/home/hero-car-960.webp 960w, /images/home/hero-car-1322.webp 1322w"
+         sizes="100vw" width="1322" height="1024" alt="" fetchpriority="high" decoding="async"/>
+    <div class="hp-hero-scrim"></div>
+    <div class="hp-wrap hp-hero-content">
+      <h1>We don't list cars.<br/>We find yours.</h1>
+      <p class="hp-hero-sub">A car-buying concierge that works for you, not the dealer. Based in Austin, serving all 50 states.</p>
+      <div class="hp-btn-row">
+        <a class="tem-cta" href="/find-my-car">Find My Car →</a>
+        <a class="hp-btn hp-btn-outline-light" href="/sell-my-car">Sell My Car</a>
       </div>
+      <p class="hp-hero-note">We'll find your car for free. Want the whole deal handled? Learn more about <a href="/white-glove">White&nbsp;Glove</a>.</p>
     </div>
   </section>
 
-  <!-- Free Deal Review CTA — directly under the hero: the other free,
-       high-intent entry point, for buyers who already have a deal on the
-       table. Plain brass button, not the shimmer (that stays on the actual
-       form submit). -->
-  <section class="home-deal-review">
-    <div class="home-wrap home-deal-review-inner">
+  <!-- 2. Free deal review: the other free, high-intent entry point. -->
+  <section class="hp-band hp-navy">
+    <div class="hp-wrap hp-band-inner">
       <div>
-        <h2>Already have a deal? Get it reviewed free.</h2>
-        <p>Send us your buyer's order before you sign. We'll tell you what's fair, what's negotiable, and what to push back on.</p>
+        <p class="hp-eyebrow">Already have a deal?</p>
+        <h2>Get it reviewed free.</h2>
+        <p class="hp-band-body">Send us the numbers before you sign. We'll tell you what's fair, what's negotiable, and what to push back on.</p>
       </div>
-      <a class="home-hero-cta" href="/review-my-deal">Review my deal →</a>
+      <a class="hp-btn hp-btn-gold" href="/review-my-deal">Start free review →</a>
     </div>
   </section>
 
-  <div class="home-wrap">
-    <!-- Dealer-network trust line + brand strip -->
-    <section style="padding:56px 0 48px;text-align:center">
-      <p style="font-family:var(--font-body);font-weight:500;font-size:15px;color:var(--home-slate);margin:0 0 28px">Sourced from dealer networks carrying the world's finest brands</p>
-      <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:center;justify-content:center;opacity:.55">
-        <span class="home-mono">PORSCHE</span>
-        <span class="home-mono">FERRARI</span>
-        <span class="home-mono">LAMBORGHINI</span>
-        <span class="home-mono">MERCEDES-BENZ</span>
-        <span class="home-mono">AUDI</span>
-        <span class="home-mono">BMW</span>
+  <!-- 3. Services. Find My Car copy stays to the free search only:
+       negotiation and paperwork are White Glove. -->
+  <section class="hp-section hp-cream">
+    <div class="hp-wrap">
+      <div class="hp-head">
+        <h2>Our Services.</h2>
+        <p>Simple. Transparent. Built around you.</p>
       </div>
-      <p class="press-mention">As featured in <a href="https://voyagehouston.com/interview/community-highlights-meet-jeff-akrong-of-the-exact-match/" target="_blank" rel="noopener">Voyage Magazine</a></p>
-    </section>
-  </div>
-
-  <div class="home-wrap">
-    <!-- Client reviews -->
-    <section class="home-section" style="padding:20px 0 80px">
-      <div class="home-reviews-grid">
-        <div class="home-review-card">
-          <p>&ldquo;I told them what I wanted on a Tuesday. By the following Friday I was signing paperwork on the exact car.&rdquo;</p>
-          <div class="home-mono">CLIENT, AUSTIN TX</div>
+      <div class="hp-services">
+        <div class="hp-card">
+          <span class="hp-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M20 20l-5-5"/></svg>
+          </span>
+          <h3>Find My Car</h3>
+          <p>Tell us what you want. We search dealer networks nationwide and send you three matched options within 24 hours. Free, no obligation.</p>
+          <a class="hp-link" href="/find-my-car">Start your search →</a>
         </div>
-        <div class="home-review-card">
-          <p>&ldquo;No dealership visits, no back and forth. They handled the whole negotiation and I just showed up to sign.&rdquo;</p>
-          <div class="home-mono">CLIENT, HOUSTON TX</div>
-        </div>
-        <div class="home-review-card">
-          <p>&ldquo;They found a car I'd been searching for on my own for months, at a better price than I'd found anywhere.&rdquo;</p>
-          <div class="home-mono">CLIENT, AUSTIN TX</div>
+        <div class="hp-card">
+          <span class="hp-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12.5V4h8.5L21 13.5 13.5 21z"/><circle cx="7.5" cy="8.5" r="1.4"/></svg>
+          </span>
+          <h3>Sell My Car</h3>
+          <p>Multiple real offers, not one instant lowball. We send your car to dealers actively buying that segment and bring back real, competing offers within 24 hours. Pick the best one, or walk away.</p>
+          <a class="hp-link" href="/sell-my-car">Get your offers →</a>
         </div>
       </div>
-    </section>
-  </div>
-
-  <div class="home-wrap">
-    <!-- How it works -->
-    <section class="home-section">
-      <div class="home-section-head">
-        <h2>How it works</h2>
-        <p>Three steps, start to keys-in-hand. No dealership visits required until you're ready.</p>
-      </div>
-      <div class="home-steps">
-        <div class="home-step">
-          <span class="stub-num">STEP · 01</span>
-          <h3>Tell us the brief</h3>
-          <p>Make, model, budget, must-haves. Five minutes, no obligation.</p>
-        </div>
-        <div class="home-step">
-          <span class="stub-num">STEP · 02</span>
-          <h3>We search &amp; negotiate</h3>
-          <p>We work our dealer network for the exact car — and the right price.</p>
-        </div>
-        <div class="home-step">
-          <span class="stub-num">STEP · 03</span>
-          <h3>You review &amp; decide</h3>
-          <p>A clear comparison report. You choose. We handle the rest.</p>
+      <!-- Dealer-network trust line + brand strip (carried over from the
+           previous homepage). -->
+      <div class="hp-brands">
+        <p>Sourced from dealer networks carrying the world's finest brands</p>
+        <div class="hp-brand-row">
+          <span>Porsche</span><span>Ferrari</span><span>Lamborghini</span><span>Mercedes-Benz</span><span>Audi</span><span>BMW</span>
         </div>
       </div>
-    </section>
-
-    <!-- A recent match -->
-    <section class="home-section">
-      <div class="home-section-head">
-        <h2>A recent match</h2>
-        <p>This is what a match report looks like.</p>
-      </div>
-      <div class="home-featured">
-        <div class="home-photo-block" style="aspect-ratio:4/3;background-image:url('/aston-martin-vantage.jpg');background-size:cover;background-position:center"></div>
-        <div class="home-featured-info">
-          <h3>2019 Aston Martin Vantage S</h3>
-          <div class="rm-saved">$7,000 <span class="rm-saved-label">Saved</span></div>
-          <div class="rm-tags">
-            <span class="rm-tag">CPO Warranty Secured</span>
-          </div>
-          <a class="home-text-cta" href="/recent-matches/andy-vantage">View the full match →</a>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <!-- Where we're based — Texas depth as a feature, not the whole pitch,
-       matching the reframe already applied to the city pages. -->
-  <div class="home-wrap">
-    <section class="home-section">
-      <div class="home-section-head">
-        <h2>Based in Austin. Serving all 50 states.</h2>
-        <p>Texas is where we're deepest — but our dealer network reaches the whole country, and we ship cars anywhere.</p>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:10px;font-family:var(--font-body);font-size:13px">
-        <a class="home-text-cta" href="/austin">Austin</a>
-        <a class="home-text-cta" href="/houston">Houston</a>
-        <a class="home-text-cta" href="/san-antonio">San Antonio</a>
-        <a class="home-text-cta" href="/dallas">Dallas</a>
-        <a class="home-text-cta" href="/el-paso">El Paso</a>
-      </div>
-    </section>
-  </div>
-
-  <div class="home-wrap">
-    <!-- Buyer's guides teaser -->
-    <section class="home-section">
-      <div class="home-section-head">
-        <h2>Buyer's guides</h2>
-        <p>What we actually tell clients before they buy.</p>
-      </div>
-      <div class="home-guides-list">
-        <a class="home-guide-row" href="/guides/audi-r8">
-          <div class="g-left"><span class="g-num">01</span><h4>Audi R8: what to check before you buy</h4></div>
-          <div class="g-right">Read guide →</div>
-        </a>
-        <a class="home-guide-row" href="/guides/aston-martin-vantage-v8">
-          <div class="g-left"><span class="g-num">02</span><h4>Aston Martin Vantage V8: the 2019+ buyer's guide</h4></div>
-          <div class="g-right">Read guide →</div>
-        </a>
-        <a class="home-guide-row" href="/advice/how-to-negotiate-car-price">
-          <div class="g-left"><span class="g-num">03</span><h4>How to negotiate with a dealer, honestly</h4></div>
-          <div class="g-right">Read guide →</div>
-        </a>
-        <a class="home-guide-row" href="/guides">
-          <div class="g-left"><span class="g-num">04</span><h4>Browse all buyer's guides</h4></div>
-          <div class="g-right">See all guides →</div>
-        </a>
-      </div>
-    </section>
-  </div>
-
-  <div class="home-footer-cta">
-    <div class="home-wrap">
-      <h2>Ready to start your match?</h2>
-      <a class="home-ticket" href="/find-my-car">
-        <span>Start a free search</span>
-      </a>
     </div>
-  </div>
+  </section>
+
+  <!-- 4. Featured match. Real White Glove deal; no client name, no fee. -->
+  <section class="hp-section hp-navy">
+    <div class="hp-wrap hp-featured">
+      <img class="hp-featured-img"
+           src="/images/home/vantage-960.webp"
+           srcset="/images/home/vantage-640.webp 640w, /images/home/vantage-960.webp 960w, /images/home/vantage-1280.webp 1280w"
+           sizes="(min-width: 900px) 560px, 100vw" width="1280" height="730"
+           alt="Silver 2019 Aston Martin Vantage" loading="lazy" decoding="async"/>
+      <div class="hp-featured-info">
+        <p class="hp-eyebrow">Featured Match</p>
+        <h2>2019 Aston Martin Vantage</h2>
+        <p class="hp-featured-miles">16,500 miles</p>
+        <div class="hp-prices">
+          <div><span class="hp-price-label">Asking</span><span class="hp-price hp-price-was">$99,997</span></div>
+          <span class="hp-price-arrow" aria-hidden="true">→</span>
+          <div><span class="hp-price-label">Final</span><span class="hp-price">$92,500</span></div>
+        </div>
+        <p>A 2019 Vantage listed at $99,997. Our team negotiated the final price down to $92,500, a savings of $7,497. This is the kind of result White Glove delivers.</p>
+        <a class="hp-link hp-link-light" href="/white-glove#worked-example">See how White Glove works →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. How it works. Steps 1-2 are the free search; anything beyond that
+       is step 3's White Glove option, never implied as part of it. -->
+  <section class="hp-section hp-cream">
+    <div class="hp-wrap">
+      <div class="hp-head">
+        <h2>How It Works.</h2>
+        <p>From the brief to the keys.</p>
+      </div>
+      <ol class="hp-steps">
+        <li class="hp-step">
+          <span class="hp-step-num" aria-hidden="true">1</span>
+          <h3>Tell us what you're looking for.</h3>
+          <p>Year, make, model, budget. The more specific, the better.</p>
+        </li>
+        <li class="hp-step">
+          <span class="hp-step-num" aria-hidden="true">2</span>
+          <h3>We search our dealer network.</h3>
+          <p>Three matched options within 24 hours, from dealers across the country, not just your zip code.</p>
+        </li>
+        <li class="hp-step">
+          <span class="hp-step-num" aria-hidden="true">3</span>
+          <h3>Choose how to finish.</h3>
+          <p>Take it from here yourself, or have us negotiate, inspect, and arrange delivery with <a class="hp-inline-link" href="/white-glove">White Glove</a>.</p>
+        </li>
+        <li class="hp-step">
+          <span class="hp-step-num" aria-hidden="true">4</span>
+          <h3>Sign and drive.</h3>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 6. Client reviews: the three already live on the site, unchanged. -->
+  <section class="hp-section hp-navy">
+    <div class="hp-wrap">
+      <div class="hp-head hp-head-light">
+        <h2>What clients say.</h2>
+      </div>
+      <div class="hp-reviews">
+        <figure class="hp-review">
+          <blockquote>&ldquo;I told them what I wanted on a Tuesday. By the following Friday I was signing paperwork on the exact car.&rdquo;</blockquote>
+          <figcaption>Client, Austin TX</figcaption>
+        </figure>
+        <figure class="hp-review">
+          <blockquote>&ldquo;No dealership visits, no back and forth. They handled the whole negotiation and I just showed up to sign.&rdquo;</blockquote>
+          <figcaption>Client, Houston TX</figcaption>
+        </figure>
+        <figure class="hp-review">
+          <blockquote>&ldquo;They found a car I'd been searching for on my own for months, at a better price than I'd found anywhere.&rdquo;</blockquote>
+          <figcaption>Client, Austin TX</figcaption>
+        </figure>
+      </div>
+      <p class="hp-press">As featured in <a href="https://voyagehouston.com/interview/community-highlights-meet-jeff-akrong-of-the-exact-match/" target="_blank" rel="noopener">Voyage Magazine</a></p>
+    </div>
+  </section>
+
+  <!-- 7. About + buyer's guides. -->
+  <section class="hp-section hp-cream">
+    <div class="hp-wrap">
+      <div class="hp-about">
+        <div>
+          <h2>A different kind of car concierge.</h2>
+          <p>We're not a marketplace. We're your advocate. The Exact Match was founded by a former Audi, Infiniti, and Mercedes-Benz sales professional with experience across Aston Martin, Bentley, and Rolls-Royce.</p>
+          <a class="hp-link" href="/about">About The Exact Match →</a>
+        </div>
+        <div class="founder-card-slot"></div>
+      </div>
+
+      <!-- Where we're based: Texas depth as a feature, not the whole pitch. -->
+      <div class="hp-based">
+        <h3>Based in Austin. Serving all 50 states.</h3>
+        <p>Texas is where we're deepest, but our dealer network reaches the whole country.</p>
+        <div class="hp-city-links">
+          <a class="hp-link" href="/austin">Austin</a>
+          <a class="hp-link" href="/houston">Houston</a>
+          <a class="hp-link" href="/san-antonio">San Antonio</a>
+          <a class="hp-link" href="/dallas">Dallas</a>
+          <a class="hp-link" href="/el-paso">El Paso</a>
+        </div>
+      </div>
+
+      <div class="hp-head hp-head-guides">
+        <h2>Buyer's Guides.</h2>
+        <p>Expert insights. Real advice.</p>
+      </div>
+      <!-- Photo slots are placeholder blocks until the guide photos are
+           supplied. Swap each .hp-guide-photo div for an <img> with
+           loading="lazy", width and height. -->
+      <div class="hp-guides">
+        <a class="hp-guide" href="/guides/aston-martin-vantage-v8">
+          <div class="hp-guide-photo" aria-hidden="true"><span>Aston Martin</span></div>
+          <h3>Aston Martin Vantage V8 Buying Guide</h3>
+          <span class="hp-link">Read guide →</span>
+        </a>
+        <a class="hp-guide" href="/guides/audi-r8">
+          <div class="hp-guide-photo hp-guide-photo-cream" aria-hidden="true"><span>Audi</span></div>
+          <h3>Audi R8 Buying Guide</h3>
+          <span class="hp-link">Read guide →</span>
+        </a>
+        <a class="hp-guide" href="/advice/how-to-negotiate-car-price">
+          <div class="hp-guide-photo" aria-hidden="true"><span>Advice</span></div>
+          <h3>How to Negotiate Car Price</h3>
+          <span class="hp-link">Read guide →</span>
+        </a>
+      </div>
+      <p class="hp-all"><a class="hp-link" href="/resources">All resources →</a></p>
+    </div>
+  </section>
+
+  <!-- 8. Final CTA. Navy placeholder until the background photo is
+       supplied; when it is, add it as a lazy <img class="hp-final-img">
+       before .hp-final-scrim. -->
+  <section class="hp-final">
+    <div class="hp-final-scrim"></div>
+    <div class="hp-wrap hp-final-content">
+      <h2>Ready to find your match?</h2>
+      <p>Start with a free deal review, or tell us the car you want.</p>
+      <div class="hp-btn-row hp-btn-row-center">
+        <a class="hp-btn hp-btn-gold" href="/review-my-deal">Get a free deal review</a>
+        <a class="hp-btn hp-btn-outline-light" href="/find-my-car">Start your match</a>
+      </div>
+    </div>
+  </section>
 
   <!-- Compact "sell your car" brand list — homepage-only addition, per the
        per-URL migration's internal-linking requirement. Not part of the
        shared FOOTER_HTML since no other page carries it. -->
-  <div class="home-wrap" style="padding:40px 32px;text-align:center;border-top:1px solid var(--home-hairline)">
-    <p class="home-mono" style="color:var(--home-slate);margin-bottom:16px">Selling instead?</p>
-    <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;font-family:var(--font-body);font-size:13px">
-      <a class="home-text-cta" href="/sell-my-car">Sell My Car</a>
-      <a class="home-text-cta" href="/sell/ferrari">Sell a Ferrari</a>
-      <a class="home-text-cta" href="/sell/bentley">Sell a Bentley</a>
-      <a class="home-text-cta" href="/sell/porsche">Sell a Porsche</a>
-      <a class="home-text-cta" href="/sell/lamborghini">Sell a Lamborghini</a>
-      <a class="home-text-cta" href="/sell/mclaren">Sell a McLaren</a>
-      <a class="home-text-cta" href="/sell/rolls-royce">Sell a Rolls-Royce</a>
-      <a class="home-text-cta" href="/sell/tesla">Sell a Tesla</a>
-      <a class="home-text-cta" href="/sell/aston-martin">Sell an Aston Martin</a>
-      <a class="home-text-cta" href="/sell/maserati">Sell a Maserati</a>
+  <div class="hp-sell-strip">
+    <div class="hp-wrap">
+      <p class="hp-sell-label">Selling instead?</p>
+      <div class="hp-sell-links">
+        <a class="hp-link" href="/sell-my-car">Sell My Car</a>
+        <a class="hp-link" href="/sell/ferrari">Sell a Ferrari</a>
+        <a class="hp-link" href="/sell/bentley">Sell a Bentley</a>
+        <a class="hp-link" href="/sell/porsche">Sell a Porsche</a>
+        <a class="hp-link" href="/sell/lamborghini">Sell a Lamborghini</a>
+        <a class="hp-link" href="/sell/mclaren">Sell a McLaren</a>
+        <a class="hp-link" href="/sell/rolls-royce">Sell a Rolls-Royce</a>
+        <a class="hp-link" href="/sell/tesla">Sell a Tesla</a>
+        <a class="hp-link" href="/sell/aston-martin">Sell an Aston Martin</a>
+        <a class="hp-link" href="/sell/maserati">Sell a Maserati</a>
+      </div>
     </div>
   </div>
 

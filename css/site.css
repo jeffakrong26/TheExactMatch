@@ -555,35 +555,16 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 }
 #page-home{background:var(--home-ivory);color:var(--home-charcoal);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
 .home-wrap{max-width:1200px;margin:0 auto;padding:0 32px}
-.home-mono{font-family:var(--font-body);font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:12px}
 
 .home-hero{position:relative;min-height:82vh;display:flex;align-items:flex-end;overflow:hidden}
-.home-hero-photo{position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,27,45,.05) 0%,rgba(15,27,45,.35) 60%,var(--home-navy) 98%),url('/hero-car.jpeg');background-size:cover;background-position:center center;background-repeat:no-repeat}
-.home-hero-content{position:relative;width:100%;padding:0 32px 88px;color:var(--home-ivory)}
-.home-hero-content h1{font-family:var(--font-head);font-weight:800;font-optical-sizing:auto;font-size:clamp(40px,5.5vw,72px);line-height:1.02;letter-spacing:-.01em;margin:0 0 28px;max-width:820px;color:#ffffff}
-.home-hero-content h1 strong{font-weight:inherit}
-.home-lede{font-size:18px;line-height:1.6;color:rgba(237,230,214,.8);max-width:440px;margin:0 0 36px}
 .home-hero-cta{display:inline-flex;align-items:center;gap:10px;background:var(--home-brass);color:var(--home-navy);font-family:var(--font-body);font-weight:600;font-size:15px;padding:16px 26px;text-decoration:none}
 .home-hero-cta:hover{background:var(--home-brass-light)}
-.home-free-note{font-family:var(--font-body);font-weight:500;font-size:13px;line-height:1.6;color:rgba(237,230,214,.65);margin-top:16px;max-width:440px}
-.home-free-note::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--home-brass-light);margin-right:8px;vertical-align:middle}
-.home-free-note a{color:var(--home-ivory);font-weight:600;text-decoration:none;border-bottom:1px solid rgba(237,230,214,.4);padding-bottom:1px}
-.home-free-note a:hover{border-bottom-color:var(--home-ivory)}
-.home-deal-review{background:var(--home-navy);color:var(--home-ivory);border-top:1px solid rgba(237,230,214,.12);padding:36px 0 40px}
-.home-deal-review-inner{display:flex;align-items:center;justify-content:space-between;gap:24px 40px;flex-wrap:wrap}
-.home-deal-review h2{font-family:var(--font-head);font-weight:800;font-size:clamp(22px,2.6vw,30px);letter-spacing:-.01em;margin:0 0 8px;color:#fff}
-.home-deal-review p{font-size:15px;line-height:1.6;color:rgba(237,230,214,.75);margin:0;max-width:520px}
-.home-deal-review .home-hero-cta{flex-shrink:0;min-height:52px}
 
 .home-section{padding:90px 0}
 .home-section-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:48px;gap:24px;flex-wrap:wrap;border-bottom:1px solid var(--home-hairline);padding-bottom:24px}
 .home-section-head h2{font-family:var(--font-head);font-weight:800;font-size:clamp(28px,3.5vw,40px);margin:0;letter-spacing:-.01em;color:var(--home-navy)}
 .home-section-head p{color:var(--home-slate);font-size:15px;max-width:340px;margin:0}
 
-.home-reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
-.home-review-card{border-top:2px solid var(--home-brass);padding-top:20px}
-.home-review-card p{font-family:var(--font-body);font-weight:400;font-size:17px;line-height:1.6;color:var(--home-charcoal);margin:0 0 16px}
-.home-review-card .home-mono{color:var(--home-slate)}
 
 .home-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--home-hairline);border:1px solid var(--home-hairline)}
 .home-step{background:var(--home-ivory);padding:36px 32px;position:relative}
@@ -601,13 +582,6 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 .home-spec-grid div .val{font-size:15px;font-weight:600}
 .home-text-cta{font-family:var(--font-body);font-weight:600;font-size:13px;text-decoration:none;color:var(--home-navy);border-bottom:1px solid var(--home-navy);padding-bottom:2px}
 
-.home-guides-list{border-top:1px solid var(--home-hairline)}
-.home-guide-row{display:flex;justify-content:space-between;align-items:center;padding:24px 0;border-bottom:1px solid var(--home-hairline);text-decoration:none;color:var(--home-charcoal)}
-.home-guide-row .g-left{display:flex;align-items:baseline;gap:20px}
-.home-guide-row .g-num{font-family:var(--font-body);font-weight:600;font-size:12px;color:var(--home-slate)}
-.home-guide-row h4{font-family:var(--font-head);font-weight:500;font-size:20px;margin:0}
-.home-guide-row .g-right{font-family:var(--font-body);font-weight:600;font-size:12px;color:var(--home-slate);display:flex;align-items:center;gap:8px}
-.home-guide-row:hover .g-right{color:var(--home-brass)}
 
 .home-footer-cta{background:var(--home-ivory);padding:80px 0;text-align:center}
 .home-footer-cta h2{font-family:var(--font-head);font-weight:800;font-size:clamp(30px,4vw,44px);color:var(--home-navy);margin:0 0 28px;letter-spacing:-.01em}
@@ -692,6 +666,7 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 .wg-cta-btn{display:inline-flex;align-items:center;gap:10px;background:var(--home-brass);color:var(--home-navy);font-family:var(--font-body);font-weight:600;font-size:15px;padding:16px 30px;text-decoration:none;border-radius:8px}
 .wg-cta-btn:hover{background:var(--home-brass-light)}
 @media(max-width:760px){.wg-included-list,.wg-pricing-grid{grid-template-columns:1fr}}
+#worked-example{scroll-margin-top:88px}
 .wg-case{background:#fff;border:1px solid var(--home-hairline);border-radius:8px;padding:32px;max-width:760px}
 .wg-case h3{font-family:var(--font-head);font-weight:500;font-size:22px;color:var(--home-navy);margin:0 0 12px;line-height:1.3}
 .wg-case-rows{margin:20px 0;border-top:1px solid var(--home-hairline)}
@@ -721,12 +696,10 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 @media(max-width:800px){
   .home-featured{grid-template-columns:1fr}
   .home-steps{grid-template-columns:1fr}
-  .home-reviews-grid{grid-template-columns:1fr}
 }
 @media(max-width:700px){
   .home-wrap{padding:0 20px}
   .home-hero{min-height:74vh;align-items:center}
-  .home-hero-content{padding:0 20px}
 }
 
 /* ── RESPONSIVE ── */
@@ -805,13 +778,11 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 .lead-magnet .lead-magnet-msg.err{display:block;color:#ffb4a8}
 .lead-magnet .lead-magnet-note{margin:.75rem 0 0;color:rgba(255,255,255,.5)}
 @media(max-width:520px){.lead-magnet-form{flex-direction:column}}
-/* Press coverage — "Featured in" on /about, one-line mention on the homepage. */
+/* Press coverage — "Featured in" on /about. The homepage one-liner is .hp-press. */
 .press-featured{margin-top:2.5rem;text-align:center}
 .press-featured h3{font-family:var(--font-head);font-size:1.2rem;font-weight:500;color:var(--navy);margin:0 0 .6rem}
 .press-featured p{font-size:.95rem;font-weight:300;line-height:1.7;color:#333;margin:0}
 .press-featured a{color:var(--navy);font-weight:500;border-bottom:1px solid var(--gold);text-decoration:none}
-.press-mention{font-family:var(--font-body);font-size:13px;color:var(--home-slate);margin:28px 0 0}
-.press-mention a{color:var(--home-navy);font-weight:600;border-bottom:1px solid var(--home-brass);text-decoration:none}
 
 /* ── Find My Car / Sell My Car on the shared StepForm (css/step-form.css) ──
    Each form keeps its card's look by setting the component's tokens. */
@@ -841,3 +812,160 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 }
 #page-sell .sf h2{font-family:var(--font-head);font-weight:800;font-size:1.35rem;color:var(--navy);margin:0 0 1rem}
 #page-sell .success-cta{color:var(--navy)}
+
+/* ── HOMEPAGE (2026-10 rebuild) ──
+   `hp-` prefix: homepage-only. The older `home-` classes above are still
+   shared by White Glove, the hubs and the recent-match detail page, so the
+   rebuild doesn't touch them. Mobile-first; desktop layout at 900px.
+   Section rhythm alternates navy and cream. Every headline is one color:
+   white on navy/photo, navy on cream. Gold text on cream uses --hp-gold-deep
+   (5.1:1 on cream, 6.3:1 on white); brand gold is only used on navy (6.6:1)
+   or as a fill. */
+:root{--hp-gold:#C09A5B;--hp-gold-light:#D4B47A;--hp-gold-deep:#7A5A1F}
+.hp-wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+.hp-navy{background:var(--home-navy);color:rgba(237,230,214,.82)}
+.hp-cream{background:var(--home-ivory);color:var(--home-charcoal)}
+.hp-section{padding:64px 0}
+.hp-eyebrow{font-family:var(--font-body);font-weight:700;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--hp-gold);margin:0 0 10px}
+#page-home h2,#page-home h3{font-family:var(--font-head);font-weight:800;letter-spacing:-.01em}
+.hp-navy h2,.hp-navy h3{color:#fff}
+.hp-cream h2,.hp-cream h3{color:var(--home-navy)}
+.hp-head{margin-bottom:32px}
+.hp-head h2{font-size:clamp(28px,4vw,40px);line-height:1.1;margin:0 0 8px}
+.hp-head p{font-size:16px;line-height:1.5;color:var(--home-slate);margin:0}
+.hp-head-light p{color:rgba(237,230,214,.7)}
+
+/* Buttons. Only the hero's primary is the shimmer (.tem-cta, scoped in
+   pages/home.html); everything else is one of these. */
+.hp-btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:14px 26px;border-radius:360px;font-family:var(--font-body);font-weight:600;font-size:15px;letter-spacing:.01em;text-decoration:none;transition:background .2s,border-color .2s,color .2s;text-align:center}
+.hp-btn-gold{background:var(--hp-gold);color:var(--home-navy);border:1px solid var(--hp-gold)}
+.hp-btn-gold:hover{background:var(--hp-gold-light);border-color:var(--hp-gold-light)}
+.hp-btn-outline-light{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.7)}
+.hp-btn-outline-light:hover{border-color:#fff;background:rgba(255,255,255,.08)}
+.hp-btn-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.hp-btn-row-center{justify-content:center}
+.hp-btn-row .tem-cta{min-height:52px;padding:14px 28px;font-size:15px;font-weight:600}
+
+/* Text links: deep gold on cream, light gold on navy. */
+.hp-link{font-family:var(--font-body);font-weight:600;font-size:15px;color:var(--hp-gold-deep);text-decoration:none;border-bottom:1px solid currentColor;padding-bottom:1px}
+.hp-link:hover{color:var(--home-navy)}
+.hp-link-light{color:var(--hp-gold-light)}
+.hp-link-light:hover{color:#fff}
+.hp-inline-link{color:var(--home-navy);font-weight:600;text-decoration:none;border-bottom:1px solid var(--hp-gold)}
+
+/* 1. Hero */
+.hp-hero{position:relative;min-height:calc(88vh - 64px);display:flex;align-items:flex-end;overflow:hidden;background:var(--home-navy)}
+/* Mobile: photo sits in the top part of the hero so the car stays visible
+   above the copy; desktop (below) puts it full-bleed behind the text. */
+.hp-hero-img{position:absolute;top:0;left:0;width:100%;height:58%;object-fit:cover;object-position:80% 78%}
+.hp-hero-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,27,45,.1) 0%,rgba(15,27,45,.25) 35%,var(--home-navy) 58%)}
+.hp-hero-content{position:relative;width:100%;padding-top:42vh;padding-bottom:48px}
+.hp-hero h1{font-family:var(--font-head);font-weight:800;font-size:clamp(38px,6vw,72px);line-height:1.04;letter-spacing:-.015em;color:#fff;margin:0 0 18px;max-width:820px}
+.hp-hero-sub{font-size:17px;line-height:1.55;color:rgba(255,255,255,.88);max-width:480px;margin:0 0 28px}
+.hp-hero-note{font-size:13px;line-height:1.6;color:rgba(255,255,255,.75);max-width:440px;margin:18px 0 0}
+.hp-hero-note a{color:#fff;font-weight:600;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.5)}
+.hp-hero-note a:hover{border-bottom-color:#fff}
+
+/* 2. Deal review band */
+.hp-band{padding:44px 0;border-top:1px solid rgba(237,230,214,.12)}
+.hp-band-inner{display:flex;flex-direction:column;gap:24px}
+.hp-band h2{font-size:clamp(26px,3.2vw,34px);line-height:1.1;margin:0 0 10px}
+.hp-band-body{font-size:16px;line-height:1.6;margin:0;max-width:540px}
+.hp-band .hp-btn{align-self:flex-start}
+
+/* 3. Services */
+.hp-services{display:grid;grid-template-columns:1fr;gap:16px}
+.hp-card{background:#fff;border:1px solid var(--home-hairline);border-radius:14px;padding:28px 24px}
+.hp-icon{display:flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;background:var(--hp-gold);color:var(--home-navy);margin-bottom:18px}
+.hp-icon svg{width:24px;height:24px}
+.hp-card h3{font-size:22px;margin:0 0 10px}
+.hp-card p{font-size:15px;line-height:1.6;color:var(--home-slate);margin:0 0 18px}
+.hp-brands{text-align:center;margin-top:48px}
+.hp-brands p{font-size:14px;font-weight:500;color:var(--home-slate);margin:0 0 16px}
+.hp-brand-row{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 28px}
+.hp-brand-row span{font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--home-slate)}
+
+/* 4. Featured match */
+.hp-featured{display:grid;grid-template-columns:1fr;gap:28px;align-items:center}
+.hp-featured-img{width:100%;height:auto;aspect-ratio:1280/730;object-fit:cover;border-radius:14px;background:var(--home-charcoal)}
+.hp-featured-info h2{font-size:clamp(26px,3.2vw,36px);line-height:1.1;margin:0 0 6px}
+.hp-featured-miles{font-size:15px;margin:0 0 22px;color:rgba(237,230,214,.7)}
+.hp-prices{display:flex;align-items:center;gap:18px;padding:18px 0;margin:0 0 20px;border-top:1px solid rgba(237,230,214,.15);border-bottom:1px solid rgba(237,230,214,.15)}
+.hp-prices > div{display:flex;flex-direction:column;gap:4px}
+.hp-price-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(237,230,214,.6)}
+.hp-price{font-family:var(--font-head);font-weight:800;font-size:28px;color:var(--hp-gold-light);line-height:1}
+.hp-price-was{color:rgba(237,230,214,.6);text-decoration:line-through;text-decoration-thickness:1px}
+.hp-price-arrow{font-size:22px;color:var(--hp-gold)}
+.hp-featured-info > p:not(.hp-eyebrow):not(.hp-featured-miles){font-size:16px;line-height:1.65;margin:0 0 22px}
+
+/* 5. How it works */
+.hp-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr;gap:16px}
+.hp-step{background:#fff;border:1px solid var(--home-hairline);border-radius:14px;padding:24px}
+.hp-step-num{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:var(--home-navy);color:var(--hp-gold-light);font-family:var(--font-head);font-weight:800;font-size:17px;margin-bottom:16px}
+.hp-step h3{font-size:19px;line-height:1.25;margin:0 0 8px}
+.hp-step p{font-size:15px;line-height:1.6;color:var(--home-slate);margin:0}
+
+/* 6. Reviews */
+.hp-reviews{display:grid;grid-template-columns:1fr;gap:16px}
+.hp-review{margin:0;padding:26px 24px;border:1px solid rgba(237,230,214,.14);border-top:2px solid var(--hp-gold);border-radius:4px 4px 14px 14px;background:rgba(255,255,255,.03)}
+.hp-review blockquote{margin:0 0 16px;font-size:17px;line-height:1.6;color:#fff}
+.hp-review figcaption{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(237,230,214,.65)}
+.hp-press{font-size:14px;margin:32px 0 0;text-align:center;color:rgba(237,230,214,.7)}
+.hp-press a{color:#fff;font-weight:600;text-decoration:none;border-bottom:1px solid var(--hp-gold)}
+
+/* 7. About + guides */
+.hp-about{display:grid;grid-template-columns:1fr;gap:28px;align-items:center}
+.hp-about h2{font-size:clamp(28px,4vw,40px);line-height:1.1;margin:0 0 14px}
+.hp-about p{font-size:17px;line-height:1.65;margin:0 0 20px;max-width:620px}
+.hp-based{margin-top:48px;padding-top:28px;border-top:1px solid var(--home-hairline)}
+.hp-based h3{font-size:20px;margin:0 0 8px}
+.hp-based p{font-size:15px;line-height:1.6;color:var(--home-slate);margin:0 0 14px}
+.hp-city-links{display:flex;flex-wrap:wrap;gap:10px 20px}
+.hp-city-links .hp-link{font-size:14px}
+.hp-head-guides{margin-top:64px}
+.hp-guides{display:grid;grid-template-columns:1fr;gap:20px}
+.hp-guide{display:block;text-decoration:none;background:#fff;border:1px solid var(--home-hairline);border-radius:14px;overflow:hidden;transition:transform .2s,box-shadow .2s}
+.hp-guide:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(15,27,45,.1)}
+.hp-guide-photo{aspect-ratio:16/10;background:var(--home-navy);display:flex;align-items:flex-end;padding:16px}
+.hp-guide-photo span{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--hp-gold-light)}
+.hp-guide-photo-cream{background:#E2D9C5}
+.hp-guide-photo-cream span{color:var(--hp-gold-deep)}
+.hp-guide img{display:block;width:100%;height:auto;aspect-ratio:16/10;object-fit:cover}
+.hp-guide h3{font-size:19px;line-height:1.3;margin:18px 20px 12px}
+.hp-guide .hp-link{display:inline-block;margin:0 20px 20px;font-size:14px}
+.hp-all{margin:28px 0 0}
+
+/* 8. Final CTA */
+.hp-final{position:relative;overflow:hidden;background:linear-gradient(135deg,var(--home-navy) 0%,#1b2c47 100%);padding:80px 0;text-align:center}
+.hp-final-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.hp-final-scrim{position:absolute;inset:0;background:rgba(15,27,45,.62)}
+.hp-final-content{position:relative}
+.hp-final h2{font-family:var(--font-head);font-weight:800;font-size:clamp(30px,4.5vw,46px);line-height:1.1;color:#fff;margin:0 0 12px}
+.hp-final p{font-size:17px;line-height:1.6;color:rgba(255,255,255,.85);margin:0 auto 28px;max-width:520px}
+
+/* Sell-brand strip above the footer */
+.hp-sell-strip{background:var(--home-ivory);padding:40px 0;text-align:center}
+.hp-sell-label{font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--home-slate);margin:0 0 16px}
+.hp-sell-links{display:flex;flex-wrap:wrap;gap:10px 18px;justify-content:center}
+.hp-sell-links .hp-link{font-size:13px}
+
+@media(min-width:900px){
+  .hp-wrap{padding:0 32px}
+  .hp-section{padding:96px 0}
+  .hp-head{margin-bottom:44px}
+  .hp-hero{min-height:calc(86vh - 64px);align-items:center}
+  .hp-hero-img{height:100%;object-position:center}
+  .hp-hero-scrim{background:linear-gradient(90deg,rgba(15,27,45,.92) 0%,rgba(15,27,45,.7) 40%,rgba(15,27,45,.15) 75%),linear-gradient(180deg,transparent 70%,var(--home-navy) 100%)}
+  .hp-hero-content{padding-top:80px;padding-bottom:80px}
+  .hp-hero-sub{font-size:19px}
+  .hp-band-inner{flex-direction:row;align-items:center;justify-content:space-between;gap:40px}
+  .hp-band .hp-btn{align-self:center;flex-shrink:0}
+  .hp-services{grid-template-columns:1fr 1fr;gap:24px}
+  .hp-card{padding:36px 32px}
+  .hp-featured{grid-template-columns:1.1fr 1fr;gap:56px}
+  .hp-steps{grid-template-columns:repeat(4,1fr);gap:20px}
+  .hp-reviews{grid-template-columns:repeat(3,1fr);gap:24px}
+  .hp-about{grid-template-columns:1.4fr 1fr;gap:56px}
+  .hp-guides{grid-template-columns:repeat(3,1fr);gap:24px}
+  .hp-final{padding:120px 0}
+}
