@@ -201,6 +201,18 @@ const pct1 = (n) => `${n > 0 ? '+' : ''}${n.toFixed(1)}%`;
 // trimmed and length-capped.
 const str = (v, max = 120) => String(v ?? '').trim().slice(0, max);
 
+// VIN: 17 letters/digits, never I, O or Q (the check digit scheme excludes
+// them). Shape only — no decoding.
+export const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/;
+export function normalizeVin(v) {
+  const s = String(v ?? '').trim().toUpperCase();
+  return VIN_RE.test(s) ? s : '';
+}
+const wholeMiles = (v) => {
+  const n = num(v);
+  return n !== null && n > 0 ? Math.round(n) : null;
+};
+
 export function normalizeDeal(raw = {}) {
   const car = raw.car || {};
   const price = raw.price || {};
@@ -218,6 +230,9 @@ export function normalizeDeal(raw = {}) {
       make: str(car.make, 60),
       model: str(car.model, 60),
       trim: str(car.trim, 80),
+      // Mileage only means something on a used car; never kept for new.
+      mileage: car.condition === 'used' ? wholeMiles(car.mileage) : null,
+      vin: normalizeVin(car.vin),
     },
     price: { msrp: num(price.msrp), selling: num(price.selling) },
     docFee: num(raw.docFee),
@@ -498,6 +513,8 @@ export function applyManualMarket(deal, draft, { marketValue, marketSource, trad
 export function dealSummaryLines(deal) {
   const L = [];
   L.push(`Vehicle: ${deal.car.condition ? deal.car.condition + ' ' : ''}${vehicleLabel(deal.car)}`);
+  if (deal.car.mileage) L.push(`Mileage: ${deal.car.mileage.toLocaleString('en-US')} miles`);
+  if (deal.car.vin) L.push(`VIN: ${deal.car.vin}`);
   L.push(`MSRP: ${money(deal.price.msrp)} · Selling price: ${money(deal.price.selling)}`);
   L.push(`Doc fee: ${money(deal.docFee)}`);
   for (const f of deal.fees) L.push(`Fee/add-on: ${f.name || 'Unnamed'} ${money(f.amount)}`);

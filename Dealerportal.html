@@ -1121,8 +1121,12 @@
     <div class="tab-panel" id="tab-deal-reviews">
       <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;border-bottom:none;padding-bottom:0;margin-bottom:1.5rem">
         <span>Deal Reviews</span>
-        <button class="btn-primary btn-sm" style="width:auto" onclick="loadAdminDealReviews()">Refresh</button>
+        <span style="display:flex;gap:.5rem">
+          <button class="btn-primary btn-sm" style="width:auto" onclick="drMarketcheckCheck(this)">Check Marketcheck plan</button>
+          <button class="btn-primary btn-sm" style="width:auto" onclick="loadAdminDealReviews()">Refresh</button>
+        </span>
       </div>
+      <pre id="dr-mc-check" class="dr-deal" style="display:none;margin-bottom:1.25rem;white-space:pre-wrap"></pre>
       <div id="admin-deal-reviews-loading" style="text-align:center;padding:2rem;color:var(--gray);font-size:.88rem">Loading...</div>
       <div id="admin-deal-reviews-list"></div>
     </div>
@@ -3796,6 +3800,7 @@ function drDealText(r) {
   const d = r.deal, c = d.car, t = d.trade, p = d.payment;
   const L = [];
   L.push(`${c.condition ? c.condition[0].toUpperCase() + c.condition.slice(1) + ' ' : ''}${[c.year, c.make, c.model, c.trim].filter(Boolean).join(' ')}`);
+  L.push(`Mileage: ${c.mileage ? Number(c.mileage).toLocaleString('en-US') + ' mi' : (c.condition === 'used' ? 'not entered' : 'n/a (new)')} · VIN: ${c.vin || 'not provided'}`);
   L.push(`MSRP ${drMoney(d.price.msrp)} · Selling ${drMoney(d.price.selling)}`);
   L.push(`Doc fee ${drMoney(d.docFee)}`);
   (d.fees || []).forEach(f => L.push(`  ${f.name || 'Item'}: ${drMoney(f.amount)}`));
@@ -3880,6 +3885,23 @@ function drCardHtml(r) {
       </div>
     </div>
   </div>`;
+}
+
+// One-off check of what the Marketcheck plan allows (state-wide and
+// nationwide active-listing search), before the live-listings comparison
+// is built on it. See adminMarketcheckPlanCheck in dealer-api.
+async function drMarketcheckCheck(btn) {
+  const out = document.getElementById('dr-mc-check');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  const { res, data } = await apiFetch('/admin/deal-reviews/marketcheck-check').catch(() => ({ res: { ok: false }, data: {} }));
+  btn.disabled = false; btn.textContent = 'Check Marketcheck plan';
+  out.style.display = 'block';
+  if (!res.ok) { out.textContent = data.error || 'Check failed.'; return; }
+  out.textContent = data.results.map(r =>
+    `${r.ok ? '✓' : '✗'} ${r.label}\n   HTTP ${r.status ?? '—'} · found ${r.num_found ?? '—'} · returned ${r.returned ?? '—'}` +
+    (r.sample ? `\n   sample: ${r.sample.year} ${r.sample.trim || ''} · ${r.sample.miles ?? '?'} mi · $${r.sample.price ?? '?'} · ${r.sample.dealer || '?'}, ${r.sample.city || '?'} ${r.sample.state || ''} · seller ${r.sample.seller_type || '?'} · link ${r.sample.has_link ? 'yes' : 'no'}` : '') +
+    (r.error ? `\n   error: ${r.error}` : '')
+  ).join('\n\n') + `\n\nChecked ${data.checked_at}`;
 }
 
 async function loadAdminDealReviews() {

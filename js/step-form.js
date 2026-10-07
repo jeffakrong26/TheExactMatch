@@ -27,7 +27,7 @@
 //   const sf = new StepForm(root, {
 //     flow: ['car', 'price', …],          // numbered steps, in order
 //     skip: { payment: d => … },          // step is skipped when true
-//     validate: { car: (d, el) => 'Message' | null },
+//     validate: { car: (d, el) => 'Message' | { field, message } | null },
 //     finalStep: 'review',                // shows the submit button there
 //     onShow: (key, sf) => {},            // e.g. render a summary
 //     onSubmit: async (data, sf) => {},
@@ -225,11 +225,35 @@
       if (window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' });
     }
 
+    // A validator returns null (ok), a message string (shown in the error
+    // box under the step), or { field, message } to show the message inline
+    // under that named field and focus it.
     _validate(key) {
       const fn = this.opts.validate && this.opts.validate[key];
-      const msg = fn ? fn(this.data(), this.byKey[key]) : null;
-      if (msg) { this._showError(msg); return false; }
-      return true;
+      const res = fn ? fn(this.data(), this.byKey[key]) : null;
+      this._clearError();
+      if (!res) return true;
+      if (typeof res === 'object' && res.field) this._showFieldError(res.field, res.message);
+      else this._showError(res);
+      return false;
+    }
+
+    _showFieldError(name, msg) {
+      const input = this.root.querySelector(`[name="${name}"]`);
+      const holder = input && input.closest('.sf-field');
+      if (!holder) { this._showError(msg); return; }
+      let el = holder.querySelector('.sf-field-error');
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'sf-field-error';
+        el.id = `sf-err-${name.replace(/\W/g, '-')}`;
+        el.setAttribute('role', 'alert');
+        holder.appendChild(el);
+      }
+      el.textContent = msg;
+      input.setAttribute('aria-invalid', 'true');
+      input.setAttribute('aria-describedby', el.id);
+      input.focus();
     }
 
     next() {
@@ -303,20 +327,25 @@
       this.err.textContent = msg;
       this.err.hidden = false;
     }
-    _clearError() { if (this.err) this.err.hidden = true; }
+    _clearError() {
+      if (this.err) this.err.hidden = true;
+      this.root.querySelectorAll('.sf-field-error').forEach((el) => el.remove());
+      this.root.querySelectorAll('[aria-invalid]').forEach((el) => { el.removeAttribute('aria-invalid'); el.removeAttribute('aria-describedby'); });
+    }
 
-    // groups: [{ step, title, rows: [[label, value], …] }]. Rows with an
-    // empty value render as "Not entered" so nothing silently disappears.
+    // groups: [{ step, title, rows: [[label, value, emptyText?], …] }]. Rows
+    // with an empty value render as emptyText (default "Not entered") so
+    // nothing silently disappears.
     // Each row is a button that jumps to its step and returns here.
     renderSummary(container, groups) {
       const here = this.current;
       container.innerHTML = groups.map((g) => `
         <div class="sf-summary-group">
           <div class="sf-summary-title">${esc(g.title)}</div>
-          ${g.rows.map(([label, value]) => `
+          ${g.rows.map(([label, value, emptyText]) => `
             <button type="button" class="sf-summary-row" data-sf-edit="${esc(g.step)}">
               <span class="sf-summary-label">${esc(label)}</span>
-              <span class="sf-summary-value${value ? '' : ' is-empty'}">${esc(value || 'Not entered')}</span>
+              <span class="sf-summary-value${value ? '' : ' is-empty'}">${esc(value || emptyText || 'Not entered')}</span>
               <span class="sf-summary-edit" aria-hidden="true">Edit</span>
             </button>`).join('')}
         </div>`).join('');
