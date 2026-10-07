@@ -926,11 +926,7 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 .hp-guides{display:grid;grid-template-columns:1fr;gap:20px}
 .hp-guide{display:block;text-decoration:none;background:#fff;border:1px solid var(--home-hairline);border-radius:14px;overflow:hidden;transition:transform .2s,box-shadow .2s}
 .hp-guide:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(15,27,45,.1)}
-.hp-guide-photo{aspect-ratio:16/10;background:var(--home-navy);display:flex;align-items:flex-end;padding:16px}
-.hp-guide-photo span{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--hp-gold-light)}
-.hp-guide-photo-cream{background:#E2D9C5}
-.hp-guide-photo-cream span{color:var(--hp-gold-deep)}
-.hp-guide img{display:block;width:100%;height:auto;aspect-ratio:16/10;object-fit:cover}
+.hp-guide img{display:block;width:100%;height:auto;aspect-ratio:16/10;object-fit:cover;background:var(--home-navy)}
 .hp-guide h3{font-size:19px;line-height:1.3;margin:18px 20px 12px}
 .hp-guide .hp-link{display:inline-block;margin:0 20px 20px;font-size:14px}
 .hp-all{margin:28px 0 0}
