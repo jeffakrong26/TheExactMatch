@@ -216,9 +216,9 @@
     .dr-comps-note{font-size:.8rem;line-height:1.6;color:var(--navy);margin-bottom:.5rem}
     .dr-comps-table{width:100%;border-collapse:collapse;font-size:.75rem}
     .dr-comps-table th{text-align:left;font-weight:600;color:var(--gray);padding:.35rem .4rem;border-bottom:1px solid var(--border)}
-    .dr-search-log{font-size:.75rem;color:var(--gray);margin-top:.5rem}
-    .dr-search-log summary{cursor:pointer;font-weight:600}
-    .dr-search-log ul{margin:.4rem 0 0 1.1rem;line-height:1.6}
+    .dr-search-log{margin-top:.5rem}
+    .dr-search-scope{margin:.6rem 0 1rem}
+    .dr-search-head{font-size:.8rem;font-weight:600;color:var(--navy);margin-bottom:.25rem}
     .dr-trim-pick{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;font-size:.8rem;margin:.5rem 0}
     .dr-trim-pick select{font-family:'Jost',sans-serif;font-size:.8rem;padding:.4rem .5rem;border:1px solid var(--border);border-radius:2px}
     .dr-comps-table td{padding:.4rem;border-bottom:1px solid var(--border);vertical-align:top}
@@ -3827,31 +3827,33 @@ function drDealText(r) {
 // Admin-only reference for the listings comparison: every comp used, so a
 // team member can check the numbers against the source listings (or
 // AutoTempest) before approving. Not part of the email.
-// What was searched and why listings dropped out (from the stored result).
+// What was searched, shown in full (not collapsed): per location, the
+// trims Marketcheck lists and every listing it returned, marked as a match
+// or with the reason it was left out. Even 1–2 matches show up here when
+// there are too few for an average.
 function drSearchLog(m) {
   const e = escapeHtmlJs;
   if (!m.searches?.length) return '';
-  const lines = m.searches.map(x => {
+  const money = n => n != null ? '$' + Number(n).toLocaleString('en-US') : '—';
+  const blocks = m.searches.map(x => {
     const where = x.scope === 'nationwide' ? 'Nationwide' : e(x.state);
-    const parts = [];
-    if (x.note) parts.push(e(x.note));
-    if (x.trimLookupError) parts.push('trim list unavailable (' + e(x.trimLookupError) + '), searched the trim as entered');
-    if (x.why) {
-      const w = x.why, d = [];
-      if (w.noPrice) d.push(w.noPrice + ' no price');
-      if (w.wrongTrim) d.push(w.wrongTrim + ' other trim');
-      if (w.outsideYears) d.push(w.outsideYears + ' other year');
-      if (w.noMiles) d.push(w.noMiles + ' no mileage');
-      if (w.outsideMiles) d.push(w.outsideMiles + ' outside mileage window');
-      if (w.privateParty) d.push(w.privateParty + ' private party');
-      if (w.duplicate) d.push(w.duplicate + ' duplicate');
-      parts.push(`${w.returned} listings returned${d.length ? ', dropped: ' + d.join(', ') : ''}`);
-    }
-    if (x.trimsAvailable?.length) parts.push('trims listed: ' + x.trimsAvailable.map(t => `${e(t.trim)} (${t.count})`).join(', '));
-    else if (x.trimsAvailable) parts.push('no listings for this year/make/model');
-    return `<li><strong>${where}:</strong> ${parts.join(' · ')}</li>`;
+    const notes = [];
+    if (x.note) notes.push(e(x.note));
+    if (x.trimLookupError) notes.push('trim list unavailable (' + e(x.trimLookupError) + '), searched the trim as entered');
+    if (x.trimsAvailable?.length) notes.push('Trims listed: ' + x.trimsAvailable.map(t => `${e(t.trim)} (${t.count})`).join(', '));
+    else if (x.trimsAvailable) notes.push('Marketcheck has no listings for this year, make and model here.');
+    const ls = x.listings || [];
+    const matches = ls.filter(l => !l.reason).length;
+    const table = ls.length ? `<div style="overflow-x:auto"><table class="dr-comps-table"><thead><tr><th>Year</th><th>Trim</th><th>Miles</th><th>Asking</th><th>Dealer</th><th></th><th>Result</th></tr></thead><tbody>${ls.map(l => `<tr${l.reason ? ' style="color:var(--gray)"' : ''}>
+        <td>${e(l.year ?? '—')}</td><td>${e(l.trim || '—')}</td><td>${l.miles != null ? Number(l.miles).toLocaleString('en-US') : '—'}</td><td>${money(l.price)}</td>
+        <td>${e(l.dealer || '—')}${l.city ? '<br/>' + e(l.city) + (l.state ? ', ' + e(l.state) : '') : ''}</td>
+        <td>${l.url ? `<a href="${e(l.url)}" target="_blank" rel="noopener">View</a>` : ''}</td>
+        <td>${l.reason ? e(l.reason) : '<strong style="color:var(--green)">Match</strong>'}</td></tr>`).join('')}</tbody></table></div>`
+      : (x.note ? '' : '<div class="dr-comps-note">Marketcheck returned no listings.</div>');
+    return `<div class="dr-search-scope"><div class="dr-search-head">${where}${ls.length ? ` — ${ls.length} listing${ls.length === 1 ? '' : 's'} returned, ${matches} match${matches === 1 ? '' : 'es'}` : ''}</div>
+      ${notes.map(n => `<div class="dr-comps-note">${n}</div>`).join('')}${table}</div>`;
   }).join('');
-  return `<details class="dr-search-log"><summary>What was searched</summary><ul>${lines}</ul></details>`;
+  return `<div class="dr-search-log"><div class="dr-comps-title" style="margin-top:.75rem">What was searched</div>${blocks}</div>`;
 }
 
 // When the trim found nothing, let a team member re-run with one of the
@@ -3879,7 +3881,7 @@ function drCompsPanel(title, m, reviewId) {
   if (!m) return '';
   const e = escapeHtmlJs;
   const money = n => '$' + Number(n).toLocaleString('en-US');
-  const classic = m.classicUrl ? ` <a href="${e(m.classicUrl)}" target="_blank" rel="noopener">Search classic.com by hand →</a>` : '';
+  const classic = m.handSearchUrl ? ` <a href="${e(m.handSearchUrl)}" target="_blank" rel="noopener">Search AutoTempest by hand →</a>` : '';
   if (m.status !== 'ok') {
     const why = m.status === 'error' ? `Market data unavailable${m.error ? ' (' + e(m.error) + ')' : ''}.`
       : m.status === 'skipped' ? `No search: ${e(m.reason || '')}`

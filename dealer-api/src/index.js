@@ -19,7 +19,7 @@ import { PhotonImage, resize as photonResize, SamplingFilter } from '@cf-wasm/ph
 // X-ray, doc-fee caps, payment math). See the "Free Deal Review" section.
 import {
   normalizeDeal, buildDraft, applyManualMarket, dealSummaryLines, vehicleLabel, isState,
-  usedCompWindow, selectComps, summarizeComps, parseTrimFacets, matchTrim, explainSelection, applyMarketResult,
+  usedCompWindow, selectComps, summarizeComps, parseTrimFacets, matchTrim, explainSelection, excludeReason, applyMarketResult,
   VERDICT, SECTION_ORDER, SECTION_TITLES, TIMING_LABELS,
 } from './deal-review.js';
 
@@ -9432,7 +9432,7 @@ async function publicGetRecentMatch(request, env, params) {
 // listings found" and the verdict falls back to fees/payment math. Raw
 // listings are cached 24h in D1 so a review costs one or two API calls.
 // No scraping of classic.com or AutoTempest: when results are thin, admin
-// gets a plain classic.com search link to check by hand.
+// gets a plain AutoTempest search link to check by hand.
 //
 // Secrets/vars: ANTHROPIC_API_KEY, BREVO_API_KEY (both already set);
 // BREVO_NEWSLETTER_LIST_ID — numeric Brevo list for "Also send me deal
@@ -9599,7 +9599,8 @@ async function searchCompListings(env, target, state) {
   const make = normalizeMakeForMarketcheck(target.make);
   const model = normalizeModelForMarketcheck(target.model);
   const bucket = target.kind === 'new' ? '' : Math.floor(target.miles / 1000);
-  const apiTrim = target.kind === 'trade' ? '' : (target.apiTrim || target.trim);
+  // apiTrim '' means search without a trim filter (admin view of other trims).
+  const apiTrim = target.kind === 'trade' ? '' : (target.apiTrim !== undefined ? target.apiTrim : target.trim);
   const cacheKey = [target.kind, target.year, make, model, apiTrim, bucket, state || 'US']
     .map(v => String(v).toLowerCase().trim()).join('|');
 
@@ -9640,17 +9641,32 @@ async function searchCompListings(env, target, state) {
   return listings;
 }
 
-function classicSearchUrl(target) {
-  const q = [target.year, target.make, target.model, target.kind === 'trade' ? '' : target.trim].filter(Boolean).join(' ');
-  return `https://www.classic.com/search?q=${encodeURIComponent(q)}`;
+// Plain link for a team member to check by hand on AutoTempest (a link,
+// never scraped), pre-filled with the same year/mileage window.
+function handSearchUrl(target) {
+  const slug = (v) => String(v || '').trim().toLowerCase().replace(/\s+/g, '-');
+  const url = new URL('https://www.autotempest.com/results');
+  url.searchParams.set('make', slug(target.make));
+  url.searchParams.set('model', slug(target.model));
+  if (target.kind === 'new') {
+    url.searchParams.set('minyear', target.year); url.searchParams.set('maxyear', target.year);
+  } else if (target.year) {
+    const w = usedCompWindow(target.year, target.miles || 0);
+    url.searchParams.set('minyear', w.yearMin); url.searchParams.set('maxyear', w.yearMax);
+    if (target.miles > 0) { url.searchParams.set('minmiles', w.milesMin); url.searchParams.set('maxmiles', w.milesMax); }
+  }
+  return url.toString();
 }
+
+// What admin sees per listing in the search record.
+const listingRow = (l, reason) => ({ year: l.year, trim: l.trim, miles: l.miles, price: l.price, dealer: l.dealer, city: l.city, state: l.state, url: l.url, reason });
 
 // The comparison for one vehicle: visitor's state first, nationwide if that
 // gives fewer than 3 comps. Never widens year, mileage or trim to force a
 // number. Returns a result object for buildDraft() (status ok | thin |
 // error | skipped).
 async function compareListings(env, target, state) {
-  const base = { kind: target.kind, classicUrl: classicSearchUrl(target) };
+  const base = { kind: target.kind, handSearchUrl: handSearchUrl(target) };
   const missing = [];
   if (!target.year) missing.push('year');
   if (!target.make) missing.push('make');
@@ -9679,13 +9695,23 @@ async function compareListings(env, target, state) {
           entry.trimsAvailable = available.slice(0, 25);
           if (available.length) {
             const match = matchTrim(available, target.trim);
-            if (!match) { entry.note = `"${target.trim}" isn't among the trims listed`; continue; }
+            if (!match) {
+              entry.note = `"${target.trim}" isn't among the trims listed`;
+              // Show what's out there in the other trims (admin only, never
+              // used for the average).
+              const others = await searchCompListings(env, { ...target, apiTrim: '' }, st);
+              entry.listings = others.slice(0, 25).map(l => listingRow(l, excludeReason(l, target)));
+              continue;
+            }
             t = { ...target, apiTrim: match };
           }
         }
       }
       const listings = await searchCompListings(env, t, st);
       entry.why = explainSelection(listings, t);
+      // Every listing returned, marked match or the reason it was left out,
+      // so even 1–2 matches are visible when there are too few to average.
+      entry.listings = listings.slice(0, 25).map(l => listingRow(l, excludeReason(l, t)));
       const summary = summarizeComps(selectComps(listings, t), { kind: t.kind, year: t.year, miles: t.miles, scope, state: st });
       if (summary) return { ...base, ...summary, searchedState: state || null, searches };
     }
