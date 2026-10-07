@@ -1,7 +1,7 @@
 // Sanity checks for the deterministic Deal Review math (src/deal-review.js).
 // Run: node dealer-api/scripts/deal-review-selftest.mjs
 import assert from 'node:assert/strict';
-import { marketVerdict, monthlyPayment, principalFromPayment, checkDocFee, classifyFee, normalizeDeal, buildDraft, applyManualMarket } from '../src/deal-review.js';
+import { normalizeVin, marketVerdict, monthlyPayment, principalFromPayment, checkDocFee, classifyFee, normalizeDeal, buildDraft, applyManualMarket } from '../src/deal-review.js';
 
 // Verdict thresholds: <= -5% good, >= +3% walk, between negotiable.
 assert.equal(marketVerdict(95000, 100000).key, 'good');
@@ -48,5 +48,13 @@ assert.match(draft.sections.trade.body, /Negative equity of \$1,500/);
 const after = applyManualMarket(deal, draft, { marketValue: 49000 });
 assert.equal(after.verdict_key, 'walk');
 assert.equal(after.sections.price.needsInput, false);
+// Mileage kept only for used cars; VIN shape-checked (17 chars, no I/O/Q).
+assert.equal(normalizeDeal({ car: { condition: 'used', mileage: '32,500' } }).car.mileage, 32500);
+assert.equal(normalizeDeal({ car: { condition: 'new', mileage: '32500' } }).car.mileage, null);
+assert.equal(normalizeDeal({ car: { condition: 'used', mileage: '-5' } }).car.mileage, null);
+assert.equal(normalizeVin('wba5r1c50kfh12345'), 'WBA5R1C50KFH12345');
+assert.equal(normalizeVin('WBA5R1C50KFH1234'), '');   // 16 chars
+assert.equal(normalizeVin('WBA5R1C50KFH1234O'), '');  // contains O
+assert.equal(normalizeVin(''), '');
 console.log(draft.sections.payment.body);
 console.log('deal-review selftest: ok');

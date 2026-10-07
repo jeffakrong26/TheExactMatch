@@ -9488,6 +9488,52 @@ function ensureDealReviewTables(env) {
   return dealReviewSchemaReady;
 }
 
+// Admin "Check Marketcheck plan" (Deal Reviews tab). Before building the
+// live-listings market comparison we need to know whether this account's
+// Marketcheck plan allows state-wide and nationwide active-listing searches
+// with the filters it uses. The Sell My Car pipeline only ever searches by
+// zip + radius, and its notes say radii over 100 miles are rejected (422)
+// on this plan. This runs one test query per scope with the real key and
+// reports what came back. Read-only, a handful of API calls per click; the
+// key never appears in the response.
+async function adminMarketcheckPlanCheck(request, env) {
+  if (!env.MARKETCHECK_API_KEY) return json({ error: 'MARKETCHECK_API_KEY is not set on dealer-api.' }, 500);
+  const base = { make: 'Toyota', model: 'Camry', trim: 'SE', rows: '50' };
+  const tests = [
+    { label: 'Baseline: zip 78701, 100-mile radius (what Sell My Car uses today)', params: { ...base, car_type: 'used', zip: '78701', radius: '100' } },
+    { label: 'Used, dealer-only, state=TX, year + mileage range', params: { ...base, car_type: 'used', seller_type: 'dealer', state: 'TX', year_range: '2021-2024', miles_range: '20000-30000' } },
+    { label: 'Used, dealer-only, nationwide (no location), year + mileage range', params: { ...base, car_type: 'used', seller_type: 'dealer', year_range: '2021-2024', miles_range: '20000-30000' } },
+    { label: 'New, state=TX, year 2025', params: { ...base, car_type: 'new', state: 'TX', year: '2025' } },
+  ];
+  const results = await Promise.all(tests.map(async (t) => {
+    const url = new URL('https://api.marketcheck.com/v2/search/car/active');
+    for (const [k, v] of Object.entries(t.params)) url.searchParams.set(k, v);
+    const shown = url.toString();
+    url.searchParams.set('api_key', env.MARKETCHECK_API_KEY);
+    try {
+      const res = await fetch(url.toString());
+      const text = await res.text();
+      let data = null;
+      try { data = JSON.parse(text); } catch { /* not JSON */ }
+      const first = data?.listings?.[0];
+      return {
+        label: t.label, query: shown, status: res.status, ok: res.ok,
+        num_found: data?.num_found ?? null,
+        returned: data?.listings?.length ?? null,
+        sample: first ? {
+          price: first.price ?? null, miles: first.miles ?? null, year: first.build?.year ?? null, trim: first.build?.trim ?? null,
+          seller_type: first.seller_type ?? null, dealer: first.dealer?.name ?? null,
+          city: first.dealer?.city ?? null, state: first.dealer?.state ?? null, has_link: !!first.vdp_url,
+        } : null,
+        error: res.ok ? null : text.replaceAll(env.MARKETCHECK_API_KEY, '***').slice(0, 400),
+      };
+    } catch (err) {
+      return { label: t.label, query: shown, status: null, ok: false, error: String(err).slice(0, 400) };
+    }
+  }));
+  return json({ checked_at: new Date().toISOString(), results });
+}
+
 async function lookupMarketValue(/* env, vehicle */) {
   return {
     found: false,
@@ -9542,6 +9588,8 @@ const EXTRACT_BUYERS_ORDER_TOOL = {
       make: { type: 'string' },
       model: { type: 'string' },
       trim: { type: 'string' },
+      mileage: { ...nullable('integer'), description: 'Odometer reading of the vehicle being bought, if printed' },
+      vin: { type: 'string', description: 'The 17-character VIN of the vehicle being bought, exactly as printed; empty string if not shown or not fully legible' },
       msrp: nullable('number'),
       selling_price: nullable('number'),
       doc_fee: nullable('number'),
@@ -9570,7 +9618,7 @@ const EXTRACT_BUYERS_ORDER_TOOL = {
       lease_miles_per_year: nullable('integer'),
       dealer_name: { type: 'string' },
     },
-    required: ['readable', 'condition', 'year', 'make', 'model', 'trim', 'msrp', 'selling_price', 'doc_fee', 'fees',
+    required: ['readable', 'condition', 'year', 'make', 'model', 'trim', 'mileage', 'vin', 'msrp', 'selling_price', 'doc_fee', 'fees',
       'trade_has', 'trade_year', 'trade_make', 'trade_model', 'trade_miles', 'trade_payoff', 'trade_offer',
       'payment_method', 'down_payment', 'apr', 'term_months', 'monthly_payment', 'lease_miles_per_year', 'dealer_name'],
     additionalProperties: false,
@@ -9582,6 +9630,7 @@ const EXTRACT_PROMPT = `This is a photo of a car dealer's buyer's order (also ca
 Rules:
 - Only record what is actually printed or written on the document. If a field isn't there or you can't read it, use null (numbers) or an empty string (text). Never estimate or fill in a typical value.
 - Dollar amounts as plain numbers (2995.00 -> 2995). APR as a percent number (6.9% -> 6.9).
+- "mileage" is the odometer reading of the car being bought (not the trade-in). "vin" is that car's VIN; only record it if all 17 characters are legible.
 - "selling_price" is the vehicle's agreed price before fees, taxes and trade. "msrp" only if MSRP / sticker / list price is printed.
 - Put every other line item — add-ons, protection products, dealer fees, taxes, title, registration — in "fees" with its printed name. The documentation / doc / processing / dealer service fee goes in "doc_fee", not in "fees".
 - If the image isn't a buyer's order or is unreadable, set readable to false and leave the rest empty.`;
@@ -9589,7 +9638,7 @@ Rules:
 function extractedToDeal(x) {
   if (!x) return null;
   return {
-    car: { condition: x.condition, year: x.year, make: x.make, model: x.model, trim: x.trim },
+    car: { condition: x.condition, year: x.year, make: x.make, model: x.model, trim: x.trim, mileage: x.mileage, vin: x.vin },
     price: { msrp: x.msrp, selling: x.selling_price },
     docFee: x.doc_fee,
     fees: (x.fees || []).map(f => ({ name: f.name, amount: f.amount })),
@@ -9678,6 +9727,9 @@ async function publicSubmitDealReview(request, env, params, dealer, token, ctx) 
 
   const deal = normalizeDeal({ ...(body.deal || {}), state });
   if (!deal.price.selling && !deal.car.make) return json({ error: 'Please add at least the car and the selling price.' }, 400);
+  if (deal.car.condition === 'used' && !deal.car.mileage) return json({ error: 'Please enter the mileage.' }, 400);
+  const rawVin = String(body.deal?.car?.vin || '').trim();
+  if (rawVin && !deal.car.vin) return json({ error: 'That VIN doesn\'t look right. It should be 17 letters and numbers, with no I, O or Q.' }, 400);
 
   const source = body.source === 'photo' ? 'photo' : 'manual';
   let photoKey = null;
@@ -10002,6 +10054,7 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/public/deal-review/extract',    handler: publicDealReviewExtract },
   { method: 'POST',  pattern: '/api/public/deal-review',            handler: publicSubmitDealReview },
   { method: 'GET',   pattern: '/api/admin/deal-reviews',            handler: adminListDealReviews, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/deal-reviews/marketcheck-check', handler: adminMarketcheckPlanCheck, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/deal-reviews/:id',        handler: adminUpdateDealReview, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/deal-reviews/:id/regenerate', handler: adminRegenerateDealReview, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/deal-reviews/:id/send',   handler: adminSendDealReview, auth: true, admin: true },

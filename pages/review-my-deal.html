@@ -183,6 +183,14 @@
             <label class="sf-field"><span>Model</span><input name="car.model" placeholder="RAV4" autocomplete="off"/></label>
             <label class="sf-field"><span>Trim</span><input name="car.trim" placeholder="XLE Premium" autocomplete="off"/></label>
           </div>
+          <label class="sf-field" data-sf-show="car.condition=used"><span>Mileage</span>
+            <input name="car.mileage" inputmode="numeric" placeholder="32,500" autocomplete="off"/>
+            <small class="sf-field-hint">Check the odometer or your buyer's order.</small>
+          </label>
+          <label class="sf-field"><span>VIN (optional)</span>
+            <input name="car.vin" maxlength="17" autocapitalize="characters" spellcheck="false" autocomplete="off" style="text-transform:uppercase"/>
+            <small class="sf-field-hint">17 characters. It's on your buyer's order and at the base of the windshield on the driver's side.</small>
+          </label>
         </section>
 
         <section class="sf-step" data-step="price" data-title="The price">
@@ -317,6 +325,16 @@
   const num = (v) => { const n = Number(String(v ?? '').replace(/[$,%\s]/g, '')); return String(v ?? '').trim() !== '' && Number.isFinite(n) ? n : null; };
   const money = (v) => { const n = num(v); return n === null ? '' : '$' + n.toLocaleString('en-US', { maximumFractionDigits: 2 }); };
   const TIMING = { this_week: 'This week', this_month: 'This month', just_looking: 'Just looking' };
+  // Mileage: positive whole number (commas allowed while typing).
+  const milesOk = (v) => /^\d{1,3}(,?\d{3})*$|^\d+$/.test(String(v || '').trim()) && Number(String(v).replace(/,/g, '')) > 0;
+  // VIN: 17 letters/digits, never I, O or Q. Only checked when entered.
+  const vinOk = (v) => /^[A-HJ-NPR-Z0-9]{17}$/.test(String(v || '').trim().toUpperCase());
+  function checkMileageAndVin(c) {
+    if (c.condition === 'used' && !c.mileage) return { field: 'car.mileage', message: 'Enter the mileage.' };
+    if (c.condition === 'used' && !milesOk(c.mileage)) return { field: 'car.mileage', message: 'Mileage should be a whole number, like 32500.' };
+    if (c.vin && !vinOk(c.vin)) return { field: 'car.vin', message: 'A VIN is 17 letters and numbers, with no I, O or Q. Check it, or leave it blank.' };
+    return null;
+  }
   const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : '');
 
   // The manual step that owns each summary group, and its rows.
@@ -326,6 +344,8 @@
       { step: 'car', title: 'The car', rows: [
         ['New or used', cap(c.condition)],
         ['Vehicle', [c.year, c.make, c.model, c.trim].filter(Boolean).join(' ')],
+        ...(c.condition === 'used' ? [['Mileage', milesOk(c.mileage) ? Number(String(c.mileage).replace(/,/g, '')).toLocaleString('en-US') + ' miles' : '']] : []),
+        ['VIN', (c.vin || '').toUpperCase(), 'Not provided'],
       ] },
       { step: 'price', title: 'The price', rows: [['MSRP', money(d.price?.msrp)], ['Selling price', money(d.price?.selling)]] },
       { step: 'fees', title: 'Fees & add-ons', rows: [
@@ -360,13 +380,18 @@
     validate: {
       car: (d) => (!d.car.condition ? 'Choose New or Used.'
         : !/^(19|20)\d\d$/.test(d.car.year) ? 'Enter the model year, like 2026.'
-        : !d.car.make || !d.car.model ? 'Enter the make and model.' : null),
+        : !d.car.make || !d.car.model ? 'Enter the make and model.' : checkMileageAndVin(d.car)),
       price: (d) => (num(d.price.selling) === null ? 'Enter the selling price.'
         : d.price.msrp && num(d.price.msrp) === null ? 'MSRP should be a number.' : null),
       trade: (d) => (!d.trade.has ? 'Choose Yes or No.' : null),
       payment: (d) => (!d.payment.method ? 'Choose Cash, Finance or Lease.' : null),
       dealer: (d) => (!d.dealer.timing ? 'Choose when you\'re buying.' : null),
-      verify: (d) => (!d.car.make || num(d.price.selling) === null ? 'Add at least the car and the selling price — tap a line above to fill it in.' : null),
+      verify: (d) => {
+        if (!d.car.make || num(d.price.selling) === null) return 'Add at least the car and the selling price. Tap a line above to fill it in.';
+        if (d.car.condition === 'used' && !milesOk(d.car.mileage)) return 'Add the mileage. Tap the Mileage line above.';
+        if (d.car.vin && !vinOk(d.car.vin)) return 'The VIN doesn\'t look right. Tap the VIN line above to fix or clear it.';
+        return null;
+      },
       contact: (d) => (!d.contact.name ? 'Enter your name.'
         : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.contact.email) ? 'Enter a valid email address.'
         : (d.contact.phone.match(/\d/g) || []).length < 7 ? 'Enter your phone number.'
@@ -401,6 +426,11 @@
       sf.go('car');
     }
   }
+  // Switching Used -> New hides mileage; clear it so stale miles never submit.
+  document.querySelectorAll('.sf-choice[data-name="car.condition"] button').forEach((b) => b.addEventListener('click', () => {
+    if (b.value === 'new') formEl.elements['car.mileage'].value = '';
+  }));
+
   document.querySelectorAll('[data-start]').forEach((b) => b.addEventListener('click', () => begin(b.dataset.start)));
   document.querySelector('[data-switch-manual]').addEventListener('click', () => begin('manual'));
 
@@ -467,7 +497,12 @@
       company: d.company,
       source: mode, upload_token: mode === 'photo' ? uploadToken : null,
       deal: {
-        car: d.car, price: d.price, docFee: d.docFee,
+        car: {
+          ...d.car,
+          mileage: d.car.condition === 'used' ? String(d.car.mileage || '').replace(/,/g, '') : '',
+          vin: (d.car.vin || '').trim().toUpperCase(),
+        },
+        price: d.price, docFee: d.docFee,
         fees: (d.fees || []).filter((f) => f.name || f.amount),
         trade: hasTrade ? { ...t, has: true } : { has: false },
         payment: {

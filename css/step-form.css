@@ -28,6 +28,9 @@
 }
 .sf-field select{background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 15px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:2.5rem}
 .sf-field input:focus,.sf-field select:focus,.sf-row input:focus{outline:none;border-color:var(--sf-accent);box-shadow:0 0 0 3px var(--sf-accent-soft)}
+.sf-field-hint{display:block;font-size:.85rem;color:var(--sf-muted);line-height:1.45;margin-top:.35rem}
+.sf-field-error{font-size:.88rem;color:var(--sf-error);margin-top:.35rem}
+.sf-field input[aria-invalid="true"]{border-color:var(--sf-error)}
 .sf-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 .75rem}
 .sf-grid > .sf-wide{grid-column:1/-1}
 @media(max-width:420px){.sf-grid.sf-grid-stack{grid-template-columns:1fr}}
