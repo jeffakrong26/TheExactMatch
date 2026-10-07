@@ -22,6 +22,7 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap"/></noscript>
   <link rel="stylesheet" href="/css/site.css"/>
+  <link rel="stylesheet" href="/css/step-form.css"/>
 </head>
 <body>
 
@@ -46,174 +47,222 @@
     </div>
 
     <div class="hero-right">
+      <!-- Find My Car form: a start screen with two paths, both built on the
+           shared StepForm component (js/step-form.js) like /review-my-deal.
+           "I know what I want" collects the car itself; "Help me decide"
+           collects the same questions the form has always asked. Both send
+           the same /public/find-car-lead payload as before. -->
       <div class="form-card" id="find-form-wrap">
         <div class="form-title">Start Your Search</div>
         <div class="form-sub">We'll send you <strong>3 matched options</strong> within 24 hours — free, always.</div>
 
-        <div class="ms-progress"><div class="ms-progress-bar" id="ff-progress-bar" style="width:20%"></div></div>
-        <div class="ms-step-label" id="ff-step-label">Step <strong>1</strong> of 5</div>
-
-        <!-- Step 1 — What are you looking for -->
-        <div class="ms-step active" data-step="1">
-          <div class="form-group">
-            <label>Vehicle Type</label>
-            <select id="ff-vtype">
-              <option value="">Select...</option>
-              <option>Sedan</option><option>SUV/Crossover</option><option>Truck</option>
-              <option>Minivan</option><option>Sports Car</option><option>Luxury</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Size Preference</label>
-              <select id="ff-size">
-                <option value="">Select...</option>
-                <option>Compact</option><option>Mid-size</option><option>Full-size</option><option>No Preference</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Condition</label>
-              <select id="ff-condition">
-                <option value="">Select...</option>
-                <option>New</option><option>Pre-Owned</option><option>Either</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label>Budget — Min</label><input type="number" placeholder="30000" id="ff-budget-min" min="0"/></div>
-            <div class="form-group"><label>Budget — Max</label><input type="number" placeholder="60000" id="ff-budget-max" min="0"/></div>
-          </div>
-          <div class="form-group"><label>Maximum Mileage You're Comfortable With</label><input type="number" placeholder="60000" id="ff-max-mileage" min="0"/></div>
-          <div class="form-group">
-            <label>Timeline</label>
-            <select id="ff-timeline">
-              <option value="">Select...</option>
-              <option>This Week</option><option>This Month</option><option>1–3 Months</option><option>Just Exploring</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>How Are You Planning to Pay?</label>
-            <select id="ff-payment-method">
-              <option value="">Select...</option>
-              <option>Financing</option><option>Leasing</option><option>Cash</option>
-            </select>
-          </div>
-          <div id="ff-financing-wrap" style="display:none">
-            <div class="form-group">
-              <label>Credit Range</label>
-              <select id="ff-credit-range">
-                <option value="">Select...</option>
-                <option>Poor</option><option>Fair</option><option>Good</option><option>Excellent</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <div class="form-group"><label>Desired Monthly Payment — Min</label><input type="number" placeholder="400" id="ff-monthly-min"/></div>
-              <div class="form-group"><label>Desired Monthly Payment — Max</label><input type="number" placeholder="600" id="ff-monthly-max"/></div>
-            </div>
-            <div class="form-group">
-              <label>Down Payment Amount</label>
-              <input type="number" placeholder="5000" id="ff-down-payment"/>
-            </div>
-            <p class="form-sub" style="margin:.25rem 0 0;font-size:.72rem">This helps us negotiate the right structure for you.</p>
-          </div>
+        <div class="ff-start" id="ff-start">
+          <button type="button" class="ff-path" data-path="know">
+            <span class="ff-path-title">I know what I want</span>
+            <span class="ff-path-sub">Pick the year, make, model and trim.</span>
+          </button>
+          <button type="button" class="ff-path" data-path="guide">
+            <span class="ff-path-title">Help me decide</span>
+            <span class="ff-path-sub">Tell us what you need and we'll narrow it down.</span>
+          </button>
         </div>
 
-        <!-- Step 2 — Priorities -->
-        <div class="ms-step" data-step="2">
-          <div class="form-group" style="margin-bottom:.3rem"><label>What Matters Most?</label></div>
-          <div class="priority-hint">Pick up to 3 priorities.</div>
-          <div class="priority-grid" id="ff-priority-grid">
-            <label class="priority-item"><input type="checkbox" value="Low maintenance cost"/> Low maintenance cost</label>
-            <label class="priority-item"><input type="checkbox" value="Fuel economy"/> Fuel economy</label>
-            <label class="priority-item"><input type="checkbox" value="Interior space/cargo"/> Interior space/cargo</label>
-            <label class="priority-item"><input type="checkbox" value="Technology and infotainment"/> Tech & infotainment</label>
-            <label class="priority-item"><input type="checkbox" value="Safety ratings"/> Safety ratings</label>
-            <label class="priority-item"><input type="checkbox" value="Driving feel and performance"/> Driving feel & performance</label>
-            <label class="priority-item"><input type="checkbox" value="Reliability"/> Reliability</label>
-            <label class="priority-item"><input type="checkbox" value="Resale value"/> Resale value</label>
-            <label class="priority-item"><input type="checkbox" value="Monthly payment"/> Monthly payment</label>
-            <label class="priority-item"><input type="checkbox" value="Towing capacity"/> Towing capacity</label>
-          </div>
-        </div>
-
-        <!-- Step 3 — Your situation -->
-        <div class="ms-step" data-step="3">
-          <div class="form-group"><label>Current Vehicle (Year/Make/Model)</label><input type="text" placeholder="2018 Honda CR-V" id="ff-current-vehicle"/></div>
-          <div class="form-group"><label>What Do You Like About It?</label><textarea placeholder="Reliable, good gas mileage..." id="ff-current-like"></textarea></div>
-          <div class="form-group"><label>What Do You Want to Change?</label><textarea placeholder="Needs more cargo space, tired of repairs..." id="ff-current-change"></textarea></div>
-          <div class="form-group">
-            <label>Interested in a Trade-In?</label>
-            <select id="ff-tradein">
-              <option value="">Select...</option>
-              <option>Yes</option><option>No</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Step 4 — Anything else -->
-        <div class="ms-step" data-step="4">
-          <div class="form-group"><label>Specific Needs or Requirements</label><textarea placeholder="E.g. Third row seating, AWD required, tow package..." id="ff-specific-needs"></textarea></div>
-
-          <div class="form-group">
-            <label>Do You Know What You're Looking For?</label>
-            <select id="ff-knows-what">
-              <option value="yes">Yes, I have some ideas</option>
-              <option value="no">Not sure yet — I'd like some guidance</option>
-            </select>
+        <form class="sf" id="ff-form" novalidate hidden>
+          <div class="sf-head">
+            <div class="sf-label" data-sf-label></div>
+            <div class="sf-progress" data-sf-progress><div class="sf-bar"></div></div>
           </div>
 
-          <div id="ff-knows-yes-wrap">
-            <div class="form-row">
-              <div class="form-group"><label>Preferred Make</label><input type="text" placeholder="e.g. Toyota" id="ff-pref-make"/></div>
-              <div class="form-group"><label>Preferred Model</label><input type="text" placeholder="e.g. RAV4" id="ff-pref-model"/></div>
+          <!-- ── I know what I want ── -->
+          <section class="sf-step" data-step="kcar" data-title="The car you want">
+            <h2>The car you want</h2>
+            <div class="sf-choice" data-name="k.condition">
+              <button value="new">New</button>
+              <button value="used">Used</button>
             </div>
-            <div class="form-row">
-              <div class="form-group"><label>Year — From</label><input type="number" placeholder="2020" id="ff-year-min"/></div>
-              <div class="form-group"><label>Year — To</label><input type="number" placeholder="2024" id="ff-year-max"/></div>
+            <div class="sf-grid"><div data-vp="kcar"></div></div>
+            <div data-sf-show="k.condition=used">
+              <div class="sf-field"><span>Mileage range</span></div>
+              <div class="sf-grid">
+                <label class="sf-field"><span>From</span><input name="k.milesMin" inputmode="numeric" placeholder="0" autocomplete="off"/></label>
+                <label class="sf-field"><span>Up to</span><input name="k.milesMax" inputmode="numeric" placeholder="40,000" autocomplete="off"/></label>
+              </div>
             </div>
-            <div class="form-group"><label>Any Other Makes or Models You're Also Open To?</label><input type="text" placeholder="e.g. Honda CR-V, Mazda CX-5" id="ff-considering"/></div>
-          </div>
-          <div id="ff-knows-no-wrap" style="display:none">
-            <p class="form-sub" style="margin-bottom:.9rem">No problem — we'll reach out personally to help narrow things down based on everything else you've told us here.</p>
-          </div>
+          </section>
 
-          <div class="form-group"><label>Anything Else We Should Know?</label><textarea placeholder="Anything else that would help us find your match..." id="ff-anything-else"></textarea></div>
-        </div>
+          <section class="sf-step" data-step="kbudget" data-title="Your budget">
+            <h2>Your budget</h2>
+            <label class="sf-field"><span>Maximum you're willing to pay</span><input name="k.budget" inputmode="decimal" placeholder="$45,000" autocomplete="off"/></label>
+          </section>
 
-        <!-- Step 5 — Contact (last: where to send the 3 options) -->
-        <div class="ms-step" data-step="5">
-          <div class="form-group" style="margin-bottom:.3rem"><label>Where Should We Send Your 3 Options?</label></div>
-          <div class="priority-hint">Almost done — just need to know where to reach you.</div>
-          <div class="form-row">
-            <div class="form-group"><label>First Name</label><input type="text" placeholder="John" id="ff-fname"/></div>
-            <div class="form-group"><label>Last Name</label><input type="text" placeholder="Smith" id="ff-lname"/></div>
-          </div>
-          <div class="form-group"><label>Email</label><input type="email" placeholder="john@email.com" id="ff-email"/></div>
-          <div class="form-row">
-            <div class="form-group"><label>Phone</label><input type="tel" placeholder="(555) 000-0000" id="ff-phone"/></div>
-            <div class="form-group"><label>ZIP Code</label><input type="text" placeholder="78701" id="ff-zip" maxlength="10"/></div>
-          </div>
-          <div class="form-group">
-            <label>Preferred Contact Method</label>
-            <select id="ff-contact-method">
-              <option value="">Select...</option>
-              <option>Text</option><option>Email</option><option>Call</option>
-            </select>
-          </div>
-          <p style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:1rem;line-height:1.6">Want us to handle the entire deal for you once we find it? <a href="/white-glove" style="color:rgba(255,255,255,.55);text-decoration:underline">Ask about White Glove.</a></p>
-        </div>
+          <section class="sf-step" data-step="ktrade" data-title="Trade-in">
+            <h2>Trade-in?</h2>
+            <div class="sf-choice" data-name="k.trade">
+              <button value="yes">Yes</button>
+              <button value="no">No</button>
+            </div>
+            <div data-sf-show="k.trade=yes">
+              <div class="sf-grid">
+                <div data-vp="ktrade"></div>
+                <label class="sf-field"><span>Miles</span><input name="kt.miles" inputmode="numeric" autocomplete="off"/></label>
+                <label class="sf-field"><span>Payoff amount</span><input name="kt.payoff" inputmode="decimal" placeholder="$0 if paid off" autocomplete="off"/></label>
+              </div>
+            </div>
+          </section>
 
-        <div class="ms-nav">
-          <button type="button" class="ms-back-btn" id="ff-back-btn" onclick="ffPrevStep()" style="display:none">Back</button>
-          <button type="button" class="submit-btn" id="ff-next-btn" onclick="ffNextStep()">Next Step</button>
-        </div>
-        <div class="form-note">No spam. No sales calls. <strong>Just your options.</strong></div>
+          <section class="sf-step" data-step="kpay" data-title="How you're paying">
+            <h2>How are you paying?</h2>
+            <div class="sf-choice" data-name="k.pay">
+              <button value="Cash">Cash</button>
+              <button value="Financing">Finance</button>
+              <button value="Leasing">Lease</button>
+            </div>
+            <div data-sf-show="k.pay=Financing,Leasing">
+              <div class="sf-grid">
+                <label class="sf-field"><span>Down payment</span><input name="k.down" inputmode="decimal" placeholder="$5,000" autocomplete="off"/></label>
+                <label class="sf-field"><span>Target monthly payment</span><input name="k.monthly" inputmode="decimal" placeholder="$600" autocomplete="off"/></label>
+              </div>
+              <label class="sf-field"><span>Credit range</span>
+                <select name="k.credit"><option value="">Select…</option><option>Poor</option><option>Fair</option><option>Good</option><option>Excellent</option></select>
+              </label>
+            </div>
+          </section>
+
+          <section class="sf-step" data-step="ktiming" data-title="When you're buying">
+            <h2>When are you buying?</h2>
+            <div class="sf-choice sf-choice-stack" data-name="k.timeline">
+              <button value="This Week">This week</button>
+              <button value="This Month">This month</button>
+              <button value="1–3 Months">1–3 months</button>
+              <button value="Just Exploring">Just exploring</button>
+            </div>
+          </section>
+
+          <!-- ── Help me decide (the original questions) ── -->
+          <section class="sf-step" data-step="gcar" data-title="The car you want">
+            <h2>The car you want</h2>
+            <label class="sf-field"><span>Vehicle type</span>
+              <select name="g.vtype"><option value="">Select…</option><option>Sedan</option><option>SUV/Crossover</option><option>Truck</option><option>Minivan</option><option>Sports Car</option><option>Luxury</option></select>
+            </label>
+            <div class="sf-grid">
+              <label class="sf-field"><span>Size preference</span>
+                <select name="g.size"><option value="">Select…</option><option>Compact</option><option>Mid-size</option><option>Full-size</option><option>No Preference</option></select>
+              </label>
+              <label class="sf-field"><span>Condition</span>
+                <select name="g.condition"><option value="">Select…</option><option>New</option><option>Pre-Owned</option><option>Either</option></select>
+              </label>
+            </div>
+          </section>
+
+          <section class="sf-step" data-step="gbudget" data-title="Budget">
+            <h2>Budget</h2>
+            <div class="sf-grid">
+              <label class="sf-field"><span>Budget — min</span><input name="g.budgetMin" inputmode="numeric" placeholder="30000" autocomplete="off"/></label>
+              <label class="sf-field"><span>Budget — max</span><input name="g.budgetMax" inputmode="numeric" placeholder="60000" autocomplete="off"/></label>
+            </div>
+            <label class="sf-field"><span>Maximum mileage you're comfortable with</span><input name="g.maxMiles" inputmode="numeric" placeholder="60000" autocomplete="off"/></label>
+          </section>
+
+          <section class="sf-step" data-step="gpay" data-title="Timing and payment">
+            <h2>Timing &amp; payment</h2>
+            <label class="sf-field"><span>Timeline</span>
+              <select name="g.timeline"><option value="">Select…</option><option>This Week</option><option>This Month</option><option>1–3 Months</option><option>Just Exploring</option></select>
+            </label>
+            <label class="sf-field"><span>How are you planning to pay?</span>
+              <select name="g.pay"><option value="">Select…</option><option>Financing</option><option>Leasing</option><option>Cash</option></select>
+            </label>
+            <div data-sf-show="g.pay=Financing,Leasing">
+              <label class="sf-field"><span>Credit range</span>
+                <select name="g.credit"><option value="">Select…</option><option>Poor</option><option>Fair</option><option>Good</option><option>Excellent</option></select>
+              </label>
+              <div class="sf-grid">
+                <label class="sf-field"><span>Desired monthly — min</span><input name="g.monthlyMin" inputmode="numeric" placeholder="400" autocomplete="off"/></label>
+                <label class="sf-field"><span>Desired monthly — max</span><input name="g.monthlyMax" inputmode="numeric" placeholder="600" autocomplete="off"/></label>
+              </div>
+              <label class="sf-field"><span>Down payment amount</span><input name="g.down" inputmode="numeric" placeholder="5000" autocomplete="off"/></label>
+              <p class="sf-help">This helps us negotiate the right structure for you.</p>
+            </div>
+          </section>
+
+          <section class="sf-step" data-step="gpriorities" data-title="What matters most">
+            <h2>What matters most?</h2>
+            <p class="sf-help">Pick up to 3 priorities.</p>
+            <div class="priority-grid" id="ff-priority-grid">
+              <label class="priority-item"><input type="checkbox" value="Low maintenance cost"/> Low maintenance cost</label>
+              <label class="priority-item"><input type="checkbox" value="Fuel economy"/> Fuel economy</label>
+              <label class="priority-item"><input type="checkbox" value="Interior space/cargo"/> Interior space/cargo</label>
+              <label class="priority-item"><input type="checkbox" value="Technology and infotainment"/> Tech &amp; infotainment</label>
+              <label class="priority-item"><input type="checkbox" value="Safety ratings"/> Safety ratings</label>
+              <label class="priority-item"><input type="checkbox" value="Driving feel and performance"/> Driving feel &amp; performance</label>
+              <label class="priority-item"><input type="checkbox" value="Reliability"/> Reliability</label>
+              <label class="priority-item"><input type="checkbox" value="Resale value"/> Resale value</label>
+              <label class="priority-item"><input type="checkbox" value="Monthly payment"/> Monthly payment</label>
+              <label class="priority-item"><input type="checkbox" value="Towing capacity"/> Towing capacity</label>
+            </div>
+          </section>
+
+          <section class="sf-step" data-step="gcurrent" data-title="Your current car">
+            <h2>Your current car</h2>
+            <label class="sf-field"><span>Current vehicle (year/make/model)</span><input name="g.current" placeholder="2018 Honda CR-V" autocomplete="off"/></label>
+            <label class="sf-field"><span>What do you like about it?</span><textarea name="g.like" placeholder="Reliable, good gas mileage..."></textarea></label>
+            <label class="sf-field"><span>What do you want to change?</span><textarea name="g.change" placeholder="Needs more cargo space, tired of repairs..."></textarea></label>
+            <div class="sf-field"><span>Interested in a trade-in?</span></div>
+            <div class="sf-choice" data-name="g.trade">
+              <button value="Yes">Yes</button>
+              <button value="No">No</button>
+            </div>
+          </section>
+
+          <section class="sf-step" data-step="gextra" data-title="Anything else">
+            <h2>Anything else?</h2>
+            <p class="sf-help">We'll reach out personally to help narrow things down based on everything you've told us.</p>
+            <label class="sf-field"><span>Specific needs or requirements</span><textarea name="g.needs" placeholder="E.g. Third row seating, AWD required, tow package..."></textarea></label>
+            <label class="sf-field"><span>Anything else we should know?</span><textarea name="g.anything" placeholder="Anything else that would help us find your match..."></textarea></label>
+          </section>
+
+          <!-- ── Both paths ── -->
+          <section class="sf-step" data-step="contact" data-title="Where to send your options">
+            <h2>Where should we send your 3 options?</h2>
+            <div class="sf-grid">
+              <label class="sf-field"><span>First name</span><input name="c.fname" placeholder="John" autocomplete="given-name"/></label>
+              <label class="sf-field"><span>Last name</span><input name="c.lname" placeholder="Smith" autocomplete="family-name"/></label>
+            </div>
+            <label class="sf-field"><span>Email</span><input name="c.email" type="email" placeholder="john@email.com" autocomplete="email" inputmode="email"/></label>
+            <div class="sf-grid">
+              <label class="sf-field"><span>Phone</span><input name="c.phone" type="tel" placeholder="(555) 000-0000" autocomplete="tel"/></label>
+              <label class="sf-field"><span>ZIP code</span><input name="c.zip" placeholder="78701" maxlength="10" inputmode="numeric" autocomplete="postal-code"/></label>
+            </div>
+            <div class="sf-field"><span>Preferred contact method</span></div>
+            <div class="sf-choice" data-name="c.contact">
+              <button value="Text">Text</button>
+              <button value="Email">Email</button>
+              <button value="Call">Call</button>
+            </div>
+            <p class="sf-help">Want us to handle the entire deal for you once we find it? <a href="/white-glove">Ask about White Glove.</a></p>
+          </section>
+
+          <section class="sf-step" data-step="review" data-title="Review">
+            <h2>Review</h2>
+            <p class="sf-help">Tap any line to change it.</p>
+            <div id="ff-review-summary"></div>
+          </section>
+
+          <div class="sf-error" data-sf-error role="alert" hidden></div>
+          <div class="sf-nav">
+            <button type="button" class="sf-back" data-sf-back>Back</button>
+            <button type="button" class="sf-next" data-sf-next>Next</button>
+            <button type="button" class="submit-btn" data-sf-submit hidden>Send Me My 3 Options — Free</button>
+          </div>
+          <div class="form-note">No spam. No sales calls. <strong>Just your options.</strong></div>
+          <p class="sf-privacy"><a href="/privacy-policy">Privacy policy</a></p>
+        </form>
       </div>
 
       <div class="success-state" id="find-success">
         <div class="check">✦</div>
         <h3>You're on it.</h3>
         <p>We'll have your 3 curated options ready within 24 hours.<br/>Check your email — and feel free to text us directly at<br/><strong style="color:var(--gold2)">(512) 650-9328</strong> if you have questions.</p>
+        <a class="success-cta" href="/white-glove">Want the whole deal handled? → White Glove</a>
       </div>
       <div id="find-error" style="display:none;margin-top:.75rem;padding:.75rem 1rem;background:rgba(155,35,53,.15);border:1px solid rgba(155,35,53,.4);border-radius:2px;font-size:.8rem;color:#ffaaaa;text-align:center;"></div>
     </div>
@@ -317,145 +366,193 @@
 </div>
 
 <script src="/js/site.js"></script>
+<script src="/js/step-form.js"></script>
+<script src="/js/vehicle-picker.js"></script>
+<script src="/js/vehicle-options.js"></script>
 <script>
-// ── Find My Car multi-step ───────────────────────────────────
-const FF_TOTAL_STEPS = 5;
-let ffCurrentStep = 1;
+// ── Find My Car ─────────────────────────────────────────────
+// Two paths on the shared StepForm component. Both submit the same
+// /public/find-car-lead payload (same 31 keys) as the original form.
+(function () {
+  const KNOW_FLOW = ['kcar', 'kbudget', 'ktrade', 'kpay', 'ktiming', 'contact', 'review'];
+  const GUIDE_FLOW = ['gcar', 'gbudget', 'gpay', 'gpriorities', 'gcurrent', 'gextra', 'contact', 'review'];
+  const startEl = document.getElementById('ff-start');
+  const formEl = document.getElementById('ff-form');
+  let path = 'know';
 
-function ffUpdateProgress(){
-  document.getElementById('ff-progress-bar').style.width = (ffCurrentStep / FF_TOTAL_STEPS * 100) + '%';
-  document.getElementById('ff-step-label').innerHTML = 'Step <strong>' + ffCurrentStep + '</strong> of ' + FF_TOTAL_STEPS;
-}
+  const digits = (v) => String(v ?? '').replace(/[^\d]/g, '');
+  const num = (v) => { const d = digits(v); return d ? Number(d) : null; };
+  const money = (v) => { const n = num(v); return n === null ? '' : '$' + n.toLocaleString('en-US'); };
+  const miles = (v) => { const n = num(v); return n === null ? '' : n.toLocaleString('en-US'); };
+  const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : '');
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const priorities = () => Array.from(document.querySelectorAll('#ff-priority-grid input:checked')).map((cb) => cb.value);
 
-function ffValidateStep(step){
-  if(step === 1){
-    const maxMileage = document.getElementById('ff-max-mileage').value.trim();
-    if(!maxMileage){ alert('Please enter the maximum mileage you\'re comfortable with.'); return false; }
+  const carPicker = new VehiclePicker(document.querySelector('[data-vp="kcar"]'), { name: 'k', levels: ['year', 'make', 'model', 'trim'], fetchOptions: fetchVehicleOptions });
+  const tradePicker = new VehiclePicker(document.querySelector('[data-vp="ktrade"]'), { name: 'kt', levels: ['year', 'make', 'model'], fetchOptions: fetchVehicleOptions });
+
+  // Trim and mileage range have no lead fields of their own; they ride in
+  // specific_needs, which the search reads.
+  function knowNeeds(d) {
+    const parts = [];
+    if (d.k.trim) parts.push(`Trim: ${d.k.trim}`);
+    if (d.k.condition === 'used') {
+      const lo = num(d.k.milesMin), hi = num(d.k.milesMax);
+      if (hi !== null) parts.push(lo ? `Mileage: ${lo.toLocaleString('en-US')}–${hi.toLocaleString('en-US')}` : `Mileage: up to ${hi.toLocaleString('en-US')}`);
+    }
+    return parts.join(' · ');
   }
-  if(step === 5){
-    const fname = document.getElementById('ff-fname').value.trim();
-    const lname = document.getElementById('ff-lname').value.trim();
-    const email = document.getElementById('ff-email').value.trim();
-    const phone = document.getElementById('ff-phone').value.trim();
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if(!fname || !lname || !email || !phone){ alert('Please fill out your name, email, and phone to continue.'); return false; }
-    if(!re.test(email)){ alert('Please enter a valid email address.'); return false; }
+  // Trade-in details ride in current_vehicle ("2019 Honda Civic, 62,000 mi, payoff $14,000").
+  function knowTradeSummary(d) {
+    if (d.k.trade !== 'yes') return '';
+    const car = [d.kt.year, d.kt.make, d.kt.model].filter(Boolean).join(' ');
+    const bits = [car];
+    if (num(d.kt.miles) !== null) bits.push(`${miles(d.kt.miles)} mi`);
+    if (num(d.kt.payoff) !== null) bits.push(`payoff ${money(d.kt.payoff)}`);
+    return bits.filter(Boolean).join(', ');
   }
-  return true;
-}
 
-function ffShowStep(step){
-  document.querySelectorAll('#find-form-wrap .ms-step').forEach(el => {
-    el.classList.toggle('active', parseInt(el.dataset.step) === step);
+  function payload(d) {
+    const base = {
+      first_name: d.c.fname, last_name: d.c.lname, email: d.c.email, phone: d.c.phone, zip: d.c.zip,
+    };
+    if (path === 'know') {
+      const financed = d.k.pay === 'Financing' || d.k.pay === 'Leasing';
+      return {
+        ...base,
+        vehicle_type: '', size_preference: '',
+        condition: d.k.condition === 'new' ? 'New' : 'Pre-Owned',
+        budget_min: '', budget_max: digits(d.k.budget),
+        max_mileage: d.k.condition === 'used' ? digits(d.k.milesMax) : '',
+        timeline: d.k.timeline, payment_method: d.k.pay,
+        credit_range: financed ? d.k.credit : '',
+        desired_monthly_min: '', desired_monthly_max: financed ? digits(d.k.monthly) : '',
+        down_payment: financed ? digits(d.k.down) : '',
+        priorities: '',
+        current_vehicle: knowTradeSummary(d), current_like: '', current_change: '',
+        trade_in: d.k.trade === 'yes' ? 'Yes' : 'No',
+        specific_needs: knowNeeds(d),
+        preferred_contact_method: d.c.contact,
+        undecided: false,
+        preferred_make: d.k.make, preferred_model: d.k.model,
+        year_min: d.k.year, year_max: d.k.year,
+        considering: '', anything_else: '',
+      };
+    }
+    const financed = d.g.pay === 'Financing' || d.g.pay === 'Leasing';
+    return {
+      ...base,
+      vehicle_type: d.g.vtype, size_preference: d.g.size, condition: d.g.condition,
+      budget_min: d.g.budgetMin, budget_max: d.g.budgetMax, max_mileage: d.g.maxMiles,
+      timeline: d.g.timeline, payment_method: d.g.pay,
+      credit_range: financed ? d.g.credit : '',
+      desired_monthly_min: financed ? d.g.monthlyMin : '', desired_monthly_max: financed ? d.g.monthlyMax : '',
+      down_payment: financed ? d.g.down : '',
+      priorities: priorities().join(', '),
+      current_vehicle: d.g.current, current_like: d.g.like, current_change: d.g.change,
+      trade_in: d.g.trade,
+      specific_needs: d.g.needs,
+      preferred_contact_method: d.c.contact,
+      undecided: true,
+      preferred_make: '', preferred_model: '', year_min: '', year_max: '',
+      considering: '', anything_else: d.g.anything,
+    };
+  }
+
+  function contactRows(d) {
+    return { step: 'contact', title: 'Send it to', rows: [
+      ['Name', [d.c.fname, d.c.lname].filter(Boolean).join(' ')], ['Email', d.c.email], ['Phone', d.c.phone], ['ZIP code', d.c.zip], ['Contact by', d.c.contact],
+    ] };
+  }
+  function summary(d) {
+    if (path === 'know') {
+      const k = d.k, financed = k.pay === 'Financing' || k.pay === 'Leasing';
+      return [
+        { step: 'kcar', title: 'The car you want', rows: [
+          ['New or used', cap(k.condition)],
+          ['Vehicle', [k.year, k.make, k.model, k.trim].filter(Boolean).join(' ')],
+          ...(k.condition === 'used' ? [['Mileage', num(k.milesMax) !== null ? `${miles(k.milesMin) || '0'}–${miles(k.milesMax)} miles` : '']] : []),
+        ] },
+        { step: 'kbudget', title: 'Budget', rows: [['Maximum', money(k.budget)]] },
+        { step: 'ktrade', title: 'Trade-in', rows: k.trade === 'yes' ? [['Trade-in', knowTradeSummary(d)]] : [['Trade-in', k.trade === 'no' ? 'No' : '']] },
+        { step: 'kpay', title: 'Payment', rows: [
+          ['Paying by', { Cash: 'Cash', Financing: 'Finance', Leasing: 'Lease' }[k.pay] || ''],
+          ...(financed ? [['Down payment', money(k.down)], ['Target monthly', money(k.monthly)], ['Credit range', k.credit]] : []),
+        ] },
+        { step: 'ktiming', title: 'Timing', rows: [['Buying', k.timeline]] },
+        contactRows(d),
+      ];
+    }
+    const g = d.g, financed = g.pay === 'Financing' || g.pay === 'Leasing';
+    return [
+      { step: 'gcar', title: 'The car you want', rows: [['Vehicle type', g.vtype], ['Size', g.size], ['Condition', g.condition]] },
+      { step: 'gbudget', title: 'Budget', rows: [['Budget', [money(g.budgetMin), money(g.budgetMax)].filter(Boolean).join(' – ')], ['Max mileage', miles(g.maxMiles)]] },
+      { step: 'gpay', title: 'Timing & payment', rows: [
+        ['Timeline', g.timeline], ['Paying by', g.pay],
+        ...(financed ? [['Credit range', g.credit], ['Monthly', [money(g.monthlyMin), money(g.monthlyMax)].filter(Boolean).join(' – ')], ['Down payment', money(g.down)]] : []),
+      ] },
+      { step: 'gpriorities', title: 'What matters most', rows: [['Priorities', priorities().join(', ')]] },
+      { step: 'gcurrent', title: 'Your current car', rows: [['Current vehicle', g.current], ['Likes', g.like], ['Would change', g.change], ['Trade-in', g.trade]] },
+      { step: 'gextra', title: 'Anything else', rows: [['Specific needs', g.needs], ['Anything else', g.anything]] },
+      contactRows(d),
+    ];
+  }
+
+  const sf = new StepForm(formEl, {
+    flow: KNOW_FLOW,
+    finalStep: 'review',
+    validate: {
+      kcar: (d) => (!d.k.condition ? 'Choose New or Used.'
+        : !d.k.year ? 'Choose the year.'
+        : !d.k.make || !d.k.model ? 'Choose the make and model.'
+        : d.k.condition === 'used' && num(d.k.milesMax) === null ? { field: 'k.milesMax', message: "Enter the most miles you'd accept." }
+        : d.k.condition === 'used' && num(d.k.milesMin) !== null && num(d.k.milesMin) > num(d.k.milesMax) ? { field: 'k.milesMin', message: 'The low end should be less than the high end.' }
+        : null),
+      kbudget: (d) => (num(d.k.budget) === null ? { field: 'k.budget', message: "Enter the most you're willing to pay." } : null),
+      ktrade: (d) => (!d.k.trade ? 'Choose Yes or No.' : null),
+      kpay: (d) => (!d.k.pay ? 'Choose Cash, Finance or Lease.' : null),
+      ktiming: (d) => (!d.k.timeline ? "Choose when you're buying." : null),
+      // Same rules as the original form.
+      gbudget: (d) => (!d.g.maxMiles.trim() ? "Please enter the maximum mileage you're comfortable with." : null),
+      contact: (d) => (!d.c.fname || !d.c.lname || !d.c.email || !d.c.phone ? 'Please fill out your name, email, and phone to continue.'
+        : !EMAIL_RE.test(d.c.email) ? 'Please enter a valid email address.' : null),
+    },
+    onShow(key, form) {
+      if (key === 'review') form.renderSummary(document.getElementById('ff-review-summary'), summary(form.data()));
+    },
+    onExit() { formEl.hidden = true; startEl.hidden = false; },
+    async onSubmit(d) {
+      // Same helper, endpoint and success/error elements as before.
+      await submitToApi(formEl.querySelector('[data-sf-submit]'), '/public/find-car-lead', 'find-form-wrap', 'find-success', 'find-error', payload(d));
+    },
   });
-  document.getElementById('ff-back-btn').style.display = step === 1 ? 'none' : 'inline-block';
-  document.getElementById('ff-next-btn').textContent = step === FF_TOTAL_STEPS ? 'Send Me My 3 Options — Free' : 'Next Step';
-  ffUpdateProgress();
-}
 
-function ffNextStep(){
-  if(!ffValidateStep(ffCurrentStep)) return;
-  if(ffCurrentStep === FF_TOTAL_STEPS){ submitFindForm(); return; }
-  ffCurrentStep++;
-  ffShowStep(ffCurrentStep);
-}
+  document.querySelectorAll('.ff-path').forEach((btn) => btn.addEventListener('click', () => {
+    path = btn.dataset.path;
+    sf.history = [];
+    sf.setFlow(path === 'know' ? KNOW_FLOW : GUIDE_FLOW);
+    startEl.hidden = true;
+    formEl.hidden = false;
+    sf.go(path === 'know' ? 'kcar' : 'gcar', { push: false });
+  }));
 
-function ffPrevStep(){
-  if(ffCurrentStep === 1) return;
-  ffCurrentStep--;
-  ffShowStep(ffCurrentStep);
-}
-
-document.addEventListener('DOMContentLoaded', function(){
+  // Up to 3 priorities (unchanged behavior).
   const grid = document.getElementById('ff-priority-grid');
-  if(!grid) return;
   const boxes = grid.querySelectorAll('input[type="checkbox"]');
-  function refresh(){
-    const checkedCount = grid.querySelectorAll('input[type="checkbox"]:checked').length;
-    boxes.forEach(cb => {
+  function refresh() {
+    const n = grid.querySelectorAll('input:checked').length;
+    boxes.forEach((cb) => {
       cb.closest('.priority-item').classList.toggle('checked', cb.checked);
-      if(!cb.checked){
-        cb.disabled = checkedCount >= 3;
-        cb.closest('.priority-item').classList.toggle('disabled', checkedCount >= 3);
-      }
+      if (!cb.checked) { cb.disabled = n >= 3; cb.closest('.priority-item').classList.toggle('disabled', n >= 3); }
     });
   }
-  boxes.forEach(cb => cb.addEventListener('change', refresh));
-});
+  boxes.forEach((cb) => cb.addEventListener('change', refresh));
 
-document.addEventListener('DOMContentLoaded', function(){
-  const paymentSelect = document.getElementById('ff-payment-method');
-  const wrap = document.getElementById('ff-financing-wrap');
-  if(!paymentSelect || !wrap) return;
-  paymentSelect.addEventListener('change', function(){
-    const show = paymentSelect.value === 'Financing' || paymentSelect.value === 'Leasing';
-    wrap.style.display = show ? 'block' : 'none';
-    if(!show){
-      document.getElementById('ff-credit-range').value = '';
-      document.getElementById('ff-monthly-min').value = '';
-      document.getElementById('ff-monthly-max').value = '';
-      document.getElementById('ff-down-payment').value = '';
-    }
-  });
-});
-
-document.addEventListener('DOMContentLoaded', function(){
-  const knowsSelect = document.getElementById('ff-knows-what');
-  const yesWrap = document.getElementById('ff-knows-yes-wrap');
-  const noWrap = document.getElementById('ff-knows-no-wrap');
-  if(!knowsSelect || !yesWrap || !noWrap) return;
-  knowsSelect.addEventListener('change', function(){
-    const knows = knowsSelect.value === 'yes';
-    yesWrap.style.display = knows ? 'block' : 'none';
-    noWrap.style.display = knows ? 'none' : 'block';
-    if(!knows){
-      document.getElementById('ff-pref-make').value = '';
-      document.getElementById('ff-pref-model').value = '';
-      document.getElementById('ff-year-min').value = '';
-      document.getElementById('ff-year-max').value = '';
-      document.getElementById('ff-considering').value = '';
-    }
-  });
-});
-
-// ── Find My Car submit ───────────────────────────────────────
-function submitFindForm() {
-  const btn = document.getElementById('ff-next-btn');
-  const priorities = Array.from(document.querySelectorAll('#ff-priority-grid input:checked')).map(cb => cb.value).join(', ');
-  submitToApi(btn, '/public/find-car-lead', 'find-form-wrap', 'find-success', 'find-error', {
-    first_name: document.getElementById('ff-fname').value.trim(),
-    last_name:  document.getElementById('ff-lname').value.trim(),
-    email:      document.getElementById('ff-email').value.trim(),
-    phone:      document.getElementById('ff-phone').value.trim(),
-    zip:        document.getElementById('ff-zip').value.trim(),
-    vehicle_type: document.getElementById('ff-vtype').value,
-    size_preference: document.getElementById('ff-size').value,
-    condition:  document.getElementById('ff-condition').value,
-    budget_min: document.getElementById('ff-budget-min').value.trim(),
-    budget_max: document.getElementById('ff-budget-max').value.trim(),
-    max_mileage: document.getElementById('ff-max-mileage').value.trim(),
-    timeline:   document.getElementById('ff-timeline').value,
-    payment_method: document.getElementById('ff-payment-method').value,
-    credit_range: document.getElementById('ff-credit-range').value,
-    desired_monthly_min: document.getElementById('ff-monthly-min').value.trim(),
-    desired_monthly_max: document.getElementById('ff-monthly-max').value.trim(),
-    down_payment: document.getElementById('ff-down-payment').value.trim(),
-    priorities: priorities,
-    current_vehicle: document.getElementById('ff-current-vehicle').value.trim(),
-    current_like: document.getElementById('ff-current-like').value.trim(),
-    current_change: document.getElementById('ff-current-change').value.trim(),
-    trade_in:   document.getElementById('ff-tradein').value,
-    specific_needs: document.getElementById('ff-specific-needs').value.trim(),
-    preferred_contact_method: document.getElementById('ff-contact-method').value,
-    undecided:  document.getElementById('ff-knows-what').value === 'no',
-    preferred_make: document.getElementById('ff-pref-make').value.trim(),
-    preferred_model: document.getElementById('ff-pref-model').value.trim(),
-    year_min:   document.getElementById('ff-year-min').value.trim(),
-    year_max:   document.getElementById('ff-year-max').value.trim(),
-    considering: document.getElementById('ff-considering').value.trim(),
-    anything_else: document.getElementById('ff-anything-else').value.trim()
-  });
-}
+  // Switching to New hides the mileage range; clear it so it can't submit.
+  document.querySelectorAll('.sf-choice[data-name="k.condition"] button').forEach((b) => b.addEventListener('click', () => {
+    if (b.value === 'new') { formEl.elements['k.milesMin'].value = ''; formEl.elements['k.milesMax'].value = ''; }
+  }));
+})();
 </script>
 </body>
 </html>

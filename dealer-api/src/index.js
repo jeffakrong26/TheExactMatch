@@ -1140,8 +1140,13 @@ async function submitFindCarLead(request, env, params, dealer, token, ctx) {
   if (!first_name || !last_name || !email) return json({ error: 'Name and email are required.' }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: 'Invalid email address.' }, 400);
 
-  const maxMileage = parseInt(body.max_mileage, 10);
-  if (!Number.isFinite(maxMileage) || maxMileage <= 0) return json({ error: 'Maximum mileage is required.' }, 400);
+  // Required unless the buyer wants a new car (the "I know what I want"
+  // path doesn't ask mileage for New). The column is nullable and the report
+  // pipeline already treats a missing cap as "not specified".
+  const isNewCar = /^new$/i.test(String(body.condition || '').trim());
+  const parsedMileage = parseInt(body.max_mileage, 10);
+  const maxMileage = Number.isFinite(parsedMileage) && parsedMileage > 0 ? parsedMileage : null;
+  if (maxMileage === null && !isNewCar) return json({ error: 'Maximum mileage is required.' }, 400);
 
   const undecided = !!body.undecided;
   // Structured fields are meaningless once the client's told us they don't

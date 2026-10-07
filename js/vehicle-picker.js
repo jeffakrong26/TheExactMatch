@@ -31,6 +31,7 @@
       this.maxYear = opts.maxYear || new Date().getFullYear() + 1;
       this.els = {};
       this.loadToken = 0;
+      this.pending = {}; // values to auto-select once their list loads (prefer())
       root.classList.add('vp');
       for (const level of this.levels) this._build(level);
       this._fillYears();
@@ -107,12 +108,12 @@
 
     _disable(level) {
       const { select, other, hidden } = this.els[level];
-      select.innerHTML = '<option value="">Choose the one above first</option>';
+      select.innerHTML = '<option value="">Choose…</option>'; // disabled until the level above is chosen
       select.disabled = true;
       select.hidden = false;
       other.hidden = true;
       other.value = '';
-      hidden.value = '';
+      hidden.value = this.pending[level] || ''; // a preferred value still submits
     }
 
     _resetBelow(level, { typed = false } = {}) {
@@ -125,8 +126,8 @@
           select.hidden = true;
           select.disabled = false;
           other.hidden = false;
-          other.value = '';
-          hidden.value = '';
+          other.value = this.pending[below] || '';
+          hidden.value = other.value;
         } else {
           this._disable(below);
         }
@@ -157,7 +158,33 @@
         return null;
       }
       this._setOptions(next, values);
+      // A preferred value (e.g. ?make=Ferrari from a brand page) is picked
+      // as soon as its list arrives; if it isn't listed it's kept as typed.
+      const want = this.pending[next];
+      if (want) {
+        const { select, hidden } = this.els[next];
+        const match = Array.from(select.options).find((o) => o.value && o.value !== OTHER && norm(o.value) === norm(want));
+        if (match) {
+          select.value = match.value;
+          hidden.value = match.value;
+          delete this.pending[next];
+          this._emit();
+          this._loadNext(next);
+        } else {
+          this._showOther(next, want);
+        }
+      }
       return values;
+    }
+
+    // Prefill a level whose list depends on choices above it (e.g. a make
+    // before the year is chosen). The value is submitted as-is until then.
+    prefer(values) {
+      for (const [level, v] of Object.entries(values)) {
+        if (!v || !this.els[level]) continue;
+        this.pending[level] = String(v);
+        this.els[level].hidden.value = String(v);
+      }
     }
 
     // Prefill (e.g. from a photo of the buyer's order). Each value is matched

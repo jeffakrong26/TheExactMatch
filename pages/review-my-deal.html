@@ -299,6 +299,7 @@
 <script src="/js/site.js"></script>
 <script src="/js/step-form.js"></script>
 <script src="/js/vehicle-picker.js"></script>
+<script src="/js/vehicle-options.js"></script>
 <script>
 (function () {
   const MANUAL_FLOW = ['car', 'price', 'fees', 'trade', 'payment', 'dealer', 'contact', 'review'];
@@ -368,21 +369,7 @@
     return groups;
   }
 
-  // Year -> Make -> Model -> Trim lists from Marketcheck (via dealer-api),
-  // so what's picked here is spelled exactly like the listings we compare
-  // against. Lists are cached per page view as well as on the server.
-  const optionCache = new Map();
-  async function fetchVehicleOptions(p) {
-    const qs = new URLSearchParams(Object.entries(p).filter(([, v]) => v)).toString();
-    if (!optionCache.has(qs)) {
-      optionCache.set(qs, fetch(`${DEALER_API}/public/vehicle-options?${qs}`).then(async (res) => {
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !Array.isArray(data.options)) throw new Error(data.error || 'Lists unavailable');
-        return data.options;
-      }).catch((e) => { optionCache.delete(qs); throw e; }));
-    }
-    return optionCache.get(qs);
-  }
+  // Year -> Make -> Model -> Trim lists: js/vehicle-options.js.
   const carPicker = new VehiclePicker(document.querySelector('[data-vp="car"]'), {
     name: 'car', levels: ['year', 'make', 'model', 'trim'], fetchOptions: fetchVehicleOptions,
   });
