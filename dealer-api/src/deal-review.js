@@ -330,7 +330,13 @@ export function selectComps(listings, target) {
 // normalized to [{ trim, count }]. Tolerates the two shapes facet entries
 // come back in.
 export function parseTrimFacets(facets) {
-  const raw = facets?.trim || facets?.build_trim || [];
+  return parseFacetValues(facets, 'trim');
+}
+
+// Any facet field (make, model, trim) -> [{ trim, count }] sorted by count.
+// (The `trim` key name is historical; it holds the facet value.)
+export function parseFacetValues(facets, field) {
+  const raw = facets?.[field] || facets?.[`build_${field}`] || [];
   return (Array.isArray(raw) ? raw : [])
     .map((f) => ({ trim: String(f.item ?? f.key ?? f.value ?? '').trim(), count: Number(f.count) || 0 }))
     .filter((f) => f.trim)

@@ -178,10 +178,8 @@
             <button value="used">Used</button>
           </div>
           <div class="sf-grid">
-            <label class="sf-field"><span>Year</span><input name="car.year" inputmode="numeric" maxlength="4" placeholder="2026" autocomplete="off"/></label>
-            <label class="sf-field"><span>Make</span><input name="car.make" placeholder="Toyota" autocomplete="off"/></label>
-            <label class="sf-field"><span>Model</span><input name="car.model" placeholder="RAV4" autocomplete="off"/></label>
-            <label class="sf-field"><span>Trim</span><input name="car.trim" placeholder="XLE Premium" autocomplete="off"/></label>
+            <!-- Year -> Make -> Model -> Trim dropdowns (js/vehicle-picker.js) -->
+            <div data-vp="car"></div>
           </div>
           <label class="sf-field" data-sf-show="car.condition=used"><span>Mileage</span>
             <input name="car.mileage" inputmode="numeric" placeholder="32,500" autocomplete="off"/>
@@ -223,9 +221,7 @@
           </div>
           <div data-sf-show="trade.has=yes">
             <div class="sf-grid">
-              <label class="sf-field"><span>Year</span><input name="trade.year" inputmode="numeric" maxlength="4" autocomplete="off"/></label>
-              <label class="sf-field"><span>Make</span><input name="trade.make" autocomplete="off"/></label>
-              <label class="sf-field"><span>Model</span><input name="trade.model" autocomplete="off"/></label>
+              <div data-vp="trade"></div>
               <label class="sf-field"><span>Miles</span><input name="trade.miles" inputmode="numeric" autocomplete="off"/></label>
               <label class="sf-field"><span>Payoff amount</span><input name="trade.payoff" inputmode="decimal" placeholder="$0 if paid off" autocomplete="off"/></label>
               <label class="sf-field"><span>Dealer offer</span><input name="trade.offer" inputmode="decimal" autocomplete="off"/></label>
@@ -308,6 +304,7 @@
 
 <script src="/js/site.js"></script>
 <script src="/js/step-form.js"></script>
+<script src="/js/vehicle-picker.js"></script>
 <script>
 (function () {
   const MANUAL_FLOW = ['car', 'price', 'fees', 'trade', 'payment', 'dealer', 'contact', 'review'];
@@ -374,13 +371,35 @@
     return groups;
   }
 
+  // Year -> Make -> Model -> Trim lists from Marketcheck (via dealer-api),
+  // so what's picked here is spelled exactly like the listings we compare
+  // against. Lists are cached per page view as well as on the server.
+  const optionCache = new Map();
+  async function fetchVehicleOptions(p) {
+    const qs = new URLSearchParams(Object.entries(p).filter(([, v]) => v)).toString();
+    if (!optionCache.has(qs)) {
+      optionCache.set(qs, fetch(`${DEALER_API}/public/vehicle-options?${qs}`).then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !Array.isArray(data.options)) throw new Error(data.error || 'Lists unavailable');
+        return data.options;
+      }).catch((e) => { optionCache.delete(qs); throw e; }));
+    }
+    return optionCache.get(qs);
+  }
+  const carPicker = new VehiclePicker(document.querySelector('[data-vp="car"]'), {
+    name: 'car', levels: ['year', 'make', 'model', 'trim'], fetchOptions: fetchVehicleOptions,
+  });
+  const tradePicker = new VehiclePicker(document.querySelector('[data-vp="trade"]'), {
+    name: 'trade', levels: ['year', 'make', 'model'], fetchOptions: fetchVehicleOptions,
+  });
+
   const sf = new StepForm(formEl, {
     flow: MANUAL_FLOW,
     finalStep: 'review',
     validate: {
       car: (d) => (!d.car.condition ? 'Choose New or Used.'
-        : !/^(19|20)\d\d$/.test(d.car.year) ? 'Enter the model year, like 2026.'
-        : !d.car.make || !d.car.model ? 'Enter the make and model.' : checkMileageAndVin(d.car)),
+        : !/^(19|20)\d\d$/.test(d.car.year) ? 'Choose the year.'
+        : !d.car.make || !d.car.model ? 'Choose the make and model.' : checkMileageAndVin(d.car)),
       price: (d) => (num(d.price.selling) === null ? 'Enter the selling price.'
         : d.price.msrp && num(d.price.msrp) === null ? 'MSRP should be a number.' : null),
       trade: (d) => (!d.trade.has ? 'Choose Yes or No.' : null),
@@ -475,6 +494,11 @@
       uploadToken = data.upload_token;
       if (data.readable && data.deal) {
         sf.fill(toForm(data.deal));
+        // Match what was read off the order to the dropdown lists (anything
+        // not listed stays as typed text). Runs in the background while the
+        // visitor reviews; the values are already set either way.
+        carPicker.setValues(data.deal.car);
+        if (data.deal.trade.has) tradePicker.setValues(data.deal.trade);
         help.textContent = 'Here\'s what we read. Tap any line to correct it or fill in anything we missed.';
       } else {
         help.textContent = 'We couldn\'t read that photo clearly. Tap each line to fill in the numbers, or go back and try a sharper photo.';
