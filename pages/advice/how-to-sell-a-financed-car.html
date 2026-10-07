@@ -12,8 +12,6 @@
   <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link rel="preconnect" href="https://api.fontshare.com"/>
-  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin/>
   <!-- Font stylesheets loaded non-blocking (preload + swap-on-load, with a
        <noscript> fallback for the no-JS/crawler case) — a <link
        rel="stylesheet"> to a third-party host otherwise blocks first paint
@@ -21,10 +19,8 @@
        browser can't know in advance the fetched CSS only affects
        @font-face. site.css stays a normal blocking stylesheet: it's
        same-origin, small, and needed immediately for layout. -->
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"/></noscript>
-  <link rel="preload" as="style" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
-  <noscript><link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap"/></noscript>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap"/></noscript>
   <link rel="stylesheet" href="/css/site.css"/>
 </head>
 <body>
@@ -55,17 +51,17 @@
       <div class="eyebrow left">The Basics</div>
       <h2 class="display" style="margin-bottom:2rem">Payoff, Lienholder &amp; Equity</h2>
 
-      <h3 style="font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:500;color:var(--navy);margin-bottom:.6rem">Your payoff amount is what you actually owe</h3>
+      <h3 style="font-family:var(--font-head);font-size:1.15rem;font-weight:500;color:var(--navy);margin-bottom:.6rem">Your payoff amount is what you actually owe</h3>
       <p style="font-size:.95rem;font-weight:300;line-height:1.85;color:#333;margin-bottom:1.75rem">
         Your loan payoff isn't the same as your remaining monthly payments added up — it's a specific figure your lender quotes, usually valid for a set number of days, that includes any accrued interest. Get a current payoff quote directly from your lender before you negotiate a sale price, so you know exactly what needs to be covered.
       </p>
 
-      <h3 style="font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:500;color:var(--navy);margin-bottom:.6rem">The lienholder gets paid first, automatically</h3>
+      <h3 style="font-family:var(--font-head);font-size:1.15rem;font-weight:500;color:var(--navy);margin-bottom:.6rem">The lienholder gets paid first, automatically</h3>
       <p style="font-size:.95rem;font-weight:300;line-height:1.85;color:#333;margin-bottom:1.75rem">
         Whoever holds the lien on your title — your bank or finance company — has to be paid off before the title can transfer cleanly to a buyer. In a dealer trade-in or a dealer-network sale, this is handled directly between the buyer and your lender as part of closing; you're not expected to personally coordinate a payoff wire.
       </p>
 
-      <h3 style="font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:500;color:var(--navy);margin-bottom:.6rem">Positive equity vs. being underwater</h3>
+      <h3 style="font-family:var(--font-head);font-size:1.15rem;font-weight:500;color:var(--navy);margin-bottom:.6rem">Positive equity vs. being underwater</h3>
       <p style="font-size:.95rem;font-weight:300;line-height:1.85;color:#333">
         If the car is worth more than your payoff amount, that difference is yours — either as cash or as credit toward your next purchase. If you owe more than it's worth (being "underwater" or "upside down"), you'll need to cover that gap out of pocket, roll it into a new loan, or wait until you've paid down enough to have equity again. Knowing which situation you're in before you start the process avoids an unpleasant surprise at closing.
       </p>

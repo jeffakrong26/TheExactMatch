@@ -12,8 +12,6 @@
   <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link rel="preconnect" href="https://api.fontshare.com"/>
-  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin/>
   <!-- Font stylesheets loaded non-blocking (preload + swap-on-load, with a
        <noscript> fallback for the no-JS/crawler case) — a <link
        rel="stylesheet"> to a third-party host otherwise blocks first paint
@@ -21,10 +19,8 @@
        browser can't know in advance the fetched CSS only affects
        @font-face. site.css stays a normal blocking stylesheet: it's
        same-origin, small, and needed immediately for layout. -->
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"/></noscript>
-  <link rel="preload" as="style" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
-  <noscript><link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap"/></noscript>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap"/></noscript>
   <link rel="stylesheet" href="/css/site.css"/>
 
   <!-- TEM "Get Started" hero button — adapted from a 21st.dev React component into
@@ -70,7 +66,7 @@
       cursor: pointer;
       outline-offset: 4px;
       padding: 1.1rem 2.4rem;
-      font-family: 'Jost', sans-serif; /* matches existing TEM body font, not the original's Inter import */
+      font-family: var(--font-body); /* matches existing TEM body font, not the original's Inter import */
       font-size: 1.05rem;
       font-weight: 500;
       letter-spacing: 0.02em;
@@ -175,7 +171,7 @@
   <div class="home-wrap">
     <!-- Dealer-network trust line + brand strip -->
     <section style="padding:56px 0 48px;text-align:center">
-      <p style="font-family:'General Sans',sans-serif;font-weight:500;font-size:15px;color:var(--home-slate);margin:0 0 28px">Sourced from dealer networks carrying the world's finest brands</p>
+      <p style="font-family:var(--font-body);font-weight:500;font-size:15px;color:var(--home-slate);margin:0 0 28px">Sourced from dealer networks carrying the world's finest brands</p>
       <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:center;justify-content:center;opacity:.55">
         <span class="home-mono">PORSCHE</span>
         <span class="home-mono">FERRARI</span>
@@ -262,7 +258,7 @@
         <h2>Based in Austin. Serving all 50 states.</h2>
         <p>Texas is where we're deepest — but our dealer network reaches the whole country, and we ship cars anywhere.</p>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:10px;font-family:'General Sans',sans-serif;font-size:13px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;font-family:var(--font-body);font-size:13px">
         <a class="home-text-cta" href="/austin">Austin</a>
         <a class="home-text-cta" href="/houston">Houston</a>
         <a class="home-text-cta" href="/san-antonio">San Antonio</a>
@@ -314,7 +310,7 @@
        shared FOOTER_HTML since no other page carries it. -->
   <div class="home-wrap" style="padding:40px 32px;text-align:center;border-top:1px solid var(--home-hairline)">
     <p class="home-mono" style="color:var(--home-slate);margin-bottom:16px">Selling instead?</p>
-    <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;font-family:'General Sans',sans-serif;font-size:13px">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;font-family:var(--font-body);font-size:13px">
       <a class="home-text-cta" href="/sell-my-car">Sell My Car</a>
       <a class="home-text-cta" href="/sell/ferrari">Sell a Ferrari</a>
       <a class="home-text-cta" href="/sell/bentley">Sell a Bentley</a>

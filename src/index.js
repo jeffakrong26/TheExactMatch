@@ -914,7 +914,7 @@ const CITY_LOCAL = {
   },
 };
 
-const FAQ_H3_STYLE = "font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:500;color:var(--navy);margin-bottom:.75rem";
+const FAQ_H3_STYLE = "font-family:var(--font-head);font-size:1.2rem;font-weight:500;color:var(--navy);margin-bottom:.75rem";
 const FAQ_P_STYLE = 'font-size:.95rem;font-weight:300;line-height:1.85;color:#333';
 
 function cityLocalHtml(local) {
