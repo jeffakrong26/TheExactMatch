@@ -1,0 +1,81 @@
+/* StepForm — structural styles for js/step-form.js.
+   Layout and states only; a page themes it by setting the --sf-* custom
+   properties on the form root (see /review-my-deal). Fonts are inherited
+   from the page, so this file never changes a page's typography. Mobile
+   first: every interactive element is at least 48px tall. */
+.sf{
+  --sf-ink:#0C1C33;--sf-muted:#4A5568;--sf-line:#DDD8CC;--sf-field:#fff;
+  --sf-accent:#C09A5B;--sf-accent-soft:rgba(192,154,91,.14);--sf-error:#9B2335;
+  --sf-radius:12px;
+  color:var(--sf-ink);
+}
+.sf-head{margin-bottom:1.5rem}
+.sf-label{font-size:.78rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--sf-muted);margin-bottom:.6rem;min-height:1em}
+.sf-label strong{color:var(--sf-ink)}
+.sf-progress{height:4px;border-radius:4px;background:var(--sf-line);overflow:hidden}
+.sf-bar{height:100%;width:0;background:var(--sf-accent);transition:width .3s ease}
+
+.sf-step:not(.is-active){display:none}
+.sf-step h2,.sf-step h3{outline:none}
+.sf-help{font-size:.95rem;color:var(--sf-muted);line-height:1.55;margin:-.25rem 0 1.25rem}
+
+.sf-field{display:block;margin-bottom:1rem}
+.sf-field > span{display:block;font-size:.88rem;font-weight:500;margin-bottom:.4rem}
+.sf-field input,.sf-field select,.sf-row input{
+  width:100%;min-height:52px;padding:.8rem 1rem;font:inherit;font-size:1rem;color:var(--sf-ink);
+  background:var(--sf-field);border:1.5px solid var(--sf-line);border-radius:var(--sf-radius);
+  -webkit-appearance:none;appearance:none;
+}
+.sf-field select{background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 15px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:2.5rem}
+.sf-field input:focus,.sf-field select:focus,.sf-row input:focus{outline:none;border-color:var(--sf-accent);box-shadow:0 0 0 3px var(--sf-accent-soft)}
+.sf-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 .75rem}
+.sf-grid > .sf-wide{grid-column:1/-1}
+@media(max-width:420px){.sf-grid.sf-grid-stack{grid-template-columns:1fr}}
+
+/* Big button choices (New/Used, Yes/No, Cash/Finance/Lease…). */
+.sf-choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.6rem;margin-bottom:1.25rem}
+.sf-choice button{
+  min-height:56px;padding:.75rem 1rem;font:inherit;font-size:1rem;font-weight:600;cursor:pointer;
+  color:var(--sf-ink);background:var(--sf-field);border:1.5px solid var(--sf-line);border-radius:var(--sf-radius);
+  transition:border-color .15s,background .15s,box-shadow .15s;
+}
+.sf-choice button:hover{border-color:var(--sf-accent)}
+.sf-choice button:focus-visible{outline:none;box-shadow:0 0 0 3px var(--sf-accent-soft);border-color:var(--sf-accent)}
+.sf-choice button.is-selected{border-color:var(--sf-accent);background:var(--sf-accent-soft);box-shadow:inset 0 0 0 1px var(--sf-accent)}
+.sf-choice-stack{grid-template-columns:1fr}
+
+/* Repeatable rows. */
+.sf-row{display:grid;grid-template-columns:1fr 8.5rem 48px;gap:.5rem;margin-bottom:.6rem;align-items:center}
+.sf-row-remove{min-height:52px;font-size:1.4rem;line-height:1;cursor:pointer;color:var(--sf-muted);background:transparent;border:1.5px solid var(--sf-line);border-radius:var(--sf-radius)}
+.sf-row-remove:hover{color:var(--sf-error);border-color:var(--sf-error)}
+.sf-add{min-height:48px;padding:.6rem 1rem;font:inherit;font-weight:600;cursor:pointer;color:var(--sf-ink);background:transparent;border:1.5px dashed var(--sf-line);border-radius:var(--sf-radius);width:100%}
+.sf-add:hover{border-color:var(--sf-accent)}
+@media(max-width:420px){.sf-row{grid-template-columns:1fr 6.5rem 48px}}
+
+.sf-check{display:flex;gap:.75rem;align-items:flex-start;padding:.75rem 0;cursor:pointer;font-size:.95rem;line-height:1.45}
+.sf-check input{width:22px;height:22px;flex:0 0 22px;margin-top:1px;accent-color:var(--sf-accent)}
+
+/* Grouped tap-to-edit summary. */
+.sf-summary-group{margin-bottom:1.25rem;border:1.5px solid var(--sf-line);border-radius:var(--sf-radius);overflow:hidden;background:var(--sf-field)}
+.sf-summary-title{font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sf-muted);padding:.75rem 1rem .5rem}
+.sf-summary-row{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) auto;gap:.75rem;align-items:center;width:100%;
+  min-height:52px;padding:.7rem 1rem;font:inherit;text-align:left;cursor:pointer;color:var(--sf-ink);
+  background:transparent;border:0;border-top:1px solid var(--sf-line);
+}
+.sf-summary-row:hover,.sf-summary-row:focus-visible{background:var(--sf-accent-soft);outline:none}
+.sf-summary-label{font-size:.9rem;color:var(--sf-muted)}
+.sf-summary-value{font-size:.98rem;font-weight:600;overflow-wrap:anywhere}
+.sf-summary-value.is-empty{font-weight:400;color:var(--sf-muted);font-style:italic}
+.sf-summary-edit{font-size:.8rem;font-weight:600;color:var(--sf-accent)}
+
+.sf-error{margin:1rem 0 0;padding:.75rem 1rem;border-radius:var(--sf-radius);font-size:.92rem;color:var(--sf-error);background:rgba(155,35,53,.08);border:1px solid rgba(155,35,53,.25)}
+
+.sf-nav{display:flex;gap:.75rem;margin-top:1.5rem}
+.sf-nav > *{min-height:54px}
+.sf-back{flex:0 0 auto;padding:0 1.4rem;font:inherit;font-weight:600;cursor:pointer;color:var(--sf-ink);background:transparent;border:1.5px solid var(--sf-line);border-radius:var(--sf-radius)}
+.sf-back:hover{border-color:var(--sf-accent)}
+.sf-next{flex:1;padding:0 1.4rem;font:inherit;font-size:1rem;font-weight:700;cursor:pointer;color:#fff;background:var(--sf-ink);border:0;border-radius:var(--sf-radius)}
+.sf-next:hover{opacity:.92}
+.sf-nav .submit-btn{flex:1;margin-top:0;font-size:1rem}
+.sf [hidden]{display:none !important}

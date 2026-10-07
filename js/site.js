@@ -256,7 +256,7 @@ document.addEventListener('DOMContentLoaded', function(){
     }
   }
 
-  // Find My Car / Sell My Car: interrupting someone mid-form is worse than
+  // Find My Car / Sell My Car / Review My Deal: interrupting someone mid-form is worse than
   // not showing the popup at all, so these two get no exit-intent/scroll
   // trigger — instead we wait for their own success screen (#find-success /
   // #sell-success) to actually appear. A MutationObserver on that element
@@ -266,6 +266,7 @@ document.addEventListener('DOMContentLoaded', function(){
   const FORM_PAGE_SUCCESS_ID = {
     '/find-my-car': 'find-success',
     '/sell-my-car': 'sell-success',
+    '/review-my-deal': 'dr-success',
   }[location.pathname];
 
   // Same breakpoint the nav already treats as "mobile" (.nav-links hides,

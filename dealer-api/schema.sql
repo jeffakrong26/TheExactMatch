@@ -347,3 +347,33 @@ CREATE TABLE autodev_api_log (
 );
 
 CREATE INDEX idx_autodev_api_log_created_at ON autodev_api_log(created_at);
+
+-- Free Deal Review — see migrate-deal-reviews.sql for column notes.
+CREATE TABLE deal_reviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  source TEXT NOT NULL DEFAULT 'manual',
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT,
+  state TEXT,
+  newsletter_opt_in INTEGER NOT NULL DEFAULT 0,
+  newsletter_added INTEGER NOT NULL DEFAULT 0,
+  deal_json TEXT NOT NULL,
+  draft_json TEXT,
+  draft_error TEXT,
+  photo_key TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  sent_at TEXT,
+  rejected_at TEXT
+);
+CREATE INDEX idx_deal_reviews_status ON deal_reviews (status, created_at);
+
+CREATE TABLE deal_review_uploads (
+  token TEXT PRIMARY KEY,
+  photo_key TEXT NOT NULL,
+  ip_hash TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_deal_review_uploads_ip ON deal_review_uploads (ip_hash, created_at);

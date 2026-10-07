@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Review My Deal</title>
+  <meta name="description" content=""/>
+  <link rel="canonical" href="https://theexactmatch.com/review-my-deal"/>
+  <meta property="og:title" content=""/>
+  <meta property="og:description" content=""/>
+  <meta property="og:url" content=""/>
+  <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="preconnect" href="https://api.fontshare.com"/>
+  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin/>
+  <!-- Same non-blocking font loading as every other page (preload +
+       swap-on-load, display=swap, <noscript> fallback). The Google Fonts
+       request is the sitewide one — still needed for the shared nav, logo
+       (Playfair Display) and footer — plus Manrope 800 and DM Sans in the
+       same request, so this page's typography trial costs no extra round
+       trip. Manrope/DM Sans are applied only inside #page-review below;
+       nothing else on the site loads or uses them. -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap"/></noscript>
+  <link rel="preload" as="style" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=general-sans@400,500,600,700&display=swap"/></noscript>
+  <link rel="stylesheet" href="/css/site.css"/>
+  <link rel="stylesheet" href="/css/step-form.css"/>
+
+  <!-- Page-scoped styles: this page is a one-page typography trial
+       (Manrope ExtraBold headlines, DM Sans body). Everything is under
+       #page-review so the shared nav/logo/footer keep the sitewide fonts. -->
+  <style>
+    #page-review{
+      --dr-navy:#182642;--dr-gold:#A87F4A;--dr-gold2:#C9A464;--dr-cream:#F3EDE1;
+      font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+      background:var(--dr-cream);color:var(--dr-navy);
+    }
+    #page-review [hidden]{display:none !important}
+    #page-review h1,#page-review h2,#page-review h3{font-family:'Manrope',system-ui,sans-serif;font-weight:800;letter-spacing:-.015em}
+
+    /* Start screen: hero photo is decorative only. Missing image falls back
+       to the navy gradient underneath. */
+    .dr-hero{
+      position:relative;min-height:calc(100svh - 64px);display:flex;align-items:flex-end;
+      background:linear-gradient(180deg,rgba(24,38,66,.25) 0%,rgba(24,38,66,.7) 55%,rgba(24,38,66,.95) 100%),
+        url('/images/review-my-deal-hero.jpg') center/cover no-repeat,var(--dr-navy);
+      color:#fff;
+    }
+    .dr-hero-inner{width:100%;max-width:760px;margin:0 auto;padding:3rem 16px 3.5rem}
+    .dr-hero h1{font-size:clamp(2.25rem,7vw,3.75rem);line-height:1.04;margin:0 0 1rem}
+    .dr-hero p{font-size:clamp(1.05rem,2.6vw,1.25rem);line-height:1.5;max-width:36ch;color:rgba(255,255,255,.86);margin:0 0 2rem}
+    .dr-start-btns{display:grid;gap:.75rem;max-width:420px}
+    .dr-btn{
+      display:flex;align-items:center;justify-content:center;gap:.6rem;min-height:58px;padding:0 1.25rem;
+      font:inherit;font-size:1.05rem;font-weight:700;border-radius:14px;cursor:pointer;text-decoration:none;
+    }
+    .dr-btn svg{width:22px;height:22px;flex:0 0 22px}
+    .dr-btn-gold{background:var(--dr-gold2);color:var(--dr-navy);border:0}
+    .dr-btn-gold:hover{background:#d6b577}
+    .dr-btn-ghost{background:rgba(255,255,255,.08);color:#fff;border:1.5px solid rgba(255,255,255,.5)}
+    .dr-btn-ghost:hover{background:rgba(255,255,255,.16)}
+    .dr-hero-note{margin-top:1.25rem;font-size:.9rem;color:rgba(255,255,255,.7)}
+
+    .dr-shell{max-width:620px;margin:0 auto;padding:2rem 16px 4rem}
+    .dr-card{background:#fff;border-radius:18px;padding:1.5rem 1.25rem;box-shadow:0 1px 2px rgba(24,38,66,.06),0 8px 30px rgba(24,38,66,.07)}
+    @media(min-width:640px){.dr-card{padding:2.25rem 2.25rem}}
+    .dr-card h2{font-size:clamp(1.6rem,5vw,2rem);line-height:1.1;margin:0 0 .5rem}
+    .dr-card .sf{
+      --sf-ink:var(--dr-navy);--sf-muted:#5a6476;--sf-line:#E2DACB;--sf-field:#fff;
+      --sf-accent:var(--dr-gold);--sf-accent-soft:rgba(168,127,74,.12);
+    }
+
+    .dr-upload{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;min-height:200px;padding:1.5rem;
+      border:2px dashed #D8CDB8;border-radius:16px;background:var(--dr-cream);text-align:center;cursor:pointer}
+    .dr-upload:hover,.dr-upload:focus-within{border-color:var(--dr-gold)}
+    .dr-upload svg{width:40px;height:40px;color:var(--dr-gold)}
+    .dr-upload strong{font-size:1.05rem}
+    .dr-upload span{font-size:.9rem;color:#5a6476}
+    .dr-upload input{position:absolute;width:1px;height:1px;opacity:0}
+    .dr-switch{display:block;margin:1rem auto 0;font:inherit;font-size:.95rem;color:var(--dr-navy);background:none;border:0;text-decoration:underline;cursor:pointer;min-height:44px}
+
+    .dr-reading{text-align:center;padding:2.5rem 0 1.5rem}
+    .dr-spinner{width:44px;height:44px;margin:0 auto 1.25rem;border-radius:50%;border:4px solid #EBE3D4;border-top-color:var(--dr-gold);animation:dr-spin .9s linear infinite}
+    @keyframes dr-spin{to{transform:rotate(360deg)}}
+    @media(prefers-reduced-motion:reduce){.dr-spinner{animation-duration:3s}}
+
+    .dr-fine{font-size:.88rem;line-height:1.55;color:#5a6476;margin:.5rem 0 0}
+    .dr-fine a{color:var(--dr-navy)}
+    .dr-hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+
+    .dr-success{text-align:center;padding:1rem 0}
+    .dr-success .dr-check{width:56px;height:56px;margin:0 auto 1.25rem;border-radius:50%;background:rgba(168,127,74,.14);color:var(--dr-gold);display:flex;align-items:center;justify-content:center}
+    .dr-success .dr-check svg{width:28px;height:28px}
+    .dr-success p{font-size:1.02rem;line-height:1.6;max-width:40ch;margin:0 auto 1rem}
+    .dr-success .dr-btn{max-width:360px;margin:1.75rem auto 0;background:var(--dr-navy);color:#fff;border:0}
+    .dr-success .dr-btn:hover{background:#22345a}
+    .dr-success .dr-cta-note{font-size:.9rem;color:#5a6476;margin-top:.6rem}
+  </style>
+</head>
+<body>
+
+<div id="nl-slot"></div>
+<div id="nav-slot"></div>
+<div id="mobile-menu-slot"></div>
+
+<main class="page" id="page-review">
+
+  <!-- 1. Start screen -->
+  <section class="dr-hero" id="dr-start">
+    <div class="dr-hero-inner">
+      <h1>Get a free deal review here.</h1>
+      <p>Send us your deal before you sign. We'll tell you what's fair, what's negotiable, and what to push back on.</p>
+      <div class="dr-start-btns">
+        <button type="button" class="dr-btn dr-btn-gold" data-start="photo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          Snap a photo of your buyer's order
+        </button>
+        <button type="button" class="dr-btn dr-btn-ghost" data-start="manual">Answer a few questions</button>
+      </div>
+      <div class="dr-hero-note">Free. A team member reviews every report before it goes out.</div>
+    </div>
+  </section>
+
+  <section class="dr-shell" id="dr-form-wrap" hidden>
+    <div class="dr-card">
+      <form class="sf" id="dr-form" novalidate>
+        <div class="sf-head">
+          <div class="sf-label" data-sf-label></div>
+          <div class="sf-progress" data-sf-progress><div class="sf-bar"></div></div>
+        </div>
+        <input class="dr-hp" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true"/>
+
+        <!-- 2. Photo path -->
+        <section class="sf-step" data-step="photo" data-title="Your buyer's order" data-sf-no-next>
+          <h2>Snap a photo of your buyer's order</h2>
+          <p class="sf-help">Get the whole page in frame, flat and in good light. We'll read the numbers and you can check them next.</p>
+          <label class="dr-upload">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            <strong>Take or choose a photo</strong>
+            <span>JPG, PNG or HEIC from your phone</span>
+            <input type="file" id="dr-photo" accept="image/*"/>
+          </label>
+          <button type="button" class="dr-switch" data-switch-manual>Answer the questions instead</button>
+        </section>
+
+        <section class="sf-step" data-step="reading" data-title="Reading" data-sf-no-next data-sf-no-back>
+          <div class="dr-reading" role="status" aria-live="polite">
+            <div class="dr-spinner" aria-hidden="true"></div>
+            <h2>Reading your buyer's order…</h2>
+            <p class="sf-help" style="margin:0">This usually takes under a minute.</p>
+          </div>
+        </section>
+
+        <section class="sf-step" data-step="verify" data-title="Check the details">
+          <h2>Check the details</h2>
+          <p class="sf-help" id="dr-verify-help">Here's what we read. Tap any line to correct it or fill in anything we missed.</p>
+          <div id="dr-verify-summary"></div>
+        </section>
+
+        <!-- 3. Manual path -->
+        <section class="sf-step" data-step="car" data-title="The car">
+          <h2>The car</h2>
+          <div class="sf-choice" data-name="car.condition">
+            <button value="new">New</button>
+            <button value="used">Used</button>
+          </div>
+          <div class="sf-grid">
+            <label class="sf-field"><span>Year</span><input name="car.year" inputmode="numeric" maxlength="4" placeholder="2026" autocomplete="off"/></label>
+            <label class="sf-field"><span>Make</span><input name="car.make" placeholder="Toyota" autocomplete="off"/></label>
+            <label class="sf-field"><span>Model</span><input name="car.model" placeholder="RAV4" autocomplete="off"/></label>
+            <label class="sf-field"><span>Trim</span><input name="car.trim" placeholder="XLE Premium" autocomplete="off"/></label>
+          </div>
+        </section>
+
+        <section class="sf-step" data-step="price" data-title="The price">
+          <h2>The price</h2>
+          <p class="sf-help">Both are on your buyer's order.</p>
+          <label class="sf-field"><span>MSRP</span><input name="price.msrp" inputmode="decimal" placeholder="$38,500" autocomplete="off"/></label>
+          <label class="sf-field"><span>Selling price</span><input name="price.selling" inputmode="decimal" placeholder="$37,200" autocomplete="off"/></label>
+        </section>
+
+        <section class="sf-step" data-step="fees" data-title="Fees &amp; add-ons">
+          <h2>Fees &amp; add-ons</h2>
+          <p class="sf-help">Add every other line on the order: protection packages, dealer fees, anything with a price.</p>
+          <label class="sf-field"><span>Doc fee</span><input name="docFee" inputmode="decimal" placeholder="$150" autocomplete="off"/></label>
+          <div data-sf-repeat="fees"></div>
+          <template data-sf-template="fees">
+            <div class="sf-row">
+              <input data-field="name" placeholder="Item, e.g. paint protection" aria-label="Item name" autocomplete="off"/>
+              <input data-field="amount" inputmode="decimal" placeholder="Price" aria-label="Item price" autocomplete="off"/>
+              <button type="button" class="sf-row-remove" data-sf-remove aria-label="Remove item">&times;</button>
+            </div>
+          </template>
+          <button type="button" class="sf-add" data-sf-add="fees">+ Add another item</button>
+        </section>
+
+        <section class="sf-step" data-step="trade" data-title="Trade-in">
+          <h2>Trade-in?</h2>
+          <div class="sf-choice" data-name="trade.has">
+            <button value="yes">Yes</button>
+            <button value="no">No</button>
+          </div>
+          <div data-sf-show="trade.has=yes">
+            <div class="sf-grid">
+              <label class="sf-field"><span>Year</span><input name="trade.year" inputmode="numeric" maxlength="4" autocomplete="off"/></label>
+              <label class="sf-field"><span>Make</span><input name="trade.make" autocomplete="off"/></label>
+              <label class="sf-field"><span>Model</span><input name="trade.model" autocomplete="off"/></label>
+              <label class="sf-field"><span>Miles</span><input name="trade.miles" inputmode="numeric" autocomplete="off"/></label>
+              <label class="sf-field"><span>Payoff amount</span><input name="trade.payoff" inputmode="decimal" placeholder="$0 if paid off" autocomplete="off"/></label>
+              <label class="sf-field"><span>Dealer offer</span><input name="trade.offer" inputmode="decimal" autocomplete="off"/></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="sf-step" data-step="payment" data-title="How you're paying">
+          <h2>How are you paying?</h2>
+          <div class="sf-choice" data-name="payment.method">
+            <button value="cash">Cash</button>
+            <button value="finance">Finance</button>
+            <button value="lease">Lease</button>
+          </div>
+          <div class="sf-grid" data-sf-show="payment.method=finance,lease">
+            <label class="sf-field"><span>Down payment</span><input name="payment.down" inputmode="decimal" autocomplete="off"/></label>
+            <label class="sf-field" data-sf-show="payment.method=finance"><span>APR (%)</span><input name="payment.apr" inputmode="decimal" placeholder="6.9" autocomplete="off"/></label>
+            <label class="sf-field"><span>Term (months)</span><input name="payment.term" inputmode="numeric" placeholder="60" autocomplete="off"/></label>
+            <label class="sf-field"><span>Monthly payment quoted</span><input name="payment.monthly" inputmode="decimal" autocomplete="off"/></label>
+            <label class="sf-field" data-sf-show="payment.method=lease"><span>Miles per year</span><input name="payment.mileage" inputmode="numeric" placeholder="10,000" autocomplete="off"/></label>
+          </div>
+        </section>
+
+        <section class="sf-step" data-step="dealer" data-title="The dealer">
+          <h2>The dealer</h2>
+          <label class="sf-field"><span>Dealership name</span><input name="dealer.name" autocomplete="off"/></label>
+          <div class="sf-field"><span>When are you buying?</span></div>
+          <div class="sf-choice sf-choice-stack" data-name="dealer.timing">
+            <button value="this_week">This week</button>
+            <button value="this_month">This month</button>
+            <button value="just_looking">Just looking</button>
+          </div>
+        </section>
+
+        <section class="sf-step" data-step="contact" data-title="Where to send it">
+          <h2>Where should we send it?</h2>
+          <p class="sf-help">A team member reviews every report before it goes out.</p>
+          <label class="sf-field"><span>Name</span><input name="contact.name" autocomplete="name"/></label>
+          <label class="sf-field"><span>Email</span><input name="contact.email" type="email" autocomplete="email" inputmode="email"/></label>
+          <div class="sf-grid sf-grid-stack">
+            <label class="sf-field"><span>Phone</span><input name="contact.phone" type="tel" autocomplete="tel"/></label>
+            <label class="sf-field"><span>State</span>
+              <select name="contact.state" autocomplete="address-level1">
+                <option value="">Choose…</option>
+                <option value="AL">Alabama</option><option value="AK">Alaska</option><option value="AZ">Arizona</option><option value="AR">Arkansas</option><option value="CA">California</option><option value="CO">Colorado</option><option value="CT">Connecticut</option><option value="DE">Delaware</option><option value="DC">District of Columbia</option><option value="FL">Florida</option><option value="GA">Georgia</option><option value="HI">Hawaii</option><option value="ID">Idaho</option><option value="IL">Illinois</option><option value="IN">Indiana</option><option value="IA">Iowa</option><option value="KS">Kansas</option><option value="KY">Kentucky</option><option value="LA">Louisiana</option><option value="ME">Maine</option><option value="MD">Maryland</option><option value="MA">Massachusetts</option><option value="MI">Michigan</option><option value="MN">Minnesota</option><option value="MS">Mississippi</option><option value="MO">Missouri</option><option value="MT">Montana</option><option value="NE">Nebraska</option><option value="NV">Nevada</option><option value="NH">New Hampshire</option><option value="NJ">New Jersey</option><option value="NM">New Mexico</option><option value="NY">New York</option><option value="NC">North Carolina</option><option value="ND">North Dakota</option><option value="OH">Ohio</option><option value="OK">Oklahoma</option><option value="OR">Oregon</option><option value="PA">Pennsylvania</option><option value="RI">Rhode Island</option><option value="SC">South Carolina</option><option value="SD">South Dakota</option><option value="TN">Tennessee</option><option value="TX">Texas</option><option value="UT">Utah</option><option value="VT">Vermont</option><option value="VA">Virginia</option><option value="WA">Washington</option><option value="WV">West Virginia</option><option value="WI">Wisconsin</option><option value="WY">Wyoming</option>
+              </select>
+            </label>
+          </div>
+          <label class="sf-check"><input type="checkbox" name="contact.optIn"/> <span>Also send me deal alerts and updates</span></label>
+          <p class="dr-fine">We use your details only to send your report and follow up on it. See our <a href="/privacy-policy">privacy policy</a>.</p>
+        </section>
+
+        <section class="sf-step" data-step="review" data-title="Review">
+          <h2>Review</h2>
+          <p class="sf-help">Tap any line to change it.</p>
+          <div id="dr-review-summary"></div>
+        </section>
+
+        <div class="sf-error" data-sf-error role="alert" hidden></div>
+        <div class="sf-nav">
+          <button type="button" class="sf-back" data-sf-back>Back</button>
+          <button type="button" class="sf-next" data-sf-next>Next</button>
+          <button type="button" class="submit-btn" data-sf-submit hidden>Submit</button>
+        </div>
+      </form>
+
+      <!-- 4. Success -->
+      <div class="dr-success" id="dr-success" style="display:none" role="status" aria-live="polite">
+        <div class="dr-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+        <h2>Your report is on its way.</h2>
+        <p><strong>What happens next:</strong> we run your numbers, a team member reviews every report, it lands in your inbox within 24 hours.</p>
+        <a class="dr-btn" href="/white-glove">Want it negotiated for you too? &rarr; White Glove</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="footer-slot"></div>
+
+<script src="/js/site.js"></script>
+<script src="/js/step-form.js"></script>
+<script>
+(function () {
+  const MANUAL_FLOW = ['car', 'price', 'fees', 'trade', 'payment', 'dealer', 'contact', 'review'];
+  const PHOTO_FLOW = ['verify', 'contact'];
+  const STATE_NAMES = {};
+  document.querySelectorAll('select[name="contact.state"] option').forEach((o) => { if (o.value) STATE_NAMES[o.value] = o.textContent; });
+
+  const startEl = document.getElementById('dr-start');
+  const wrapEl = document.getElementById('dr-form-wrap');
+  const formEl = document.getElementById('dr-form');
+  const photoInput = document.getElementById('dr-photo');
+  let mode = 'manual';
+  let uploadToken = null;
+
+  const num = (v) => { const n = Number(String(v ?? '').replace(/[$,%\s]/g, '')); return String(v ?? '').trim() !== '' && Number.isFinite(n) ? n : null; };
+  const money = (v) => { const n = num(v); return n === null ? '' : '$' + n.toLocaleString('en-US', { maximumFractionDigits: 2 }); };
+  const TIMING = { this_week: 'This week', this_month: 'This month', just_looking: 'Just looking' };
+  const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : '');
+
+  // The manual step that owns each summary group, and its rows.
+  function summaryGroups(d, { includeContact }) {
+    const t = d.trade || {}, p = d.payment || {}, c = d.car || {};
+    const groups = [
+      { step: 'car', title: 'The car', rows: [
+        ['New or used', cap(c.condition)],
+        ['Vehicle', [c.year, c.make, c.model, c.trim].filter(Boolean).join(' ')],
+      ] },
+      { step: 'price', title: 'The price', rows: [['MSRP', money(d.price?.msrp)], ['Selling price', money(d.price?.selling)]] },
+      { step: 'fees', title: 'Fees & add-ons', rows: [
+        ['Doc fee', money(d.docFee)],
+        ...(d.fees || []).filter((f) => f.name || f.amount).map((f) => [f.name || 'Item', money(f.amount)]),
+      ] },
+      { step: 'trade', title: 'Trade-in', rows: t.has === 'yes' ? [
+        ['Vehicle', [t.year, t.make, t.model].filter(Boolean).join(' ')],
+        ['Miles', t.miles ? Number(num(t.miles)).toLocaleString('en-US') : ''],
+        ['Payoff', money(t.payoff)],
+        ['Dealer offer', money(t.offer)],
+      ] : [['Trade-in', t.has === 'no' ? 'No' : '']] },
+      { step: 'payment', title: 'Payment', rows: [['How you\'re paying', cap(p.method)],
+        ...(p.method === 'finance' ? [['Down payment', money(p.down)], ['APR', p.apr ? p.apr + '%' : ''], ['Term', p.term ? p.term + ' months' : ''], ['Monthly quoted', money(p.monthly)]] : []),
+        ...(p.method === 'lease' ? [['Down payment', money(p.down)], ['Monthly', money(p.monthly)], ['Term', p.term ? p.term + ' months' : ''], ['Miles per year', p.mileage ? Number(num(p.mileage)).toLocaleString('en-US') : '']] : []),
+      ] },
+      { step: 'dealer', title: 'The dealer', rows: [['Dealership', d.dealer?.name], ['Buying', TIMING[d.dealer?.timing] || '']] },
+    ];
+    if (includeContact) {
+      const k = d.contact || {};
+      groups.push({ step: 'contact', title: 'Send it to', rows: [
+        ['Name', k.name], ['Email', k.email], ['Phone', k.phone], ['State', STATE_NAMES[k.state] || ''],
+        ['Deal alerts', k.optIn ? 'Yes' : 'No'],
+      ] });
+    }
+    return groups;
+  }
+
+  const sf = new StepForm(formEl, {
+    flow: MANUAL_FLOW,
+    finalStep: 'review',
+    validate: {
+      car: (d) => (!d.car.condition ? 'Choose New or Used.'
+        : !/^(19|20)\d\d$/.test(d.car.year) ? 'Enter the model year, like 2026.'
+        : !d.car.make || !d.car.model ? 'Enter the make and model.' : null),
+      price: (d) => (num(d.price.selling) === null ? 'Enter the selling price.'
+        : d.price.msrp && num(d.price.msrp) === null ? 'MSRP should be a number.' : null),
+      trade: (d) => (!d.trade.has ? 'Choose Yes or No.' : null),
+      payment: (d) => (!d.payment.method ? 'Choose Cash, Finance or Lease.' : null),
+      dealer: (d) => (!d.dealer.timing ? 'Choose when you\'re buying.' : null),
+      verify: (d) => (!d.car.make || num(d.price.selling) === null ? 'Add at least the car and the selling price — tap a line above to fill it in.' : null),
+      contact: (d) => (!d.contact.name ? 'Enter your name.'
+        : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.contact.email) ? 'Enter a valid email address.'
+        : (d.contact.phone.match(/\d/g) || []).length < 7 ? 'Enter your phone number.'
+        : !d.contact.state ? 'Choose your state.' : null),
+    },
+    onShow(key, form) {
+      if (key === 'review') form.renderSummary(document.getElementById('dr-review-summary'), summaryGroups(form.data(), { includeContact: true }));
+      if (key === 'verify') form.renderSummary(document.getElementById('dr-verify-summary'), summaryGroups(form.data(), { includeContact: false }));
+    },
+    onExit() { showStart(); },
+    onSubmit: submit,
+  });
+
+  function showStart() {
+    wrapEl.hidden = true;
+    startEl.hidden = false;
+    window.scrollTo({ top: 0 });
+  }
+  function begin(which) {
+    mode = which;
+    sf.history = [];
+    startEl.hidden = true;
+    wrapEl.hidden = false;
+    window.scrollTo({ top: 0 });
+    if (which === 'photo') {
+      sf.setFlow(PHOTO_FLOW);
+      sf.opts.finalStep = 'contact';
+      sf.go('photo');
+    } else {
+      sf.setFlow(MANUAL_FLOW);
+      sf.opts.finalStep = 'review';
+      sf.go('car');
+    }
+  }
+  document.querySelectorAll('[data-start]').forEach((b) => b.addEventListener('click', () => begin(b.dataset.start)));
+  document.querySelector('[data-switch-manual]').addEventListener('click', () => begin('manual'));
+
+  // Phone photos are often 4000px+ and several MB; shrink to something
+  // that uploads fast and still reads cleanly. Falls back to the original
+  // file if the browser can't decode it (e.g. HEIC outside Safari).
+  async function shrink(file) {
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bmp.width * scale);
+      canvas.height = Math.round(bmp.height * scale);
+      canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.85));
+      return blob || file;
+    } catch (_) {
+      return file;
+    }
+  }
+
+  // Server deal shape -> form field values.
+  function toForm(deal) {
+    const v = JSON.parse(JSON.stringify(deal));
+    v.trade.has = deal.trade.has ? 'yes' : '';
+    return v;
+  }
+
+  photoInput.addEventListener('change', async () => {
+    const file = photoInput.files[0];
+    photoInput.value = '';
+    if (!file) return;
+    sf.go('reading');
+    const help = document.getElementById('dr-verify-help');
+    try {
+      const body = new FormData();
+      body.append('photo', await shrink(file), 'buyers-order.jpg');
+      body.append('company', formEl.elements.company.value);
+      const res = await fetch(`${DEALER_API}/public/deal-review/extract`, { method: 'POST', body });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'We couldn\'t upload that photo.');
+      uploadToken = data.upload_token;
+      if (data.readable && data.deal) {
+        sf.fill(toForm(data.deal));
+        help.textContent = 'Here\'s what we read. Tap any line to correct it or fill in anything we missed.';
+      } else {
+        help.textContent = 'We couldn\'t read that photo clearly. Tap each line to fill in the numbers, or go back and try a sharper photo.';
+      }
+      sf.history = ['photo'];
+      sf.go('verify', { push: false });
+    } catch (e) {
+      sf.history = [];
+      sf.go('photo', { push: false });
+      sf._showError(e.message || 'We couldn\'t upload that photo. Please try again.');
+    }
+  });
+
+  function payload(d) {
+    const t = d.trade, p = d.payment;
+    const hasTrade = t.has === 'yes';
+    return {
+      name: d.contact.name, email: d.contact.email, phone: d.contact.phone, state: d.contact.state,
+      newsletter_opt_in: !!d.contact.optIn,
+      company: d.company,
+      source: mode, upload_token: mode === 'photo' ? uploadToken : null,
+      deal: {
+        car: d.car, price: d.price, docFee: d.docFee,
+        fees: (d.fees || []).filter((f) => f.name || f.amount),
+        trade: hasTrade ? { ...t, has: true } : { has: false },
+        payment: {
+          method: p.method,
+          down: p.method === 'cash' ? '' : p.down,
+          apr: p.method === 'finance' ? p.apr : '',
+          term: p.method === 'cash' ? '' : p.term,
+          monthly: p.method === 'cash' ? '' : p.monthly,
+          mileage: p.method === 'lease' ? p.mileage : '',
+        },
+        dealer: d.dealer,
+      },
+    };
+  }
+
+  async function submit(d) {
+    const res = await fetch(`${DEALER_API}/public/deal-review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload(d)),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again, or text us at (512) 650-9328.');
+    formEl.style.display = 'none';
+    document.getElementById('dr-success').style.display = 'block';
+    window.scrollTo({ top: 0 });
+    // They opted in here — don't follow up with the newsletter popup.
+    if (d.contact.optIn) { try { localStorage.setItem('tem_nl_subscribed', '1'); } catch (_) {} }
+  }
+})();
+</script>
+</body>
+</html>

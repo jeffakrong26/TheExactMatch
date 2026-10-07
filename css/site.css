@@ -563,6 +563,11 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
 .home-free-note::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--home-brass-light);margin-right:8px;vertical-align:middle}
 .home-free-note a{color:var(--home-ivory);font-weight:600;text-decoration:none;border-bottom:1px solid rgba(237,230,214,.4);padding-bottom:1px}
 .home-free-note a:hover{border-bottom-color:var(--home-ivory)}
+.home-deal-review{background:var(--home-navy);color:var(--home-ivory);border-top:1px solid rgba(237,230,214,.12);padding:36px 0 40px}
+.home-deal-review-inner{display:flex;align-items:center;justify-content:space-between;gap:24px 40px;flex-wrap:wrap}
+.home-deal-review h2{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(22px,2.6vw,30px);letter-spacing:-.01em;margin:0 0 8px;color:#fff}
+.home-deal-review p{font-size:15px;line-height:1.6;color:rgba(237,230,214,.75);margin:0;max-width:520px}
+.home-deal-review .home-hero-cta{flex-shrink:0;min-height:52px}
 
 .home-section{padding:90px 0}
 .home-section-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:48px;gap:24px;flex-wrap:wrap;border-bottom:1px solid var(--home-hairline);padding-bottom:24px}

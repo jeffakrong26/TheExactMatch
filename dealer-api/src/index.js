@@ -15,6 +15,12 @@ import TAXONOMY from './taxonomy.json';
 // phone camera produced (one real case: 3213x3761, 2.5MB), and that shipped
 // unmodified to every visitor of /find-my-car and /recent-matches.
 import { PhotonImage, resize as photonResize, SamplingFilter } from '@cf-wasm/photon/workerd';
+// Free Deal Review: static reference tables + arithmetic (verdict, fee
+// X-ray, doc-fee caps, payment math). See the "Free Deal Review" section.
+import {
+  normalizeDeal, buildDraft, applyManualMarket, dealSummaryLines, vehicleLabel, isState,
+  VERDICT, SECTION_ORDER, SECTION_TITLES, TIMING_LABELS,
+} from './deal-review.js';
 
 function zipCentroid(zip) {
   return ZIP_CENTROIDS[(zip || '').trim()] || null;
@@ -4561,6 +4567,10 @@ async function adminNotificationCounts(request, env) {
     `).bind(section).first();
     counts[section] = row.c;
   }
+  // Deal Reviews badge = reviews still waiting on a team member (a pending
+  // review needs action until it's sent or rejected, seen or not).
+  const pendingReviews = await env.DB.prepare(`SELECT COUNT(*) as c FROM deal_reviews WHERE status = 'pending'`).first().catch(() => null);
+  counts.deal_reviews = pendingReviews?.c || 0;
   return json({ counts });
 }
 
@@ -9400,6 +9410,501 @@ async function publicGetRecentMatch(request, env, params) {
   return json({ match: serializeRecentMatch(match) });
 }
 
+// ── Free Deal Review (/review-my-deal) ────────────────────────────
+// Visitor submits a deal (photo of the buyer's order, or the step-by-step
+// form) -> a draft report is generated (queue job 'deal_review_draft') ->
+// a team member edits/approves it in the admin "Deal Reviews" tab ->
+// Approve & Send emails it. Nothing reaches the visitor unreviewed.
+//
+// The arithmetic and reference tables (verdict, fee X-ray, doc-fee caps,
+// payment math) live in src/deal-review.js. Claude is used for exactly two
+// things: reading the buyer's-order photo, and drafting the top-3 push-back
+// items. Both are draft input a person checks before anything sends.
+//
+// Market comparison: deliberately NOT an automated classic.com lookup.
+// classic.com's Terms of Use (classic.com/about/terms-conditions, checked
+// 2026-10) prohibit using "any robot, spider, site search/retrieval
+// application ... to retrieve, index, 'scrape,' 'data mine' or otherwise
+// gather any Content" and "any collection or use of any product listings,
+// descriptions, or prices" without prior written consent, and bar
+// commercial use — a per-submission automated query is still automated
+// retrieval for a commercial service. Their Pro tier advertises a
+// commercial-use license with API access; lookupMarketValue() is the one
+// place to wire that in once there's a license. Until then every draft
+// says "no market comparison found", the section is flagged NEEDS INPUT,
+// and a team member enters a hand-researched value in admin, which
+// recomputes the verdict.
+//
+// Secrets/vars: ANTHROPIC_API_KEY, BREVO_API_KEY (both already set);
+// BREVO_NEWSLETTER_LIST_ID — numeric Brevo list for "Also send me deal
+// alerts and updates" opt-ins. If unset, opt-ins are still recorded on the
+// row (newsletter_opt_in = 1, newsletter_added = 0) so nobody who opted in
+// is lost; set the var and add them from the admin list.
+const DEAL_REVIEW_MODEL = 'claude-opus-5-5';
+const DEAL_REVIEW_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+const DEAL_REVIEW_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const DEAL_REVIEW_UPLOADS_PER_IP_PER_HOUR = 10;
+
+async function lookupMarketValue(/* env, vehicle */) {
+  return {
+    found: false,
+    reason: 'Automated lookup is off: classic.com\'s terms prohibit automated retrieval and commercial use of their pricing without a license. Research comparables by hand and enter the number in admin.',
+  };
+}
+
+// One Messages API call that's expected to answer through a single tool.
+// tool_choice stays 'auto' (forced tool choice is rejected on this model) —
+// the prompt names the tool and `strict` keeps its input schema-valid.
+// Server-side fallbacks re-run a safety-classifier decline on a fallback
+// model inside the same call. Returns the tool input, or null.
+async function callDealReviewTool(env, { content, tool, effort }) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'server-side-fallback-2026-07-01',
+    },
+    body: JSON.stringify({
+      model: DEAL_REVIEW_MODEL,
+      max_tokens: 16000,
+      output_config: { effort },
+      fallbacks: 'default',
+      tools: [{ ...tool, strict: true }],
+      tool_choice: { type: 'auto' },
+      messages: [{ role: 'user', content }],
+    }),
+  });
+  if (!res.ok) {
+    console.error('[deal-review] Claude API error', res.status, await res.text().catch(() => ''));
+    return null;
+  }
+  const data = await res.json();
+  if (data.stop_reason === 'refusal') return null;
+  const block = (data.content || []).find(b => b.type === 'tool_use' && b.name === tool.name);
+  return block ? block.input : null;
+}
+
+const nullable = (type) => ({ type: [type, 'null'] });
+const EXTRACT_BUYERS_ORDER_TOOL = {
+  name: 'record_buyers_order',
+  description: 'Record the fields read from a photo of a car dealer buyer\'s order / purchase agreement / worksheet.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      readable: { type: 'boolean', description: 'false if the image is not a buyer\'s order or is too blurry to read' },
+      condition: { type: 'string', enum: ['new', 'used', ''] },
+      year: nullable('integer'),
+      make: { type: 'string' },
+      model: { type: 'string' },
+      trim: { type: 'string' },
+      msrp: nullable('number'),
+      selling_price: nullable('number'),
+      doc_fee: nullable('number'),
+      fees: {
+        type: 'array',
+        description: 'Every other fee, add-on, product or charge line (not the selling price, not the doc fee, not payments/credits)',
+        items: {
+          type: 'object',
+          properties: { name: { type: 'string' }, amount: nullable('number') },
+          required: ['name', 'amount'],
+          additionalProperties: false,
+        },
+      },
+      trade_has: { type: 'boolean' },
+      trade_year: nullable('integer'),
+      trade_make: { type: 'string' },
+      trade_model: { type: 'string' },
+      trade_miles: nullable('integer'),
+      trade_payoff: nullable('number'),
+      trade_offer: nullable('number'),
+      payment_method: { type: 'string', enum: ['cash', 'finance', 'lease', ''] },
+      down_payment: nullable('number'),
+      apr: nullable('number'),
+      term_months: nullable('integer'),
+      monthly_payment: nullable('number'),
+      lease_miles_per_year: nullable('integer'),
+      dealer_name: { type: 'string' },
+    },
+    required: ['readable', 'condition', 'year', 'make', 'model', 'trim', 'msrp', 'selling_price', 'doc_fee', 'fees',
+      'trade_has', 'trade_year', 'trade_make', 'trade_model', 'trade_miles', 'trade_payoff', 'trade_offer',
+      'payment_method', 'down_payment', 'apr', 'term_months', 'monthly_payment', 'lease_miles_per_year', 'dealer_name'],
+    additionalProperties: false,
+  },
+};
+
+const EXTRACT_PROMPT = `This is a photo of a car dealer's buyer's order (also called a purchase agreement, deal worksheet, or retail installment worksheet). Read it and call the record_buyers_order tool once with what it says.
+
+Rules:
+- Only record what is actually printed or written on the document. If a field isn't there or you can't read it, use null (numbers) or an empty string (text). Never estimate or fill in a typical value.
+- Dollar amounts as plain numbers (2995.00 -> 2995). APR as a percent number (6.9% -> 6.9).
+- "selling_price" is the vehicle's agreed price before fees, taxes and trade. "msrp" only if MSRP / sticker / list price is printed.
+- Put every other line item — add-ons, protection products, dealer fees, taxes, title, registration — in "fees" with its printed name. The documentation / doc / processing / dealer service fee goes in "doc_fee", not in "fees".
+- If the image isn't a buyer's order or is unreadable, set readable to false and leave the rest empty.`;
+
+function extractedToDeal(x) {
+  if (!x) return null;
+  return {
+    car: { condition: x.condition, year: x.year, make: x.make, model: x.model, trim: x.trim },
+    price: { msrp: x.msrp, selling: x.selling_price },
+    docFee: x.doc_fee,
+    fees: (x.fees || []).map(f => ({ name: f.name, amount: f.amount })),
+    trade: {
+      has: !!x.trade_has, year: x.trade_year, make: x.trade_make, model: x.trade_model,
+      miles: x.trade_miles, payoff: x.trade_payoff, offer: x.trade_offer,
+    },
+    payment: {
+      method: x.payment_method, down: x.down_payment, apr: x.apr, term: x.term_months,
+      monthly: x.monthly_payment, mileage: x.lease_miles_per_year,
+    },
+    dealer: { name: x.dealer_name, timing: '' },
+  };
+}
+
+function bytesToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
+// POST /api/public/deal-review/extract  (multipart: photo)
+// Stores the photo (admin-only) and returns the fields Claude read off it
+// for the visitor to verify. An extraction failure is not an error to the
+// visitor — they get an empty verification screen to fill in instead.
+async function publicDealReviewExtract(request, env) {
+  const form = await request.formData().catch(() => null);
+  if (!form) return json({ error: 'Invalid upload.' }, 400);
+  if (form.get('company')) return json({ upload_token: null, readable: false, deal: null });
+  const file = form.get('photo');
+  if (!file || typeof file === 'string') return json({ error: 'Please choose a photo.' }, 400);
+  const type = (file.type || '').toLowerCase();
+  if (!DEAL_REVIEW_PHOTO_TYPES.includes(type)) return json({ error: 'Please upload a JPG, PNG or WebP photo.' }, 400);
+  if (file.size > DEAL_REVIEW_PHOTO_MAX_BYTES) return json({ error: 'That photo is too large. Please try a smaller one.' }, 400);
+
+  const ipHash = await sha256Hex(`deal-review:${request.headers.get('CF-Connecting-IP') || 'unknown'}`);
+  const recent = await env.DB.prepare(
+    `SELECT COUNT(*) AS c FROM deal_review_uploads WHERE ip_hash = ? AND created_at > datetime('now', '-1 hour')`
+  ).bind(ipHash).first();
+  if ((recent?.c || 0) >= DEAL_REVIEW_UPLOADS_PER_IP_PER_HOUR) {
+    return json({ error: 'Too many uploads. Please wait a bit, or answer the questions instead.' }, 429);
+  }
+
+  const buffer = await file.arrayBuffer();
+  const token = randomHex(16);
+  const ext = type.split('/')[1].replace('jpeg', 'jpg');
+  const key = `deal-reviews/uploads/${token}.${ext}`;
+  await env.PHOTOS.put(key, buffer, { httpMetadata: { contentType: type } });
+  await env.DB.prepare('INSERT INTO deal_review_uploads (token, photo_key, ip_hash) VALUES (?, ?, ?)')
+    .bind(token, key, ipHash).run();
+
+  let extracted = null;
+  try {
+    extracted = await callDealReviewTool(env, {
+      tool: EXTRACT_BUYERS_ORDER_TOOL,
+      effort: 'medium',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: type, data: bytesToBase64(buffer) } },
+        { type: 'text', text: EXTRACT_PROMPT },
+      ],
+    });
+  } catch (err) {
+    console.error('[deal-review] extraction failed', err);
+  }
+  const readable = !!extracted?.readable;
+  return json({ upload_token: token, readable, deal: readable ? normalizeDeal(extractedToDeal(extracted)) : null });
+}
+
+// POST /api/public/deal-review
+async function publicSubmitDealReview(request, env, params, dealer, token, ctx) {
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'Invalid request.' }, 400);
+  if (body.company) return json({ success: true }); // honeypot
+
+  const name = String(body.name || '').trim().slice(0, 120);
+  const email = String(body.email || '').trim().toLowerCase();
+  const phone = String(body.phone || '').trim().slice(0, 40);
+  const state = String(body.state || '').trim().toUpperCase();
+  if (!name) return json({ error: 'Please enter your name.' }, 400);
+  if (!EMAIL_RE.test(email) || email.length > 254) return json({ error: 'Please enter a valid email address.' }, 400);
+  if (!phone) return json({ error: 'Please enter your phone number.' }, 400);
+  if (!isState(state)) return json({ error: 'Please choose your state.' }, 400);
+
+  const deal = normalizeDeal({ ...(body.deal || {}), state });
+  if (!deal.price.selling && !deal.car.make) return json({ error: 'Please add at least the car and the selling price.' }, 400);
+
+  const source = body.source === 'photo' ? 'photo' : 'manual';
+  let photoKey = null;
+  if (source === 'photo' && body.upload_token) {
+    const up = await env.DB.prepare('SELECT photo_key FROM deal_review_uploads WHERE token = ?').bind(String(body.upload_token)).first();
+    if (up) {
+      photoKey = up.photo_key;
+      await env.DB.prepare('DELETE FROM deal_review_uploads WHERE token = ?').bind(String(body.upload_token)).run();
+    }
+  }
+  const optIn = body.newsletter_opt_in === true ? 1 : 0;
+
+  const row = await env.DB.prepare(`
+    INSERT INTO deal_reviews (source, name, email, phone, state, newsletter_opt_in, deal_json, photo_key)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+  `).bind(source, name, email, phone, state, optIn, JSON.stringify(deal), photoKey).first();
+
+  await enqueueJob(env, { type: 'deal_review_draft', leadId: row.id });
+  // Opt-in only — never added to the list on a plain submission.
+  if (optIn) ctx.waitUntil(addDealReviewToNewsletter(env, row.id, email, name).catch(err => console.error('[deal-review] newsletter add failed', err)));
+
+  return json({ success: true });
+}
+
+async function addDealReviewToNewsletter(env, id, email, name) {
+  if (!env.BREVO_API_KEY || !env.BREVO_NEWSLETTER_LIST_ID) {
+    console.error('[deal-review] BREVO_NEWSLETTER_LIST_ID not set; opt-in recorded but not added', id);
+    return false;
+  }
+  const firstName = name.split(/\s+/)[0] || '';
+  const call = (attributes) => fetch('https://api.brevo.com/v3/contacts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', accept: 'application/json', 'api-key': env.BREVO_API_KEY },
+    body: JSON.stringify({ email, listIds: [Number(env.BREVO_NEWSLETTER_LIST_ID)], updateEnabled: true, ...(attributes ? { attributes } : {}) }),
+  });
+  let res = await call({ FIRSTNAME: firstName, SIGNUP_SOURCE: 'deal-review' });
+  // Same fallback as src/lead-magnet.js: a missing custom attribute in Brevo
+  // shouldn't cost us the subscriber.
+  if (res.status === 400) res = await call(null);
+  if (!res.ok) {
+    console.error('[deal-review] Brevo contact add rejected', res.status, await res.text().catch(() => ''));
+    return false;
+  }
+  await env.DB.prepare('UPDATE deal_reviews SET newsletter_added = 1 WHERE id = ?').bind(id).run();
+  return true;
+}
+
+const PUSHBACK_TOOL = {
+  name: 'record_pushback',
+  description: 'Record the top 3 things this buyer should push back on with the dealer, most important first.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      items: {
+        type: 'array',
+        description: 'Exactly 3 items. Each one or two plain sentences: what to push on and what to say or ask for.',
+        items: { type: 'string' },
+      },
+    },
+    required: ['items'],
+    additionalProperties: false,
+  },
+};
+
+async function draftPushback(env, deal, draft) {
+  const prompt = `You're helping a car buyer before they sign. Here is their deal and what our automatic checks found.
+
+The deal:
+${dealSummaryLines(deal).join('\n')}
+
+Fee check:
+${draft.sections.fees.body}
+
+Payment check:
+${draft.sections.payment.body}
+
+Issues flagged: ${draft.flags.length ? draft.flags.join('; ') : 'none'}
+
+Call the record_pushback tool with the 3 things this buyer should push back on, most important first. Ground each one in a specific number or line from this deal. Write to the buyer as "you". Plain, direct sentences; no filler, no hype, no exclamation marks. Don't invent market prices or facts that aren't above. If the deal is clean, still give the 3 most useful asks (for example: get the out-the-door price in writing, confirm the rate with an outside lender).`;
+  const out = await callDealReviewTool(env, { tool: PUSHBACK_TOOL, effort: 'medium', content: prompt });
+  const items = (out?.items || []).map(s => String(s).trim()).filter(Boolean).slice(0, 3);
+  return items.length ? items : null;
+}
+
+// Queue job 'deal_review_draft'. Market lookups never invent a number —
+// see lookupMarketValue().
+async function generateDealReviewDraft(env, id) {
+  const row = await env.DB.prepare('SELECT * FROM deal_reviews WHERE id = ?').bind(id).first();
+  if (!row || row.status !== 'pending' || row.draft_json) return;
+  const deal = JSON.parse(row.deal_json);
+  const market = await lookupMarketValue(env, deal.car);
+  const tradeMarket = deal.trade.has ? await lookupMarketValue(env, deal.trade) : null;
+
+  let draft = buildDraft(deal, { market, tradeMarket });
+  let draftError = null;
+  try {
+    const pushback = await draftPushback(env, deal, draft);
+    if (pushback) draft = buildDraft(deal, { market, tradeMarket, pushback });
+    else draftError = 'Push-back items could not be generated; write them by hand.';
+  } catch (err) {
+    draftError = `Push-back generation failed: ${err?.message || err}`;
+  }
+  await env.DB.prepare(`UPDATE deal_reviews SET draft_json = ?, draft_error = ?, updated_at = datetime('now') WHERE id = ?`)
+    .bind(JSON.stringify(draft), draftError, id).run();
+
+  await sendBrevoEmail(env, {
+    to: 'theexactmatch@gmail.com',
+    subject: `New deal review: ${vehicleLabel(deal.car)} — ${row.name}`,
+    html: brandedEmailHtml(`
+      <p>A new free deal review is waiting in the admin <strong>Deal Reviews</strong> tab.</p>
+      <p><strong>${escapeHtml(row.name)}</strong> · ${escapeHtml(row.email)} · ${escapeHtml(row.phone || '')} · ${escapeHtml(row.state || '')}<br/>
+      ${escapeHtml(vehicleLabel(deal.car))}${deal.dealer.timing ? ' · buying ' + escapeHtml(TIMING_LABELS[deal.dealer.timing].toLowerCase()) : ''}</p>
+      <p>Promised in the visitor's inbox within 24 hours of ${escapeHtml(row.created_at)} UTC.</p>
+    `),
+  });
+}
+
+function serializeDealReview(r) {
+  return {
+    id: r.id, status: r.status, source: r.source, name: r.name, email: r.email, phone: r.phone, state: r.state,
+    newsletter_opt_in: !!r.newsletter_opt_in, newsletter_added: !!r.newsletter_added,
+    deal: JSON.parse(r.deal_json), draft: r.draft_json ? JSON.parse(r.draft_json) : null, draft_error: r.draft_error,
+    has_photo: !!r.photo_key, created_at: r.created_at, updated_at: r.updated_at, sent_at: r.sent_at, rejected_at: r.rejected_at,
+  };
+}
+
+async function adminListDealReviews(request, env) {
+  const { results } = await env.DB.prepare(
+    `SELECT * FROM deal_reviews ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 200`
+  ).all();
+  return json({ reviews: results.map(serializeDealReview) });
+}
+
+async function loadDealReview(env, id) {
+  return env.DB.prepare('SELECT * FROM deal_reviews WHERE id = ?').bind(+id).first();
+}
+
+// PATCH /api/admin/deal-reviews/:id  { sections: { key: body }, market_value?, market_source?, trade_value?, trade_source? }
+// Section edits are saved as typed. A market value (researched by hand)
+// recomputes the verdict + price sections (and trade, if given) from it —
+// those sections' prior edits are replaced, which the admin UI warns about.
+async function adminUpdateDealReview(request, env, params) {
+  const row = await loadDealReview(env, params.id);
+  if (!row) return json({ error: 'Not found.' }, 404);
+  if (row.status !== 'pending') return json({ error: 'This review has already been sent or rejected.' }, 409);
+  if (!row.draft_json) return json({ error: 'The draft is still being generated. Try again in a minute.' }, 409);
+  const body = await request.json().catch(() => ({}));
+  const deal = JSON.parse(row.deal_json);
+  let draft = JSON.parse(row.draft_json);
+
+  for (const [key, text] of Object.entries(body.sections || {})) {
+    if (!SECTION_ORDER.includes(key) || typeof text !== 'string') continue;
+    draft.sections[key] = { body: text.slice(0, 5000), needsInput: /NEEDS INPUT/.test(text) };
+  }
+  const mv = Number(body.market_value), tv = Number(body.trade_value);
+  if (mv > 0 || tv > 0) {
+    draft = applyManualMarket(deal, draft, {
+      marketValue: mv > 0 ? mv : null, marketSource: String(body.market_source || '').slice(0, 200),
+      tradeValue: tv > 0 ? tv : null, tradeSource: String(body.trade_source || '').slice(0, 200),
+    });
+  }
+  if (body.verdict_key && ['good', 'negotiable', 'walk'].includes(body.verdict_key)) draft.verdict_key = body.verdict_key;
+
+  await env.DB.prepare(`UPDATE deal_reviews SET draft_json = ?, updated_at = datetime('now') WHERE id = ?`)
+    .bind(JSON.stringify(draft), row.id).run();
+  return json({ review: serializeDealReview({ ...row, draft_json: JSON.stringify(draft) }) });
+}
+
+// Regenerate from scratch (e.g. the queue job failed or the push-back call
+// errored). Overwrites any edits.
+async function adminRegenerateDealReview(request, env, params) {
+  const row = await loadDealReview(env, params.id);
+  if (!row) return json({ error: 'Not found.' }, 404);
+  if (row.status !== 'pending') return json({ error: 'This review has already been sent or rejected.' }, 409);
+  await env.DB.prepare(`UPDATE deal_reviews SET draft_json = NULL, draft_error = NULL WHERE id = ?`).bind(row.id).run();
+  await generateDealReviewDraft(env, row.id);
+  return json({ review: serializeDealReview(await loadDealReview(env, row.id)) });
+}
+
+const textToHtml = (s) => escapeHtml(s).replace(/\n/g, '<br/>');
+
+function dealReviewEmailHtml(row, deal, draft) {
+  const first = escapeHtml((row.name || '').split(/\s+/)[0] || 'there');
+  const verdictLabel = VERDICT[draft.verdict_key]?.label || '';
+  const parts = SECTION_ORDER
+    .filter(k => !(k === 'trade' && !deal.trade.has))
+    .filter(k => !(k === 'payment' && deal.payment.method === 'cash'))
+    .map(k => {
+      const s = draft.sections[k];
+      if (!s?.body?.trim()) return '';
+      const heading = k === 'verdict' && verdictLabel ? `Verdict: ${verdictLabel}` : SECTION_TITLES[k];
+      return `<h3 style="font-family:Georgia,serif;font-size:1.05rem;color:#0C1C33;margin:1.5rem 0 .4rem">${escapeHtml(heading)}</h3>
+        <p style="margin:0">${textToHtml(s.body)}</p>`;
+    }).join('');
+  return brandedEmailHtml(`
+    <p>Hi ${first},</p>
+    <p>Here's our review of your ${escapeHtml(vehicleLabel(deal.car))} deal${deal.dealer.name ? ' from ' + escapeHtml(deal.dealer.name) : ''}. A team member went through every number below.</p>
+    ${parts}
+    <p style="margin-top:1.75rem;font-size:.8rem;color:#4A5568">Based only on the numbers you sent us. Taxes and registration vary by county; confirm the final out-the-door figure in writing before you sign. Reply to this email with any questions.</p>
+  `);
+}
+
+async function adminSendDealReview(request, env, params) {
+  const row = await loadDealReview(env, params.id);
+  if (!row) return json({ error: 'Not found.' }, 404);
+  if (row.status !== 'pending') return json({ error: 'This review has already been sent or rejected.' }, 409);
+  if (!row.draft_json) return json({ error: 'There is no draft yet.' }, 409);
+  const deal = JSON.parse(row.deal_json);
+  const draft = JSON.parse(row.draft_json);
+  const unfinished = SECTION_ORDER.filter(k => /NEEDS INPUT/.test(draft.sections[k]?.body || ''));
+  if (unfinished.length) return json({ error: `Fill in these sections first: ${unfinished.map(k => SECTION_TITLES[k]).join(', ')}.` }, 400);
+
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'api-key': env.BREVO_API_KEY },
+    body: JSON.stringify({
+      sender: { email: 'theexactmatch@gmail.com', name: 'TheExactMatch' },
+      replyTo: { email: 'theexactmatch@gmail.com', name: 'TheExactMatch' },
+      to: [{ email: row.email, name: row.name }],
+      subject: `Your deal review: ${vehicleLabel(deal.car)}`,
+      htmlContent: dealReviewEmailHtml(row, deal, draft),
+      tags: ['deal-review'],
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    return json({ error: `Brevo rejected the send (HTTP ${res.status}).`, detail }, 502);
+  }
+  await env.DB.prepare(`UPDATE deal_reviews SET status = 'sent', sent_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).bind(row.id).run();
+  return json({ success: true, sent_to: row.email });
+}
+
+async function adminRejectDealReview(request, env, params) {
+  const row = await loadDealReview(env, params.id);
+  if (!row) return json({ error: 'Not found.' }, 404);
+  if (row.status !== 'pending') return json({ error: 'This review has already been sent or rejected.' }, 409);
+  await env.DB.prepare(`UPDATE deal_reviews SET status = 'rejected', rejected_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).bind(row.id).run();
+  return json({ success: true });
+}
+
+// Opt-ins recorded while BREVO_NEWSLETTER_LIST_ID was unset (or Brevo
+// failed) can be retried from admin.
+async function adminDealReviewNewsletter(request, env, params) {
+  const row = await loadDealReview(env, params.id);
+  if (!row) return json({ error: 'Not found.' }, 404);
+  if (!row.newsletter_opt_in) return json({ error: 'This visitor did not opt in.' }, 400);
+  const ok = await addDealReviewToNewsletter(env, row.id, row.email, row.name);
+  return ok ? json({ success: true }) : json({ error: 'Could not add to the Brevo list. Check BREVO_NEWSLETTER_LIST_ID.' }, 502);
+}
+
+// Admin-only (bearer auth) — the photo can carry personal details.
+async function adminDealReviewPhoto(request, env, params) {
+  const row = await loadDealReview(env, params.id);
+  if (!row?.photo_key) return json({ error: 'No photo.' }, 404);
+  const object = await env.PHOTOS.get(row.photo_key);
+  if (!object) return json({ error: 'No photo.' }, 404);
+  return new Response(object.body, {
+    headers: { 'Content-Type': object.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'private, no-store', ...CORS_HEADERS },
+  });
+}
+
+async function cleanupDealReviewUploads(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT token, photo_key FROM deal_review_uploads WHERE created_at < datetime('now', '-2 days')`
+  ).all();
+  for (const u of results) {
+    await env.PHOTOS.delete(u.photo_key).catch(err => console.error('[deal-review] upload cleanup failed', u.token, err));
+    await env.DB.prepare('DELETE FROM deal_review_uploads WHERE token = ?').bind(u.token).run();
+  }
+  return results.length;
+}
+
 // ── Route table ───────────────────────────────────────────────────
 const ROUTES = [
   { method: 'POST',  pattern: '/api/setup/init-admin',          handler: initAdmin },
@@ -9445,6 +9950,15 @@ const ROUTES = [
   { method: 'POST',  pattern: '/api/public/sell/:token/ready',       handler: publicMarkReadyToSell },
   { method: 'POST',  pattern: '/api/public/contact-message',       handler: submitContactMessage },
   { method: 'POST',  pattern: '/api/public/referral',               handler: submitReferral },
+  { method: 'POST',  pattern: '/api/public/deal-review/extract',    handler: publicDealReviewExtract },
+  { method: 'POST',  pattern: '/api/public/deal-review',            handler: publicSubmitDealReview },
+  { method: 'GET',   pattern: '/api/admin/deal-reviews',            handler: adminListDealReviews, auth: true, admin: true },
+  { method: 'PATCH', pattern: '/api/admin/deal-reviews/:id',        handler: adminUpdateDealReview, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/deal-reviews/:id/regenerate', handler: adminRegenerateDealReview, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/deal-reviews/:id/send',   handler: adminSendDealReview, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/deal-reviews/:id/reject', handler: adminRejectDealReview, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/deal-reviews/:id/newsletter', handler: adminDealReviewNewsletter, auth: true, admin: true },
+  { method: 'GET',   pattern: '/api/admin/deal-reviews/:id/photo',  handler: adminDealReviewPhoto, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/dealers',               handler: adminDealers, auth: true, admin: true },
   { method: 'GET',   pattern: '/api/admin/notification-counts',                              handler: adminNotificationCounts, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/notification-counts/:section/items/:itemId/seen',  handler: adminMarkItemSeen, auth: true, admin: true },
@@ -9563,6 +10077,9 @@ async function cleanupStaleRecords(env) {
   const invitesDeleted = await env.DB.prepare(`
     DELETE FROM dealer_invites WHERE status = 'pending' AND expires_at < datetime('now')
   `).run();
+
+  const dealUploadsDeleted = await cleanupDealReviewUploads(env);
+  console.log(`[cleanup] removed ${dealUploadsDeleted} unclaimed deal-review uploads`);
 
   console.log(`[cleanup] removed ${subsDeleted.meta.changes} stale submissions, ${staleLeads.length} stale sell-car leads, ${invitesDeleted.meta.changes} expired invites`);
 }
@@ -9683,6 +10200,8 @@ export default {
         const body = message.body;
         if (body.type === 'find_car_report') {
           await generateReportForLead(env, body.leadId);
+        } else if (body.type === 'deal_review_draft') {
+          await generateDealReviewDraft(env, body.leadId);
         } else if (body.type === 'sell_car_valuation') {
           await generateValuationForLead(env, body.leadId, body.input);
         } else if (body.type === 'dealer_welcome_email') {
