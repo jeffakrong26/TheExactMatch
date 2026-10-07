@@ -326,6 +326,48 @@ export function selectComps(listings, target) {
   return pool.slice(0, COMP_AVERAGE_OF);
 }
 
+// Marketcheck's own trim list for a year/make/model (from a facet query),
+// normalized to [{ trim, count }]. Tolerates the two shapes facet entries
+// come back in.
+export function parseTrimFacets(facets) {
+  const raw = facets?.trim || facets?.build_trim || [];
+  return (Array.isArray(raw) ? raw : [])
+    .map((f) => ({ trim: String(f.item ?? f.key ?? f.value ?? '').trim(), count: Number(f.count) || 0 }))
+    .filter((f) => f.trim)
+    .sort((a, b) => b.count - a.count);
+}
+
+// Marketcheck's spelling of the visitor's trim: same letters and digits,
+// ignoring case, spaces and punctuation ("se" = "SE", "xle-premium" =
+// "XLE Premium"). Never a looser match: "SE" does not match "SE Hybrid".
+export function matchTrim(available, trim) {
+  const want = normTrim(trim);
+  return available.find((f) => normTrim(f.trim) === want)?.trim || null;
+}
+
+// Why listings didn't make it into the comparison — shown in admin so a
+// thin result can be diagnosed instead of guessed at.
+export function explainSelection(listings, target) {
+  const out = { returned: 0, noPrice: 0, privateParty: 0, wrongTrim: 0, outsideYears: 0, noMiles: 0, outsideMiles: 0, duplicate: 0 };
+  const seen = new Set();
+  const win = target.kind === 'new' ? null : usedCompWindow(target.year, target.miles);
+  const wantTrim = target.kind === 'trade' ? null : normTrim(target.trim);
+  for (const l of listings || []) {
+    out.returned++;
+    const key = l.id || l.url;
+    if (key && seen.has(key)) { out.duplicate++; continue; }
+    if (key) seen.add(key);
+    if (!(l.price > 0)) { out.noPrice++; continue; }
+    if (l.sellerType && l.sellerType !== 'dealer') { out.privateParty++; continue; }
+    if (wantTrim !== null && normTrim(l.trim) !== wantTrim) { out.wrongTrim++; continue; }
+    if (target.kind === 'new') { if (l.year !== target.year) out.outsideYears++; continue; }
+    if (l.miles === null || l.miles === undefined) { out.noMiles++; continue; }
+    if (!(l.year >= win.yearMin && l.year <= win.yearMax)) { out.outsideYears++; continue; }
+    if (l.miles < win.milesMin || l.miles > win.milesMax) out.outsideMiles++;
+  }
+  return out;
+}
+
 // Turns selected comps into the summary the draft and admin show.
 export function summarizeComps(comps, { kind, year, miles, scope, state }) {
   if (comps.length < COMP_MINIMUM) return null;
@@ -398,6 +440,7 @@ function priceSection(deal, market) {
   } else if (market?.status === 'ok') {
     const v = marketVerdict(selling, market.average);
     lines.push(compSummaryLine(market));
+    if (market.trimOverride) lines.push(`Compared against the ${market.trimOverride} trim (chosen by a team member; the trim entered was ${deal.car.trim || 'not given'}).`);
     if (v) lines.push(`Selling price is ${pct1(v.pct)} vs. that average.`);
     lines.push(closestCompLine(market.closest));
   } else {
@@ -628,6 +671,21 @@ export function applyManualMarket(deal, draft, { marketValue, marketSource, trad
     const t = tradeSection(deal, { status: 'ok', manual: true, average: tradeValue, source: tradeSource || 'checked by hand' });
     next.sections.trade = { body: t.body, needsInput: false };
   }
+  return next;
+}
+
+// Replace the car's listings comparison (admin re-ran it with a trim they
+// picked) and recompute the price check and verdict from it. Other,
+// possibly edited, sections are left alone.
+export function applyMarketResult(deal, draft, market) {
+  const next = structuredClone(draft);
+  const price = priceSection(deal, market);
+  const verdict = verdictSection(deal, market, next.flags || []);
+  next.sections.price = { body: price.body, needsInput: market?.status !== 'ok' };
+  next.sections.verdict = { body: verdict.body, needsInput: market?.status !== 'ok' };
+  next.verdict_key = verdict.verdict.key;
+  next.verdict_basis = verdict.verdict.basis;
+  next.market = { ...(next.market || {}), car: market };
   return next;
 }
 

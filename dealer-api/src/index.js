@@ -19,7 +19,7 @@ import { PhotonImage, resize as photonResize, SamplingFilter } from '@cf-wasm/ph
 // X-ray, doc-fee caps, payment math). See the "Free Deal Review" section.
 import {
   normalizeDeal, buildDraft, applyManualMarket, dealSummaryLines, vehicleLabel, isState,
-  usedCompWindow, selectComps, summarizeComps,
+  usedCompWindow, selectComps, summarizeComps, parseTrimFacets, matchTrim, explainSelection, applyMarketResult,
   VERDICT, SECTION_ORDER, SECTION_TITLES, TIMING_LABELS,
 } from './deal-review.js';
 
@@ -9567,7 +9567,28 @@ async function marketcheckActive(env, params) {
   const res = await fetch(url.toString(), { signal: AbortSignal.timeout(MARKETCHECK_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`Marketcheck HTTP ${res.status}`);
   const data = await res.json();
-  return { numFound: data.num_found ?? 0, listings: (data.listings || []).map(toCompListing) };
+  return { numFound: data.num_found ?? 0, listings: (data.listings || []).map(toCompListing), facets: data.facets || null };
+}
+
+// Marketcheck's own trim spellings (with counts) for this year/make/model
+// and location, from a facet query. Cached 24h like the listings.
+async function trimFacets(env, target, state) {
+  const make = normalizeMakeForMarketcheck(target.make);
+  const model = normalizeModelForMarketcheck(target.model);
+  const cacheKey = ['facets', target.kind, target.year, make, model, state || 'US'].map(v => String(v).toLowerCase().trim()).join('|');
+  const hit = await env.DB.prepare(
+    `SELECT listings_json FROM deal_review_comps_cache WHERE cache_key = ? AND created_at > datetime('now', '-24 hours')`
+  ).bind(cacheKey).first();
+  if (hit) return JSON.parse(hit.listings_json);
+  const params = { car_type: target.kind === 'new' ? 'new' : 'used', seller_type: 'dealer', make, model, state: state || undefined, rows: 1, facets: 'trim' };
+  if (target.kind === 'new') params.year = target.year;
+  else { const w = usedCompWindow(target.year, target.miles); params.year_range = `${w.yearMin}-${w.yearMax}`; }
+  const { facets } = await marketcheckActive(env, params);
+  const available = parseTrimFacets(facets);
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO deal_review_comps_cache (cache_key, listings_json, num_found, created_at) VALUES (?, ?, ?, datetime('now'))`
+  ).bind(cacheKey, JSON.stringify(available), available.length).run();
+  return available;
 }
 
 // One location scope (a state, or nationwide), cached 24h on
@@ -9578,7 +9599,8 @@ async function searchCompListings(env, target, state) {
   const make = normalizeMakeForMarketcheck(target.make);
   const model = normalizeModelForMarketcheck(target.model);
   const bucket = target.kind === 'new' ? '' : Math.floor(target.miles / 1000);
-  const cacheKey = [target.kind, target.year, make, model, target.kind === 'trade' ? '' : target.trim, bucket, state || 'US']
+  const apiTrim = target.kind === 'trade' ? '' : (target.apiTrim || target.trim);
+  const cacheKey = [target.kind, target.year, make, model, apiTrim, bucket, state || 'US']
     .map(v => String(v).toLowerCase().trim()).join('|');
 
   const hit = await env.DB.prepare(
@@ -9590,7 +9612,7 @@ async function searchCompListings(env, target, state) {
     car_type: target.kind === 'new' ? 'new' : 'used',
     seller_type: 'dealer',
     make, model,
-    trim: target.kind === 'trade' ? undefined : target.trim,
+    trim: apiTrim || undefined,
     state: state || undefined,
     rows: MARKETCHECK_MAX_ROWS,
   };
@@ -9638,17 +9660,39 @@ async function compareListings(env, target, state) {
   if (missing.length) return { ...base, status: 'skipped', reason: `the ${missing.join(', ')} ${missing.length > 1 ? 'weren\'t' : 'wasn\'t'} entered, so no listings search was run.` };
   if (!env.MARKETCHECK_API_KEY) return { ...base, status: 'error', error: 'MARKETCHECK_API_KEY not set' };
 
+  // What was searched and why listings dropped out, kept on the result so
+  // admin can see why a comparison came back thin.
+  const searches = [];
   try {
     const scopes = state ? [['state', state], ['nationwide', null]] : [['nationwide', null]];
     for (const [scope, st] of scopes) {
-      const listings = await searchCompListings(env, target, st);
-      const summary = summarizeComps(selectComps(listings, target), { kind: target.kind, year: target.year, miles: target.miles, scope, state: st });
-      if (summary) return { ...base, ...summary, searchedState: state || null };
+      const entry = { scope, state: st };
+      searches.push(entry);
+      let t = target;
+      if (target.kind !== 'trade') {
+        // Use Marketcheck's own spelling of the trim. If it isn't listed,
+        // that's the answer for this scope — no looser match.
+        let available = null;
+        try { available = await trimFacets(env, target, st); }
+        catch (err) { entry.trimLookupError = String(err?.message || err).slice(0, 120); }
+        if (available) {
+          entry.trimsAvailable = available.slice(0, 25);
+          if (available.length) {
+            const match = matchTrim(available, target.trim);
+            if (!match) { entry.note = `"${target.trim}" isn't among the trims listed`; continue; }
+            t = { ...target, apiTrim: match };
+          }
+        }
+      }
+      const listings = await searchCompListings(env, t, st);
+      entry.why = explainSelection(listings, t);
+      const summary = summarizeComps(selectComps(listings, t), { kind: t.kind, year: t.year, miles: t.miles, scope, state: st });
+      if (summary) return { ...base, ...summary, searchedState: state || null, searches };
     }
-    return { ...base, status: 'thin' };
+    return { ...base, status: 'thin', searches };
   } catch (err) {
     console.error('[deal-review] Marketcheck comparison failed', target, err);
-    return { ...base, status: 'error', error: String(err?.message || err).slice(0, 200) };
+    return { ...base, status: 'error', error: String(err?.message || err).slice(0, 200), searches };
   }
 }
 
@@ -10028,6 +10072,30 @@ async function adminUpdateDealReview(request, env, params) {
   return json({ review: serializeDealReview({ ...row, draft_json: JSON.stringify(draft) }) });
 }
 
+// POST /api/admin/deal-reviews/:id/rerun-market { trim }
+// Re-runs the car's listings comparison with a trim a team member picked
+// from Marketcheck's list (e.g. the visitor typed "SE" but new Camrys are
+// listed as "SE Hybrid"). Recomputes the price check and verdict, and the
+// draft says the trim was chosen by a team member.
+async function adminRerunDealReviewMarket(request, env, params) {
+  const row = await loadDealReview(env, params.id);
+  if (!row) return json({ error: 'Not found.' }, 404);
+  if (row.status !== 'pending') return json({ error: 'This review has already been sent or rejected.' }, 409);
+  if (!row.draft_json) return json({ error: 'There is no draft yet.' }, 409);
+  const body = await request.json().catch(() => ({}));
+  const trim = String(body.trim || '').trim().slice(0, 80);
+  if (!trim) return json({ error: 'Pick a trim.' }, 400);
+  const deal = JSON.parse(row.deal_json);
+  const target = carCompTarget(deal);
+  if (!target) return json({ error: 'New or used wasn\'t specified for this car.' }, 400);
+  const market = await compareListings(env, { ...target, trim }, deal.state);
+  if (market.status === 'ok' && trim.toLowerCase() !== String(deal.car.trim || '').toLowerCase()) market.trimOverride = trim;
+  const draft = applyMarketResult(deal, JSON.parse(row.draft_json), market);
+  await env.DB.prepare(`UPDATE deal_reviews SET draft_json = ?, updated_at = datetime('now') WHERE id = ?`)
+    .bind(JSON.stringify(draft), row.id).run();
+  return json({ review: serializeDealReview({ ...row, draft_json: JSON.stringify(draft) }) });
+}
+
 // Regenerate from scratch (e.g. the queue job failed or the push-back call
 // errored). Overwrites any edits.
 async function adminRegenerateDealReview(request, env, params) {
@@ -10185,6 +10253,7 @@ const ROUTES = [
   { method: 'GET',   pattern: '/api/admin/deal-reviews/marketcheck-check', handler: adminMarketcheckPlanCheck, auth: true, admin: true },
   { method: 'PATCH', pattern: '/api/admin/deal-reviews/:id',        handler: adminUpdateDealReview, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/deal-reviews/:id/regenerate', handler: adminRegenerateDealReview, auth: true, admin: true },
+  { method: 'POST',  pattern: '/api/admin/deal-reviews/:id/rerun-market', handler: adminRerunDealReviewMarket, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/deal-reviews/:id/send',   handler: adminSendDealReview, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/deal-reviews/:id/reject', handler: adminRejectDealReview, auth: true, admin: true },
   { method: 'POST',  pattern: '/api/admin/deal-reviews/:id/newsletter', handler: adminDealReviewNewsletter, auth: true, admin: true },

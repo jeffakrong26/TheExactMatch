@@ -1,7 +1,7 @@
 // Sanity checks for the deterministic Deal Review math (src/deal-review.js).
 // Run: node dealer-api/scripts/deal-review-selftest.mjs
 import assert from 'node:assert/strict';
-import { usedCompWindow, selectComps, summarizeComps, normalizeVin, marketVerdict, monthlyPayment, principalFromPayment, checkDocFee, classifyFee, normalizeDeal, buildDraft, applyManualMarket } from '../src/deal-review.js';
+import { parseTrimFacets, matchTrim, explainSelection, applyMarketResult, usedCompWindow, selectComps, summarizeComps, normalizeVin, marketVerdict, monthlyPayment, principalFromPayment, checkDocFee, classifyFee, normalizeDeal, buildDraft, applyManualMarket } from '../src/deal-review.js';
 
 // Verdict thresholds: <= -5% good, >= +3% walk, between negotiable.
 assert.equal(marketVerdict(95000, 100000).key, 'good');
@@ -97,6 +97,19 @@ assert.match(d2.sections.trade.body, /Dealer offer \$8,000 vs\. retail average \
 assert.match(d2.sections.trade.body, /firm trade number needs photos and the VIN/);
 assert.match(buildDraft(usedDeal, { market: { ...sum, scope: 'nationwide', searchedState: 'TX' } }).sections.price.body, /nationwide \(fewer than 3 in Texas\)\./);
 for (const k of Object.keys(d2.sections)) assert.doesNotMatch(d2.sections[k].body, /market value|sells for/i, k);
+// Trim resolution against Marketcheck's own trim list.
+const avail = parseTrimFacets({ trim: [{ item: 'SE Hybrid', count: 4 }, { item: 'XLE', count: 9 }, { item: 'SE', count: 7 }] });
+assert.deepEqual(avail.map(f => f.trim), ['XLE', 'SE', 'SE Hybrid']);
+assert.equal(matchTrim(avail, 'se'), 'SE');
+assert.equal(matchTrim(avail, 'S.E.'), 'SE');
+assert.equal(matchTrim(avail, 'LE'), null);              // not listed: no loosening
+assert.equal(matchTrim(parseTrimFacets({ trim: [{ item: 'SE Hybrid', count: 4 }] }), 'SE'), null);
+assert.deepEqual(parseTrimFacets(null), []);
+const why = explainSelection(listings, { kind: 'used', year: 2021, miles: 30000, trim: 'SE' });
+assert.deepEqual(why, { returned: 11, noPrice: 1, privateParty: 1, wrongTrim: 1, outsideYears: 2, noMiles: 1, outsideMiles: 1, duplicate: 1 });
+const rerun = applyMarketResult(usedDeal, buildDraft(usedDeal, { market: { status: 'thin' } }), { ...sum, trimOverride: 'SE' });
+assert.equal(rerun.verdict_basis, 'market');
+assert.match(rerun.sections.price.body, /Compared against the SE trim \(chosen by a team member; the trim entered was SE\)/);
 console.log(d2.sections.price.body);
 console.log(draft.sections.payment.body);
 console.log('deal-review selftest: ok');
