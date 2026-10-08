@@ -107,6 +107,7 @@ const NAV_GROUPS = [
     key: 'resources', label: 'Resources', simple: true, eyebrow: 'Guides & Advice',
     page: 'resources', headerHref: '/resources',
     links: [
+      { page: 'guides', href: '/guides', icon: 'car', title: "Buyer's Guides" },
       { page: 'advice-negotiate', href: '/advice/how-to-negotiate-car-price', icon: 'doc', title: 'Negotiating Car Price' },
       { page: 'advice-outofstate', href: '/advice/buying-a-car-out-of-state', icon: 'doc', title: 'Buying Out of State' },
       { page: 'advice-financedcar', href: '/advice/how-to-sell-a-financed-car', icon: 'doc', title: 'Selling a Financed Car' },
@@ -787,11 +788,10 @@ const VIEWS = [
 ];
 
 // ── Buyer's guides, batch 2 ──────────────────────────────────────────────
-// Drafted from a researched market snapshot (Oct 8, 2026) and held
-// `noindex` — out of the sitemap and off the /guides and /resources
-// indexes — until Jeff's dictated sections (marked DICTATION in each page)
-// are in. Remove the flag, add the guide cards and bump lastmod on publish,
-// after re-pulling the pricing.
+// Drafted from a researched market snapshot (Oct 8, 2026). Listed on
+// /guides and /resources, but held `noindex` and out of the sitemap until
+// Jeff's dictated sections (marked DICTATION in each page) are in. Remove
+// the flag and bump lastmod on publish, after re-pulling the pricing.
 const guideFaq = faqs => ({
   '@type': 'FAQPage',
   mainEntity: faqs.map(([name, text]) => ({
