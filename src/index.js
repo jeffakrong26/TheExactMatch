@@ -847,24 +847,25 @@ VIEWS.push(
     }),
   },
   {
-    path: '/guides/corvette-c7-grand-sport',
-    page: 'guide-corvettec7grandsport',
-    file: '/pages/guides/corvette-c7-grand-sport.html',
+    path: '/guides/corvette-c7-c8',
+    page: 'guide-corvettec7c8',
+    file: '/pages/guides/corvette-c7-c8.html',
     lastmod: GUIDES_BATCH2_DATE,
     noindex: true,
-    title: 'Corvette C7 Grand Sport Buying Guide (2017–2019): Pricing & Known Issues | The Exact Match',
+    title: 'Corvette C7 vs. C8 Buying Guide: Stingray to ZR1, Pricing & Known Issues | The Exact Match',
     description:
-      "A real buyer's guide to the 2017–2019 Corvette Grand Sport — specs, current market pricing, the wheel and 8-speed issues, running costs, and what to check before you buy.",
+      "A real buyer's guide to the C7 and C8 Corvette — every trim from Stingray to ZR1, current market pricing, the known issues for each generation, and what to check before you buy.",
     jsonLd: guideGraph({
-      slug: 'corvette-c7-grand-sport',
-      headline: "The 2017–2019 Corvette Grand Sport: A Real Buyer's Guide",
-      crumb: 'Corvette C7 Grand Sport Buying Guide',
+      slug: 'corvette-c7-c8',
+      headline: "Corvette C7 vs. C8, Stingray to ZR1: A Real Buyer's Guide",
+      crumb: 'Corvette C7 & C8 Buying Guide',
       date: GUIDES_BATCH2_DATE,
       faqs: [
-        ['How much is a used C7 Corvette Grand Sport?', "As of fall 2026, dealer asking prices run from the mid-$50,000s for cars with 20,000–45,000 miles to the mid-$70,000s for low-mile 2019s. Classic.com's average recorded sale is about $65,110."],
-        ['Do C7 Grand Sport wheels crack?', "It's the best-documented issue on the car. The Grand Sport and Z06 share wide cast wheels that owners report bending and cracking, and the problem led to class actions and a GM reimbursement program for damage during warranty coverage. Have every wheel checked on a balancer before you buy."],
-        ['Manual or automatic?', "Only about 21% of Grand Sports were built as manuals, so a manual car takes more searching. The 8-speed automatic is quicker on paper, but check that it has had GM's fluid-flush bulletin for torque-converter shudder."],
-        ['C7 Grand Sport or the new C8 Grand Sport?', "They're different cars. The 2027 C8 Grand Sport is mid-engine with 535 hp and starts at $88,495. The C7 is the last front-engine Grand Sport, offers a manual, and costs well under that on the used market."],
+        ['C7 or C8 — which should I buy?', 'If you want a manual or a traditional front-engine car, or the cheapest way into a modern Corvette, buy a C7. If you want the quickest car for the money and the newest tech, buy a C8. A used C7 Grand Sport or Z06 and an early C8 Stingray cost about the same.'],
+        ["What's the cheapest way into a modern Corvette?", 'A C7 Stingray. Early automatic cars list from around $30,000, and most 2014–2019 Stingrays list between $30,000 and $55,000 depending on year, trim, mileage and transmission.'],
+        ['Which Corvettes hold their value best?', 'Limited, top-of-range cars. The one-year 2019 C7 ZR1 (2,953 built) still lists from about $174,000, and the C8 ZR1 is listed well over its MSRP. Manual C7s, especially Grand Sports and Z06s, are scarcer than automatics. On a C8 Stingray, Z51 cars hold up better than non-Z51 cars.'],
+        ['Do C7 Corvette wheels crack?', "On the Grand Sport and Z06, it's the best-documented issue. They share wide cast wheels that owners report bending and cracking, and the problem led to class actions and a GM reimbursement program for damage during warranty coverage. Have every wheel checked on a balancer before you buy."],
+        ['Are dealers still marking up the C8?', 'Mostly on the ZR1, which is listed roughly $90,000–$145,000 over MSRP. Z06 markups have largely faded, and used Z06s and E-Rays now list around or below what they cost new. Compare against current listings before you agree to any markup.'],
       ],
     }),
   },
@@ -1395,6 +1396,8 @@ const REDIRECTS = new Map([
   ['/advice', '/resources'],
   // Legacy alias for the homepage — 404ing on www.theexactmatch.com/home.
   ['/home', '/'],
+  // The C7 Grand Sport guide grew into a full C7 + C8 Corvette guide.
+  ['/guides/corvette-c7-grand-sport', '/guides/corvette-c7-c8'],
 ]);
 // The brand-page redirects below are generated from the same SELL_BRANDS
 // list the routes themselves come from, so a renamed slug can't silently
