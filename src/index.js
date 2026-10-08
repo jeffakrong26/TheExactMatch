@@ -786,6 +786,112 @@ const VIEWS = [
   },
 ];
 
+// ── Buyer's guides, batch 2 ──────────────────────────────────────────────
+// Drafted from a researched market snapshot (Oct 8, 2026) and held
+// `noindex` — out of the sitemap and off the /guides and /resources
+// indexes — until Jeff's dictated sections (marked DICTATION in each page)
+// are in. Remove the flag, add the guide cards and bump lastmod on publish,
+// after re-pulling the pricing.
+const guideFaq = faqs => ({
+  '@type': 'FAQPage',
+  mainEntity: faqs.map(([name, text]) => ({
+    '@type': 'Question',
+    name,
+    acceptedAnswer: { '@type': 'Answer', text },
+  })),
+});
+const guideGraph = ({ slug, headline, crumb, date, faqs }) => ({
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Article',
+      headline,
+      author: { '@type': 'Person', name: 'Jeff Akrong', url: `${ORIGIN}/about` },
+      publisher: { '@type': 'Organization', name: 'The Exact Match', url: ORIGIN },
+      datePublished: date,
+      dateModified: date,
+      mainEntityOfPage: `${ORIGIN}/guides/${slug}`,
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Guides', item: `${ORIGIN}/guides` },
+        { '@type': 'ListItem', position: 2, name: crumb, item: `${ORIGIN}/guides/${slug}` },
+      ],
+    },
+    guideFaq(faqs),
+  ],
+});
+const GUIDES_BATCH2_DATE = '2026-10-08';
+VIEWS.push(
+  {
+    path: '/guides/lamborghini-huracan',
+    page: 'guide-lamborghinihuracan',
+    file: '/pages/guides/lamborghini-huracan.html',
+    lastmod: GUIDES_BATCH2_DATE,
+    noindex: true,
+    title: 'Lamborghini Huracán Buying Guide: Pricing, Recalls & Known Issues | The Exact Match',
+    description:
+      "A real buyer's guide to the Lamborghini Huracán — LP610-4 vs. LP580-2, current market pricing, recalls, known issues, running costs, and what to check before you buy.",
+    jsonLd: guideGraph({
+      slug: 'lamborghini-huracan',
+      headline: "The Lamborghini Huracán: A Real Buyer's Guide",
+      crumb: 'Lamborghini Huracán Buying Guide',
+      date: GUIDES_BATCH2_DATE,
+      faqs: [
+        ['How much is a used Lamborghini Huracán?', 'Early LP610-4 cars (2015–2019) have a Classic.com benchmark around $177,000, and tracked auction sales average about $200,000. Dealer asking prices commonly run $190,000–$270,000. EVOs sit around $249,000–$267,000 and STOs around $366,000.'],
+        ['Is the Huracán reliable?', 'The V10 and dual-clutch drivetrain has a solid reputation. Known issues are specific: battery drain when the car sits, front lift pump failures, timing-cover oil leaks on some early cars, and clutch wear on hard-driven cars. There are three NHTSA recalls covering early cars, all free fixes at a dealer.'],
+        ['What does a Huracán cost to maintain?', 'Annual service runs roughly $850–$1,500 at an independent specialist and more at a dealer. Tires are about $3,000–$5,000 a set and steel-brake pads and rotors about $2,000–$4,000. Owners commonly budget $1,500–$4,000 a year before anything unexpected.'],
+        ['Can I get a certified pre-owned Huracán?', "Lamborghini's Selezione program offers a 12- to 24-month transferable warranty, but it has age and mileage limits, so many early LP610-4 and LP580-2 cars no longer qualify. Ask the dealer whether a specific car is eligible, and get an independent pre-purchase inspection either way."],
+      ],
+    }),
+  },
+  {
+    path: '/guides/corvette-c7-grand-sport',
+    page: 'guide-corvettec7grandsport',
+    file: '/pages/guides/corvette-c7-grand-sport.html',
+    lastmod: GUIDES_BATCH2_DATE,
+    noindex: true,
+    title: 'Corvette C7 Grand Sport Buying Guide (2017–2019): Pricing & Known Issues | The Exact Match',
+    description:
+      "A real buyer's guide to the 2017–2019 Corvette Grand Sport — specs, current market pricing, the wheel and 8-speed issues, running costs, and what to check before you buy.",
+    jsonLd: guideGraph({
+      slug: 'corvette-c7-grand-sport',
+      headline: "The 2017–2019 Corvette Grand Sport: A Real Buyer's Guide",
+      crumb: 'Corvette C7 Grand Sport Buying Guide',
+      date: GUIDES_BATCH2_DATE,
+      faqs: [
+        ['How much is a used C7 Corvette Grand Sport?', "As of fall 2026, dealer asking prices run from the mid-$50,000s for cars with 20,000–45,000 miles to the mid-$70,000s for low-mile 2019s. Classic.com's average recorded sale is about $65,110."],
+        ['Do C7 Grand Sport wheels crack?', "It's the best-documented issue on the car. The Grand Sport and Z06 share wide cast wheels that owners report bending and cracking, and the problem led to class actions and a GM reimbursement program for damage during warranty coverage. Have every wheel checked on a balancer before you buy."],
+        ['Manual or automatic?', "Only about 21% of Grand Sports were built as manuals, so a manual car takes more searching. The 8-speed automatic is quicker on paper, but check that it has had GM's fluid-flush bulletin for torque-converter shudder."],
+        ['C7 Grand Sport or the new C8 Grand Sport?', "They're different cars. The 2027 C8 Grand Sport is mid-engine with 535 hp and starts at $88,495. The C7 is the last front-engine Grand Sport, offers a manual, and costs well under that on the used market."],
+      ],
+    }),
+  },
+  {
+    path: '/guides/mazda-cx-5',
+    page: 'guide-mazdacx5',
+    file: '/pages/guides/mazda-cx-5.html',
+    lastmod: GUIDES_BATCH2_DATE,
+    noindex: true,
+    title: 'Mazda CX-5 Buying Guide (2026): Trims, Pricing & New vs. Used | The Exact Match',
+    description:
+      "A real buyer's guide to the all-new 2026 Mazda CX-5 — trim-by-trim pricing, current incentives, what changed, and whether a used previous-generation CX-5 is the better buy.",
+    jsonLd: guideGraph({
+      slug: 'mazda-cx-5',
+      headline: "The 2026 Mazda CX-5: A Real Buyer's Guide",
+      crumb: 'Mazda CX-5 Buying Guide',
+      date: GUIDES_BATCH2_DATE,
+      faqs: [
+        ['How much does the 2026 Mazda CX-5 cost?', 'It starts at $31,485 for the 2.5 S, including the $1,495 destination charge, and tops out at $40,485 for the 2.5 S Premium Plus. Every trim has the same 187-hp engine and standard all-wheel drive.'],
+        ['Does the 2026 CX-5 have a turbo?', 'No. The new generation launched with only the 2.5L four-cylinder (187 hp). Mazda has said a hybrid is coming for the 2027 model year. If you want the turbo, look at a used 2019–2025 CX-5 Turbo.'],
+        ['Should I buy a new CX-5 or a used one?', 'A used 2023–2025 CX-5 averages roughly $26,000–$29,000, several thousand under a new base model, and the Turbo is available used. The new car is roomier, has newer tech and a full warranty. If rear-seat and cargo space matter, the new car earns its premium.'],
+        ['Are there incentives on the 2026 CX-5?', 'Yes. Through September 2026, Mazda offered up to $1,750 in customer cash or 0% APR financing with a bonus, depending on region and trim. Offers change monthly, so check current incentives before you negotiate.'],
+      ],
+    }),
+  },
+);
+
 // ── Advice section (renamed + moved from bare top-level paths) ──────────
 const ADVICE_LASTMOD = '2026-08-27';
 VIEWS.push({
