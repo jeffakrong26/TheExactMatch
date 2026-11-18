@@ -94,56 +94,71 @@
       <div class="home-section-head">
         <h2>Pricing</h2>
       </div>
-      <label class="wg-terms-gate" style="display:flex;gap:.6rem;align-items:flex-start;max-width:640px;margin:0 auto 1.75rem;font-size:.92rem;line-height:1.6;color:var(--navy)">
-        <input type="checkbox" id="wg-terms-check" style="margin-top:.2rem;flex:0 0 auto;width:1.05rem;height:1.05rem;accent-color:var(--navy)"/>
-        <span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms and Conditions</a>. The deposit buttons below stay closed until this box is ticked.</span>
-      </label>
       <div class="wg-pricing-grid">
         <div class="wg-price-card">
           <div class="wg-price-tier">Regular cars</div>
           <div class="wg-price-amount">1%<span>Of your budget</span></div>
           <p class="wg-price-desc">Minimum $250. For loose briefs with room on color, interior, and options. $35,000 budget &rarr; $350 &middot; $55,000 budget &rarr; $550 &middot; $100,000 budget &rarr; $1,000. $250 deposit to start the search. Deposit counts toward the fee. Balance due at signing.</p>
-          <p class="wg-pay-prompt" style="font-size:.88rem;line-height:1.6;color:var(--gray)">Check the box above to pay your deposit.</p>
+          <button type="button" class="wg-start-btn" data-tier="regular" style="margin-top:1rem;padding:.7rem 1.5rem;border:0;border-radius:999px;background:var(--navy);color:#fff;font-weight:700;font-size:.95rem;cursor:pointer">Get Started</button>
+          <label class="wg-terms-agree" data-tier="regular" style="display:none;gap:.6rem;align-items:flex-start;margin-top:1rem;font-size:.92rem;line-height:1.6;color:var(--navy)">
+            <input type="checkbox" class="wg-terms-check" data-tier="regular" style="margin-top:.2rem;flex:0 0 auto;width:1.05rem;height:1.05rem;accent-color:var(--navy)"/>
+            <span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms and Conditions</a>.</span>
+          </label>
+          <p class="wg-pay-prompt" data-tier="regular" style="font-size:.88rem;line-height:1.6;color:var(--gray)">Click Get Started to pay your deposit.</p>
           <div id="paypal-container-7NAVSU9ZD6J5C" style="display:none"></div>
         </div>
         <div class="wg-price-card wg-price-card-accent">
           <div class="wg-price-tier">Hard-to-find cars</div>
           <div class="wg-price-amount">5%<span>Of your budget, capped at $7,000</span></div>
           <p class="wg-price-desc">For tight specs, exotics, high-end luxury, and genuinely hard-to-find cars. The fee is 5% of your budget, never more than the gap between your budget and the price the car is bought for, and never more than $7,000. $500 deposit to start the search. Deposit counts toward the fee. Balance due at signing.</p>
-          <p class="wg-pay-prompt" style="font-size:.88rem;line-height:1.6;color:var(--gray)">Check the box above to pay your deposit.</p>
+          <button type="button" class="wg-start-btn" data-tier="hard" style="margin-top:1rem;padding:.7rem 1.5rem;border:0;border-radius:999px;background:var(--navy);color:#fff;font-weight:700;font-size:.95rem;cursor:pointer">Get Started</button>
+          <label class="wg-terms-agree" data-tier="hard" style="display:none;gap:.6rem;align-items:flex-start;margin-top:1rem;font-size:.92rem;line-height:1.6;color:var(--navy)">
+            <input type="checkbox" class="wg-terms-check" data-tier="hard" style="margin-top:.2rem;flex:0 0 auto;width:1.05rem;height:1.05rem;accent-color:var(--navy)"/>
+            <span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms and Conditions</a>.</span>
+          </label>
+          <p class="wg-pay-prompt" data-tier="hard" style="font-size:.88rem;line-height:1.6;color:var(--gray)">Click Get Started to pay your deposit.</p>
           <div id="paypal-container-556QEHKKYZ2F8" style="display:none"></div>
         </div>
       </div>
       <script>
-        // Terms gate for the PayPal deposit buttons: nothing renders until the
-        // client ticks the agreement box. Rendered once on first check;
-        // unchecking hides the buttons again (CSS only, no re-render).
+        // Per-card checkout flow: Get Started reveals the terms agreement
+        // on that card (inline, not another page); ticking it renders
+        // that card's PayPal deposit button. Each tier is independent —
+        // agreeing on one card does not open the other. Rendered once
+        // per tier; unticking hides the button again (CSS only, no
+        // re-render). No-JS fallback: the deposit stays closed.
         (function () {
-          var check = document.getElementById('wg-terms-check');
-          var prompts = document.querySelectorAll('.wg-pay-prompt');
-          var rendered = false;
-          function showPayButtons(show) {
-            for (var i = 0; i < prompts.length; i++) {
-              prompts[i].style.display = show ? 'none' : '';
-            }
-            document.getElementById('paypal-container-7NAVSU9ZD6J5C').style.display = show ? '' : 'none';
-            document.getElementById('paypal-container-556QEHKKYZ2F8').style.display = show ? '' : 'none';
-          }
-          check.addEventListener('change', function () {
-            if (check.checked) {
-              if (!rendered) {
-                paypal.HostedButtons({
-                  hostedButtonId: "7NAVSU9ZD6J5C",
-                }).render("#paypal-container-7NAVSU9ZD6J5C");
-                paypal.HostedButtons({
-                  hostedButtonId: "556QEHKKYZ2F8",
-                }).render("#paypal-container-556QEHKKYZ2F8");
-                rendered = true;
+          var tiers = [
+            { tier: 'regular', hostedButtonId: '7NAVSU9ZD6J5C' },
+            { tier: 'hard', hostedButtonId: '556QEHKKYZ2F8' }
+          ];
+          tiers.forEach(function (t) {
+            var startBtn = document.querySelector('.wg-start-btn[data-tier="' + t.tier + '"]');
+            var agreeRow = document.querySelector('.wg-terms-agree[data-tier="' + t.tier + '"]');
+            var check = document.querySelector('.wg-terms-check[data-tier="' + t.tier + '"]');
+            var prompt = document.querySelector('.wg-pay-prompt[data-tier="' + t.tier + '"]');
+            var container = document.getElementById('paypal-container-' + t.hostedButtonId);
+            var rendered = false;
+            startBtn.addEventListener('click', function () {
+              startBtn.style.display = 'none';
+              agreeRow.style.display = 'flex';
+              prompt.textContent = 'Tick the box above to pay your deposit.';
+            });
+            check.addEventListener('change', function () {
+              if (check.checked) {
+                if (!rendered) {
+                  paypal.HostedButtons({
+                    hostedButtonId: t.hostedButtonId
+                  }).render('#paypal-container-' + t.hostedButtonId);
+                  rendered = true;
+                }
+                container.style.display = '';
+                prompt.style.display = 'none';
+              } else {
+                container.style.display = 'none';
+                prompt.style.display = '';
               }
-              showPayButtons(true);
-            } else {
-              showPayButtons(false);
-            }
+            });
           });
         })();
       </script>
