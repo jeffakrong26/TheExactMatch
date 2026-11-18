@@ -322,3 +322,56 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   });
 })();
+
+// ── Featured matches rotator (homepage) ─────────────────────────────
+// No-JS fallback: all five slides show stacked and the controls stay
+// hidden — CSS only hides them once this script adds .hp-matches-js.
+// With JS: one slide visible, auto-advance every 7s, pause on hover,
+// focus, hidden tab, or reduced-motion preference. Dots + arrows.
+document.addEventListener('DOMContentLoaded', function() {
+  var root = document.getElementById('hp-matches');
+  if (!root) return;
+  var slides = Array.prototype.slice.call(root.querySelectorAll('.hp-match-slide'));
+  if (slides.length < 2) return;
+  var dots = Array.prototype.slice.call(document.querySelectorAll('.hp-dot'));
+  var prevBtn = document.querySelector('[data-matches-prev]');
+  var nextBtn = document.querySelector('[data-matches-next]');
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var current = 0;
+  var timer = null;
+
+  root.classList.add('hp-matches-js');
+
+  function show(index) {
+    current = (index + slides.length) % slides.length;
+    slides.forEach(function(slide, i) {
+      var active = i === current;
+      slide.classList.toggle('is-active', active);
+      slide.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
+    dots.forEach(function(dot, i) {
+      dot.setAttribute('aria-current', i === current ? 'true' : 'false');
+    });
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } }
+  function start() {
+    if (reduceMotion || document.hidden) return;
+    stop();
+    timer = setInterval(function() { show(current + 1); }, 7000);
+  }
+
+  if (prevBtn) prevBtn.addEventListener('click', function() { show(current - 1); start(); });
+  if (nextBtn) nextBtn.addEventListener('click', function() { show(current + 1); start(); });
+  dots.forEach(function(dot, i) {
+    dot.addEventListener('click', function() { show(i); start(); });
+  });
+  root.addEventListener('mouseenter', stop);
+  root.addEventListener('mouseleave', start);
+  root.addEventListener('focusin', stop);
+  root.addEventListener('focusout', start);
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) stop(); else start();
+  });
+  show(0);
+  start();
+});

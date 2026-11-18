@@ -157,12 +157,12 @@
     <div class="hp-hero-scrim"></div>
     <div class="hp-wrap hp-hero-content">
       <h1>We don't list cars.<br/>We find yours.</h1>
-      <p class="hp-hero-sub">A car-buying concierge that works for you, not the dealer. Based in Austin, serving all 50 states.</p>
+      <p class="hp-hero-sub">The search is free. Only pay us if you want us to handle the whole buying process for you. Based in Austin, serving all 50 states.</p>
       <div class="hp-btn-row">
         <a class="tem-cta" href="/find-my-car">Find My Car →</a>
         <a class="hp-btn hp-btn-outline-light" href="/sell-my-car">Sell My Car</a>
       </div>
-      <p class="hp-hero-note">We'll find your car for free. Want the whole deal handled? Learn more about <a href="/white-glove">White&nbsp;Glove</a>.</p>
+      <p class="hp-hero-note">Want the whole deal handled? Learn more about <a href="/white-glove">White&nbsp;Glove</a>.</p>
     </div>
   </section>
 
@@ -216,25 +216,105 @@
     </div>
   </section>
 
-  <!-- 4. Featured match. Real White Glove deal; no client name, no fee. -->
+  <!-- 4. Recent matches. Five 2026 deals, story-first: no prices, no
+       savings numbers, no client names. Cycles automatically with dots
+       and arrows (js/site.js); without JS all five show stacked and the
+       controls stay hidden. Photos are the same ones used for these
+       stories in the magazine, except the Vantage, which uses the
+       repo's own photo. -->
   <section class="hp-section hp-cream">
-    <div class="hp-wrap hp-featured">
-      <img class="hp-featured-img"
-           src="/images/home/vantage-960.webp"
-           srcset="/images/home/vantage-640.webp 640w, /images/home/vantage-960.webp 960w, /images/home/vantage-1280.webp 1280w"
-           sizes="(min-width: 900px) 560px, 100vw" width="1280" height="730"
-           alt="Silver 2019 Aston Martin Vantage" loading="lazy" decoding="async"/>
-      <div class="hp-featured-info">
-        <p class="hp-eyebrow">Featured Match</p>
-        <h2>2019 Aston Martin Vantage</h2>
-        <p class="hp-featured-miles">16,900 miles</p>
-        <div class="hp-prices">
-          <div><span class="hp-price-label">Asking</span><span class="hp-price hp-price-was">$101,000</span></div>
-          <span class="hp-price-arrow" aria-hidden="true">→</span>
-          <div><span class="hp-price-label">Final</span><span class="hp-price">$92,700</span></div>
+    <div class="hp-wrap">
+      <div class="hp-head">
+        <h2>Recent matches.</h2>
+        <p>Five deals from 2026, told the way they happened.</p>
+      </div>
+      <div class="hp-matches" id="hp-matches" role="region" aria-roledescription="carousel" aria-label="Recent matches">
+        <article class="hp-match-slide is-active" aria-label="1 of 5">
+          <div class="hp-featured">
+            <img class="hp-featured-img"
+                 src="https://theexactmatch.com/magazine/img/cx5.jpg"
+                 width="769" height="900" style="object-position:center 70%"
+                 alt="Red 2026 Mazda CX-5 at the dealership" loading="lazy" decoding="async"/>
+            <div class="hp-featured-info">
+              <p class="hp-eyebrow">Featured Match</p>
+              <h2>2026 Mazda CX-5</h2>
+              <p class="hp-featured-miles">Brand new</p>
+              <p class="hp-featured-body">A tight budget and a plan to buy used. We walked through every option in the segment, and the search took a turn: a brand-new 2026 CX-5, just as the first ones were reaching dealership floors. One spouse is disabled, so the process came to them — a detailed video first, then the salesperson brought the car to their home for the test drive. She never had to leave the house.</p>
+              <a class="hp-link" href="/magazine/finds-issue#mazda">Read the full story →</a>
+            </div>
+          </div>
+        </article>
+        <article class="hp-match-slide" aria-label="2 of 5">
+          <div class="hp-featured">
+            <img class="hp-featured-img"
+                 src="https://theexactmatch.com/magazine/img/huracan-1.jpg"
+                 width="900" height="675"
+                 alt="2019 Lamborghini Huracán 580-2" loading="lazy" decoding="async"/>
+            <div class="hp-featured-info">
+              <p class="hp-eyebrow">Featured Match</p>
+              <h2>2019 Lamborghini Huracán 580-2</h2>
+              <p class="hp-featured-body">He came to us from a 2015 Audi R8, ready to trade it for a Gallardo. We talked him out of it — the Gallardo market was inflated, and from an R8 it wouldn't have been much of an upgrade. The search moved to Huracáns. We negotiated the 2019 car down, got the warranty included, found another dealer to buy the R8 at a fairer value, and handled transport on both ends.</p>
+              <a class="hp-link" href="/magazine/finds-issue#huracan">Read the full story →</a>
+            </div>
+          </div>
+        </article>
+        <article class="hp-match-slide" aria-label="3 of 5">
+          <div class="hp-featured">
+            <img class="hp-featured-img"
+                 src="https://theexactmatch.com/magazine/img/carrera.jpg"
+                 width="900" height="606"
+                 alt="White 2022 Porsche 911 Carrera S" loading="lazy" decoding="async"/>
+            <div class="hp-featured-info">
+              <p class="hp-eyebrow">Featured Match</p>
+              <h2>2022 Porsche 911 Carrera S</h2>
+              <p class="hp-featured-miles">About 16,000 miles</p>
+              <p class="hp-featured-body">Three things were non-negotiable: a 992, a manual, and the sliding roof. Beyond that the brief was open — a Carrera T at first, then a Carrera S once comfort entered the conversation. Weeks of options, compared properly, until one car stopped the conversation. Found inside budget, negotiated, and delivered to the door.</p>
+              <a class="hp-link" href="/magazine/finds-issue#porsche">Read the full story →</a>
+            </div>
+          </div>
+        </article>
+        <article class="hp-match-slide" aria-label="4 of 5">
+          <div class="hp-featured">
+            <img class="hp-featured-img"
+                 src="/images/home/vantage-960.webp"
+                 srcset="/images/home/vantage-640.webp 640w, /images/home/vantage-960.webp 960w, /images/home/vantage-1280.webp 1280w"
+                 sizes="(min-width: 900px) 560px, 100vw" width="1280" height="730"
+                 alt="Silver 2019 Aston Martin Vantage" loading="lazy" decoding="async"/>
+            <div class="hp-featured-info">
+              <p class="hp-eyebrow">Featured Match</p>
+              <h2>2019 Aston Martin Vantage</h2>
+              <p class="hp-featured-miles">16,900 miles</p>
+              <p class="hp-featured-body">The car was the easy part. The price had to be right, the financing terms had to be right, and the trade had to be valued properly. All three came down to relationships. This one ran on our history with the dealership — and the client never spoke to the dealer at all until pickup day.</p>
+              <a class="hp-link" href="/magazine/finds-issue#aston">Read the full story →</a>
+            </div>
+          </div>
+        </article>
+        <article class="hp-match-slide" aria-label="5 of 5">
+          <div class="hp-featured">
+            <img class="hp-featured-img"
+                 src="https://theexactmatch.com/magazine/img/horizon-purosangue.jpg"
+                 width="900" height="533"
+                 alt="2023 Ferrari Purosangue" loading="lazy" decoding="async"/>
+            <div class="hp-featured-info">
+              <p class="hp-eyebrow">Latest Match · In Progress</p>
+              <h2>Ferrari Purosangue</h2>
+              <p class="hp-featured-miles">7,039 miles · San Francisco</p>
+              <p class="hp-featured-body">The brief was specific, the spec was tight, and the car was worth waiting for: a 2023 Purosangue in Rosso Portofino over Nero, with carbon everywhere. The deal is agreed at asking, with the two-year Ferrari warranty at half price. Right now we're in paperwork, transport, and insurance, getting it home.</p>
+              <a class="hp-link" href="/magazine/finds-issue#horizon">Read more in the magazine →</a>
+            </div>
+          </div>
+        </article>
+        <div class="hp-matches-controls">
+          <button class="hp-arrow" type="button" data-matches-prev aria-label="Previous match">← Prev</button>
+          <div class="hp-dots" aria-label="Choose a match">
+            <button class="hp-dot" type="button" aria-label="Show the Mazda CX-5" aria-current="true"></button>
+            <button class="hp-dot" type="button" aria-label="Show the Lamborghini Huracán" aria-current="false"></button>
+            <button class="hp-dot" type="button" aria-label="Show the Porsche 911 Carrera S" aria-current="false"></button>
+            <button class="hp-dot" type="button" aria-label="Show the Aston Martin Vantage" aria-current="false"></button>
+            <button class="hp-dot" type="button" aria-label="Show the Ferrari Purosangue" aria-current="false"></button>
+          </div>
+          <button class="hp-arrow" type="button" data-matches-next aria-label="Next match">Next →</button>
         </div>
-        <p class="hp-featured-body">A 2019 Vantage listed at $101,000. Our team negotiated the final price down to $92,700, a savings of $8,300. This is the kind of result White Glove delivers.</p>
-        <a class="hp-link" href="/white-glove#worked-example">See how White Glove works →</a>
       </div>
     </div>
   </section>
@@ -292,6 +372,7 @@
         </figure>
       </div>
       <p class="hp-press">As featured in <a href="https://voyagehouston.com/interview/community-highlights-meet-jeff-akrong-of-the-exact-match/" target="_blank" rel="noopener">Voyage Magazine</a></p>
+      <p class="hp-press">Rated 5.0 out of 5 from 5 reviews on <a href="https://maps.app.goo.gl/zGxQkkAozYUwgcmZ9" target="_blank" rel="noopener">Google</a></p>
     </div>
   </section>
 

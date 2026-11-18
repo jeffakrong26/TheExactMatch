@@ -1022,3 +1022,19 @@ footer{background:var(--navy);border-top:1px solid rgba(192,154,91,.12);padding:
   .hp-final .hp-btn-row{justify-content:flex-start}
   .hp-final-img{flex:1;min-width:0;max-width:none;margin:0}
 }
+
+/* ── Featured matches rotator (homepage) ─────────────────────────────
+   No-JS fallback: all five slides stack, controls hidden. JS adds
+   .hp-matches-js to #hp-matches, which switches to one-slide mode
+   and reveals the controls. */
+.hp-matches-controls{display:none}
+.hp-matches-js .hp-matches-controls{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:28px}
+.hp-matches-js .hp-match-slide{display:none}
+.hp-matches-js .hp-match-slide.is-active{display:block}
+.hp-match-slide + .hp-match-slide{margin-top:48px}
+.hp-matches-js .hp-match-slide + .hp-match-slide{margin-top:0}
+.hp-arrow{appearance:none;background:none;border:0;padding:8px 4px;font-family:var(--font-body);font-size:15px;font-weight:600;color:var(--hp-gold-deep);cursor:pointer}
+.hp-arrow:hover{color:var(--home-navy)}
+.hp-dots{display:flex;gap:10px;align-items:center}
+.hp-dot{appearance:none;width:11px;height:11px;padding:0;border-radius:50%;border:1.5px solid var(--hp-gold-deep);background:transparent;cursor:pointer}
+.hp-dot[aria-current="true"]{background:var(--hp-gold-deep)}

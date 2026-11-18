@@ -111,6 +111,7 @@ const NAV_GROUPS = [
       { page: 'advice-negotiate', href: '/advice/how-to-negotiate-car-price', icon: 'doc', title: 'Negotiating Car Price' },
       { page: 'advice-outofstate', href: '/advice/buying-a-car-out-of-state', icon: 'doc', title: 'Buying Out of State' },
       { page: 'advice-financedcar', href: '/advice/how-to-sell-a-financed-car', icon: 'doc', title: 'Selling a Financed Car' },
+      { page: 'advice-besttime', href: '/advice/best-time-to-buy-a-car', icon: 'doc', title: 'Best Time to Buy a Car' },
       { page: 'weeklyfinds', href: '/weekly-finds', icon: 'mail', title: 'Recent Finds' },
     ],
   },
@@ -245,6 +246,7 @@ const FOOTER_HTML = `<footer>
     <li><a href="/guides">Guides</a></li>
     <li><a href="/contact">Contact</a></li>
     <li><a href="/privacy-policy">Privacy</a></li>
+    <li><a href="https://maps.app.goo.gl/zGxQkkAozYUwgcmZ9" target="_blank" rel="noopener noreferrer">Find us on Google</a></li>
   </ul>
   <div style="display:flex;align-items:center;gap:1.5rem">
     <div class="footer-copy">© 2026 TheExactMatch.com</div>
@@ -283,7 +285,7 @@ const FOUNDER_CARD_HTML = `<div class="founder-card">
   <img class="founder-card-photo" src="/images/jeff-headshot-compact.jpg" alt="Jeff Akrong" width="76" height="76" loading="lazy" decoding="async"/>
   <div class="founder-card-body">
     <div class="founder-card-name">Jeff Akrong</div>
-    <div class="founder-card-line">Dealership insider turned buyer's advocate — ex-Audi, Mercedes-Benz, Aston Martin, Rolls-Royce &amp; Bentley. Now entirely on your side, free.</div>
+    <div class="founder-card-line">Dealership insider turned buyer's advocate — ex-Audi, Mercedes-Benz, Aston Martin, Rolls-Royce &amp; Bentley. Now entirely on your side.</div>
     <a class="founder-card-link" href="/about">Meet Jeff &rarr;</a>
   </div>
 </div>`;
@@ -301,13 +303,14 @@ const SITEWIDE_SCHEMA = {
       '@type': 'Organization',
       name: 'The Exact Match',
       url: ORIGIN,
-      sameAs: ['https://facebook.com/theexactmatch', 'https://instagram.com/theexactmatch'],
+      sameAs: ['https://facebook.com/theexactmatch', 'https://instagram.com/theexactmatch', 'https://maps.app.goo.gl/zGxQkkAozYUwgcmZ9'],
     },
     {
       '@type': 'AutomotiveBusiness',
       name: 'The Exact Match',
       url: ORIGIN,
       telephone: '+1-512-650-9328',
+      aggregateRating: { '@type': 'AggregateRating', ratingValue: '5.0', reviewCount: '5' },
       address: { '@type': 'PostalAddress', addressLocality: 'Austin', addressRegion: 'TX', addressCountry: 'US' },
       areaServed: [
         { '@type': 'Country', name: 'United States' },
@@ -333,10 +336,10 @@ const VIEWS = [
     path: '/',
     page: 'home',
     file: '/pages/home.html',
-    lastmod: '2026-10-07',
+    lastmod: '2026-11-18',
     title: 'The Exact Match — We Find Your Exact Car | Car Buying Concierge in Austin, TX',
     description:
-      'The Exact Match is a car-buying concierge in Austin, TX serving all 50 states. Tell us what you want — we search dealer networks and negotiate. Free search.',
+      'The Exact Match is a car-buying concierge in Austin, TX serving all 50 states. The search is free. Only pay us if you want us to handle the whole buying process for you.',
   },
   {
     path: '/find-my-car',
@@ -698,7 +701,7 @@ const VIEWS = [
     path: '/resources',
     page: 'resources',
     file: '/pages/resources.html',
-    lastmod: '2026-09-17',
+    lastmod: '2026-11-18',
     title: 'Resources — Guides, Advice & Recent Finds | The Exact Match',
     description:
       "Everything we know, in one place — in-depth buyer's guides, straight answers on negotiating and selling, and hand-picked recent finds from the market.",
@@ -1226,10 +1229,10 @@ VIEWS.push(
     path: '/dealers',
     page: 'dealers',
     file: '/pages/dealers.html',
-    lastmod: NEW_LASTMOD,
+    lastmod: '2026-11-18',
     title: 'For Dealers — Partner With The Exact Match | TheExactMatch',
     description:
-      "We send pre-qualified, ready-to-transact buyers and sellers straight to your lot. No listing fees — we're paid a commission only when a deal actually closes.",
+      'We send pre-qualified, ready-to-transact buyers and sellers straight to your lot. No fees to dealers — our clients pay us for White Glove, so a matched lead costs you nothing.',
   },
   {
     path: '/advice/buying-a-car-out-of-state',
@@ -1286,6 +1289,73 @@ VIEWS.push(
           itemListElement: [
             { '@type': 'ListItem', position: 1, name: 'Advice', item: `${ORIGIN}/advice` },
             { '@type': 'ListItem', position: 2, name: 'How to Sell a Financed Car', item: `${ORIGIN}/advice/how-to-sell-a-financed-car` },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    path: '/advice/best-time-to-buy-a-car',
+    page: 'advice-besttime',
+    file: '/pages/advice/best-time-to-buy-a-car.html',
+    lastmod: '2026-11-18',
+    title: 'Best Time to Buy a Car: When to Shop | The Exact Match',
+    description:
+      'When is the best time to buy a car? Year-end, model-year changeover, and quarter-end can help — but timing is one lever. What actually moves the price, explained plainly.',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Article',
+          headline: 'Best Time to Buy a Car: When Timing Helps',
+          author: { '@type': 'Person', name: 'Jeff Akrong', url: `${ORIGIN}/about` },
+          publisher: { '@type': 'Organization', name: 'The Exact Match', url: ORIGIN },
+          datePublished: '2026-11-18',
+          dateModified: '2026-11-18',
+          mainEntityOfPage: `${ORIGIN}/advice/best-time-to-buy-a-car`,
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Advice', item: `${ORIGIN}/advice` },
+            { '@type': 'ListItem', position: 2, name: 'Best Time to Buy a Car', item: `${ORIGIN}/advice/best-time-to-buy-a-car` },
+          ],
+        },
+        {
+          '@type': 'FAQPage',
+          mainEntity: [
+            {
+              '@type': 'Question',
+              name: 'Is December really the best month to buy a car?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: "For a new car, usually yes — year-end targets and the outgoing model year line up. But the best month for the car you actually want is the month it's available at the right price.",
+              },
+            },
+            {
+              '@type': 'Question',
+              name: 'Should I wait for the new model year?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: 'Only if you want the outgoing car cheaper. If you want the new model year itself, the first months are the worst time to buy it — full price and no incentives.',
+              },
+            },
+            {
+              '@type': 'Question',
+              name: 'Do holiday sales actually save money?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: 'Sometimes, through manufacturer incentives. But the advertised event price is a starting point, not a floor — negotiate from it like any other price.',
+              },
+            },
+            {
+              '@type': 'Question',
+              name: 'Does timing matter for used cars?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: "Less than for new cars. A used car's price moves with how long it's sat on the lot and how many similar cars are listed nearby, not with the calendar.",
+              },
+            },
           ],
         },
       ],
