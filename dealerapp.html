@@ -169,33 +169,6 @@ h1 em{font-style:italic;color:var(--gold)}
         <span class="hint">Do you stock used cars of all makes, or mainly your own brand?</span>
       </div>
 
-      <div class="section-title">Referral Fee Setup</div>
-      <div class="group">
-        <label>Does your dealership have an established referral/bird-dog fee policy? *</label>
-        <div class="radio-row" id="referral-policy-radios">
-          <label class="radio-opt"><input type="radio" name="referral_policy_status" value="has_policy" onchange="onReferralPolicyChange()"/> Yes, we have a policy</label>
-          <label class="radio-opt"><input type="radio" name="referral_policy_status" value="no_but_open" onchange="onReferralPolicyChange()"/> No, but management would likely set one up</label>
-          <label class="radio-opt"><input type="radio" name="referral_policy_status" value="not_sure" onchange="onReferralPolicyChange()"/> Not sure / need to check</label>
-        </div>
-      </div>
-      <div class="conditional" id="has-policy-conditional">
-        <div class="group">
-          <label>Fee Type</label>
-          <select id="fee_type" onchange="onFeeTypeChange()"><option value="flat">Flat dollar amount</option><option value="percent">Percent</option></select>
-        </div>
-        <div class="group"><label>Fee Amount</label><input type="number" id="fee_amount" step="0.01"/></div>
-        <div class="group" id="fee-basis-conditional" style="display:none">
-          <label>Percent Basis</label>
-          <select id="fee_percent_basis"><option value="sale_price">% of sale price</option><option value="front_gross">% of front gross</option></select>
-        </div>
-      </div>
-      <div class="conditional" id="no-but-open-conditional">
-        <div class="group"><label>Who would set this up, and would they be open to it?</label><textarea id="referral_contact_open"></textarea></div>
-      </div>
-      <div class="conditional" id="not-sure-conditional">
-        <div class="group"><label>Who would know, or can you connect us?</label><textarea id="referral_contact_notsure"></textarea></div>
-      </div>
-
       <div class="section-title">Preferences</div>
       <div class="group">
         <label>Best Contact Method for Buyer Leads *</label>
@@ -210,7 +183,7 @@ h1 em{font-style:italic;color:var(--gold)}
 
       <label class="checkbox-row" style="margin-top:1.5rem">
         <input type="checkbox" id="agreed_terms" required disabled/>
-        <span>I agree to the <a href="/partner-terms.html" id="terms-link" target="_blank" style="color:var(--bronze)" onclick="onTermsLinkClick()">Partner Network Terms</a>, including referral fee reporting obligations.
+        <span>I agree to the <a href="/partner-terms.html" id="terms-link" target="_blank" style="color:var(--bronze)" onclick="onTermsLinkClick()">Partner Network Terms</a>.
           <span id="terms-hint" style="display:block;margin-top:.3rem;font-size:.78rem;color:var(--bronze)">Open and review the terms above to enable this checkbox.</span>
         </span>
       </label>
@@ -234,18 +207,7 @@ function onDealershipTypeChange() {
   document.getElementById('brands-conditional').classList.toggle('show', isFranchise);
 }
 
-function onReferralPolicyChange() {
-  const val = document.querySelector('input[name="referral_policy_status"]:checked')?.value;
-  document.querySelectorAll('#referral-policy-radios .radio-opt').forEach(el => el.classList.remove('checked'));
-  event.target.closest('.radio-opt').classList.add('checked');
-  document.getElementById('has-policy-conditional').classList.toggle('show', val === 'has_policy');
-  document.getElementById('no-but-open-conditional').classList.toggle('show', val === 'no_but_open');
-  document.getElementById('not-sure-conditional').classList.toggle('show', val === 'not_sure');
-}
 
-function onFeeTypeChange() {
-  document.getElementById('fee-basis-conditional').style.display = document.getElementById('fee_type').value === 'percent' ? 'block' : 'none';
-}
 
 let termsOpened = false;
 function onTermsLinkClick() {
@@ -274,8 +236,6 @@ async function submitApplication() {
   if (!document.getElementById('agreed_terms').checked) {
     showFormError('Please agree to the Partner Network Terms.'); return;
   }
-  const referral_policy_status = document.querySelector('input[name="referral_policy_status"]:checked')?.value;
-  if (!referral_policy_status) { showFormError('Please answer the referral fee policy question.'); return; }
 
   const [city, state] = (document.getElementById('city_state').value || '').split(',').map(s => (s || '').trim());
 
@@ -293,14 +253,17 @@ async function submitApplication() {
     dealership_type: document.getElementById('dealership_type').value,
     brands_new: (document.getElementById('brands_new').value || '').split(',').map(s => s.trim()).filter(Boolean),
     used_scope: document.getElementById('used_scope').value,
-    referral_policy_status,
-    referral_policy_notes: referral_policy_status === 'no_but_open' ? document.getElementById('referral_contact_open').value
-      : referral_policy_status === 'not_sure' ? document.getElementById('referral_contact_notsure').value : '',
-    referral_contact: referral_policy_status === 'no_but_open' ? document.getElementById('referral_contact_open').value
-      : referral_policy_status === 'not_sure' ? document.getElementById('referral_contact_notsure').value : '',
-    fee_type: document.getElementById('fee_type').value,
-    fee_amount: document.getElementById('fee_amount').value,
-    fee_percent_basis: document.getElementById('fee_percent_basis').value,
+    // Dealers pay nothing under the White Glove model — no referral fee
+    // question on this form anymore. The API still requires a
+    // referral_policy_status value, so we send the neutral 'not_sure'
+    // (which the API defaults to a $0 flat placeholder) until the API
+    // validation is relaxed. See partner-terms §4.
+    referral_policy_status: 'not_sure',
+    referral_policy_notes: '',
+    referral_contact: '',
+    fee_type: 'flat',
+    fee_amount: 0,
+    fee_percent_basis: 'sale_price',
     lead_contact_method: document.getElementById('lead_contact_method').value,
     anything_else: document.getElementById('anything_else').value,
     agreed_terms: true,

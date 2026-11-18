@@ -519,7 +519,7 @@
         </svg>
       </div>
       <div class="dash-card-title">Buyer Leads</div>
-      <div class="dash-card-desc">Matched buyer leads routed to you — verify availability, track active deals, and see your referral fees.</div>
+      <div class="dash-card-desc">Matched buyer leads routed to you — verify availability and track active deals.</div>
     </div>
     <div class="dash-card" onclick="showView('view-leads')">
       <div class="dash-card-icon">
@@ -1045,8 +1045,8 @@
     </div>
 
     <!-- Tab: Dealers (merged — trade-in dealer network above,
-         buyer-lead-referral partner network below. Partner lead oversight,
-         fee accounting, and lifecycle email approval live in the CRM app
+         buyer-lead partner network below. Partner lead oversight
+         and lifecycle email approval live in the CRM app
          instead, alongside the rest of the deal pipeline.) -->
     <div class="tab-panel" id="tab-dealers">
       <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;border-bottom:none;padding-bottom:0;margin-bottom:1.5rem">
@@ -5194,9 +5194,7 @@ function renderPartnerApplicationCard(p) {
       <div style="font-size:.82rem;color:var(--gray);margin:.5rem 0">
         ${escapeHtmlJs(p.name)} (${escapeHtmlJs(p.contact_role)}) · ${escapeHtmlJs(p.email)} · ${escapeHtmlJs(p.phone || '')}<br/>
         Type: ${escapeHtmlJs(p.dealership_type)}${brands ? ' · Brands: ' + escapeHtmlJs(brands) : ''} · Used scope: ${escapeHtmlJs(p.used_scope)}<br/>
-        Units/mo: ${p.monthly_units ?? '?'} · Referral policy: <strong>${escapeHtmlJs(p.referral_policy_status)}</strong>
-        ${p.referral_policy_notes ? ' — ' + escapeHtmlJs(p.referral_policy_notes) : ''}
-        ${p.fee_type ? ` · Fee: ${p.fee_amount}${p.fee_type === 'percent' ? '% of ' + escapeHtmlJs(p.fee_percent_basis || '') : ' flat'}` : ''}
+        Units/mo: ${p.monthly_units ?? '?'}
       </div>
       ${p.overlap_flag ? `<div style="font-size:.78rem;color:var(--red);margin-bottom:.5rem"><strong>⚠ Overlap:</strong> ${escapeHtmlJs(p.overlap_notes || '')}</div>` : ''}
       <div style="display:flex;gap:.5rem;flex-wrap:wrap">
@@ -5214,8 +5212,8 @@ async function doApprovePartner(id) {
 }
 
 async function doRejectPartner(id) {
-  const reason = prompt('Reason: zone_already_covered, brand_already_covered, units_too_low, no_referral_policy, incomplete_unverifiable, or other');
-  const valid = ['zone_already_covered', 'brand_already_covered', 'units_too_low', 'no_referral_policy', 'incomplete_unverifiable', 'other'];
+  const reason = prompt('Reason: zone_already_covered, brand_already_covered, units_too_low, incomplete_unverifiable, or other');
+  const valid = ['zone_already_covered', 'brand_already_covered', 'units_too_low', 'incomplete_unverifiable', 'other'];
   if (!valid.includes(reason)) { alert('Please enter a valid reason.'); return; }
   const notes = prompt('Any notes? (optional)') || '';
   const { res, data } = await apiFetch(`/admin/partners/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason, notes }) })

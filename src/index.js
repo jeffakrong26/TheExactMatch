@@ -291,11 +291,10 @@ const FOUNDER_CARD_HTML = `<div class="founder-card">
 </div>`;
 
 // Sitewide structured data — Organization (unchanged from before) plus the
-// new AutomotiveBusiness/LocalBusiness entry. `address` is locality-only
-// (Austin, TX): no real street address exists anywhere in this business's
-// records, and schema.org doesn't require one — city/region is true and is
-// what local search actually keys on, so it's stated rather than either
-// omitted or padded out with a fabricated street.
+// new AutomotiveBusiness/LocalBusiness entry. No `address`: the business
+// isn't based in any one place, so there is no locality to state —
+// areaServed (the whole US, plus the Texas cities we serve) is what local
+// search actually keys on.
 const SITEWIDE_SCHEMA = {
   '@context': 'https://schema.org',
   '@graph': [
@@ -311,7 +310,6 @@ const SITEWIDE_SCHEMA = {
       url: ORIGIN,
       telephone: '+1-512-650-9328',
       aggregateRating: { '@type': 'AggregateRating', ratingValue: '5.0', reviewCount: '5' },
-      address: { '@type': 'PostalAddress', addressLocality: 'Austin', addressRegion: 'TX', addressCountry: 'US' },
       areaServed: [
         { '@type': 'Country', name: 'United States' },
         { '@type': 'City', name: 'Austin', containedInPlace: { '@type': 'State', name: 'Texas' } },
@@ -337,9 +335,9 @@ const VIEWS = [
     page: 'home',
     file: '/pages/home.html',
     lastmod: '2026-11-18',
-    title: 'The Exact Match — We Find Your Exact Car | Car Buying Concierge in Austin, TX',
+    title: 'The Exact Match — We Find Your Exact Car | Car Buying Concierge, Serving All 50 States',
     description:
-      'The Exact Match is a car-buying concierge in Austin, TX serving all 50 states. The search is free. Only pay us if you want us to handle the whole buying process for you.',
+      'The Exact Match is a car-buying concierge serving all 50 states. The search is free. Only pay us if you want us to handle the whole buying process for you.',
   },
   {
     path: '/find-my-car',
@@ -348,7 +346,7 @@ const VIEWS = [
     lastmod: '2026-08-27',
     title: 'Find My Car — Search, Negotiate & Deliver | TheExactMatch',
     description:
-      'Tell us the car you want. We search dealer networks nationwide and send 3 curated matches in 24 hours. Free, no obligation. Austin-based, all 50 states.',
+      'Tell us the car you want. We search dealer networks nationwide and send 3 curated matches in 24 hours. Free, no obligation. Nationwide, all 50 states.',
   },
   {
     path: '/sell-my-car',
@@ -357,7 +355,7 @@ const VIEWS = [
     lastmod: '2026-08-31',
     title: 'Sell My Car — Multiple Real Offers, Not One Lowball | TheExactMatch',
     description:
-      'Sell your car to competing dealers — real offers in 24 hours, no instant-offer lowball. Free to submit, no obligation. The Exact Match, Austin TX.',
+      'Sell your car to competing dealers — real offers in 24 hours, no instant-offer lowball. Free to submit, no obligation. The Exact Match.',
     // Worded identically to the on-page FAQ in pages/sell-my-car.html —
     // change one, change the other.
     jsonLd: {
@@ -462,7 +460,7 @@ const VIEWS = [
     lastmod: '2026-11-18',
     title: 'White Glove — We Handle the Whole Deal | TheExactMatch',
     description:
-      'White Glove by The Exact Match: we handle your entire car deal — negotiation, inspection, paperwork, delivery. 1% of your budget for standard vehicles, 5% capped at $7,000 for hard-to-find ones. See a real $8,300 win.',
+      'White Glove by The Exact Match: we handle your entire car deal — negotiation, inspection, paperwork, delivery. 1% of your budget for standard vehicles, 5% capped at $7,000 for hard-to-find ones. See a real example: a $150,000 budget, a $137,000 car, and a $7,000 fee.',
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [
@@ -634,7 +632,7 @@ const VIEWS = [
     path: '/guides/audi-r8',
     page: 'guide-audir8',
     file: '/pages/guides/audi-r8.html',
-    lastmod: '2026-08-23',
+    lastmod: '2026-11-18',
     title: 'Audi R8 Buying Guide: All Trims & Pricing Trends | The Exact Match',
     description:
       'Every Audi R8 trim explained — V8, V10, Performante, manual vs S-tronic — with real market positioning and what to look for.',
@@ -725,7 +723,7 @@ const VIEWS = [
     path: '/guides/aston-martin-vantage-v8',
     page: 'guide-astonmartinvantagev8',
     file: '/pages/guides/aston-martin-vantage-v8.html',
-    lastmod: '2026-10-07',
+    lastmod: '2026-11-18',
     title: 'Aston Martin Vantage V8 Buying Guide (2019+): Pricing & Known Issues | The Exact Match',
     description:
       "A real buyer's guide to the 2019+ Aston Martin Vantage V8 — specs, current market pricing, known issues, and what to check before you buy one.",
@@ -831,7 +829,7 @@ VIEWS.push(
     path: '/guides/lamborghini-huracan',
     page: 'guide-lamborghinihuracan',
     file: '/pages/guides/lamborghini-huracan.html',
-    lastmod: GUIDES_BATCH2_DATE,
+    lastmod: '2026-11-18',
     noindex: true,
     title: 'Lamborghini Huracán Buying Guide: Pricing, Recalls & Known Issues | The Exact Match',
     description:
@@ -853,7 +851,7 @@ VIEWS.push(
     path: '/guides/corvette-c7-c8',
     page: 'guide-corvettec7c8',
     file: '/pages/guides/corvette-c7-c8.html',
-    lastmod: GUIDES_BATCH2_DATE,
+    lastmod: '2026-11-18',
     noindex: true,
     title: 'Corvette C7 vs. C8 Buying Guide: Stingray to ZR1, Pricing & Known Issues | The Exact Match',
     description:
@@ -876,7 +874,7 @@ VIEWS.push(
     path: '/guides/mazda-cx-5',
     page: 'guide-mazdacx5',
     file: '/pages/guides/mazda-cx-5.html',
-    lastmod: GUIDES_BATCH2_DATE,
+    lastmod: '2026-11-18',
     noindex: true,
     title: 'Mazda CX-5 Buying Guide (2026): Trims, Pricing & New vs. Used | The Exact Match',
     description:
@@ -902,10 +900,10 @@ VIEWS.push({
   path: '/advice/how-to-negotiate-car-price',
   page: 'advice-negotiate',
   file: '/pages/advice/how-to-negotiate-car-price.html',
-  lastmod: '2026-09-30',
+  lastmod: '2026-11-18',
   title: 'How to Negotiate Car Price: The Complete Guide + Script | The Exact Match',
   description:
-    'How to negotiate car price: the complete guide with email scripts, dealer tactics exposed, and a real $8,300 deal breakdown. From a dealership insider.',
+    'How to negotiate car price: the complete guide with email scripts, dealer tactics exposed, and a real deal breakdown: a $150,000 budget negotiated to a $137,000 car. From a dealership insider.',
   jsonLd: {
     '@context': 'https://schema.org',
     '@graph': [
@@ -971,7 +969,7 @@ VIEWS.push({
 // changes, so they're generated from this list rather than written out five
 // times. `possessive` is explicit rather than derived: "Dallas's" vs
 // "Dallas'" is a style call, not something to leave to string concatenation.
-const CITY_LASTMOD = '2026-08-31';
+const CITY_LASTMOD = '2026-11-18';
 const CITIES = [
   { slug: 'austin',      name: 'Austin',      possessive: "Austin's" },
   { slug: 'houston',     name: 'Houston',     possessive: "Houston's" },
@@ -1049,8 +1047,8 @@ for (const city of CITIES) {
     local,
     lastmod: local?.lastmod || CITY_LASTMOD,
     title: `Buy a Car in ${city.name}, TX — Nationwide Reach | The Exact Match`,
-    // Not "Based in <city>" — the business is based in Austin, and a
-    // description claiming otherwise for the other four cities is the kind
+    // Not "Based in <city>" — the business isn't based in any one city,
+    // and a description claiming a base in any of them is the kind
     // of mismatch that costs trust once someone clicks through.
     description: local?.description ||
       `Buying a car in ${city.name}, TX? Tell us what you want — we search dealer networks nationwide, negotiate the price, and handle the paperwork. Free search.`,
@@ -1179,7 +1177,7 @@ VIEWS.push(
     path: '/car-buying-concierge',
     page: 'carbuyingconcierge',
     file: '/pages/car-buying-concierge.html',
-    lastmod: NEW_LASTMOD,
+    lastmod: '2026-11-18',
     title: 'Car Buying Concierge — Nationwide, Free Search & Negotiation | The Exact Match',
     description:
       'A car buying concierge who works for you, not the dealer: free nationwide search, real negotiation, and delivery — or have the whole deal handled for you.',
@@ -1208,7 +1206,7 @@ VIEWS.push(
               name: 'Is this only for Texas?',
               acceptedAnswer: {
                 '@type': 'Answer',
-                text: "No — the dealer network is nationwide. Texas is where the business is based and where reach runs deepest, but the same search and matching process works for buyers anywhere in the US.",
+                text: "No — the dealer network is nationwide. Texas is where our dealer network runs deepest, but the same search and matching process works for buyers anywhere in the US.",
               },
             },
           ],
@@ -1238,7 +1236,7 @@ VIEWS.push(
     path: '/advice/buying-a-car-out-of-state',
     page: 'advice-outofstate',
     file: '/pages/advice/buying-a-car-out-of-state.html',
-    lastmod: NEW_LASTMOD,
+    lastmod: '2026-11-18',
     title: 'Buying a Car Out of State: What to Know | The Exact Match',
     description:
       'What actually changes when you buy from an out-of-state dealer — titling, sales tax, inspection, and shipping — explained plainly.',
@@ -1268,7 +1266,7 @@ VIEWS.push(
     path: '/advice/how-to-sell-a-financed-car',
     page: 'advice-financedcar',
     file: '/pages/advice/how-to-sell-a-financed-car.html',
-    lastmod: NEW_LASTMOD,
+    lastmod: '2026-11-18',
     title: 'How to Sell a Car You Still Owe Money On | The Exact Match',
     description:
       'Selling a financed car is normal, not a dead end — how the payoff, the lienholder, and your equity (or shortfall) actually work.',

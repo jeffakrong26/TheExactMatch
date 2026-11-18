@@ -1,13 +1,13 @@
 # Dealer Partner Network
 
-Buyer-lead-referral capability layered onto the existing `dealers` table —
+Buyer-lead routing capability layered onto the existing `dealers` table —
 **dealers ARE partners, one account, one login.** (An earlier pass split this
 into a separate `partners`/`partner_sessions` account type; that was a
 semantic mistake, corrected in `migrate-merge-dealers-partners.sql` — dealers
 extended in place, the duplicate tables dropped, no data lost.) A dealer who
 signed up the old invite-only way (Sell-My-Car trade-in network) and a dealer
 who applied through `/partners-apply` are the exact same kind of row; the only
-thing that distinguishes "just a dealer" from "a vetted referral partner" is
+thing that distinguishes "just a dealer" from "a vetted partner" is
 whether `dealership_type` is set — that's what gates brand-restricted
 matching, rating eligibility, and the buyer-lead pipeline (see Integration
 decisions below).
@@ -61,7 +61,7 @@ npx wrangler d1 execute dealer-portal --remote --file=your-zone-update.sql
 ## Where to edit tunable config
 
 `dealer-api/partner_config` (D1 table, key/value, JSON-encoded values) — every
-timeout, rating delta, matching tolerance, boost weight, fee window, and email
+timeout, rating delta, matching tolerance, boost weight, and email
 cadence lives here (see `seed-partners.sql` for the full list with descriptions).
 Change a value with:
 
@@ -95,10 +95,7 @@ confirmed against current docs.auto.dev.
   (`dealership_type` set) get the extra rules: new-car requests restricted to
   franchise partners carrying that brand, and rating as a tiebreaker within the
   same ~10-mile distance tier (`matching_rating_tiebreak_threshold`, in miles) —
-  never enough to outrank a meaningfully better-fitting car. A dealer with no
-  `dealership_type` can never trigger the buyer-lead/verification/fee pipeline
-  even if their inventory gets boosted — that pipeline assumes real fee terms
-  were agreed to, which only happens through the partner application.
+  never enough to outrank a meaningfully better-fitting car. A dealer with no `dealership_type` can never trigger the buyer-lead/verification pipeline even if their inventory gets boosted — that pipeline assumes a completed partner application.
 - **Trigger point**: a buyer's "interested" click on a Find My Car report vehicle
   (`report_vehicles.matched_partner_id` set at report-generation time) is what
   starts the whole partner-lead pipeline. There's no separate buyer-facing partner
@@ -107,14 +104,8 @@ confirmed against current docs.auto.dev.
   `theexactmatch-crm` Worker. A `find_my_car` deal already exists for this buyer
   from their original lead submission; partner-lead status changes are logged as
   touches on that same deal, and its coarse 8-stage `stage` only moves at real
-  terminal points (verified → `negotiation`, won → `closed_won`, lost →
-  `closed_lost`, fee paid → `referral_fee_collected` — that last stage existed in
-  the CRM schema already, unused until now). `HOOK_SETTABLE_FIELDS` in
-  `crm/src/index.js` gained `dealer_id`/`dealer_name`/`fee_collected`/
-  `fee_collected_at` to support this.
-- **Fee due-date sweep**: past-due fees surface in the admin Fees table (sorted
-  owed-first, overdue rows flagged) rather than auto-deactivating a partner —
-  deactivation stays a manual admin action from the Active Partners table.
+  terminal points (verified → `negotiation`, won → `closed_won`, lost → `closed_lost`). The `referral_fee_collected` stage and the `fee_collected`/`fee_collected_at` fields are legacy from the earlier referral-fee model — under the current model dealers pay nothing and no fee is ever collected, so they exist only for historical records. `HOOK_SETTABLE_FIELDS` in `crm/src/index.js` gained `dealer_id`/`dealer_name` to support this.
+- **Fee due-date sweep (legacy)**: under the current model there are no dealer fees, so nothing is ever owed — the admin Fees table and this sweep are legacy from the earlier referral-fee model and show historical records only. Deactivation stays a manual admin action from the Active Partners table.
 - **"Went dark"**: charged once, at most, per lead — the first time a lead sits
   ≥2× the 3-day nudge window past that nudge with zero status movement. Checked
   against `partner_rating_events` to avoid double-charging on later sweeps.
