@@ -22,6 +22,11 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap"/></noscript>
   <link rel="stylesheet" href="/css/site.css"/>
+  <!-- PayPal SDK (hosted deposit buttons) — client-id and button ids are
+       Jeff's, pasted in verbatim 2026-11-18. -->
+<script
+  src="https://www.paypal.com/sdk/js?client-id=BAAFibbz-HFHrKiHi6Q_V1ipb1i1f_QzFDA_rAEsPIWwZDzTLimlVq4EvUuuvIjaV-jAJyLkCLVALD3xS8&components=hosted-buttons&enable-funding=venmo&currency=USD">
+</script>
 </head>
 <body>
 
@@ -89,18 +94,59 @@
       <div class="home-section-head">
         <h2>Pricing</h2>
       </div>
+      <label class="wg-terms-gate" style="display:flex;gap:.6rem;align-items:flex-start;max-width:640px;margin:0 auto 1.75rem;font-size:.92rem;line-height:1.6;color:var(--navy)">
+        <input type="checkbox" id="wg-terms-check" style="margin-top:.2rem;flex:0 0 auto;width:1.05rem;height:1.05rem;accent-color:var(--navy)"/>
+        <span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms and Conditions</a>. The deposit buttons below stay closed until this box is ticked.</span>
+      </label>
       <div class="wg-pricing-grid">
         <div class="wg-price-card">
           <div class="wg-price-tier">Regular cars</div>
           <div class="wg-price-amount">1%<span>Of your budget</span></div>
           <p class="wg-price-desc">Minimum $250. For loose briefs with room on color, interior, and options. $35,000 budget &rarr; $350 &middot; $55,000 budget &rarr; $550 &middot; $100,000 budget &rarr; $1,000. $250 deposit to start the search. Deposit counts toward the fee. Balance due at signing.</p>
+          <p class="wg-pay-prompt" style="font-size:.88rem;line-height:1.6;color:var(--gray)">Check the box above to pay your deposit.</p>
+          <div id="paypal-container-7NAVSU9ZD6J5C" style="display:none"></div>
         </div>
         <div class="wg-price-card wg-price-card-accent">
           <div class="wg-price-tier">Hard-to-find cars</div>
           <div class="wg-price-amount">5%<span>Of your budget, capped at $7,000</span></div>
           <p class="wg-price-desc">For tight specs, exotics, high-end luxury, and genuinely hard-to-find cars. The fee is 5% of your budget, never more than the gap between your budget and the price the car is bought for, and never more than $7,000. $500 deposit to start the search. Deposit counts toward the fee. Balance due at signing.</p>
+          <p class="wg-pay-prompt" style="font-size:.88rem;line-height:1.6;color:var(--gray)">Check the box above to pay your deposit.</p>
+          <div id="paypal-container-556QEHKKYZ2F8" style="display:none"></div>
         </div>
       </div>
+      <script>
+        // Terms gate for the PayPal deposit buttons: nothing renders until the
+        // client ticks the agreement box. Rendered once on first check;
+        // unchecking hides the buttons again (CSS only, no re-render).
+        (function () {
+          var check = document.getElementById('wg-terms-check');
+          var prompts = document.querySelectorAll('.wg-pay-prompt');
+          var rendered = false;
+          function showPayButtons(show) {
+            for (var i = 0; i < prompts.length; i++) {
+              prompts[i].style.display = show ? 'none' : '';
+            }
+            document.getElementById('paypal-container-7NAVSU9ZD6J5C').style.display = show ? '' : 'none';
+            document.getElementById('paypal-container-556QEHKKYZ2F8').style.display = show ? '' : 'none';
+          }
+          check.addEventListener('change', function () {
+            if (check.checked) {
+              if (!rendered) {
+                paypal.HostedButtons({
+                  hostedButtonId: "7NAVSU9ZD6J5C",
+                }).render("#paypal-container-7NAVSU9ZD6J5C");
+                paypal.HostedButtons({
+                  hostedButtonId: "556QEHKKYZ2F8",
+                }).render("#paypal-container-556QEHKKYZ2F8");
+                rendered = true;
+              }
+              showPayButtons(true);
+            } else {
+              showPayButtons(false);
+            }
+          });
+        })();
+      </script>
       <p class="wg-billed"><strong>Our guarantee:</strong> your car plus our fee never goes over the budget you gave us. The fee comes out of your budget. It does not sit on top of it.</p>
       <p class="wg-billed">PPI, transport, and any other third-party services are billed at cost, with no markup — you pay exactly what the provider charges.</p>
     </section>

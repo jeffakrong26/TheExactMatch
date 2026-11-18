@@ -246,6 +246,7 @@ const FOOTER_HTML = `<footer>
     <li><a href="/guides">Guides</a></li>
     <li><a href="/contact">Contact</a></li>
     <li><a href="/privacy-policy">Privacy</a></li>
+    <li><a href="/terms">Terms</a></li>
     <li><a href="https://maps.app.goo.gl/zGxQkkAozYUwgcmZ9" target="_blank" rel="noopener noreferrer">Find us on Google</a></li>
   </ul>
   <div style="display:flex;align-items:center;gap:1.5rem">
@@ -618,6 +619,15 @@ const VIEWS = [
     title: 'Privacy Policy | TheExactMatch',
     description:
       'What The Exact Match collects through Find My Car, Sell My Car and White Glove, and how it\'s shared with dealers to find your match. We never sell your data.',
+  },
+  {
+    path: '/terms',
+    page: 'terms',
+    file: '/pages/terms.html',
+    lastmod: '2026-11-18',
+    title: 'Terms and Conditions — White Glove | TheExactMatch',
+    description:
+      'The White Glove terms: 1% Regular fee (minimum $250), 5% Hard to Find fee (capped at $7,000), deposits, when the fee is earned, and the refund rules.',
   },
   {
     path: '/guides',

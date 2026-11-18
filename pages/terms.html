@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Terms and Conditions — White Glove | TheExactMatch</title>
+  <meta name="description" content=""/>
+  <link rel="canonical" href="https://theexactmatch.com/terms"/>
+  <meta property="og:title" content=""/>
+  <meta property="og:description" content=""/>
+  <meta property="og:url" content=""/>
+  <meta property="og:image" content="https://theexactmatch.com/og-image.png"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <!-- Non-blocking font load (preload + swap-on-load, <noscript> fallback for
+       the no-JS/crawler case) — same pattern as the other pages/ files, so a
+       third-party stylesheet round trip can't block first paint. site.css
+       stays a normal blocking stylesheet: same-origin, small, needed for
+       layout immediately. -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:wght@600&display=swap"/></noscript>
+  <link rel="stylesheet" href="/css/site.css"/>
+  <style>
+    /* Scoped to #page-terms so nothing here collides with the site-wide
+       rules — same convention as #page-privacy. Everything below is built on
+       the shared tokens in css/site.css; the one addition is --bronze, the
+       darker gold that actually meets contrast as text on the beige ground
+       (identical to privacy-policy.html's use). */
+    #page-terms{background:var(--beige);--bronze:#8a6a12}
+    .tm-wrap{max-width:820px;margin:0 auto;padding:3.5rem 1.5rem 4.5rem}
+
+    .tm-eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--bronze);display:flex;align-items:center;gap:.65rem;margin-bottom:1rem}
+    .tm-eyebrow::before{content:'';display:block;height:1px;width:22px;background:var(--bronze)}
+
+    #page-terms h1.display{margin-bottom:1.1rem}
+    .tm-intro{font-size:.95rem;line-height:1.75;color:var(--gray);max-width:60ch}
+    .tm-updated{font-family:var(--font-body);font-size:.72rem;letter-spacing:.04em;color:var(--gray);margin-top:1.6rem;display:flex;align-items:center;gap:.6rem}
+    .tm-updated::before{content:'';width:1.6rem;height:1px;background:var(--gold)}
+
+    .tm-card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:2.75rem 2.5rem;margin-top:2.75rem}
+
+    .tm-title{font-family:var(--font-head);font-size:1.3rem;font-weight:500;color:var(--navy);line-height:1.3;margin:2.5rem 0 1rem;padding-top:2.5rem;border-top:1px solid var(--border)}
+    .tm-title:first-child{margin-top:0;padding-top:0;border-top:none}
+    .tm-sub{font-family:var(--font-body);font-size:.9rem;font-weight:600;color:var(--navy);margin:1.6rem 0 .5rem}
+
+    .tm-card p{font-size:.88rem;line-height:1.8;color:var(--gray);margin-bottom:.9rem}
+    .tm-card p:last-child{margin-bottom:0}
+    .tm-card ul{margin:.4rem 0 .9rem;padding:0;list-style:none;display:flex;flex-direction:column;gap:.55rem}
+    .tm-card li{position:relative;padding-left:1.35rem;font-size:.88rem;line-height:1.8;color:var(--gray)}
+    .tm-card li::before{content:'';position:absolute;left:.15rem;top:.72em;width:.4rem;height:.4rem;background:var(--gold);transform:rotate(45deg)}
+    .tm-card strong{color:var(--navy);font-weight:600}
+    .tm-card a{color:var(--bronze);text-decoration:underline;text-underline-offset:.15em}
+
+    .tm-callout{background:var(--beige);border-left:3px solid var(--gold);border-radius:2px;padding:1rem 1.2rem;margin:1.2rem 0;font-size:.86rem;line-height:1.75;color:var(--navy)}
+    .tm-callout p{font-size:.86rem;color:var(--navy);margin:0}
+
+    .tm-table{width:100%;border-collapse:collapse;margin:1rem 0 1.2rem;font-size:.85rem;line-height:1.6}
+    .tm-table th{background:var(--navy);color:var(--white);text-align:left;padding:.55rem .7rem;font-weight:600}
+    .tm-table td{padding:.55rem .7rem;border-bottom:1px solid var(--border);color:var(--gray);vertical-align:top}
+    .tm-table tr:nth-child(even) td{background:var(--beige)}
+
+    .tm-contact-foot{font-size:.85rem;line-height:1.8;color:var(--gray);margin-top:2.25rem}
+    .tm-contact-foot a{color:var(--bronze);text-decoration:underline;text-underline-offset:.15em}
+
+    @media(max-width:640px){.tm-card{padding:2rem 1.4rem}}
+  </style>
+</head>
+<body>
+
+<div id="nl-slot"></div>
+<div id="nav-slot"></div>
+<div id="mobile-menu-slot"></div>
+
+<div class="page" id="page-terms">
+
+  <div class="tm-wrap">
+
+    <div class="tm-eyebrow">Terms</div>
+    <h1 class="display">White Glove Terms and Conditions</h1>
+    <p class="tm-intro">These terms apply to the White Glove service provided by The Exact Match (&ldquo;TEM&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;). By ticking the agreement box and paying a deposit, you (&ldquo;you&rdquo;, &ldquo;the client&rdquo;) agree to them in full.</p>
+    <p class="tm-updated">Last updated November 18, 2026</p>
+
+    <div class="tm-card">
+
+      <h2 class="tm-title">The short version</h2>
+      <p>Your car search is always free. White Glove is the paid service on top of it: we negotiate the deal, handle the steps of the sale, and guide you through the paperwork. You pay one clear fee, based on your budget &mdash; and the car plus our fee never goes over that budget.</p>
+      <ul>
+        <li><strong>Regular Cars &mdash; 1% of your budget</strong>, minimum fee $250, $250 deposit to start. Example: $35,000 budget = $350 fee; $100,000 budget = $1,000 fee.</li>
+        <li><strong>Hard to Find Cars &mdash; 5% of your budget</strong>, capped at $7,000 and never more than the room left in your budget, $500 deposit to start. Example: $100,000 budget, car found at $90,000 = $5,000 fee.</li>
+      </ul>
+      <div class="tm-callout">
+        <p><strong>Our promise:</strong> the car + our fee never exceeds your budget. If the numbers do not fit inside your budget, we do not do the deal that way.</p>
+      </div>
+
+      <h2 class="tm-title">How does it work?</h2>
+      <ul>
+        <li><strong>Tell us the car.</strong> Fill out the White Glove form with the car you want and your budget. The search itself is free.</li>
+        <li><strong>Agree and leave your deposit.</strong> Read these Terms and Conditions, tick to agree, then pay your deposit &mdash; $250 for Regular Cars or $500 for Hard to Find Cars. Your deposit counts toward your fee.</li>
+        <li><strong>We find it and negotiate it.</strong> We search dealer networks nationwide, negotiate on your behalf, and bring you the car for your written approval before anything is signed.</li>
+        <li><strong>Sign, and pay the balance.</strong> When you approve the car and sign, the balance of your fee is due. We then guide you through the remaining steps to get the car home.</li>
+      </ul>
+
+      <h2 class="tm-title">Which tier am I?</h2>
+      <p>It is not about the price of the car or the badge on it. It is about how specific your brief is.</p>
+      <p><strong>Regular Cars (1%)</strong> &mdash; you know the car you want and you have some flexibility. Color preferences are fine. So is a short list of acceptable colors, interiors or options. A general Porsche 911, including an older Carrera S, is a regular car on a flexible brief.</p>
+      <p><strong>Hard to Find Cars (5%)</strong> &mdash; you want one exact car: a specific color over a specific interior, with specific options, or a rare, specialty or limited car. That includes specialty 911s such as GT and GT3 models and classics, exotics, and any mainstream car locked to one exact specification &mdash; for example a Mercedes in one exact exterior color, one exact interior and one exact trim.</p>
+      <p>If you are not sure, send the brief anyway. We will confirm your tier with you before you pay anything.</p>
+
+      <h2 class="tm-title">Worked examples</h2>
+      <table class="tm-table">
+        <tr><th>Tier</th><th>Your budget</th><th>Car found at</th><th>Your fee</th></tr>
+        <tr><td>Regular</td><td>$35,000</td><td>Within budget, fee included</td><td><strong>$350</strong> (1%)</td></tr>
+        <tr><td>Regular</td><td>$100,000</td><td>Within budget, fee included</td><td><strong>$1,000</strong> (1%)</td></tr>
+        <tr><td>Regular</td><td>$140,000</td><td>$135,000</td><td><strong>$1,400</strong> (1%) &mdash; $136,400 total, under budget</td></tr>
+        <tr><td>Hard to Find</td><td>$100,000</td><td>$90,000</td><td><strong>$5,000</strong> (5%)</td></tr>
+        <tr><td>Hard to Find</td><td>$150,000</td><td>$137,000</td><td><strong>$7,000</strong> (cap applies) &mdash; $144,000 total, under budget</td></tr>
+      </table>
+
+      <h2 class="tm-title">1. The service</h2>
+      <p>TEM is a car-buying concierge and buyer&rsquo;s advocate. We search for a car matching the brief you give us, negotiate with the seller on your behalf, and guide you through the purchase. We do not own or list the cars we find, and we are not the seller. The free search and White Glove are separate: the search carries no fee; White Glove is the paid service described here.</p>
+
+      <h2 class="tm-title">2. Your brief and your tier</h2>
+      <p>Your tier is set by the specificity of your brief, not by the price or make of the car. A flexible brief is a Regular Car. A brief locked to an exact specification, or for a rare, specialty, exotic or otherwise hard-to-find car, is a Hard to Find Car. We confirm your tier with you before you pay your deposit. If you later tighten your brief so that it becomes a Hard to Find search, the Hard to Find fee applies from that point and we will confirm the change with you in writing.</p>
+
+      <h2 class="tm-title">3. Fees</h2>
+      <ul>
+        <li><strong>Regular Cars:</strong> 1% of your agreed budget, with a minimum fee of $250.</li>
+        <li><strong>Hard to Find Cars:</strong> 5% of your agreed budget, capped at $7,000, and never more than the difference between your budget and the car&rsquo;s purchase price.</li>
+        <li>In both tiers, the car&rsquo;s purchase price plus our fee will not exceed your agreed budget.</li>
+        <li>Our fee covers the White Glove service only. The car price, taxes, registration, selling-dealer fees, transport, insurance and any inspection you commission are separate and are payable by you.</li>
+      </ul>
+
+      <h2 class="tm-title">4. Deposit</h2>
+      <p>To start White Glove, you pay a deposit of $250 (Regular Cars) or $500 (Hard to Find Cars) after completing the White Glove form and agreeing to these terms. The deposit is credited in full toward your fee. No search under White Glove begins until the deposit is received. The balance of your fee is due at signing, as set out in clause 5.</p>
+
+      <h2 class="tm-title">5. Approval, signing and when the fee is earned</h2>
+      <p>Before you sign anything, we present the car to you with the photos, video and information provided by the seller, and you approve the car in writing on that evidence. Our fee is earned when you approve the car and sign the purchase agreement. The balance of the fee is due at signing. Because the fee is earned at signing on the evidence you approved, it is not held back or made conditional on the car&rsquo;s condition at delivery. If something about the car at delivery differs from the evidence you approved, tell us straight away and we will take it up with the seller with you &mdash; that does not change when the fee was earned.</p>
+
+      <h2 class="tm-title">6. If you do not pay the balance</h2>
+      <p>If the balance due at signing is not paid, we may retain your deposit, close your search, and decline future services.</p>
+
+      <h2 class="tm-title">7. Refunds &mdash; the general rule</h2>
+      <p>There is no refund after the final payment of your fee. For the deposit, the rules are: we keep the deposit if you walk away, stop responding, or turn down a car that meets your brief within your budget. Your deposit is refundable if we cannot find a car that meets your brief within your budget, handled through the revisit process in clauses 8 and 9. A deposit refund is never automatic.</p>
+
+      <h2 class="tm-title">8. Refunds &mdash; Regular Cars</h2>
+      <p>If we have not found a car that meets your brief within your budget by day 30, we revisit the search with you: we give you a market update, explain why the car has not been found, and agree together whether to adjust the budget, the specification, or both. If we do not hear from you by day 45, we keep the deposit and close the search. If the search parameters are changed and you are still not happy, a refund is discussed with you case by case; it is not automatic.</p>
+
+      <h2 class="tm-title">9. Refunds &mdash; Hard to Find Cars</h2>
+      <p>Genuinely hard-to-find cars can take months, and sometimes longer. There is therefore no fixed end date for a Hard to Find search. Instead, we revisit the search with you every 30 days until the car is found, with the expected timeline discussed and agreed between us. Clause 7 otherwise applies in the same way: a refund is discussed case by case and is never automatic, and the deposit is kept if you walk away, stop responding, or turn down a car that meets your brief within your budget.</p>
+
+      <h2 class="tm-title">10. Your responsibilities</h2>
+      <p>You agree to give us an accurate brief and budget, respond to our updates within a reasonable time, and make your own final decision on any car we present. Information about a car comes from the seller and third-party sources; we pass it on as received for your approval, and we recommend an independent inspection where condition matters to you.</p>
+
+      <h2 class="tm-title">11. Changes to these terms</h2>
+      <p>The terms that apply to your search are the ones you agreed to when you paid your deposit. If we update these terms later, the update applies to new searches, not to a search already under way, unless you agree to it in writing.</p>
+
+      <h2 class="tm-title">12. Agreement before payment</h2>
+      <p>The deposit payment step stays closed until you have ticked the agreement box (on the website, the equivalent tick-box on the White Glove page). Paying the deposit confirms your agreement.</p>
+
+      <p class="tm-contact-foot">Questions before you agree? Contact The Exact Match at <a href="mailto:info@theexactmatch.com">info@theexactmatch.com</a> or <a href="tel:5126509328">(512)&nbsp;650-9328</a>. Keep a copy of these terms for your records.</p>
+
+    </div>
+
+  </div>
+
+  <div id="footer-slot"></div>
+</div>
+
+<script src="/js/site.js"></script>
+</body>
+</html>
