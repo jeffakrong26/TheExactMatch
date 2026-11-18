@@ -1294,7 +1294,6 @@
         <button class="tab-btn active" data-tab="bl-verify" onclick="switchSubTab(this)">Verify Availability<span class="tab-badge" id="bl-verify-badge"></span></button>
         <button class="tab-btn" data-tab="bl-active" onclick="switchSubTab(this)">Active Deals</button>
         <button class="tab-btn" data-tab="bl-closed" onclick="switchSubTab(this)">Closed Deals</button>
-        <button class="tab-btn" data-tab="bl-fees" onclick="switchSubTab(this, 'loadPartnerFees')">Fees &amp; Payouts</button>
       </div>
 
       <div class="tab-panel active" id="bl-verify">
@@ -1310,10 +1309,6 @@
         <div id="bl-closed-list"></div>
       </div>
 
-      <div class="tab-panel" id="bl-fees">
-        <div id="bl-fees-loading" class="loading-text">Loading...</div>
-        <div id="bl-fees-list"></div>
-      </div>
     </div>
   </div>
 
@@ -5020,19 +5015,6 @@ async function loadPartnerLeads() {
   badge.classList.toggle('show', verifyLeads.length > 0);
 }
 
-// Jump here from a Fees & Payouts row: switch to whichever sub-tab the
-// deal actually lives in, open its expand panel, and scroll it into view.
-function openDealFromFee(partnerLeadId, leadStatus) {
-  const isClosed = PARTNER_LEAD_TERMINAL_STATUSES.includes(leadStatus);
-  const btn = document.querySelector(`#view-partner-leads .tab-bar .tab-btn[data-tab="${isClosed ? 'bl-closed' : 'bl-active'}"]`);
-  if (btn && !btn.classList.contains('active')) switchSubTab(btn);
-
-  const expand = document.getElementById(`deal-expand-${partnerLeadId}`);
-  if (expand) expand.style.display = 'block';
-  const card = document.getElementById(`${isClosed ? 'closed' : 'active'}-deal-${partnerLeadId}`);
-  setTimeout(() => card?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 30);
-}
-
 async function doPartnerVerifyMenu(id) {
   const choice = document.getElementById(`verify-menu-${id}`).value;
   if (!choice) return;
@@ -5077,97 +5059,6 @@ async function doPartnerUpdateStatus(id) {
     .catch(() => ({ res: { ok: false }, data: {} }));
   if (!res.ok) { alert(data.error || 'Could not update status.'); return; }
   loadPartnerLeads();
-}
-
-// ── Fees & Payouts ──────────────────────────────────────────────
-const PARTNER_FEE_STATUS_LABELS = { pending: 'Pending sale', owed: 'Owed', paid: 'Paid', written_off: 'Written off' };
-const FEE_PAYOUT_REASON_LABELS = {
-  waiting_paperwork: 'Waiting on paperwork', waiting_title: 'Waiting on title',
-  waiting_on_accounting: 'Waiting on dealer accounting', other: 'Other',
-};
-
-// Payout-request tracking only matters once a fee is actually owed (after
-// closed-won) — pending fees aren't collectible yet, and paid/written-off
-// are already resolved, so those just show a dash.
-function feePayoutCellHtml(f) {
-  if (f.status !== 'owed') return '<span style="color:var(--gray)">—</span>';
-
-  const reasonLabel = f.payout_not_requested_reason ? FEE_PAYOUT_REASON_LABELS[f.payout_not_requested_reason] : null;
-  return `
-    ${f.payout_requested_at
-      ? `<div style="color:var(--green);font-weight:600;font-size:.76rem">✓ Requested ${formatDate(f.payout_requested_at)}</div>`
-      : `<button class="btn-primary btn-sm" style="width:auto" onclick="doMarkPayoutRequested(${f.id})">I Submitted a Request</button>
-         ${reasonLabel ? `<div style="font-size:.72rem;color:var(--gray);margin-top:.35rem">${reasonLabel}${f.payout_not_requested_notes ? ': ' + escapeHtmlJs(f.payout_not_requested_notes) : ''}</div>` : ''}`}
-    <button class="btn-primary btn-sm btn-outline" style="width:auto;margin-top:.35rem;display:block" onclick="openPayoutReasonForm(${f.id})">${f.payout_requested_at ? 'Undo / edit' : (reasonLabel ? 'Edit reason' : "Haven't yet — why?")}</button>
-    <div id="payout-form-${f.id}" style="display:none;margin-top:.5rem;min-width:200px">
-      <select id="payout-reason-${f.id}" style="width:auto;padding:.4rem .6rem;margin-bottom:.4rem">
-        <option value="">Choose a reason…</option>
-        ${Object.entries(FEE_PAYOUT_REASON_LABELS).map(([k, l]) => `<option value="${k}" ${f.payout_not_requested_reason === k ? 'selected' : ''}>${l}</option>`).join('')}
-      </select>
-      <textarea id="payout-notes-${f.id}" placeholder="Optional detail..." style="width:100%;min-height:44px;font-size:.78rem;padding:.4rem .6rem;border:1px solid var(--border);border-radius:2px;background:var(--white);font-family:'Jost',sans-serif;margin-bottom:.4rem">${f.payout_not_requested_notes ?? ''}</textarea>
-      <button class="btn-primary btn-sm" style="width:auto" onclick="doSaveFeeReason(${f.id})">Save</button>
-    </div>`;
-}
-
-function openPayoutReasonForm(id) {
-  const el = document.getElementById(`payout-form-${id}`);
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
-}
-
-async function doMarkPayoutRequested(id) {
-  const { res, data } = await apiFetch(`/partner/fees/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'mark_requested' }) })
-    .catch(() => ({ res: { ok: false }, data: {} }));
-  if (!res.ok) { alert(data.error || 'Could not update.'); return; }
-  loadPartnerFees();
-}
-
-async function doSaveFeeReason(id) {
-  const reason = document.getElementById(`payout-reason-${id}`).value;
-  const notes  = document.getElementById(`payout-notes-${id}`).value.trim();
-  if (!reason) { alert('Please choose a reason.'); return; }
-
-  const { res, data } = await apiFetch(`/partner/fees/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'set_reason', reason, notes }) })
-    .catch(() => ({ res: { ok: false }, data: {} }));
-  if (!res.ok) { alert(data.error || 'Could not update.'); return; }
-  loadPartnerFees();
-}
-
-async function loadPartnerFees() {
-  document.getElementById('bl-fees-loading').style.display = 'block';
-  document.getElementById('bl-fees-list').innerHTML        = '';
-
-  const { res, data } = await apiFetch('/partner/fees').catch(() => ({ res: { ok: false }, data: {} }));
-  document.getElementById('bl-fees-loading').style.display = 'none';
-  if (!res.ok) return;
-
-  const fees = data.fees || [];
-  if (!fees.length) {
-    document.getElementById('bl-fees-list').innerHTML = emptyStateHtml('💰', 'No fees yet — these show up once a verified lead closes.');
-    return;
-  }
-
-  document.getElementById('bl-fees-list').innerHTML = `
-    <div style="overflow-x:auto"><table class="dp-table">
-      <thead><tr><th>Customer</th><th>Vehicle</th><th>Fee</th><th>Amount</th><th>Status</th><th>Due</th><th>Payout</th></tr></thead>
-      <tbody>${fees.map(f => {
-        const listing = safeParseJson(f.listing_snapshot);
-        const carLine = `${listing.year || ''} ${listing.make || ''} ${listing.model || ''}`.trim() || 'Vehicle';
-        const amount  = f.dollar_amount != null ? f.dollar_amount : (f.fee_type === 'flat' ? f.fee_amount : null);
-        return `
-        <tr>
-          <td><span class="deal-clickable" style="font-weight:600;color:var(--navy)" onclick="openDealFromFee(${f.partner_lead_id},'${f.lead_status}')">${escapeHtmlJs(f.buyer_name || 'Buyer')}</span></td>
-          <td>${escapeHtmlJs(carLine)}</td>
-          <td>${f.fee_type === 'percent' ? `${f.fee_percent}% of ${f.fee_percent_basis === 'front_gross' ? 'front gross' : 'sale price'}` : 'Flat'}</td>
-          <td>${amount != null ? formatPrice(amount) : '—'}</td>
-          <td>
-            <span class="status-badge ${f.status === 'paid' ? 'status-approved' : f.status === 'written_off' ? 'status-rejected' : 'status-pending'}">${PARTNER_FEE_STATUS_LABELS[f.status] || f.status}</span>
-            ${f.overdue ? `<span class="status-badge status-rejected" style="margin-left:.3rem">Overdue</span>` : ''}
-          </td>
-          <td>${f.due_date ? formatDate(f.due_date) : '—'}</td>
-          <td>${feePayoutCellHtml(f)}</td>
-        </tr>`;
-      }).join('')}</tbody>
-    </table></div>`;
 }
 
 // ── Admin: Partner Applications / Active Partners / oversight ──────

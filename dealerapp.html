@@ -254,16 +254,8 @@ async function submitApplication() {
     brands_new: (document.getElementById('brands_new').value || '').split(',').map(s => s.trim()).filter(Boolean),
     used_scope: document.getElementById('used_scope').value,
     // Dealers pay nothing under the White Glove model — no referral fee
-    // question on this form anymore. The API still requires a
-    // referral_policy_status value, so we send the neutral 'not_sure'
-    // (which the API defaults to a $0 flat placeholder) until the API
-    // validation is relaxed. See partner-terms §4.
-    referral_policy_status: 'not_sure',
-    referral_policy_notes: '',
-    referral_contact: '',
-    fee_type: 'flat',
-    fee_amount: 0,
-    fee_percent_basis: 'sale_price',
+    // question on this form, and the API no longer takes any fee fields.
+    // See partner-terms §4.
     lead_contact_method: document.getElementById('lead_contact_method').value,
     anything_else: document.getElementById('anything_else').value,
     agreed_terms: true,
