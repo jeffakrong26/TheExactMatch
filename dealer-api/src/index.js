@@ -226,8 +226,8 @@ async function dealerMe(request, env, params, dealer) {
 }
 
 // ── Partner network: config, zone resolution ─────────────────────
-// Everything tunable (timeouts, rating deltas, tolerances, boost, fee
-// window, email cadence) lives in partner_config so Jeff can retune from
+// Everything tunable (timeouts, rating deltas, tolerances, boost,
+// email cadence) lives in partner_config so Jeff can retune from
 // the admin UI without a redeploy. Values are JSON-encoded; these defaults
 // only apply if a row is somehow missing (e.g. a fresh environment before
 // seed-partners.sql has run).
@@ -1943,10 +1943,10 @@ function trimMatches(listingTrim, recommendedTrim, listingModel, recommendedMode
 // populated once a dealer has actually gone through the partner application
 // (Section 4/6 of the spec) — every dealer who signed up the old invite way
 // still has it NULL. That single column is what distinguishes "just an
-// inventory-boosted dealer" (unconditional boost, no brand gate, no referral
-// pipeline — exactly today's behavior, untouched) from "a vetted referral
+// inventory-boosted dealer" (unconditional boost, no brand gate, no buyer-lead
+// pipeline — exactly today's behavior, untouched) from "a vetted
 // partner" (brand-gated for new cars, rating-eligible, and the one whose
-// match can trigger the whole verification/fee lifecycle below).
+// match can trigger the whole verification lifecycle below).
 async function loadActivePartnerDealers(env) {
   const { results } = await env.DB.prepare(
     `SELECT id, dealership_name, autodev_dealer_id, dealership_type, brands_new, used_scope, rating, rating_lead_count
@@ -2035,7 +2035,7 @@ function partnersEligibleForPick(activeDealers, pick, lead, cfg) {
       autodev_dealer_id: d.autodev_dealer_id,
       id: d.id,
       // Only a completed partner application can trigger the buyer-lead
-      // pipeline (verification emails assume real fee terms were agreed to).
+      // pipeline (verification emails only go to completed applications).
       _isReferralPartner: !!d.dealership_type,
       _rating: (d.dealership_type && d.rating_lead_count >= cfg.rating_grace_lead_count) ? d.rating : undefined,
     }));
@@ -4901,10 +4901,12 @@ async function adminUpdateReportVehicle(request, env, params) {
 
 // Manual White Glove quote entry for hard-to-find vehicles — the only case
 // computeWhiteGloveFee() can't price on its own (see its comment: the
-// 1-5%-of-final-price math needs a negotiated price that doesn't exist at
-// request time). Deliberately its own endpoint rather than one more field
-// on REPORT_VEHICLE_EDITABLE_FIELDS/adminUpdateReportVehicle — that PATCH
-// is a raw passthrough with no validation, and the $7,000 cap given on
+// hard-to-find fee is 5% of the client's budget, capped at $7,000 and never
+// more than the gap between budget and purchase price, and neither the
+// budget nor the negotiated price exists at request time). Deliberately its
+// own endpoint rather than one more field on
+// REPORT_VEHICLE_EDITABLE_FIELDS/adminUpdateReportVehicle — that PATCH is
+// a raw passthrough with no validation, and the $7,000 cap given on
 // /white-glove has to actually be enforced somewhere, not just asserted in
 // marketing copy. `fee: null` clears a previously entered quote.
 async function adminSetWhiteGloveFee(request, env, params) {
@@ -5174,22 +5176,30 @@ async function publicExpressReportInterest(request, env, params, dealer, token, 
 }
 
 // White Glove pricing (see /white-glove on the site worker for the
-// customer-facing copy this must stay in sync with): standard vehicles get
-// a flat fee starting at $249; hard-to-find vehicles get a custom quote of
-// 1-5% of the final negotiated price, capped at $7,000. Only the standard
-// tier can be computed here — the hard-to-find percentage is against a
-// price that doesn't exist yet at this point in the flow (negotiation
-// hasn't happened), so there's no number to show honestly. Above the
-// cutoff, this returns null and the confirmation UI falls back to "I'll
-// follow up with pricing" (see the wg-overlay markup below), which is
-// already the correct behavior for a custom quote, not just a stand-in for
-// a missing case.
-const WHITE_GLOVE_STANDARD_FEE = 249;
+// customer-facing copy this must stay in sync with). Settled pricing
+// (Nov 2026): Regular tier = 1% of the client's budget, minimum $250;
+// Hard to Find tier = 5% of the client's budget, capped at $7,000 and
+// never more than the gap between budget and purchase price; car + fee
+// never exceeds the client's budget.
+// This function only ever sees a VEHICLE price, not the client's budget:
+// the budget (find_car_leads.budget_max) isn't loaded at two of the three
+// call sites, and the lifecycle-email call site has no lead at all. So it
+// prices 1% off the vehicle price with the $250 floor, as the budget
+// proxy — matched cars are in-budget by construction, so the proxy can
+// only ever come in at or under 1% of the stated budget. The guarantee
+// (car + fee never over budget) is enforced at quote/negotiation time,
+// not here. Above the cutoff this returns null and the confirmation UI
+// falls back to "I'll follow up with pricing" (see the wg-overlay markup
+// below): the hard-to-find 5% needs a budget and a negotiated price that
+// don't exist yet at this point, so it stays a custom quote entered via
+// adminSetWhiteGloveFee, which enforces the $7,000 cap.
+const WHITE_GLOVE_STANDARD_RATE = 0.01;
+const WHITE_GLOVE_MIN_FEE = 250;
 const WHITE_GLOVE_STANDARD_CUTOFF = 200000;
 function computeWhiteGloveFee(price) {
   if (price == null) return null;
-  if (price < WHITE_GLOVE_STANDARD_CUTOFF) return WHITE_GLOVE_STANDARD_FEE;
-  return null;
+  if (price >= WHITE_GLOVE_STANDARD_CUTOFF) return null;
+  return Math.max(WHITE_GLOVE_MIN_FEE, Math.round(price * WHITE_GLOVE_STANDARD_RATE));
 }
 
 async function publicRequestWhiteGlove(request, env, params, dealer, token, ctx) {
@@ -5887,7 +5897,11 @@ function verifyRatingTypeForElapsed(hours, cfg) {
   return ['verify_timeout', cfg.rating_delta_verify_timeout];
 }
 
-// ── Partner network: fee lifecycle ─────────────────────────────────
+// ── Partner network: fee lifecycle (LEGACY) ────────────────────────
+// Legacy only: under the White Glove model dealers pay nothing, so no new
+// fee rows are created (see the guard at the createPendingFee call site in
+// verifyLead). createPendingFee/markFeeOwed still serve pre-existing rows
+// for partners who agreed fee terms before the model change.
 async function createPendingFee(env, partnerLeadId, partner) {
   await env.DB.prepare(`
     INSERT INTO partner_fees (partner_lead_id, partner_id, fee_type, fee_amount, fee_percent, fee_percent_basis, dollar_amount, status)
@@ -6202,7 +6216,11 @@ async function partnerVerifyLead(request, env, params, partner, token, ctx) {
   await env.DB.prepare(`UPDATE partner_leads SET status = 'verified', verified_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).bind(lead.id).run();
   await applyPartnerRatingDelta(env, partner.id, lead.id, ratingType, delta, cfg);
   if (stillListed === false) await applyPartnerRatingDelta(env, partner.id, lead.id, 'stale_car', cfg.rating_delta_stale_car, cfg);
-  await createPendingFee(env, lead.id, partner);
+  // No dealer fees under the White Glove model (2026-11-18): a fee row is
+  // only created when the partner actually has fee terms on record
+  // (legacy applications from before the model change). New partners have
+  // no fee terms, so no row is created and nothing can ever flip to owed.
+  if (partner.fee_type && partner.fee_amount > 0) await createPendingFee(env, lead.id, partner);
 
   if (ctx) {
     ctx.waitUntil(mirrorPartnerLeadToCrm(
@@ -6356,9 +6374,6 @@ async function partnerUpdateFeePayout(request, env, params, partner) {
 const PARTNER_DEALERSHIP_TYPES = ['franchise_new_used', 'independent_used', 'used_superstore'];
 const PARTNER_USED_SCOPES = ['all_makes', 'mostly_own_brand'];
 const PARTNER_ROLES = ['salesperson', 'sales_manager', 'internet_bdc', 'gm'];
-const PARTNER_REFERRAL_STATUSES = ['has_policy', 'no_but_open', 'not_sure'];
-const PARTNER_FEE_TYPES = ['flat', 'percent'];
-const PARTNER_FEE_BASES = ['sale_price', 'front_gross'];
 const PARTNER_CONTACT_METHODS = ['email', 'text', 'both'];
 
 // Coverage target is one partner per brand per zone (Section 6) — overlap is
@@ -6423,7 +6438,6 @@ async function submitPartnerApplication(request, env) {
   // permission level ('dealer' | 'admin').
   const contact_role = body.role;
   const monthly_units = body.monthly_units != null ? +body.monthly_units : null;
-  const referral_policy_status = body.referral_policy_status;
   const lead_contact_method = body.lead_contact_method;
 
   if (!name || !email || !password || !phone || !dealership_name || !zip) {
@@ -6434,27 +6448,8 @@ async function submitPartnerApplication(request, env) {
   if (!PARTNER_DEALERSHIP_TYPES.includes(dealership_type)) return json({ error: 'Invalid dealership type.' }, 400);
   if (!PARTNER_USED_SCOPES.includes(used_scope)) return json({ error: 'Invalid used-inventory scope.' }, 400);
   if (!PARTNER_ROLES.includes(contact_role)) return json({ error: 'Invalid role.' }, 400);
-  if (!PARTNER_REFERRAL_STATUSES.includes(referral_policy_status)) return json({ error: 'Please answer the referral fee question.' }, 400);
   if (!PARTNER_CONTACT_METHODS.includes(lead_contact_method)) return json({ error: 'Invalid contact method.' }, 400);
   if (!body.agreed_terms) return json({ error: 'You must agree to the terms to apply.' }, 400);
-
-  let fee_type = null, fee_amount = null, fee_percent_basis = null;
-  if (referral_policy_status === 'has_policy') {
-    fee_type = body.fee_type;
-    if (!PARTNER_FEE_TYPES.includes(fee_type)) return json({ error: 'Invalid fee type.' }, 400);
-    fee_amount = body.fee_amount != null ? +body.fee_amount : null;
-    if (!fee_amount || fee_amount <= 0) return json({ error: 'A fee amount is required.' }, 400);
-    if (fee_type === 'percent') {
-      fee_percent_basis = body.fee_percent_basis;
-      if (!PARTNER_FEE_BASES.includes(fee_percent_basis)) return json({ error: 'Invalid fee basis.' }, 400);
-    }
-  } else {
-    // No established policy yet — fee terms aren't known, default to a flat
-    // $0 placeholder admin will set once referral_contact confirms a policy;
-    // never blocks signup (Section 4: geography/incompleteness never gates).
-    fee_type = 'flat';
-    fee_amount = 0;
-  }
 
   const brands_new = dealership_type === 'franchise_new_used' ? JSON.stringify(body.brands_new || []) : null;
 
@@ -6473,13 +6468,11 @@ async function submitPartnerApplication(request, env) {
     INSERT INTO dealers (
       name, email, password_hash, password_salt, phone, dealership_name, zip, city, state,
       market, zone, market_unmapped, dealership_type, brands_new, used_scope, contact_role, monthly_units,
-      fee_type, fee_amount, fee_percent_basis, referral_policy_status, referral_policy_notes, referral_contact,
       lead_contact_method, anything_else, overlap_flag, overlap_notes, status, agreed_terms_at, signup_ip
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', datetime('now'), ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', datetime('now'), ?)
   `).bind(
     name, email, hash, salt, phone, dealership_name, zip, city || null, state || null,
     market, zone, unmapped ? 1 : 0, dealership_type, brands_new, used_scope, contact_role, monthly_units,
-    fee_type, fee_amount, fee_percent_basis, referral_policy_status, (body.referral_policy_notes || '').trim() || null, (body.referral_contact || '').trim() || null,
     lead_contact_method, (body.anything_else || '').trim() || null, overlap_flag ? 1 : 0, overlap_notes,
     ip
   ).run();
@@ -6489,8 +6482,7 @@ async function submitPartnerApplication(request, env) {
     subject: `New dealer partner application: ${dealership_name}`,
     html: brandedEmailHtml(`
       <p><strong>${escapeHtml(name)}</strong> (${escapeHtml(contact_role)}) at <strong>${escapeHtml(dealership_name)}</strong> applied to the partner network.</p>
-      <p>Market: ${escapeHtml(market)}${zone ? ' / ' + escapeHtml(zone) : ' (unmapped)'}<br/>
-      Referral policy: ${escapeHtml(referral_policy_status)}${overlap_flag ? '<br/><strong style="color:#9B2335">⚠ Overlap flagged — review before approving.</strong>' : ''}</p>
+      <p>Market: ${escapeHtml(market)}${zone ? ' / ' + escapeHtml(zone) : ' (unmapped)'}${overlap_flag ? '<br/><strong style="color:#9B2335">⚠ Overlap flagged — review before approving.</strong>' : ''}</p>
       <p><a href="https://theexactmatch.com/Dealerportal.html">Review in dashboard →</a></p>
     `),
   });
@@ -6542,7 +6534,7 @@ async function adminApprovePartner(request, env, params) {
       <ul style="padding-left:1.2rem;margin:.5rem 0 1rem">
         <li><strong>Free to join.</strong> No cost at this time — we'll tell you directly if that ever changes.</li>
         <li><strong>Speed matters.</strong> Verify buyer leads fast (ideally within the hour) and keep their status updated — slow or silent partners lose priority in the network.</li>
-        <li><strong>Referral fees</strong> are due within 30 days of a sale under the fee terms from your application. We'll follow up on anything outstanding.</li>
+        <li><strong>No fees.</strong> Partner dealers pay nothing — no referral fee, no commission. Our revenue comes from the client, who pays us for our White Glove service only if they want the whole deal handled.</li>
         <li><strong>Customer satisfaction</strong> — we check in with referred buyers afterward, and continued partnership depends on how they're treated.</li>
         <li><strong>One partner per market/zone.</strong> If you ever move to a different dealership, just email us where you're headed and we'll confirm your new zone is open.</li>
         <li>Keep listings accurate, keep buyer info private, and either side can end the partnership at any time.</li>
@@ -6555,7 +6547,7 @@ async function adminApprovePartner(request, env, params) {
   return json({ success: true });
 }
 
-const PARTNER_REJECT_REASONS = ['zone_already_covered', 'brand_already_covered', 'units_too_low', 'no_referral_policy', 'incomplete_unverifiable', 'other'];
+const PARTNER_REJECT_REASONS = ['zone_already_covered', 'brand_already_covered', 'units_too_low', 'incomplete_unverifiable', 'other'];
 
 async function adminRejectPartner(request, env, params) {
   const partner = await env.DB.prepare('SELECT * FROM dealers WHERE id = ?').bind(+params.id).first();
@@ -6572,8 +6564,7 @@ async function adminRejectPartner(request, env, params) {
   const bodiesByReason = {
     zone_already_covered: `<p>Thanks so much for applying. Right now we're already fully covered in your zone for this network — but we'll keep your application on file, and if that changes we'll reach back out.</p>`,
     brand_already_covered: `<p>Thanks for applying. We're currently covered on your brand in your area — we'll keep your info on file in case that opens up.</p>`,
-    units_too_low: `<p>Thanks for your interest. We're looking for partners moving a bit more volume right now to make the referral relationship worthwhile for everyone — we'd love to hear from you again down the road.</p>`,
-    no_referral_policy: `<p>Thanks for applying. We need a dealership with a referral/bird-dog fee policy in place (or a clear path to one) to move forward — feel free to re-apply once that's settled.</p>`,
+    units_too_low: `<p>Thanks for your interest. We're looking for partners moving a bit more volume right now to make the partnership worthwhile for everyone — we'd love to hear from you again down the road.</p>`,
     incomplete_unverifiable: `<p>Thanks for applying — we weren't able to verify a couple of details on your application. Feel free to reply to this email or resubmit with a bit more detail.</p>`,
     other: `<p>Thanks for applying to the TheExactMatch partner network.</p>`,
   };
@@ -6601,9 +6592,10 @@ async function adminRejectPartner(request, env, params) {
 // live here — moved to the CRM Worker (crm/src/index.js), which now has a
 // second D1 binding (DEALER_DB) onto this same dealer-portal database, so
 // it can manage partner_leads/partner_fees/partner_lifecycle_email_queue
-// directly. Creation of fee/lifecycle-email rows stays here (createPendingFee,
-// markFeeOwed, queueLifecycleEmail) since that's tightly coupled to the lead
-// lifecycle already happening in this Worker.
+// directly. Creation of lifecycle-email rows stays here (queueLifecycleEmail)
+// since that's tightly coupled to the lead lifecycle already happening in
+// this Worker; fee rows are legacy-only now (createPendingFee is guarded —
+// see verifyLead — and markFeeOwed only ever touches pre-existing rows).
 
 // ── The Tape: daily market-intelligence ingestion ──────────────────
 // Six independent sources feed market_items; each wrapped in
