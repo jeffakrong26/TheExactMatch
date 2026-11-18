@@ -409,7 +409,7 @@ const VIEWS = [
     path: '/how-it-works',
     page: 'howitworks',
     file: '/pages/how-it-works.html',
-    lastmod: '2026-08-27',
+    lastmod: '2026-11-18',
     title: 'How It Works — Find My Car & Sell My Car | TheExactMatch',
     description:
       "Two services, one goal — making your car transaction effortless. Here's exactly how Find My Car and Sell My Car work, step by step.",
@@ -422,7 +422,7 @@ const VIEWS = [
           name: "What's actually free, and what isn't?",
           acceptedAnswer: {
             '@type': 'Answer',
-            text: "Search and matching are free, always — the form, the search, and your 3 curated options cost nothing, whether you're buying or selling. White Glove — Jeff personally negotiating, handling paperwork, and coordinating the closing — is a separate, optional paid tier: a flat fee starting at $249 for standard vehicles, or a custom quote (capped at $7,000) for hard-to-find ones.",
+            text: "Search and matching are free, always — the form, the search, and your 3 curated options cost nothing, whether you're buying or selling. White Glove — Jeff personally negotiating, handling paperwork, and coordinating the closing — is a separate, optional paid tier: 1% of your budget for standard vehicles (minimum $250), or 5% of your budget for hard-to-find ones (capped at $7,000).",
           },
         },
         {
@@ -446,7 +446,7 @@ const VIEWS = [
           name: 'Is Find My Car priced differently than Sell My Car?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'No — both work the same way. Search and matching are free on both sides; White Glove is available on both if you want the full deal handled, priced the same way either way — flat fee or custom quote depending on the vehicle.',
+            text: 'No — both work the same way. Search and matching are free on both sides; White Glove is available on both if you want the full deal handled, priced the same way either way — 1% of your budget for standard vehicles, 5% (capped at $7,000) for hard-to-find ones.',
           },
         },
       ],
@@ -456,10 +456,10 @@ const VIEWS = [
     path: '/white-glove',
     page: 'whiteglove',
     file: '/pages/white-glove.html',
-    lastmod: '2026-10-05',
+    lastmod: '2026-11-18',
     title: 'White Glove — We Handle the Whole Deal | TheExactMatch',
     description:
-      'White Glove by The Exact Match: we handle your entire car deal — negotiation, inspection, paperwork, delivery. From $249, capped. See a real $8,300 win.',
+      'White Glove by The Exact Match: we handle your entire car deal — negotiation, inspection, paperwork, delivery. 1% of your budget for standard vehicles, 5% capped at $7,000 for hard-to-find ones. See a real $8,300 win.',
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [
@@ -471,22 +471,22 @@ const VIEWS = [
           offers: [
             {
               '@type': 'Offer',
-              name: 'White Glove — Standard vehicles',
+              name: 'White Glove — Regular cars',
               priceSpecification: {
                 '@type': 'PriceSpecification',
-                price: '249',
+                minPrice: '250',
                 priceCurrency: 'USD',
-                description: 'Starting flat fee, confirmed after inquiry based on the specifics of the deal.',
+                description: '1% of your budget, minimum $250, confirmed after inquiry based on the specifics of the deal.',
               },
             },
             {
               '@type': 'Offer',
-              name: 'White Glove — Hard-to-find vehicles',
+              name: 'White Glove — Hard-to-find cars',
               priceSpecification: {
                 '@type': 'PriceSpecification',
                 maxPrice: '7000',
                 priceCurrency: 'USD',
-                description: '1% to 5% of the final negotiated price, capped at $7,000, quoted after review.',
+                description: '5% of your budget, capped at $7,000, never more than the gap between your budget and the purchase price. Quoted after review.',
               },
             },
           ],
@@ -507,7 +507,7 @@ const VIEWS = [
               name: 'How is the fee determined for hard-to-find vehicles?',
               acceptedAnswer: {
                 '@type': 'Answer',
-                text: "It depends on how much sourcing and negotiation the vehicle requires. You'll get your exact quote after telling us what you're looking for — never a surprise fee after the fact.",
+                text: "It's 5% of your budget, capped at $7,000 — and never more than the gap between your budget and the price the car is bought for. You'll get your exact fee confirmed before you pay anything — never a surprise fee after the fact.",
               },
             },
           ],
